@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@types/node": "^24.13.2",
     "mdsvex": "^0.12.3",
     "svelte": "^5.0.0",
     "typescript": "^5.7.0",

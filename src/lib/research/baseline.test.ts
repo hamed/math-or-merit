@@ -14,7 +14,7 @@ describe('baseline research runner', () => {
     const first = runBaselineEnsemble(config, [1, 2, 3]);
     const second = runBaselineEnsemble(config, [1, 2, 3]);
     expect(second).toEqual(first);
-    expect(first.summary[1].gini.lower).toBeLessThanOrEqual(first.summary[1].gini.upper);
+    expect(first.summary[1].gini.q05).toBeLessThanOrEqual(first.summary[1].gini.q95);
   });
 
   it('rejects unordered checkpoints', () => {

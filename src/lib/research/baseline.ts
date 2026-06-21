@@ -1,5 +1,5 @@
 import { createEngine, type SimConfig } from '../sim';
-import { measureWealth, quantile, type WealthMetrics } from './metrics';
+import { measureWealth, quantile, validateCheckpoints, type WealthMetrics } from './metrics';
 
 export interface BaselineRunConfig extends SimConfig {
   readonly seed: number;
@@ -17,9 +17,9 @@ export interface BaselineRunRecord {
 }
 
 export interface IntervalSummary {
-  readonly lower: number;
+  readonly q05: number;
   readonly median: number;
-  readonly upper: number;
+  readonly q95: number;
 }
 
 export interface EnsembleCheckpoint {
@@ -28,16 +28,6 @@ export interface EnsembleCheckpoint {
   readonly gini: IntervalSummary;
   readonly topShare: IntervalSummary;
   readonly effectiveParticipants: IntervalSummary;
-}
-
-function validateCheckpoints(checkpoints: readonly number[]): void {
-  let previous = -1;
-  for (const checkpoint of checkpoints) {
-    if (!Number.isSafeInteger(checkpoint) || checkpoint < 0 || checkpoint <= previous) {
-      throw new RangeError('checkpoints must be strictly increasing non-negative integers');
-    }
-    previous = checkpoint;
-  }
 }
 
 export function runBaseline(config: BaselineRunConfig): BaselineRunRecord {
@@ -58,9 +48,9 @@ export function runBaseline(config: BaselineRunConfig): BaselineRunRecord {
 
 function interval(values: readonly number[]): IntervalSummary {
   return {
-    lower: quantile(values, 0.05),
+    q05: quantile(values, 0.05),
     median: quantile(values, 0.5),
-    upper: quantile(values, 0.95),
+    q95: quantile(values, 0.95),
   };
 }
 

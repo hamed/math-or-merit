@@ -1,5 +1,5 @@
 import { createRandomSource, type RandomSource } from '../sim';
-import { applyYardSaleTrade } from '../sim/YardSaleTrade';
+import { applyYardSaleTrade } from '../sim/internal/YardSaleTrade';
 
 export interface WeightedAccessConfig {
   readonly n: number;
@@ -45,6 +45,8 @@ export class WeightedAccessYardSale {
     for (let i = 0; i < this.wealth.length; i++) {
       if (i !== excluded) maximum = Math.max(maximum, this.wealth[i] + offset);
     }
+    // Scaling by the largest weight preserves probabilities and prevents underflow
+    // when a large exponent is applied to small normalized wealth values.
     let total = 0;
     for (let i = 0; i < this.wealth.length; i++) {
       if (i !== excluded) total += ((this.wealth[i] + offset) / maximum) ** this.config.accessExponent;

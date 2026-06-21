@@ -1,6 +1,6 @@
 import type { SimConfig, SimEngine, SimState } from './SimEngine';
 import { createRandomSource, type RandomSource } from './Random';
-import { applyYardSaleTrade } from './YardSaleTrade';
+import { applyYardSaleTrade } from './internal/YardSaleTrade';
 
 export class YardSaleEngine implements SimEngine {
   readonly config: SimConfig;

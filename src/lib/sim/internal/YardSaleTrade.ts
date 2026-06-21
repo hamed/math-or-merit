@@ -1,4 +1,4 @@
-/** Apply one fair Yard-Sale transfer to a selected pair. */
+/** Internal shared primitive; external simulation consumers use SimEngine. */
 export function applyYardSaleTrade(
   wealth: Float64Array,
   a: number,

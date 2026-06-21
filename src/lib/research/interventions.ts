@@ -25,6 +25,30 @@ function collectLiabilities(
   return revenue;
 }
 
+function computeProgressiveLiabilities(
+  wealth: Float64Array,
+  brackets: readonly ProgressiveBracket[],
+): Float64Array {
+  if (brackets.length === 0) throw new RangeError('brackets must not be empty');
+  const sorted = [...brackets].sort((a, b) => a.above - b.above);
+  for (let i = 0; i < sorted.length; i++) {
+    validateRate(sorted[i].rate);
+    if (!Number.isFinite(sorted[i].above) || sorted[i].above < 0 || (i > 0 && sorted[i].above === sorted[i - 1].above)) {
+      throw new RangeError('bracket thresholds must be distinct and non-negative');
+    }
+  }
+
+  const liabilities = new Float64Array(wealth.length);
+  for (let i = 0; i < wealth.length; i++) {
+    for (let j = 0; j < sorted.length; j++) {
+      const lower = sorted[j].above;
+      const upper = sorted[j + 1]?.above ?? Number.POSITIVE_INFINITY;
+      liabilities[i] += Math.max(0, Math.min(wealth[i], upper) - lower) * sorted[j].rate;
+    }
+  }
+  return liabilities;
+}
+
 export function applyTargetedWealthLevy(wealth: Float64Array, target: number, rate: number): number {
   if (!Number.isSafeInteger(target) || target < 0 || target >= wealth.length) throw new RangeError('target is out of range');
   validateRate(rate);
@@ -45,27 +69,7 @@ export function applyFlatWealthLevy(wealth: Float64Array, rate: number, exemptio
 }
 
 export function applyProgressiveWealthLevy(wealth: Float64Array, brackets: readonly ProgressiveBracket[]): number {
-  if (brackets.length === 0) throw new RangeError('brackets must not be empty');
-  const sorted = [...brackets].sort((a, b) => a.above - b.above);
-  for (let i = 0; i < sorted.length; i++) {
-    validateRate(sorted[i].rate);
-    if (!Number.isFinite(sorted[i].above) || sorted[i].above < 0 || (i > 0 && sorted[i].above === sorted[i - 1].above)) {
-      throw new RangeError('bracket thresholds must be distinct and non-negative');
-    }
-  }
-
-  const liabilities = new Float64Array(wealth.length);
-  for (let i = 0; i < wealth.length; i++) {
-    const original = wealth[i];
-    let levy = 0;
-    for (let j = 0; j < sorted.length; j++) {
-      const lower = sorted[j].above;
-      const upper = sorted[j + 1]?.above ?? Number.POSITIVE_INFINITY;
-      levy += Math.max(0, Math.min(original, upper) - lower) * sorted[j].rate;
-    }
-    liabilities[i] = levy;
-  }
-  return collectLiabilities(wealth, liabilities);
+  return collectLiabilities(wealth, computeProgressiveLiabilities(wealth, brackets));
 }
 
 function validateBudget(budget: number): void {
@@ -94,21 +98,5 @@ export function applyProgressiveWealthBudget(
   brackets: readonly ProgressiveBracket[],
 ): number {
   validateBudget(budget);
-  if (brackets.length === 0) throw new RangeError('brackets must not be empty');
-  const sorted = [...brackets].sort((a, b) => a.above - b.above);
-  for (let i = 0; i < sorted.length; i++) {
-    validateRate(sorted[i].rate);
-    if (!Number.isFinite(sorted[i].above) || sorted[i].above < 0 || (i > 0 && sorted[i].above === sorted[i - 1].above)) {
-      throw new RangeError('bracket thresholds must be distinct and non-negative');
-    }
-  }
-  const liabilities = new Float64Array(wealth.length);
-  for (let i = 0; i < wealth.length; i++) {
-    for (let j = 0; j < sorted.length; j++) {
-      const lower = sorted[j].above;
-      const upper = sorted[j + 1]?.above ?? Number.POSITIVE_INFINITY;
-      liabilities[i] += Math.max(0, Math.min(wealth[i], upper) - lower) * sorted[j].rate;
-    }
-  }
-  return collectLiabilities(wealth, liabilities, budget);
+  return collectLiabilities(wealth, computeProgressiveLiabilities(wealth, brackets), budget);
 }

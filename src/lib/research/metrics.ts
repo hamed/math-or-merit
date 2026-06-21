@@ -26,6 +26,30 @@ function sortedWealth(wealth: ArrayLike<number>): number[] {
   return values;
 }
 
+function giniFromSorted(values: readonly number[], total: number): number {
+  if (total === 0) return 0;
+  let weighted = 0;
+  const n = values.length;
+  for (let i = 0; i < n; i++) weighted += (2 * (i + 1) - n - 1) * values[i];
+  const result = weighted / (n * total);
+  if (Math.abs(result) < Number.EPSILON * n) return 0;
+  return Math.max(0, Math.min(1, result));
+}
+
+function topShareFromSorted(values: readonly number[], total: number, count: number): number {
+  if (total === 0) return 0;
+  let top = 0;
+  for (let i = values.length - count; i < values.length; i++) top += values[i];
+  return top / total;
+}
+
+function effectiveCount(values: readonly number[], total: number): number {
+  if (total === 0) return 0;
+  let squaredShares = 0;
+  for (const value of values) squaredShares += (value / total) ** 2;
+  return 1 / squaredShares;
+}
+
 export function totalWealth(wealth: ArrayLike<number>): number {
   let total = 0;
   for (let i = 0; i < wealth.length; i++) total += wealth[i];
@@ -35,16 +59,7 @@ export function totalWealth(wealth: ArrayLike<number>): number {
 export function giniCoefficient(wealth: ArrayLike<number>): number {
   const values = sortedWealth(wealth);
   const total = totalWealth(values);
-  if (total === 0) return 0;
-
-  let weighted = 0;
-  const n = values.length;
-  for (let i = 0; i < n; i++) {
-    weighted += (2 * (i + 1) - n - 1) * values[i];
-  }
-  const result = weighted / (n * total);
-  if (Math.abs(result) < Number.EPSILON * n) return 0;
-  return Math.max(0, Math.min(1, result));
+  return giniFromSorted(values, total);
 }
 
 export function topWealthShare(wealth: ArrayLike<number>, count = 1): number {
@@ -53,21 +68,13 @@ export function topWealthShare(wealth: ArrayLike<number>, count = 1): number {
     throw new RangeError('count must be an integer between 1 and the population size');
   }
   const total = totalWealth(values);
-  if (total === 0) return 0;
-
-  let top = 0;
-  for (let i = values.length - count; i < values.length; i++) top += values[i];
-  return top / total;
+  return topShareFromSorted(values, total, count);
 }
 
 export function effectiveParticipantCount(wealth: ArrayLike<number>): number {
   const values = sortedWealth(wealth);
   const total = totalWealth(values);
-  if (total === 0) return 0;
-
-  let squaredShares = 0;
-  for (const value of values) squaredShares += (value / total) ** 2;
-  return 1 / squaredShares;
+  return effectiveCount(values, total);
 }
 
 export function lorenzCurve(wealth: ArrayLike<number>): LorenzPoint[] {
@@ -88,13 +95,24 @@ export function lorenzCurve(wealth: ArrayLike<number>): LorenzPoint[] {
 
 export function measureWealth(wealth: ArrayLike<number>): WealthMetrics {
   const values = sortedWealth(wealth);
+  const total = totalWealth(values);
   return {
-    totalWealth: totalWealth(values),
-    gini: giniCoefficient(values),
-    topShare: topWealthShare(values),
+    totalWealth: total,
+    gini: giniFromSorted(values, total),
+    topShare: topShareFromSorted(values, total, 1),
     wealthFloor: values[0],
-    effectiveParticipants: effectiveParticipantCount(values),
+    effectiveParticipants: effectiveCount(values, total),
   };
+}
+
+export function validateCheckpoints(checkpoints: readonly number[]): void {
+  let previous = -1;
+  for (const checkpoint of checkpoints) {
+    if (!Number.isSafeInteger(checkpoint) || checkpoint < 0 || checkpoint <= previous) {
+      throw new RangeError('checkpoints must be strictly increasing non-negative integers');
+    }
+    previous = checkpoint;
+  }
 }
 
 export function quantile(values: readonly number[], probability: number): number {

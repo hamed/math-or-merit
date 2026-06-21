@@ -1,7 +1,7 @@
 import { createRandomSource } from '../sim';
-import { applyYardSaleTrade } from '../sim/YardSaleTrade';
+import { applyYardSaleTrade } from '../sim/internal/YardSaleTrade';
 import { AdditiveExchangeEngine } from './additiveExchange';
-import { measureWealth, type WealthMetrics } from './metrics';
+import { measureWealth, validateCheckpoints, type WealthMetrics } from './metrics';
 import { localRichAgentIndices, StaticNetworkYardSale, type StaticNetworkConfig } from './network';
 import {
   applyFlatWealthLevy,
@@ -62,21 +62,11 @@ function effectiveCount(values: ArrayLike<number>): number {
   return squares === 0 ? 0 : total ** 2 / squares;
 }
 
-function validateStudyCheckpoints(checkpoints: readonly number[]): void {
-  let previous = -1;
-  for (const checkpoint of checkpoints) {
-    if (!Number.isSafeInteger(checkpoint) || checkpoint < 0 || checkpoint <= previous) {
-      throw new RangeError('checkpoints must be strictly increasing non-negative integers');
-    }
-    previous = checkpoint;
-  }
-}
-
 export function runNetworkStudy(
   config: StaticNetworkConfig,
   checkpoints: readonly number[],
 ): NetworkStudyCheckpoint[] {
-  validateStudyCheckpoints(checkpoints);
+  validateCheckpoints(checkpoints);
   const engine = new StaticNetworkYardSale(config);
   return checkpoints.map((step) => {
     engine.step(step - engine.state.step);
@@ -102,7 +92,7 @@ export function runWeightedAccessStudy(
   config: WeightedAccessConfig,
   checkpoints: readonly number[],
 ): WeightedAccessStudyCheckpoint[] {
-  validateStudyCheckpoints(checkpoints);
+  validateCheckpoints(checkpoints);
   const engine = new WeightedAccessYardSale(config);
   return checkpoints.map((step) => {
     engine.step(step - engine.state.step);
@@ -120,7 +110,7 @@ export function runAdditiveStudy(
   seed: number,
   checkpoints: readonly number[],
 ): StudyCheckpoint[] {
-  validateStudyCheckpoints(checkpoints);
+  validateCheckpoints(checkpoints);
   const engine = new AdditiveExchangeEngine({ n, seed });
   return checkpoints.map((step) => {
     engine.step(step - engine.state.step);
