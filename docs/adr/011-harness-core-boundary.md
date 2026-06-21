@@ -1,17 +1,50 @@
-# 011 — Harness / core boundary
+# 011 - Sandbox, mini-games, and simulation boundary
 
 ## Status
-Proposed
+Deferred
+
+This record is not an active architecture constraint. The point-and-shoot tax game,
+progressive-tax designer, other mini-games, and competing boundary ideas live in
+[`notes/ideas.md`](../../notes/ideas.md).
 
 ## Context
-The finished piece is a sandbox plus mini-games. If the simulation core learns that it is being graded — win conditions, scores, "the player" — mini-game logic welds into the core and the sandbox inherits dead code. This is the ADR 001 / ADR 005 leak smell at a new floor.
+The project may contain several experiences around the same economic process:
 
-## Decision
-The core exposes three things and only these: **parameters in, a stream of events out, and a generic "apply an external intervention to agent(s)" channel** (tax / inject / spawn / remove). **Scores, win conditions, and the very notion of "the player" live in the harness, never in the core.**
+- a sandbox with broad controls and no required goal;
+- a point-and-shoot game where the player clicks an individual to tax them;
+- a separate game for designing progressive brackets or more complex tax rules;
+- other constrained roles and policy experiments.
 
-Sandbox and mini-game are the *same core in different harnesses*: the sandbox binds the intervention channel to free tools with no goal; a mini-game locks most parameters and binds the channel to one scored weapon.
+Scores, goals, and player instructions are presentation or harness concerns. However, the
+simulation capabilities these games actually need are not yet known. The earlier proposal
+of "parameters in, event stream out, generic interventions in" prematurely fixed an
+interface and included operations such as spawn and remove that may conflict with fixed
+typed-array state.
 
-## Consequences
-- New mini-games are mostly UI over an unchanged core — e.g. the flagship tax-agent game, tuned so point-and-shoot genuinely *cannot* win, teaching by failure that a structural problem needs a structural lever.
-- This is ADR 001's engine/content split realised for interactivity: the harness is mounted as content via ADR 005 and consumes the core via ADR 002's interface.
-- Cost: the intervention channel must stay generic — no per-mini-game branch inside the core, ever.
+## Candidate direction
+Reuse the same economic implementation where the rules truly match, while keeping each
+mini-game's goals, scoring, instructions, and input behavior outside the simulation core.
+
+Do not yet standardize an event stream or universal intervention channel. Let the first
+mini-game expose the smallest domain operation it needs, then compare requirements when a
+second mini-game is implemented.
+
+The two tax games remain distinct:
+
+- clicking a person is reactive, embodied, and individually targeted;
+- designing tax brackets is structural, automatic, and policy-oriented.
+
+Whether either game can "win," and under which constraints, is an experimental and design
+question rather than a result to encode in the core.
+
+## Open questions
+- What exactly is taxed: wealth, transaction gain, or an income-like quantity?
+- Where does collected value go?
+- Which operations belong to the economic model versus a harness?
+- Are events required, or are state snapshots sufficient?
+- Does any experiment need population resizing?
+- Which metrics define a game objective without pretending to forecast a real economy?
+- What common contract appears only after two working mini-games exist?
+
+## Revisit when
+The first mini-game is specified closely enough to implement its actions and measurements.

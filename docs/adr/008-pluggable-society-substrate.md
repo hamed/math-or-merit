@@ -1,21 +1,40 @@
-# 008 — Pluggable society behind a pair-selection contract
+# 008 - Pluggable encounter mechanisms
 
 ## Status
-Proposed
+Deferred
+
+This record is not an active architecture constraint. Candidate experiments and raw
+predictions are retained in [`notes/ideas.md`](../../notes/ideas.md).
 
 ## Context
-ADR 007 separates the matching topology (society) from the rule (game). That cut only pays off if different topologies plug into the *same* kernel. There is also a physics point to make: the Yard-Sale exchange is literally a kinetic-collision rule, so a "gas" substrate is not an analogy but the system the econophysics was abstracted from.
+Possible experiments include uniform random matching, fixed networks, local 2D
+neighborhoods, and moving bodies that transact on collision. A physical-particle scene
+may also help explain the pairwise structure of kinetic wealth models.
 
-## Decision
-The society is a slot with one contract: **it selects pairs.** Substrates plug in behind it with the game unchanged:
+The effects of topology are not yet known. Restricted encounters may produce local
+concentration, persistent regions, one global winner, or other behavior depending on
+connectivity and motion. The physical comparison may be an analogy, a shared equation,
+or two related models; that must be established rather than assumed.
 
-- **Mean-field** — uniform random pairing; clean, condenses globally and fast.
-- **Spatial 2D** — transact on collision; spatial correlation, domains before a global winner.
-- **Physical gas** — kinetic collisions redistributing a conserved quantity (additive → equilibrate, multiplicative → condense).
+## Candidate direction
+Make encounter selection replaceable without rewriting the baseline Yard-Sale exchange.
+Start with uniform random matching and introduce another mechanism only for a concrete
+experiment.
 
-Frame the result honestly as **"inevitable by different roads,"** not "identical everywhere": the rule guarantees condensation, the society shapes its route.
+Spatial mechanisms may require position, velocity, time advancement, collision handling,
+or neighborhood state. Those needs could exceed a narrow "select one pair" contract, so
+the contract should emerge from an implementation rather than be fixed here.
 
-## Consequences
-- New substrates are added without touching the game — the universality demonstration is built in, not asserted.
-- Spatial/gas substrates add per-agent state (position, velocity). This **extends** ADR 003's struct-of-arrays layout to more fields; it does not change the decision.
-- Cost: the society contract must stay "a pair, nothing more." The moment the game reads topology, ADR 007's guard is broken.
+Any additional per-agent numeric fields should remain compatible with ADR 003's
+struct-of-arrays decision.
+
+## Open questions
+- What connectivity or mixing assumptions produce local or global concentration?
+- Do agents move, remain fixed, or rewire their connections?
+- Does an encounter mechanism return pairs, events, or an advanced world state?
+- Can uniform and spatial runs share one stepping model?
+- What part of the particle comparison is scientifically defensible?
+- Which measurements distinguish topology effects from transaction effects?
+
+## Revisit when
+The first non-uniform encounter experiment has a written rule and measurable question.

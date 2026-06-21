@@ -1,21 +1,42 @@
-# 007 — Game / society / individual split
+# 007 - Game / society / individual split
 
 ## Status
-Proposed
+Deferred
+
+This record is not an active architecture constraint. It preserves one candidate split
+from the project brainstorm. The lossless exploration, including competing formulations,
+lives in [`notes/ideas.md`](../../notes/ideas.md).
 
 ## Context
-The whole argument is that a *fair local rule* produces extreme concentration regardless of how agents meet. Making that argument requires holding the exchange rule fixed while swapping the matching topology underneath it — and watching condensation appear either way. If the rule and the topology fuse into one "economics" blob, that swap is impossible and the universality claim collapses into "just a model."
+The project may compare multiple ways of selecting pairs while holding a pairwise
+exchange rule fixed. It may also give each displayed individual independent animation
+and transient reactions to economic events.
 
-## Decision
-Cut the simulation into three concerns that never bleed into each other:
+An early vocabulary called these concerns **game**, **society**, and **individual**. A
+different vocabulary or boundary may fit the implementation better. The scientific claim
+that changing topology preserves condensation is also an open question, not an
+architectural premise.
 
-- **Game** — the two-body rule (Yard-Sale exchange, stake, tax). Takes a pair, returns updated wealth. Knows nothing about *how* the pair met or *where* they are.
-- **Society** — the matching topology. Decides *who meets whom*, never *what happens*. See ADR 008.
-- **Individual** — the display. Reacts to what the game did and otherwise lives its own small life; pure output, never feeds back. See ADR 010.
+## Candidate direction
+Keep these concerns distinguishable:
 
-The load-bearing guard: **the game must never know its topology.** No branch in the two-body rule on whether pairing is spatial or mean-field.
+- the pairwise interaction rule determines what happens after two agents meet;
+- an encounter mechanism determines which agents meet;
+- presentation determines how state and outcomes look and move.
 
-## Consequences
-- "Swap the substrate, hold the rule fixed" becomes a first-class operation — the move the entire thesis rests on (universality in the statistical-physics sense).
-- This is the project's "no special-case in the generic waist" law (ADR 001, ADR 005) applied one level in, inside the sim core that sits behind ADR 002's interface.
-- Cost: two internal contracts must be honoured — society hands the game a *pair* and nothing more; the game hands the individual *per-agent outcomes* and nothing flows back up. Breaking either reopens the one-way door.
+The whole simulation may own fields such as wealth, position, and identity while giving
+each subsystem access only to the fields it needs. In particular, the transaction rule
+should not accidentally depend on visual appearance or a specific encounter mechanism.
+
+This is a cohesion goal, not yet a commitment to three interfaces or modules.
+
+## Open questions
+- Are game / society / individual the clearest names?
+- Is selecting a pair sufficient, or must a spatial mechanism also advance a world?
+- Should presentation receive economic outcomes or infer them from state changes?
+- Are the physical and economic scenes two views, two instances, or different models?
+- Which boundary becomes useful only after a second encounter mechanism exists?
+
+## Revisit when
+A second pairing mechanism, spatial experiment, or event-reactive display is ready to be
+implemented.
