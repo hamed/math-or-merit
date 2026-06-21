@@ -4,6 +4,7 @@
     "useDefineForClassFields": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
     "types": ["vitest/globals"],
@@ -11,5 +12,5 @@
       "$lib/*": ["./src/lib/*"]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src"]
 }

@@ -1,6 +1,7 @@
 export interface SimConfig {
   readonly n: number;      // agent count
   readonly beta: number;   // fraction of poorer agent's wealth at stake per trade
+  readonly seed?: number;  // optional uint32 seed; reset replays seeded runs
 }
 
 type Float64ArrayEscapeHatch =
