@@ -2,6 +2,25 @@ import { describe, it, expect } from 'vitest';
 import { createEngine } from './index';
 
 describe('YardSaleEngine', () => {
+  it.each([
+    [{ n: 1, beta: 0.5 }, 'n'],
+    [{ n: 2.5, beta: 0.5 }, 'n'],
+    [{ n: 10, beta: -0.1 }, 'beta'],
+    [{ n: 10, beta: 1.1 }, 'beta'],
+    [{ n: 10, beta: Number.NaN }, 'beta'],
+  ])('rejects invalid config %o', (config, parameter) => {
+    expect(() => createEngine(config)).toThrow(parameter);
+  });
+
+  it('takes an immutable snapshot of its config', () => {
+    const config = { n: 10, beta: 0.5 };
+    const eng = createEngine(config);
+    config.n = 20;
+
+    expect(eng.config).toEqual({ n: 10, beta: 0.5 });
+    expect(Object.isFrozen(eng.config)).toBe(true);
+  });
+
   it('initializes with equal wealth summing to 1', () => {
     const eng = createEngine({ n: 100, beta: 0.5 });
     const { wealth } = eng.state;
@@ -24,6 +43,15 @@ describe('YardSaleEngine', () => {
     eng.step(3);
     expect(eng.state.step).toBe(8);
   });
+
+  it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects an invalid step count of %s',
+    (steps) => {
+      const eng = createEngine({ n: 10, beta: 0.5 });
+      expect(() => eng.step(steps)).toThrow('steps');
+      expect(eng.state.step).toBe(0);
+    },
+  );
 
   it('reset restores equal wealth and zeroes step', () => {
     const eng = createEngine({ n: 10, beta: 0.5 });

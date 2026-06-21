@@ -6,8 +6,17 @@ export class YardSaleEngine implements SimEngine {
   private _step = 0;
 
   constructor(config: SimConfig) {
-    this.config = config;
-    this._wealth = new Float64Array(config.n);
+    const { n, beta } = config;
+
+    if (!Number.isSafeInteger(n) || n < 2) {
+      throw new RangeError('n must be a safe integer greater than or equal to 2');
+    }
+    if (!Number.isFinite(beta) || beta < 0 || beta > 1) {
+      throw new RangeError('beta must be a finite number between 0 and 1');
+    }
+
+    this.config = Object.freeze({ n, beta });
+    this._wealth = new Float64Array(n);
     this._equalWealth();
   }
 
@@ -16,12 +25,19 @@ export class YardSaleEngine implements SimEngine {
   }
 
   step(steps = 1): void {
+    if (!Number.isSafeInteger(steps) || steps < 0) {
+      throw new RangeError('steps must be a non-negative safe integer');
+    }
+    if (!Number.isSafeInteger(this._step + steps)) {
+      throw new RangeError('step counter exceeds the safe integer range');
+    }
+
     const { n, beta } = this.config;
     const w = this._wealth;
 
     for (let s = 0; s < steps; s++) {
-      const i = (Math.random() * n) | 0;
-      let j = (Math.random() * (n - 1)) | 0;
+      const i = Math.floor(Math.random() * n);
+      let j = Math.floor(Math.random() * (n - 1));
       if (j >= i) j++;
 
       const stake = beta * Math.min(w[i], w[j]);

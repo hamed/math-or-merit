@@ -1,0 +1,16 @@
+<script>
+  import { createEngine } from '$lib/sim';
+
+  const engine = createEngine({ n: 100, beta: 0.5 });
+</script>
+
+# Math or Merit?
+
+Everyone starts equal. Every trade is fair. One person ends up with almost
+everything.
+
+This is the Yard-Sale model: two people meet, risk the same fraction of the
+poorer person's wealth, and give either person an equal chance to win.
+
+Agents: {engine.config.n}  
+Trades: {engine.state.step}

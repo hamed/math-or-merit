@@ -5,4 +5,9 @@ export function createEngine(config: SimConfig): SimEngine {
   return new YardSaleEngine(config);
 }
 
-export type { SimConfig, SimState, SimEngine } from './SimEngine';
+export type {
+  ReadonlyFloat64Array,
+  SimConfig,
+  SimState,
+  SimEngine,
+} from './SimEngine';
