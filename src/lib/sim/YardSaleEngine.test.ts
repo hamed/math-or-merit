@@ -8,6 +8,9 @@ describe('YardSaleEngine', () => {
     [{ n: 10, beta: -0.1 }, 'beta'],
     [{ n: 10, beta: 1.1 }, 'beta'],
     [{ n: 10, beta: Number.NaN }, 'beta'],
+    [{ n: 10, beta: 0.5, seed: -1 }, 'seed'],
+    [{ n: 10, beta: 0.5, seed: 2 ** 32 }, 'seed'],
+    [{ n: 10, beta: 0.5, seed: 1.5 }, 'seed'],
   ])('rejects invalid config %o', (config, parameter) => {
     expect(() => createEngine(config)).toThrow(parameter);
   });
@@ -61,6 +64,43 @@ describe('YardSaleEngine', () => {
     const total = eng.state.wealth.reduce((a, b) => a + b, 0);
     expect(total).toBeCloseTo(1, 10);
     expect(eng.state.wealth[0]).toBeCloseTo(0.1, 10);
+  });
+
+  it('replays a seeded run after reset', () => {
+    const eng = createEngine({ n: 10, beta: 0.5, seed: 42 });
+    eng.step(100);
+    const firstRun = Array.from(eng.state.wealth);
+
+    eng.reset();
+    eng.step(100);
+
+    expect(Array.from(eng.state.wealth)).toEqual(firstRun);
+  });
+
+  it('produces the same trajectory for the same seed', () => {
+    const first = createEngine({ n: 10, beta: 0.5, seed: 7 });
+    const second = createEngine({ n: 10, beta: 0.5, seed: 7 });
+    first.step(1_000);
+    second.step(1_000);
+
+    expect(Array.from(first.state.wealth)).toEqual(Array.from(second.state.wealth));
+  });
+
+  it('keeps beta zero at the equal initial state', () => {
+    const eng = createEngine({ n: 10, beta: 0, seed: 1 });
+    eng.step(10_000);
+    expect(Array.from(eng.state.wealth)).toEqual(Array(10).fill(0.1));
+  });
+
+  it('is fair in expected wealth change over one trade', () => {
+    let firstAgentWealth = 0;
+    const runs = 10_000;
+    for (let seed = 0; seed < runs; seed++) {
+      const eng = createEngine({ n: 2, beta: 0.5, seed });
+      eng.step();
+      firstAgentWealth += eng.state.wealth[0];
+    }
+    expect(firstAgentWealth / runs).toBeCloseTo(0.5, 2);
   });
 
   it('never produces negative wealth', () => {

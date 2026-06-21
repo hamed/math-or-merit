@@ -11,3 +11,6 @@ export type {
   SimState,
   SimEngine,
 } from './SimEngine';
+
+export { createRandomSource } from './Random';
+export type { RandomSource } from './Random';
