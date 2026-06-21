@@ -1,16 +1,99 @@
-<script>
-  import { createEngine } from '$lib/sim';
-
-  const engine = createEngine({ n: 100, beta: 0.5 });
+<script lang="ts">
+  import BaselineExplorable from '$lib/widgets/baseline/BaselineExplorable.svelte';
 </script>
+
+<p class="eyebrow">An explorable model of luck, symmetry, and concentration</p>
 
 # Math or Merit?
 
-Everyone starts equal. Every trade is fair. One person ends up with almost
-everything.
+<p class="dek">Everyone starts equal. Every trade gives both people the same chance to win. Keep the game running, and one person approaches ownership of everything.</p>
 
-This is the Yard-Sale model: two people meet, risk the same fraction of the
-poorer person's wealth, and give either person an equal chance to win.
+<p class="tagline">Fair to each. Cruel to all.</p>
 
-Agents: {engine.config.n}  
-Trades: {engine.state.step}
+## A fair little game
+
+Imagine one hundred people in a room. They begin with exactly the same wealth. There are
+no workers and bosses, no investors and borrowers, no talent, effort, inheritance, or
+inside information. In fact, there is almost nothing here that resembles an economy.
+
+There is only a game:
+
+<ol class="rule-list">
+  <li>Choose two different people uniformly at random.</li>
+  <li>Find the poorer person's wealth.</li>
+  <li>Put half of that amount at stake.</li>
+  <li>Flip a fair coin. The winner receives the stake from the loser.</li>
+</ol>
+
+The amount one person loses is exactly the amount the other gains. Nobody can fall below
+zero. Most importantly, after the pair has been selected, each person has zero expected
+monetary gain: a fifty-fifty chance of gaining or losing the same stake.
+
+<aside class="claim-note">
+  <p><strong>That is the narrow meaning of "fair" in this model.</strong> It does not claim equal happiness, equal risk, equal access in real life, or moral justice. It means only that the coin gives neither selected trader an expected monetary advantage.</p>
+</aside>
+
+The rule is symmetric. The outcome is not.
+
+## Three worlds, one rule
+
+Press **Run all three** below. Each world begins from the same equal distribution and uses
+the same rule. Only the random seed differs. Watch the skylines break apart.
+
+<BaselineExplorable />
+
+One run may briefly become more equal after the poorer trader wins. A leader may rise and
+then collapse. Different seeds crown different people. These reversals matter: no single
+animation proves a statistical claim, and inequality does not increase on every trade.
+
+What repeats is the larger shape. Wealth spreads unevenly, fewer agents hold meaningful
+shares, and the top share grows. The route changes. The pressure toward concentration
+does not.
+
+## Measuring the room
+
+The skyline is useful, but it can seduce us into telling stories about individual bars.
+The numbers underneath ask colder questions.
+
+- **Top share** is the fraction of all wealth held by the richest agent.
+- **Gini** summarizes inequality across the room. With one hundred finite agents, its
+  maximum is `0.99`, not exactly `1`.
+- **Effective agents** asks how many equally wealthy people would produce the same
+  concentration. It begins at one hundred and falls toward one.
+
+These measures describe a distribution, not a personality. The richest bar was not more
+patient, strategic, or deserving. The code never gave it a trait that could cause the
+result. Change the seed and the retrospective success story changes with it.
+
+## What "eventually" means
+
+The visual experiment stops. The mathematical model does not have to.
+
+For a finite population, uniform random pairing, a fixed stake strictly between zero and
+the poorer person's full wealth, and a fair independent coin, the wealth vector converges
+with probability one to a state in which one agent owns everything. This is an
+asymptotic statement: it describes the limit of an indefinitely continued idealized
+process, not a deadline promised by the animation.
+
+The result can be proved using the fact that each person's wealth is a bounded martingale.
+The modern finite-agent statement is given by
+[Börgers and Greengard](https://arxiv.org/abs/2308.01485); related kinetic work shows how
+the Gini behaves at the distribution level. The proof does not say the Gini of every
+realized run rises at every moment. You just watched why.
+
+## A model is not a verdict
+
+This room has no production, income, debt, labor, bargaining, institutions, taxes,
+families, firms, or government. People cannot choose partners, refuse a trade, learn,
+cooperate, or change the rules. Calling it a toy model is not an apology. It is a boundary
+around the claim.
+
+The model does **not** prove that every real fortune is luck, that merit is imaginary, or
+that actual economies must end with one owner. It demonstrates something smaller and
+more durable: local symmetry does not guarantee a globally equal outcome. A process can
+be fair in each isolated encounter and still generate extreme concentration as a system.
+
+That is the uncomfortable part. There was no biased coin to expose, no villain hidden in
+the code, and no special quality assigned to the winner.
+
+<p class="closing">Nothing was unfair. That was the unfairness.</p>
