@@ -142,6 +142,8 @@ available through `npm run research`.
 ## Workstream index
 
 - [Prioritized research backlog](research/backlog.md)
+- [Chapters I-III research brief](research/chapters-1-3-brief.md)
+- [Chapters I-III formative reader study](research/reader-study.md)
 - [Research protocol](research/protocol.md)
 - [Baseline model](research/baseline.md)
 - [Encounter topology](research/topology.md)

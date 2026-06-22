@@ -4,6 +4,9 @@ Source register for the topical hook, quotations, jokes, and short statistical l
 These sources support narrative details; they do not establish that the Yard-Sale model
 caused any real person's wealth.
 
+Publication-ready treatments and essay-safe wording are consolidated in
+[`chapters-1-3-brief.md`](chapters-1-3-brief.md).
+
 ## Elon Musk trillionaire hook
 
 - **Status:** Verified as a dated news hook.
@@ -134,3 +137,6 @@ Current cultural anchors are the spherical-cow tradition, Young's satirical orig
 No film or fictional scene is selected yet. Add one only when it performs a named job in
 the narrative; resemblance to wealth or class is not enough. Record creator, work, date,
 exact scene or line, context, and quotation or clip rights before use.
+
+For the current arc, use project-authored text cards and visuals only. This closes the
+immediate rights question without setting a permanent ban on later sourced material.
