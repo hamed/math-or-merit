@@ -1,4 +1,4 @@
-# Ideas - Math or Merit?
+# Ideas - Merit or Math?
 
 Loose thoughts, hypotheses, metaphors, interactions, and visual possibilities.
 
@@ -53,6 +53,91 @@ whether the physical and economic scenes are:
 - two related but deliberately different models shown side by side.
 
 That choice should be made for explanatory honesty, not only implementation convenience.
+
+## Narrative and visual design
+
+These are design possibilities promoted from the June 2026 story sketch. Their order is
+tracked in `outline.md`; the details remain open here until prototyped.
+
+### Topical hook and abstraction sequence
+
+- Open on a dated headline about Elon Musk becoming the first person with an estimated
+  net worth above one trillion dollars. Treat "on paper" and the date as important
+  context because the estimate moves with asset prices.
+- Reveal **MERIT** first and **or math** second. The new order, **Merit or Math?**, begins
+  with the familiar explanation and then introduces the mathematical challenge.
+- Use the spherical-cow joke to teach simplification before asking the reader to accept
+  circles as people. Formulas may accumulate around an illustrated cow before it becomes
+  a circle in a vacuum.
+- Morph an illustrated Musk into the same circle. This connects the topical person to
+  the method without claiming that the toy model explains his biography.
+
+Open presentation questions:
+
+- Does the title need a side panel, source card, or only the headline and reveal?
+- Should "learn more" act as a gentle scroll invitation or is the narrative momentum
+  already sufficient?
+- Can the cow remain a simple 2D illustration with no human characters while formulas
+  fly in, its contour becomes perfectly circular, and the vacuum punchline reads through
+  a held-breath or squeezed reaction?
+- What simple analogy can explain "the stripped-down mechanism is already sufficient"
+  without making the false stronger claim that every richer model must behave the same?
+
+The cow and headline sources belong in `research/narrative-sources.md`. The exact humor,
+likeness, image rights, and amount of visual detail remain open.
+
+### Scroll and animation behavior
+
+Story animations should respond to semantic story events or scroll progress and run in
+reverse when the reader scrolls upward where practical. Do not synchronize prose and
+visuals through word counts or fixed delays. Simulation-result animations may need a
+different replay/reset contract because reversing a stochastic run is not the same as
+reversing an authored transition.
+
+Candidate authored transitions include:
+
+- cow to circle to vacuum reaction;
+- Musk illustration to circle;
+- human detail accumulating and then being stripped away until only wealth remains;
+- coins entering a circle and changing its size;
+- participants physically moving into histogram bins;
+- points moving between linear and logarithmic axes.
+
+### Teaching the game
+
+- Begin with two distinct participants and an instantly legible randomizer. A coin is the
+  closest match to the actual binary fair outcome; dice or a spinner are alternatives
+  only if they read better in testing.
+- Script a few tutorial outcomes, including reversals and a return to equality. Label the
+  sequence as instruction rather than a random run.
+- Ask for a prediction before starting the actual population process.
+- For the population view, scatter many identities, bring a selected pair into focus,
+  show one transfer, and then accelerate only after the rule reads clearly.
+- The main reveal should initially run under a tuned preset rather than confronting the
+  reader with controls. Reruns and new seeds provide agency after the first result.
+- An earlier sketch proposed a separate balancing rule that keeps a population near
+  equality. This is a counterfactual model, not the Yard-Sale baseline. Use it only if the
+  contrast earns the cost of teaching a second rule; otherwise omit it.
+
+### Teaching the distribution
+
+- Build a histogram by moving the already-known participants into bins rather than
+  introducing a detached chart.
+- Compare ordinary bins with a cumulative view before choosing. The familiar form is not
+  automatically the clearest for a concentrated distribution.
+- Teach a log axis only when the linear plot visibly fails. Powers of ten and counting
+  zeros are candidate intuitions; the final explanation must also handle values between
+  labeled powers honestly.
+- An ordinary wage beside Musk's estimated wealth is a candidate linear-versus-log
+  example. It needs consistent units and a dated source, and should not conflate annual
+  income with net worth without explicitly teaching that difference.
+- Introduce Gini as a whole-room comparison immediately before interventions need it.
+  Keep top share beside it because a single intuitive metric helps readers audit the
+  abstraction.
+
+The basic Yard-Sale condensate must not be described as a power-law distribution merely
+because it looks heavy-tailed on a log view. Distribution-family claims need a fit and a
+model-matched source.
 
 ---
 
@@ -235,7 +320,7 @@ equivalence.
 - A toggle between uniform pairing and size-biased pairing may be one of the strongest
   pedagogical controls. It first answers "you built rich-get-richer into the model" with
   the uniform baseline, then asks what changes when unequal access to interactions is
-  deliberately added. It is "Math or Merit?" made into a knob.
+  deliberately added. It is "Merit or Math?" made into a knob.
 - Uniform pairing should probably appear first because it carries the fair-process
   paradox. Size bias is an additional twist; leading with it may let the reader dismiss
   concentration as a built-in advantage.
@@ -482,6 +567,12 @@ A stronger version could:
 5. rerun the same cast with a different random seed;
 6. generate an equally persuasive story about a different winner.
 
+An earlier version selected whichever pre-existing winner trait looked most distinctive
+after the run, then treated that trait as explanatory. That selection makes the post-hoc
+move especially clear, but it must be disclosed rather than presented as a neutral
+analysis. A "convinced, or run again?" choice could let the reader decide how many
+counterexamples they need.
+
 **Purpose:** Explore hindsight, outcome-based judgment, survivorship stories, and the
 human tendency to turn a result into evidence of merit.
 
@@ -560,6 +651,11 @@ Other possible harness presets include:
 
 Each could lock different knobs and expose a different intervention without requiring a
 new economic model. These remain prompts, not promised features.
+
+An alternate direct-transfer interaction lets the reader take wealth from one rich agent
+and choose one recipient instead of distributing it equally. This creates more agency and
+friction, but it teaches a different mechanism from a common dividend; keep the choice
+explicit.
 
 One build-order intuition was that constraints create meaning: a focused mini-game may
 teach better and be easier to build than a sandbox containing a wall of sliders. Under
@@ -650,6 +746,43 @@ Scientific limitation: unless incentives, labor, production, avoidance, mobility
 other behavioral responses are explicitly modeled, this mini-game studies redistribution
 inside a toy exchange process. It should not claim to forecast the effects of real tax
 codes.
+
+---
+
+## Additional mechanism backlog
+
+Each item below changes the model rather than merely adding a control. None belongs in
+the baseline, and each needs an exact rule, conservation accounting, controls, and a
+research memo before entering the essay.
+
+### Subsistence or participation floor
+
+**Open question:** What does it mean for an agent below a threshold to stop or reduce
+participation? Removal, lower encounter frequency, and a protected wealth floor are
+different mechanisms with different outcomes. A dedicated slider is justified only if
+the mechanism produces a clear, robust lesson.
+
+### Passive return on holdings
+
+**Design possibility:** Add an explicit wealth-dependent return between exchanges to
+represent a simplified return on capital. This may create wealth unless paired with a
+funding source or normalization rule, so it cannot be called a harmless interest-rate
+knob. Compare it with the conserving baseline and state exactly where the added wealth
+comes from.
+
+### Money supply or common growth
+
+**Design possibility:** Add or remove total wealth through a named allocation rule. A
+central-bank metaphor is premature unless the mechanism represents an actual monetary
+operation. Equal injection, wealth-proportional growth, and targeted transfers are
+separate experiments.
+
+### Parameter maps
+
+**Design possibility:** Sample stake and levy parameters and plot an inequality metric
+over the grid. Calling the result a phase diagram, phase transition, or theoretical
+boundary requires more than interpolating explored points. First establish stable regimes
+across population sizes, run lengths, seeds, and the exact intervention rule.
 
 ---
 

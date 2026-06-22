@@ -1,6 +1,6 @@
 # Research
 
-Master claim ledger and index for the evidence behind **Math or Merit?** Detailed source
+Master claim ledger and index for the evidence behind **Merit or Math?** Detailed source
 and experiment notes live in [`research/`](research/). A runnable descriptive study is
 available through `npm run research`.
 
@@ -148,6 +148,7 @@ available through `npm run research`.
 - [Physical analogy](research/physical-analogy.md)
 - [Affect, interpretation, and art direction](research/affect-interpretation.md)
 - [Art-direction reference register](research/art-direction-references.md)
+- [Narrative sources and teaching claims](research/narrative-sources.md)
 - [Levies and intervention games](research/interventions.md)
 - [Idea disposition audit](research/idea-disposition.md)
 - [Protocol-v1 results](research/results.md)

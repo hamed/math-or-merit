@@ -7,18 +7,48 @@ pull quotes, UI labels, chapter openers, closing beats.
 
 ## Titles & taglines
 
-- **Math or Merit** — main title; frames the question without answering it
+- **Merit or Math?** - main title. "Merit" appears first as the familiar story; "or
+  math?" arrives second as the challenge.
 - **Fair to each. Cruel to all.** — strongest tagline candidate; captures the paradox in seven words
 - **Unfair fairness** — compressed paradox; good as a section header or callout
+
+## Voice
+
+- First person speaking directly to the reader: conversational, provocative, and clear.
+- Written for a non-specialist without treating the reader as naive.
+- Teach technical vocabulary briefly at the moment it becomes useful.
+- Keep the humor warm and economical. Let interactions carry some of the argument.
+
+## Hook language
+
+- Begin from the dated June 2026 first-trillionaire headline and retain the qualifier
+  **on paper** when describing estimated net worth.
+- Candidate title reveal: **MERIT** first, then **or math?**
+- Candidate transition: before asking whether the fortune reflects merit, luck, or
+  institutions, remove all of that detail and ask what one fair mathematical mechanism
+  can do on its own.
 
 ## Closing / punchline lines
 
 - **"Nothing was unfair. That was the unfairness."** — earned only after the reader watches the simulation; hold it for the end
+
+## Reduction lines
+
+Candidate deliberately crude lines for the moment the person is reduced to one state
+variable. They should read as criticism of the abstraction, not as the essay's view of a
+human being:
+
+- **"You are your bank account."**
+- **"You are your net worth."**
+- **"You are your assets."**
 
 ---
 
 ## To explore
 
 - Something around "the rules were symmetric" → leads into what symmetry actually guarantees (and doesn't)
-- A line about emergence: the outcome wasn't designed, it was inevitable
+- A line about emergence: no participant was selected in advance, but under the stated
+  finite model the limiting concentration result is almost sure.
 - A contrast pair: what we call "merit" vs. what the math shows
+- **"Watch how easily a result invites a story."** - safe framing for the
+  retrospective-winner interaction

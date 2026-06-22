@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>Math or Merit?</title>
+  <title>Merit or Math?</title>
   <meta
     name="description"
     content="An interactive explanation of how fair local trades can produce extreme wealth concentration."
