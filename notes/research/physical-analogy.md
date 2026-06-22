@@ -24,6 +24,21 @@ Yard-Sale runs are highly concentrated. A formal distribution-fit replication re
 - **Allowed:** conservation does not determine the distribution; the exchange rule
   matters.
 
+## Network-condensation lead
+
+The earlier Bianconi-Marsili note joined several distinct results too quickly:
+
+- [Bianconi and Barabasi (2001)](https://arxiv.org/abs/cond-mat/0011224) map a growing
+  fitness network to a Bose gas and identify a network condensation in which one node
+  receives a macroscopic fraction of links.
+- [Seyed-allaei, Bianconi, and Marsili (2005)](https://arxiv.org/abs/cond-mat/0505588)
+  study scale-free graphs with degree exponent below two. That is a graph-ensemble result,
+  not a Yard-Sale wealth model and not the source of the Bose-gas mapping.
+
+Neither paper establishes equation-level equivalence with the current asset-exchange
+process. They remain adjacent examples of mathematical condensation, not support for
+"wealth obeys Bose-Einstein statistics" or a shared universality class.
+
 ## Verdict
 
 **Include after one confirmatory fit.** The equation table is sound now; the visual

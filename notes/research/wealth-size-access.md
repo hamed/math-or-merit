@@ -17,6 +17,14 @@ point. Rendering alone must not change the trajectory.
 - A two-disk collision cross-section depends on both radii, so neither mapping by itself
   defines a collision process.
 
+For a purely visual quantitative encoding, area proportional to wealth is the honest
+default. Radius proportional to wealth makes displayed area proportional to wealth
+squared. Cleveland and McGill's
+[graphical-perception experiments](https://doi.org/10.1080/01621459.1984.10478080)
+also show why circles should not be the only precise comparison: judgments based on area
+are less accurate than position along a common scale or length. Use circles for identity
+and embodied change, with a chart or metric available to audit magnitudes.
+
 Protocol version 1 therefore tests an abstract access kernel
 `(wealth + offset)^alpha`, with `alpha = 0, 0.5, 1`. It does **not** call those cases
 physical radius, area, or collision cross-section.

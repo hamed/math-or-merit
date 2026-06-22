@@ -7,14 +7,14 @@ delete or rewrite the brainstorm.
 | --- | --- | --- |
 | Fair local exchange can produce concentration | Established | Baseline essay spine |
 | First-trillionaire headline as opening | Design choice | Verified dated hook; not causal evidence |
-| Spherical cow to explain abstraction | Design choice | Source wording and assets before publication |
+| Spherical cow to explain abstraction | Design choice | Tradition verified; use an authored paraphrase, then clear assets |
 | Musk-to-circle morph | Design choice | Methodological transition, not a claim about his fortune |
 | Reversible event-driven story animation | Design choice | Presentation concern; stochastic runs may use replay/reset |
 | Scripted rule reversals | Design choice | Label as tutorial, not simulation evidence |
 | Separate balancing-rule population | Deferred | Counterfactual model may not justify teaching a second rule |
 | Agents move into histogram bins | Design choice | Prototype binned and cumulative alternatives |
 | Log scale establishes a power law | Rejected | A visual shape alone is insufficient evidence |
-| Brief histogram, log, and Gini lessons | Design choice | Teach each immediately before use |
+| Brief histogram, log, and Gini lessons | Design choice | Teach before use; log also needs a comprehension check |
 | One abstract pairwise pipeline for physical and social systems | Metaphor | Keep, do not claim equivalence |
 | Game / society / individual vocabulary | Deferred | ADR 007 remains non-binding |
 | Replaceable encounter mechanisms | Design choice | Concrete research models only; no generic core contract |
@@ -45,9 +45,9 @@ delete or rewrite the brainstorm.
 | Progressive brackets tax income | Rejected for current state | Current model can only levy wealth or transaction changes |
 | Complex policy can overfit one run | Hypothesis | Test on held-out seeds |
 | Subsistence threshold | Deferred | Define participation, removal, or floor as distinct mechanisms |
-| Passive return on wealth | Deferred | Requires source, funding rule, and conservation accounting |
+| Passive return on wealth | Deferred | Growth-allocation lead found; passive-interest rule still undefined |
 | Monetary-policy lever | Deferred | Requires a concrete allocation mechanism before the metaphor |
-| Stake/levy phase diagram | Deferred | Requires reproducible regimes, not interpolated sample points |
+| Stake/levy phase diagram | Deferred | Published transition uses wealth advantage, not stake alone |
 | Generic intervention/event channel | Deferred | Keep outside `SimEngine` until concrete need |
 | Seeded reproducibility | Design choice | Accepted in ADR 012 and implemented |
 | Scientific-standard checklist | Design choice | Adopted in the research protocol |

@@ -11,7 +11,8 @@ reserves a future place for them.
 ## Narrative principles
 
 - Write for an ordinary reader and teach each statistical tool immediately before it is
-  needed. Histogram, logarithmic scale, and Gini each get one brief visual lesson.
+  needed. Histogram and Gini get brief visual lessons; the logarithmic scale also gets a
+  small comprehension check because a label alone does not prevent misreading.
 - Use Elon Musk's June 2026 trillionaire headline as the topical hook, not as evidence
   for what caused his wealth or as a stand-in for the model's agents.
 - Let the reader experience the fair-process paradox before introducing policy levers or
@@ -67,7 +68,8 @@ reserves a future place for them.
     after testing it against cumulative alternatives.
 14. **Why a log scale** - when the linear view compresses most agents near zero, show the
     same data on a logarithmic axis. Teach powers of ten and zero-counting with a short,
-    concrete example before using the transformed view.
+    concrete example, explain the treatment of zero, and check comprehension before using
+    the transformed view.
 15. **Measure inequality with Gini** - introduce Gini only when the reader needs to
     compare whole distributions. Anchor `0` to equality and state the finite-population
     maximum `(N - 1) / N`; do not imply that Gini rises on every trade.

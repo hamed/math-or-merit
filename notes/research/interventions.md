@@ -31,9 +31,30 @@ confirmatory game study must still:
 4. report cases where manual control succeeds as readily as failures;
 5. describe only this toy exchange process.
 
-The literature lead is the redistributed Yard-Sale Fokker-Planck model in
-[Boghosian (2014)](https://arxiv.org/abs/1407.6851); its mechanism must not be assumed
-identical to these discrete levies without reconciliation.
+## Literature reconciliation
+
+- [Boghosian (2014)](https://arxiv.org/abs/1407.6851) derives a continuous
+  Fokker-Planck description with redistribution. Its rate term is not automatically
+  equivalent to the current periodic discrete levy.
+- [Lima, Vieira, and Anteneodo (2022)](https://arxiv.org/abs/2007.11680) study nonlinear
+  redistributive wealth taxes in Yard-Sale dynamics. Their piecewise-linear rule exempts
+  wealth below a threshold and taxes excess wealth; their power-law family spans
+  regressive, proportional, and progressive cases. This is the closest current lead for
+  the planned curve editor, but the exact update timing and normalization must be matched
+  before importing a result.
+- [Bustos-Guajardo and Moukarzel (2016)](https://doi.org/10.1142/S0129183116500947)
+  show that proportional-tax Yard-Sale tails are asymptotically Gaussian, with only a
+  restricted-range power-law-like regime under weak taxation. Taxation does not license
+  a generic Pareto-tail claim.
+- The phase transition in
+  [Boghosian et al. (2017)](https://arxiv.org/abs/1511.00770) is organized by
+  redistribution competing with **wealth-attained advantage**, a bias in the coin flip.
+  It is not evidence that stake and tax alone define a theoretical phase transition in
+  the current fair-coin model.
+
+The literature supports studying redistribution inside an explicit Yard-Sale variant.
+It does not support forecasts about real tax policy, nor the current rhetorical ordering
+of manual and structural controls without the confirmatory game protocol above.
 
 ## Verdict
 

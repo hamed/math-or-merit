@@ -141,6 +141,7 @@ available through `npm run research`.
 
 ## Workstream index
 
+- [Prioritized research backlog](research/backlog.md)
 - [Research protocol](research/protocol.md)
 - [Baseline model](research/baseline.md)
 - [Encounter topology](research/topology.md)
@@ -150,6 +151,7 @@ available through `npm run research`.
 - [Art-direction reference register](research/art-direction-references.md)
 - [Narrative sources and teaching claims](research/narrative-sources.md)
 - [Levies and intervention games](research/interventions.md)
+- [Additional mechanism research](research/extensions.md)
 - [Idea disposition audit](research/idea-disposition.md)
 - [Protocol-v1 results](research/results.md)
 
