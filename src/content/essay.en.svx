@@ -1,99 +1,77 @@
-<script lang="ts">
-  import BaselineExplorable from '$lib/widgets/baseline/BaselineExplorable.svelte';
-</script>
-
-<p class="eyebrow">An explorable model of luck, symmetry, and concentration</p>
+<p class="eyebrow">A small model about very large fortunes</p>
 
 # Merit or Math?
 
-<p class="dek">Everyone starts equal. Every trade gives both people the same chance to win. Keep the game running, and one person approaches ownership of everything.</p>
+<p class="dek">In June 2026, Elon Musk's estimated net worth crossed one trillion dollars, on paper. Before I ask what that says about genius, effort, luck, or power, I want to do something deliberately rude: remove almost everything that makes a real life real.</p>
 
-<p class="tagline">Fair to each. Cruel to all.</p>
+## The headline
 
-## A fair little game
+Here is the small, strange fact that started this draft:
+[a reported estimate of Musk's net worth crossed $1 trillion](https://www.cbsnews.com/news/elon-musk-spacex-ipo-trillionaire-wealth/).
+Not cash in a vault. Not a pile of gold you could trip over. Mostly priced shares,
+options, and expectations, all moving with markets. Still: a trillion dollars is the kind
+of number that makes ordinary comparisons break.
 
-Imagine one hundred people in a room. They begin with exactly the same wealth. There are
-no workers and bosses, no investors and borrowers, no talent, effort, inheritance, or
-inside information. In fact, there is almost nothing here that resembles an economy.
+The familiar story reaches for the word **merit**. A person did more, risked more, built
+more, saw further. Maybe. Real fortunes are tangled in work, timing, ownership,
+institutions, bargaining power, public infrastructure, family, law, luck, and a thousand
+things this essay is not ready to pretend away.
 
-There is only a game:
+So I will pretend them away carefully.
 
-<ol class="rule-list">
-  <li>Choose two different people uniformly at random.</li>
-  <li>Find the poorer person's wealth.</li>
-  <li>Put half of that amount at stake.</li>
-  <li>Flip a fair coin. The winner receives the stake from the loser.</li>
-</ol>
+I do not want to begin by deciding whether the headline is deserved. I want to ask a
+narrower question: if we strip an economy down until almost nothing remains, can a fair
+process still make one person tower over everyone else?
 
-The amount one person loses is exactly the amount the other gains. Nobody can fall below
-zero. Most importantly, after the pair has been selected, each person has zero expected
-monetary gain: a fifty-fifty chance of gaining or losing the same stake.
+That is the math question hiding behind the merit story.
+
+## First, simplify the cow
+
+There is an old joke about scientists and a cow.
+
+A farmer asks a chemist and a physicist to explain why a cow behaves the way it does. The
+chemist comes back with pages of biology: digestion, hormones, grass, microbes, milk,
+muscle, heat. The physicist draws one circle.
 
 <aside class="claim-note">
-  <p><strong>That is the narrow meaning of "fair" in this model.</strong> It does not claim equal happiness, equal risk, equal access in real life, or moral justice. It means only that the coin gives neither selected trader an expected monetary advantage.</p>
+  <p><strong>First, assume a spherical cow in a vacuum.</strong></p>
 </aside>
 
-The rule is symmetric. The outcome is not.
+It is a ridiculous sentence, which is why it survives. It is also a useful sentence,
+which is the annoying part.
 
-## Three worlds, one rule
+The point is not that cows are circles. The point is that sometimes you remove detail on
+purpose. Not because the detail is fake. Not because it does not matter. Because you want
+to see whether one mechanism can already explain the thing you are staring at.
 
-Press **Run all three** below. Each world begins from the same equal distribution and uses
-the same rule. Only the random seed differs. Watch the skylines break apart.
+A simple model is a bargain. You get clarity. You pay with realism.
 
-<BaselineExplorable />
+So the honest question is not, "Is the model complete?" It is not. The honest question is,
+"What can this stripped-down model show before reality gets its hands back on the wheel?"
 
-One run may briefly become more equal after the poorer trader wins. A leader may rise and
-then collapse. Different seeds crown different people. These reversals matter: no single
-animation proves a statistical claim, and inequality does not increase on every trade.
+## Now do it to wealth
 
-What repeats is the larger shape. Wealth spreads unevenly, fewer agents hold meaningful
-shares, and the top share grows. The route changes. The pressure toward concentration
-does not.
+Take the headline. Take the person in it. Now remove biography.
 
-## Measuring the room
+Remove the companies, employees, investors, subsidies, contracts, courts, supply chains,
+politics, inheritance, risk tolerance, talent, taste, sleep schedule, public image,
+management style, and every argument people enjoy having about whether any of it counts
+as merit.
 
-The skyline is useful, but it can seduce us into telling stories about individual bars.
-The numbers underneath ask colder questions.
+What remains is almost offensively small:
 
-- **Top share** is the fraction of all wealth held by the richest agent.
-- **Gini** summarizes inequality across the room. With one hundred finite agents, its
-  maximum is `0.99`, not exactly `1`.
-- **Effective agents** asks how many equally wealthy people would produce the same
-  concentration. It begins at one hundred and falls toward one.
+<aside class="claim-note">
+  <p><strong>You are your net worth.</strong></p>
+</aside>
 
-These measures describe a distribution, not a personality. The richest bar was not more
-patient, strategic, or deserving. The code never gave it a trait that could cause the
-result. Change the seed and the retrospective success story changes with it.
+I do not believe that sentence. I want it to feel wrong. The wrongness is the point.
 
-## What "eventually" means
+The model I am about to build is not a theory of a human being. It is a controlled little
+room where every person starts equal, every selected pair faces a fair coin, and the only
+state variable is wealth.
 
-The visual experiment stops. The mathematical model does not have to.
+If concentration appears even there, then we have learned something uncomfortable. Not
+that merit is fake. Not that the model explains Musk. Only this: local fairness is not
+the same thing as global equality.
 
-For a finite population, uniform random pairing, a fixed stake strictly between zero and
-the poorer person's full wealth, and a fair independent coin, the wealth vector converges
-with probability one to a state in which one agent owns everything. This is an
-asymptotic statement: it describes the limit of an indefinitely continued idealized
-process, not a deadline promised by the animation.
-
-The result can be proved using the fact that each person's wealth is a bounded martingale.
-The modern finite-agent statement is given by
-[Börgers and Greengard](https://arxiv.org/abs/2308.01485); related kinetic work shows how
-the Gini behaves at the distribution level. The proof does not say the Gini of every
-realized run rises at every moment. You just watched why.
-
-## A model is not a verdict
-
-This room has no production, income, debt, labor, bargaining, institutions, taxes,
-families, firms, or government. People cannot choose partners, refuse a trade, learn,
-cooperate, or change the rules. Calling it a toy model is not an apology. It is a boundary
-around the claim.
-
-The model does **not** prove that every real fortune is luck, that merit is imaginary, or
-that actual economies must end with one owner. It demonstrates something smaller and
-more durable: local symmetry does not guarantee a globally equal outcome. A process can
-be fair in each isolated encounter and still generate extreme concentration as a system.
-
-That is the uncomfortable part. There was no biased coin to expose, no villain hidden in
-the code, and no special quality assigned to the winner.
-
-<p class="closing">Nothing was unfair. That was the unfairness.</p>
+Next, we build the room.
