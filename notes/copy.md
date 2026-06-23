@@ -14,10 +14,13 @@ pull quotes, UI labels, chapter openers, closing beats.
 
 ## Voice
 
-- First person speaking directly to the reader: conversational, provocative, and clear.
-- Written for a non-specialist without treating the reader as naive.
-- Teach technical vocabulary briefly at the moment it becomes useful.
+- The narrator is *I*; the reader is *you*. First person throughout, direct address.
+- Casual, a little provocative, not over-polished. Fun is good. Not chatty.
+- Written for an intelligent non-specialist; treat the reader as a peer, not a student.
+- Teach technical vocabulary briefly at the moment it becomes useful — never ahead.
 - Keep the humor warm and economical. Let interactions carry some of the argument.
+- The essay earns its conclusions through the reader's own experience; do not announce
+  the result before the reader has watched it happen.
 
 ## Hook language
 
