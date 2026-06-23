@@ -3,6 +3,7 @@ import {
   effectiveParticipantCount,
   giniCoefficient,
   lorenzCurve,
+  measureRankedWealth,
   measureWealth,
   quantile,
   topWealthShare,
@@ -25,6 +26,10 @@ describe('wealth metrics', () => {
     expect(effectiveParticipantCount([0, 0, 0, 1])).toBe(1);
   });
 
+  it('measures a descending ranked wealth snapshot', () => {
+    expect(measureRankedWealth(Float64Array.from([3, 2, 1]))).toEqual(measureWealth([1, 2, 3]));
+  });
+
   it('builds a Lorenz curve including both endpoints', () => {
     expect(lorenzCurve([1, 3])).toEqual([
       { populationShare: 0, wealthShare: 0 },
@@ -40,5 +45,6 @@ describe('wealth metrics', () => {
   it('rejects invalid wealth', () => {
     expect(() => giniCoefficient([])).toThrow('at least one');
     expect(() => giniCoefficient([1, -1])).toThrow('non-negative');
+    expect(() => measureRankedWealth([1, 2, 3])).toThrow('sorted descending');
   });
 });

@@ -51,6 +51,11 @@ confirmatory game study must still:
   redistribution competing with **wealth-attained advantage**, a bias in the coin flip.
   It is not evidence that stake and tax alone define a theoretical phase transition in
   the current fair-coin model.
+  Review check, 2026-06-23: the arXiv record for `1511.00770` is the intended paper,
+  titled "Oligarchy as a Phase Transition: The effect of wealth-attained advantage in a
+  Fokker-Planck description of asset exchange." The record lists a 2015 submission and
+  2016 revision, so use the title/arXiv ID when the publication-year citation could
+  confuse provenance.
 
 The literature supports studying redistribution inside an explicit Yard-Sale variant.
 It does not support forecasts about real tax policy, nor the current rhetorical ordering

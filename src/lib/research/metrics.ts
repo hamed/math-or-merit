@@ -105,6 +105,42 @@ export function measureWealth(wealth: ArrayLike<number>): WealthMetrics {
   };
 }
 
+export function measureRankedWealth(rankedWealth: ArrayLike<number>): WealthMetrics {
+  const n = rankedWealth.length;
+  if (n === 0) throw new RangeError('ranked wealth must contain at least one value');
+
+  let total = 0;
+  let previous = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < n; i++) {
+    const value = rankedWealth[i];
+    if (!Number.isFinite(value) || value < 0) {
+      throw new RangeError('ranked wealth values must be finite and non-negative');
+    }
+    if (value > previous) throw new RangeError('ranked wealth must be sorted descending');
+    previous = value;
+    total += value;
+  }
+
+  let weighted = 0;
+  let squaredShares = 0;
+  if (total > 0) {
+    for (let i = 0; i < n; i++) {
+      const value = rankedWealth[i];
+      weighted += (n - 2 * i - 1) * value;
+      squaredShares += (value / total) ** 2;
+    }
+  }
+
+  const gini = total === 0 ? 0 : Math.max(0, Math.min(1, weighted / (n * total)));
+  return {
+    totalWealth: total,
+    gini: Math.abs(gini) < Number.EPSILON * n ? 0 : gini,
+    topShare: total === 0 ? 0 : rankedWealth[0] / total,
+    wealthFloor: rankedWealth[n - 1],
+    effectiveParticipants: total === 0 ? 0 : 1 / squaredShares,
+  };
+}
+
 export function validateCheckpoints(checkpoints: readonly number[]): void {
   let previous = -1;
   for (const checkpoint of checkpoints) {

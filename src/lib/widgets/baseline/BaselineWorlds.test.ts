@@ -7,6 +7,11 @@ import {
 } from './BaselineWorlds';
 
 describe('baseline explorable worlds', () => {
+  it('rejects empty world collections', () => {
+    expect(() => createBaselineWorlds({ n: 10, beta: 0.5, seeds: [] })).toThrow('seeds must not be empty');
+    expect(() => viewBaselineWorlds([])).toThrow('worlds must not be empty');
+  });
+
   it('starts several seeded worlds from equality', () => {
     const views = viewBaselineWorlds(createBaselineWorlds({ n: 10, beta: 0.5, seeds: [1, 2, 3] }));
     expect(views.map(({ seed }) => seed)).toEqual([1, 2, 3]);
@@ -14,6 +19,7 @@ describe('baseline explorable worlds', () => {
       expect(view.step).toBe(0);
       expect(view.gini).toBe(0);
       expect(view.topShare).toBeCloseTo(0.1);
+      expect(view.rankedWealth).toBeInstanceOf(Float64Array);
     }
   });
 

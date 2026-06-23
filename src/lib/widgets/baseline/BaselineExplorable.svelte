@@ -11,46 +11,84 @@
   const beta = 0.5;
   const maxSteps = 200_000;
   const tradesPerFrame = 100;
+  const viewRefreshFrames = 6;
   const worlds = createBaselineWorlds({ n: population, beta, seeds: [11, 42, 97] });
 
   let running = $state(false);
+  // Manual invalidation: Svelte cannot observe Float64Array mutations in place.
   let revision = $state(0);
+  let frame: number | undefined;
+  let framesUntilViewRefresh = 1;
+  let mounted = false;
   let views = $derived.by(() => {
     revision;
     return viewBaselineWorlds(worlds);
   });
   let step = $derived(views[0].step);
+  let runButtonLabel = $derived(
+    step >= maxSteps ? 'Simulation complete' : running ? 'Pause' : step === 0 ? 'Run all three' : 'Continue',
+  );
 
-  function advance(steps: number): void {
-    const remaining = maxSteps - step;
+  function cancelFrame(): void {
+    if (frame === undefined) return;
+    cancelAnimationFrame(frame);
+    frame = undefined;
+  }
+
+  function requestTick(): void {
+    if (!mounted || !running || frame !== undefined) return;
+    frame = requestAnimationFrame(tick);
+  }
+
+  function advance(steps: number, refreshView = true): void {
+    const remaining = maxSteps - worlds[0].engine.state.step;
     if (remaining <= 0) {
       running = false;
+      if (refreshView) revision++;
       return;
     }
     stepBaselineWorlds(worlds, Math.min(steps, remaining));
-    revision++;
+    if (refreshView || worlds[0].engine.state.step >= maxSteps) revision++;
     if (worlds[0].engine.state.step >= maxSteps) running = false;
+  }
+
+  function tick(): void {
+    frame = undefined;
+    if (!running) return;
+    const refreshView = framesUntilViewRefresh <= 1;
+    advance(tradesPerFrame, refreshView);
+    framesUntilViewRefresh = refreshView ? viewRefreshFrames : framesUntilViewRefresh - 1;
+    requestTick();
   }
 
   function toggleRunning(): void {
     if (step >= maxSteps) return;
-    running = !running;
+    if (running) {
+      running = false;
+      cancelFrame();
+      revision++;
+      return;
+    }
+    running = true;
+    framesUntilViewRefresh = 1;
+    requestTick();
   }
 
   function reset(): void {
     running = false;
+    cancelFrame();
+    framesUntilViewRefresh = 1;
     resetBaselineWorlds(worlds);
     revision++;
   }
 
   onMount(() => {
-    let frame = 0;
-    const tick = () => {
-      if (running) advance(tradesPerFrame);
-      frame = requestAnimationFrame(tick);
+    mounted = true;
+    requestTick();
+    return () => {
+      mounted = false;
+      cancelFrame();
     };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
   });
 
   const percent = (value: number) => `${(value * 100).toFixed(value >= 0.1 ? 1 : 2)}%`;
@@ -62,12 +100,18 @@
       <p class="kicker">Run the same rule three times</p>
       <h3 id="baseline-title">Three fair worlds</h3>
     </div>
-    <p class="parameters">100 agents · 50% of the poorer wealth at stake · three fixed seeds</p>
+    <p class="parameters">{population} agents · {(beta * 100).toFixed(0)}% of the poorer wealth at stake · three fixed seeds</p>
   </header>
 
   <div class="toolbar" aria-label="Simulation controls">
-    <button class="primary" type="button" onclick={toggleRunning} aria-pressed={running} disabled={step >= maxSteps}>
-      {running ? 'Pause' : step === 0 ? 'Run all three' : 'Continue'}
+    <button
+      class="primary"
+      type="button"
+      onclick={toggleRunning}
+      aria-pressed={step >= maxSteps ? undefined : running}
+      disabled={step >= maxSteps}
+    >
+      {runButtonLabel}
     </button>
     <button type="button" onclick={() => advance(100)} disabled={running || step >= maxSteps}>Step 100 trades</button>
     <button type="button" onclick={reset} disabled={step === 0}>Reset seeds</button>
@@ -181,7 +225,7 @@
   }
 
   .toolbar {
-    justify-content: flex-start;
+    justify-content: start;
     flex-wrap: wrap;
     padding-block: 0.85rem;
     border-block: 1px solid #ded4c2;
