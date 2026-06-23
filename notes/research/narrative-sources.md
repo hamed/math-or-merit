@@ -49,15 +49,22 @@ Publication-ready treatments and essay-safe wording are consolidated in
   is valuable cultural history: *The Rise of the Meritocracy* was satire and warning,
   not an endorsement of a credentialed ruling class. It predates Sandel and can keep the
   essay from treating criticism of meritocracy as one author's invention.
+- **⚠ MISATTRIBUTION FLAG (2026-06-23):** the specific hustle quotation used in
+  `chapters-1-3-brief.md` §2 — *"There are way easier places to work, but nobody ever
+  changed the world on 40 hours a week."* — was found by the author to be **misattributed**
+  and has been **pulled from the prose draft** (see `../draft-decisions.md` D1). Do not
+  reintroduce that quotation, or treat any Musk hustle post below as essay-cleared, without
+  independently re-verifying exact wording, speaker, and date against the primary post.
+  The links below are retained for that re-verification, not as a clearance.
 - Contemporary [CBS coverage](https://www.cbsnews.com/news/teslas-elon-musk-likes-80-hour-workweeks-science-says-forget-it/)
   records Musk's November 2018 posts that world-changing work requires more than a
   40-hour week and that roughly 80 sustained hours, sometimes over 100, may be needed.
   The original posts are identifiable as
   [the 40-hour claim](https://twitter.com/elonmusk/status/1067173497909141504) and
   [the 80-to-100-hour reply](https://twitter.com/elonmusk/status/1067175527180513280).
-  This is a real and unusually relevant hustle-culture example. Use an embed only after
-  checking platform behavior and publication rights; otherwise create a clearly labeled
-  text treatment rather than a fake screenshot.
+  This is a relevant hustle-culture example **but is currently under the misattribution
+  flag above**. Use an embed only after checking platform behavior and publication rights;
+  otherwise create a clearly labeled text treatment rather than a fake screenshot.
 - The [ILO's 2022 global working-time report](https://researchrepository.ilo.org/esploro/outputs/report/Working-time-and-work-life-balance-around/995264841602676)
   reports that more than one-third of workers regularly work over 48 hours a week. Its
   [working-poverty data](https://ilostat.ilo.org/blog/those-left-behind-the-forgotten-in-the-fight-against-global-poverty/)

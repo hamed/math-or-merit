@@ -21,12 +21,19 @@ estimated net worth as cash in a bank account.
 
 ## 2. Merit and hustle setup
 
-Use a project-authored text treatment, not a fabricated social-media screenshot. One
-short quotation from Musk's November 2018 post is sufficient:
+> **⚠ SUPERSEDED (2026-06-23) — misattribution.** The Musk hustle quotation below was found
+> to be misattributed and has been removed from the prose draft. The draft now uses an
+> anonymous "millions working 16 hours" framing instead (see `../draft-decisions.md` D1 and
+> `narrative-sources.md`). Do **not** restore the quotation without independent
+> re-verification of wording, speaker, and date. The ILO contrast and Sandel/Young framing
+> below are unaffected and remain usable.
 
-> "There are way easier places to work, but nobody ever changed the world on 40 hours a week."
+~~Use a project-authored text treatment, not a fabricated social-media screenshot. One
+short quotation from Musk's November 2018 post is sufficient:~~
 
-Attribute it to Musk, date it, and link the original post. Paraphrase the follow-up as
+> ~~"There are way easier places to work, but nobody ever changed the world on 40 hours a week."~~
+
+~~Attribute it to Musk, date it, and link the original post.~~ Paraphrase the follow-up as
 roughly 80 sustained hours with occasional peaks above 100; do not stack another long
 quotation.
 
@@ -127,8 +134,9 @@ Keep top share beside Gini as the intuitive audit.
 
 ## Publication status
 
-- **Source-ready:** hook, hustle post, ILO contrast, merit framing, cow tradition, and
-  statistical cautions.
+- **Source-ready:** hook, ILO contrast, merit framing, cow tradition, and statistical
+  cautions.
+- **Pulled (misattributed):** the Musk hustle quote — see §2 flag and `../draft-decisions.md` D1.
 - **Rights-safe plan:** project-authored text cards and visuals; links instead of copied
   screenshots or layouts.
 - **Rejected:** baseline power-law claim and any causal claim about Musk's fortune.

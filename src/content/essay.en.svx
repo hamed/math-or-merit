@@ -1,77 +1,530 @@
-<p class="eyebrow">A small model about very large fortunes</p>
+<!--
+  WRITING STANCE (2026-06-23, soft — nothing fixed in code): write the narration as VOICEOVER
+  to a stage. There is a visual in its own fixed place (the "canvas"/stage) that morphs in
+  place; the words arrive and leave in chunks over it. Lean on the canvas — point at it, pause
+  for it, do not describe what it already shows — but never name "the canvas" to the reader.
+  Per-beat canvas intent is marked inline as `CANVAS →`. The authored morph can hand the stage
+  to an interactive widget (the simulation); that handoff is a deliberate "break." Architecture
+  is intentionally NOT decided yet. See notes/draft-decisions.md D8.
+-->
+<!--
+  TODO(beat 1 — headline / EVIDENCE GATE): two research-mandated guardrails are missing.
+    1. "on paper" qualifier. chapters-1-3-brief.md §1 requires the estimated-net-worth
+       caveat ("on paper", moves with markets) in the immediate follow-up. The current
+       flat "first trillionaire" reads as cash-in-bank, which the promotion gate forbids.
+    2. Source link. Brief §1 specifies a dated CBS/Reuters Musk-trillionaire report
+       (see research/narrative-sources.md). Current link is a Space.com SpaceX-IPO piece,
+       which does not support the trillionaire claim.
+  Decision logged in notes/draft-decisions.md. Treat as correctness, not polish.
+-->
+<section class="opening-hero" aria-labelledby="opening-title">
+  <div class="headline-card">
+    <p class="headline-text">The world has its first trillionaire.</p>
+    <p class="headline-source"><a href="https://www.space.com/space-exploration/private-spaceflight/spacex-ipo-brings-starship-to-nyc-space-photo-of-the-day-for-june-16-2026">Space.com</a></p>
+  </div>
 
-# Merit or Math?
+  <h1 id="opening-title" class="opening-title">
+    <span class="title-word">Merit</span>
+    <span class="title-reveal">
+      <span class="title-or">or</span>
+      <span class="title-word">Math</span>
+    </span>
+  </h1>
+</section>
 
-<p class="dek">In June 2026, Elon Musk's estimated net worth crossed one trillion dollars, on paper. Before I ask what that says about genius, effort, luck, or power, I want to do something deliberately rude: remove almost everything that makes a real life real.</p>
+<!--
+  REMARK(beat 2 — labor/merit setup): divergence from chapters-1-3-brief.md §2 for a
+  FACTUAL reason. The brief built this beat on a Musk hustle quote, but that quote was
+  found to be MISATTRIBUTED. To stay correct, the draft drops the named quote and uses an
+  anonymous "millions working 16 hours" card + answer-cloud, which keeps the same point
+  (long hours ≠ wealth) without standing on a wrong attribution.
+  DECISION (2026-06-23): keep the anonymous framing — driven by accuracy, not tone.
+  WARNING: do not "restore" the Musk quote from the brief; it is flagged misattributed
+  pending re-verification. See notes/draft-decisions.md D1 and research/narrative-sources.md.
+-->
+<section class="labor-hero" aria-labelledby="labor-title">
+  <div class="labor-card">
+    <p class="labor-small">Millions are</p>
+    <p class="labor-line">working 16 hours a day,</p>
+    <p class="labor-line">7 days a week,</p>
+    <p class="labor-line">52 weeks a year,</p>
+    <p class="labor-still">and still cannot make ends meet.</p>
+  </div>
 
-## The headline
+  <h2 id="labor-title" class="opening-question">So what is it?</h2>
 
-Here is the small, strange fact that started this draft:
-[a reported estimate of Musk's net worth crossed $1 trillion](https://www.cbsnews.com/news/elon-musk-spacex-ipo-trillionaire-wealth/).
-Not cash in a vault. Not a pile of gold you could trip over. Mostly priced shares,
-options, and expectations, all moving with markets. Still: a trillion dollars is the kind
-of number that makes ordinary comparisons break.
+  <ul class="answer-cloud" aria-label="Possible explanations">
+    <li>Luck</li>
+    <li>DNA</li>
+    <li>IQ</li>
+    <li>EQ</li>
+    <li>class</li>
+    <li>race</li>
+    <li>skin color</li>
+    <li>religion</li>
+    <li>country</li>
+    <li>family</li>
+    <li>timing</li>
+    <li>connections</li>
+  </ul>
+</section>
 
-The familiar story reaches for the word **merit**. A person did more, risked more, built
-more, saw further. Maybe. Real fortunes are tangled in work, timing, ownership,
-institutions, bargaining power, public infrastructure, family, law, luck, and a thousand
-things this essay is not ready to pretend away.
+It is too complex, isn't it?
 
-So I will pretend them away carefully.
+<!--
+  REMARK(beats 3+4 MERGED): this joke beat now carries the load-bearing inference that
+  outline.md beat 4 wanted ("if the simplest version can't escape it, no richer version
+  can"). The old beat-4 TODO is resolved by the uphill analogy below — shape = biography we
+  discard; weight = the mechanism we can't. Honesty guard: the analogy only claims that an
+  obstacle present in the ideal case survives into messier cases. It does NOT claim every
+  richer model behaves identically. Flow change logged in notes/draft-decisions.md (D3).
+-->
 
-I do not want to begin by deciding whether the headline is deserved. I want to ask a
-narrower question: if we strip an economy down until almost nothing remains, can a fair
-process still make one person tower over everyone else?
+## Let me tell you a joke
 
-That is the math question hiding behind the merit story.
+<!--
+  STAGE — there is one canvas, in its own fixed place. It holds the picture and MORPHS in place
+  as these words arrive and leave; it does NOT scroll with the text. The through-line is the
+  circle: a cow reduces to it, then a person reduces to the same circle, then the circle grows
+  with money. Nothing here is fixed in code — the `CANVAS →` notes are soft writing cues, not a
+  component spec. Whole-essay writing stance is recorded in notes/draft-decisions.md (D8).
+-->
+<figure class="stage" aria-label="An illustration that simplifies a cow, then a person, into a circle, and then grows it">[ stage ]</figure>
 
-## First, simplify the cow
+A farmer's cow stops giving milk. So he calls a physicist.
 
-There is an old joke about scientists and a cow.
+<!-- CANVAS → a cow, drawn plainly. -->
 
-A farmer asks a chemist and a physicist to explain why a cow behaves the way it does. The
-chemist comes back with pages of biology: digestion, hormones, grass, microbes, milk,
-muscle, heat. The physicist draws one circle.
+She studies it for a long time. Then:
 
 <aside class="claim-note">
-  <p><strong>First, assume a spherical cow in a vacuum.</strong></p>
+  <p><strong>"First, assume a spherical cow."</strong></p>
 </aside>
 
-It is a ridiculous sentence, which is why it survives. It is also a useful sentence,
-which is the annoying part.
-
-The point is not that cows are circles. The point is that sometimes you remove detail on
-purpose. Not because the detail is fake. Not because it does not matter. Because you want
-to see whether one mechanism can already explain the thing you are staring at.
-
-A simple model is a bargain. You get clarity. You pay with realism.
-
-So the honest question is not, "Is the model complete?" It is not. The honest question is,
-"What can this stripped-down model show before reality gets its hands back on the wheel?"
-
-## Now do it to wealth
-
-Take the headline. Take the person in it. Now remove biography.
-
-Remove the companies, employees, investors, subsidies, contracts, courts, supply chains,
-politics, inheritance, risk tolerance, talent, taste, sleep schedule, public image,
-management style, and every argument people enjoy having about whether any of it counts
-as merit.
-
-What remains is almost offensively small:
+<!-- CANVAS → the cow rounds into a perfect sphere. -->
 
 <aside class="claim-note">
-  <p><strong>You are your net worth.</strong></p>
+  <p><strong>"In a vacuum."</strong></p>
 </aside>
 
-I do not believe that sentence. I want it to feel wrong. The wrongness is the point.
+<!-- CANVAS → the air is pulled out; the sphere holds, alone in the empty. -->
 
-The model I am about to build is not a theory of a human being. It is a controlled little
-room where every person starts equal, every selected pair faces a fair coin, and the only
-state variable is wealth.
+Ridiculous. Which is why it has lasted a hundred years.
 
-If concentration appears even there, then we have learned something uncomfortable. Not
-that merit is fake. Not that the model explains Musk. Only this: local fairness is not
-the same thing as global equality.
+It is also the best trick in science: throw away every detail but one, and ask if that one
+is enough.
 
-Next, we build the room.
+And here is the catch that makes it honest. A spherical cow is the *easiest* cow to push
+uphill — no friction, no legs in the way. So if even it won't move, a square cow won't
+move, and a real cow won't either.
+
+<!-- CANVAS → the sphere sits on a slope and will not go up; a square cow, then a real cow, try in turn — both slide back. -->
+
+The problem was never the shape. It was the weight.
+
+
+## Now, the spherical human
+
+Same trick. New subject.
+
+<!--
+  REMARK(beat 5 via shared canvas): the Musk→circle morph happens ON THE SAME canvas as the cow
+  — the place stays, the occupant changes. Causal-claim guard kept in the words ("we are not
+  going to explain how he got it"); brief §4. Logged in notes/draft-decisions.md (D5).
+-->
+<!-- CANVAS → where the cow was, a recognisable cartoon of the trillionaire from the opening fades in. -->
+
+Take the most-photographed fortune on earth. We are not going to explain how he got it. We
+are going to do to him exactly what the physicist did to the cow.
+
+First, assume a spherical human. In a vacuum.
+
+Throw away the companies, the employees, the investors, the contracts, the courts, the
+timing, the inheritance, the talent, the taste, the enemies, the luck — every argument we
+love to have about whether any of it was earned.
+
+<!-- CANVAS → with each thing named, a piece of him drops away — clothes, face, body — down to the same circle the cow became. -->
+
+What is left is almost offensively small:
+
+<!-- REMARK(reduction line): authored, crude, UNATTRIBUTED; "money" not "net worth" (jargon). See notes/draft-decisions.md D6. -->
+<aside class="claim-note">
+  <p><strong>You are your money.</strong></p>
+</aside>
+
+I don't believe that sentence. I want it to feel wrong. The wrongness is the point.
+
+We are not describing a human being. We are building the smallest possible room: everyone
+starts equal, every trade is fair, and the only thing a person *is*, is a number.
+
+If even that room fills with billionaires and paupers, then the weight was never the shape
+of the person. It was the math.
+
+
+## Then we add the money
+
+So: a circle. That is the person now. Give it a coin —
+
+<!-- CANVAS → a coin drops into the circle and it grows; area ∝ wealth (radius = scale·√wealth), so the eye reads size honestly (Cleveland/McGill, narrative-sources.md). -->
+
+— and it grows.
+
+The size is the money: the area, not the width. A circle twice as wide is four times as
+rich. Big circle, big fortune. That is the whole language.
+
+<!-- TEST(Study A, reader-study.md): can readers rank circles, read the direction of a change, and judge rough ratios from area alone, without colour? Revisit if area is misread as radius. -->
+
+Now there is not one circle but a roomful, every one the same size — same circle, same
+coin, same chance.
+
+<!-- CANVAS → the single circle multiplies into a room of identical circles. From here the stage's occupant becomes the interactive simulation: the authored morph hands over. -->
+
+Then they begin to trade.
+
+## One trade
+
+Pick two of them at random. Any two.
+
+<!--
+  WIDGET: ENCOUNTER — the room of circles; two are picked uniformly at random and pulled into
+  focus. Interactive sim slot (mount/config/events/cleanup per widget contract).
+-->
+<figure class="sim-stage" data-stage="encounter" aria-label="Two circles picked at random from the room">[ two circles ]</figure>
+
+They put something on the table. Not everything — a fixed slice of whatever the *poorer*
+one owns. So no one can ever stake more than they have.
+
+Then they flip a coin.
+
+<aside class="claim-note">
+  <p><strong>Heads, the first one takes the slice. Tails, the second.</strong></p>
+</aside>
+
+Nothing else decides it. Not who is bigger. Not who is smarter. Not who "deserves" it. A
+fair coin, every time.
+
+And *fair* here means one exact thing: before the flip, neither one expects to come out
+ahead. The winner gains exactly what the loser loses. No money is made. None is destroyed.
+It only moves.
+
+That is the whole game.
+
+## Watch a few
+
+Let me run a few by hand — I will pick the outcomes, just to show you the rule.
+
+<!--
+  WIDGET: SCRIPTED — authored (non-random) sequence: one wins, loses it back, a few more, and
+  a return to roughly equal. Must read as instruction, not a random run (label it as such).
+-->
+<figure class="sim-stage" data-stage="scripted" aria-label="A few scripted trades that return to equal">[ scripted trades ]</figure>
+
+One wins, and pulls ahead. Next trade, it loses the slice straight back. Even again. A few
+more, back and forth — and look, everyone is roughly where they started.
+
+See? Symmetric. Win some, lose some. The money sloshes around and settles. Nothing runs
+away. How could it? The coin is fair.
+
+Hold on to that feeling. It is about to betray you.
+
+## Your turn to guess
+
+Here is the setup, clean:
+
+- everyone starts with the same circle;
+- every trade picks a random pair;
+- every coin is fair, fifty-fifty.
+
+Now let it run. Not five trades. Ten thousand.
+
+<!--
+  WIDGET: PREDICTION — let the reader commit to an outcome before the reveal (e.g. pick a rough
+  shape for the room). Their guess is the setup for the reveal below; log it if cheap.
+-->
+<figure class="sim-stage" data-stage="predict" aria-label="Predict the room after ten thousand trades">[ your guess ]</figure>
+
+What does the room look like after ten thousand fair trades? Still roughly equal? A little
+spread? Something else? Pick one before you scroll.
+
+## Now run it
+
+<!--
+  WIDGET: MAIN REVEAL — the real Yard-Sale rule, tuned preset, NO user controls. Run to a
+  visibly concentrated state: one circle enormous, the rest near zero. Seeded / reproducible.
+  Claim discipline: describe the finite run only — NO power-law or distribution-family claim
+  here (that is gated, Chapter III). Convergence-to-one-owner is the asymptotic beat 17, not this.
+-->
+<figure class="sim-stage" data-stage="reveal" aria-label="Ten thousand fair trades; one circle grows enormous">[ the run ]</figure>
+
+One of them is enormous. The rest are dust.
+
+Every trade was fair — I just showed you. No coin was loaded. Nobody cheated. Nobody was
+smarter. And still: one circle ate the room.
+
+The trade was fair. The result is not. Those are two different things, and the whole essay
+lives in the gap between them.
+
+## Don't believe it? Run it again.
+
+<!--
+  WIDGET: RE-RUN — new seed, same preset; a different agent wins. Silently log each run's end
+  state to build the histogram in beat 14 (Chapter III).
+-->
+<figure class="sim-stage" data-stage="rerun" aria-label="Run again; a different winner, same concentration">[ run again ]</figure>
+
+Different winner. Same ending.
+
+Run it again. And again. The crown lands on someone new every time — but it always lands.
+The winner is random. The winner-take-all is not.
+
+## So why did they win?
+
+The room has its winner. The next morning, the news explains them.
+
+<!--
+  WIDGET: WINNER HEADLINE — generate a news headline that crowns the winner, built from their
+  single most visually distinctive (pre-assigned, arbitrary) trait. Reuses the opening
+  `headline-card` motif ON PURPOSE: the essay opened on a real headline; now we manufacture one
+  about a random circle. The headline text + source line are widget-filled from the winner.
+  [TEST] reader-study Study D (research/reader-study.md).
+  GUARD (critical failure mode + widget contract): traits are assigned BEFORE the run and must
+  NEVER enter pair selection, the stake, or the coin. The sim core must not read them.
+  Do NOT name a cognitive bias in prose (research.md C12).
+-->
+<div class="headline-card winner-headline">
+  <p class="headline-text">Squares: the shape of success</p>
+  <p class="headline-source">How one sharp-cornered trader out-played the room</p>
+</div>
+
+Look at them. A square, in a room full of circles. Sharper. More decisive. Built to win.
+The story writes itself.
+
+And it is a lie. That trait — being a square — never touched the game. Not the coin, not
+who got picked, not the stake. I handed out the shapes at random before the first trade,
+and not one of them changed a single outcome.
+
+<!--
+  WIDGET: RE-RUN HEADLINE — run again; a different winner, a different distinctive trait, a new
+  headline written with the same confidence. The story is always selected after the result.
+-->
+<div class="headline-card winner-headline">
+  <p class="headline-text">[ new winner, new "winning trait" ]</p>
+  <p class="headline-source">[ an equally confident explanation ]</p>
+</div>
+
+Same room. New winner. New headline, just as convincing.
+
+Remember the headline we started with?
+
+Watch how easily a result invites a story.
+
+## Line them up
+
+A hundred circles, all different sizes, scattered around the room. You cannot read that.
+Nobody can.
+
+So sort them. Smallest to largest, and drop each one into a bin — a pile for the near-broke,
+a pile for the comfortable, a pile for the rich.
+
+<!-- CANVAS → the scattered circles slide into stacks by size; the stacks square off into bars. The histogram is built FROM the same circles the reader watched trade. -->
+
+Now it is a shape: a chart whose bars are the people you just watched. (Where I cut the
+lines between the piles is a choice, not nature's — move them and the picture shifts a
+little.)
+
+And the shape leans hard. A crowd of the poor piled up on one side, a thin tail reaching
+out the other — and far past everyone, alone, the winner.
+
+<!-- TEST(Study B, reader-study.md): histogram vs cumulative/Lorenz as the first distribution view; choose by comprehension, not familiarity. -->
+
+## The picture is broken
+
+There is a problem with that chart. The winner is so large that, to fit them on the screen,
+everyone else gets crushed into one thin sliver at the bottom. Every difference among the
+people who actually lost — gone.
+
+<!-- CANVAS → linear axis: the poor collapse into a single sliver; the winner shoots off the edge. -->
+
+So change the ruler. Instead of each step *adding* the same amount, each step *multiplies*:
+1, 10, 100, 1,000. The same distance across the screen now means ten times the money.
+
+<!-- CANVAS → the axis re-rules itself; circles glide from their linear spots to logarithmic ones; the crushed sliver opens into a readable spread. -->
+
+Now you can see all of them at once. And the gap between two circles stops telling you how
+much more one has. It tells you how many *times* more.
+
+(One honest catch: you cannot multiply your way up from zero, so a circle with nothing has
+no spot on this ruler. The truly empty sit in their own pile, off to the side.)
+
+<!--
+  GATE(no power law): the log view only reveals values a linear scale hid. It does NOT show or
+  prove a power-law / heavy-tailed distribution family — omit "power law" from the baseline arc
+  entirely (research.md; narrative-sources.md log note). A fit + goodness-of-fit + model
+  comparison would be required first.
+  TEST(Study C, reader-study.md): does a side-by-side linear↔log transform plus a comprehension
+  check leave readers able to read ratios? A bare label is not enough (Ryan & Evers).
+-->
+
+## More of them
+
+You have seen it with a handful. Watch it with a crowd.
+
+<!-- CANVAS → a much larger seeded population runs the same fair trades; the log-ruled histogram forms again. -->
+
+Same rules. Same fair coin. Many more people. Read it yourself — the wall of the poor, the
+thinning tail, the one circle out past the edge. The crowd does not soften the result. It
+sharpens it.
+
+## Where it ends
+
+So where does this go, if no one ever stops it?
+
+This part is a theorem, not just an animation. Keep the room finite. Keep every trade fair,
+every coin even. Then let it run — not ten thousand trades, but without end.
+
+<!-- CANVAS → time accelerates; the tail thins and thins until one circle holds everything and the rest are dust. -->
+
+With probability one, it ends with a single owner. Everyone else goes to zero. A different
+winner each time you run it — but always, in the end, exactly one.
+
+Two cautions, because they carry the honesty of the whole piece:
+
+- "Without end" is doing the work. This is the limit, not a date. For any real number of
+  trades you get deep concentration — not literally one owner. The time-lapse shows a
+  destination, not a deadline.
+- The path can wobble. A poorer circle can win, and the room can briefly grow fairer, even
+  as the whole process grinds toward the one.
+
+<aside class="claim-note">
+  <p>The finite-agent convergence result is proved in <a href="https://arxiv.org/abs/2308.01485">Börgers &amp; Greengard (2023)</a>.</p>
+</aside>
+
+## Your hand on the dial
+
+So that is the game as written: fair coin, fixed stake, one ending.
+
+Now you get a knob.
+
+The stake — the slice each trade puts on the table — has been fixed this whole time. Take
+hold of it. Turn it down, and each trade risks almost nothing. Turn it up, and each trade is
+a gamble for a real chunk.
+
+<!-- CANVAS → a stake control appears on the room; dragging it re-runs the room live at the chosen stake. -->
+
+Watch what changes — and what refuses to.
+
+Turn the stake down and the collapse drags: the room looks fair for a long, comfortable
+while. Turn it up and the winner arrives fast and brutal. The speed is yours.
+
+The ending is not. Any stake above nothing, given enough time, still empties into a single
+circle. You can change how fast the room falls. You do not get to vote on whether it falls.
+
+<!--
+  GATE(β timing): the qualitative split is safe — asymptotic concentration is the same for every
+  fixed β in (0,1) (C4); the *rate* is shown as what the live runs do, not a precise law. Do NOT
+  state a precise timing relationship (e.g. a formula in β or N) until the confirmatory grid
+  across N, β, seeds lands (research/baseline.md). Keep rate language observational.
+-->
+
+(Set the stake to exactly zero and the room freezes — but only because then nobody is
+trading at all. Nothing at stake, nothing happens.)
+
+## Now you try to stop it
+
+Reading about it is one thing. Try to fix it yourself.
+
+Here is a live room, falling the usual way. Your job: keep it from collapsing. Your tool is
+blunt and satisfying — point at a circle that has grown too fat, and tax it. Whatever you
+pull out is shared back across the room.
+
+<!--
+  CANVAS → the live room keeps trading while the reader taps; tapping a large circle siphons
+  wealth from it and sprinkles it across the rest; the tapped circle flinches (display affect).
+  This is a manual WEALTH levy (taxes current wealth, not income) — name the quantity, C13.
+  DESIGN GUARD: do NOT tune this so the reader provably cannot win, then present that as a
+  result. Let them feel it; whether a fast hand can hold a room is a real, open question
+  (ideas.md tax-the-rich; outline beat 19). Frame stays "inside this toy," never real tax policy.
+-->
+<figure class="sim-stage" data-stage="manual-tax" aria-label="A live room you can tax by tapping the largest circles">[ tax the rich ]</figure>
+
+Go ahead. Chase the big ones. Tap, tap, tap.
+
+Notice how it feels. The room keeps trading while you work — you tax one giant, and two more
+are already swelling behind your back. It is like bailing a boat that refills itself.
+
+Maybe you can hold it. Maybe you cannot. That is genuinely worth finding out, so I will not
+pretend to know the answer for you: can a fast enough hand keep a room fair?
+
+<!--
+  OPEN(outline beat 19): where the taxed wealth goes is an unresolved design fork — split evenly
+  to everyone vs. handed to whoever is poorest. Different mechanisms, different lessons. The
+  parenthetical below flags it without deciding; resolve when the widget is specified.
+-->
+(There is a quieter question hiding in here, too: the money you take — should it be split
+evenly across everyone, or handed straight to whoever has least? Those are different choices,
+and they teach different lessons. Hold that thought.)
+
+<!--
+  ============================================================================================
+  PLACEHOLDER — GATED MIDDLE (Chapter IV interventions, outline beats 20–23). NOT YET DRAFTED.
+  This is a deliberate hole in an otherwise complete spine: these beats need evidence before any
+  prose can be written, and writing them now would mean claiming past the research record.
+    20  automatic structural levy + manual-vs-automatic comparison — leans on C13; the
+        "structural beats manual" lesson is a DESIGN AMBITION, not a tested result; needs a
+        matched-budget comparison before any claim (research/interventions.md).
+    21  Gini — introduce only when comparing whole rooms; 0 = equal, max = (N-1)/N (0.99 at
+        N=100); keep top share beside it; do NOT imply Gini rises on every trade (C5).
+    22  design a progressive wealth levy — [GATE] on Lima/Vieira/Anteneodo (2022) mechanism match.
+    23  parameter map / phase diagram — [GATE], not established (needs reproducible regimes).
+  When these clear (research.md Include verdicts), they slot in HERE, between the manual game
+  (beat 19, above) and the ending (beats 24–25, below). See draft-decisions.md D10 + outline.md.
+  ============================================================================================
+-->
+
+## What I left out
+
+Before the ending, the honesty bill.
+
+This room is almost nothing like an economy. To build it, I threw away — and never handed
+back — work, wages, jobs, the things people actually make and sell. Debt. Saving.
+Inheritance. Prices. Skill. Effort. Luck. Power. Law. The thousand ways real people climb,
+fall, cheat, help one another, and start over.
+
+<!-- CANVAS → everything stripped away in the opening floods back onto the lone circle — the labels, the biography, the cartoon person re-forming around it. The reverse of the opening morph. -->
+
+That list is not an apology. It is the fence around the claim. A model this bare cannot tell
+you what causes real inequality, and it never tried to. It shows one thing, cleanly, with
+everything else taken out of the way.
+
+## So — merit, or math?
+
+We began with a person and a number. A headline. The first trillionaire.
+
+<!-- CANVAS → the re-formed person finishes morphing back into the opening headline card, closing the loop. -->
+
+I cannot tell you how he got there. This little room does not know his name, and neither of
+us should pretend it does.
+
+But here is what the room *does* show, and it is smaller and harder than any headline:
+
+A process can be fair in every single step and still end with everything in one place. Local
+fairness does not add up to a fair whole. Nobody has to cheat. Equal starts do not promise
+equal ends.
+
+So the next time a fortune crosses some impossible line and the stories arrive to explain it
+— the talent, the grind, the vision — keep one cold possibility in the back of your mind.
+Maybe all of that is real. Or maybe you are reading a winning trait off a fair coin.
+
+There was no loaded coin here. No villain in the code. No conspiracy. Every trade was fair.
+
+<aside class="claim-note">
+  <p><strong>Nothing was unfair. That was the unfairness.</strong></p>
+</aside>
+
+<!--
+  END OF ESSAY. The spine is complete end-to-end (beats 1–19, then 24–25) EXCEPT the gated
+  middle placeholder above (beats 20–23), which is intentionally held until its evidence clears.
+  Still-open content threads live in notes/draft-decisions.md (headline guardrails O2, the
+  reduction-line/quote thread, the [TEST] reader studies, and the stage-model seam D8).
+-->
+

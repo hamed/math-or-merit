@@ -41,8 +41,10 @@ Candidate deliberately crude lines for the moment the person is reduced to one s
 variable. They should read as criticism of the abstraction, not as the essay's view of a
 human being:
 
+- **"You are your money."** ← chosen for prose (2026-06-23). Simplest, no jargon; best for
+  non-native / mobile readers. See `draft-decisions.md` D6.
 - **"You are your bank account."**
-- **"You are your net worth."**
+- **"You are your net worth."** — sharper but *net worth* is finance jargon.
 - **"You are your assets."**
 
 ---

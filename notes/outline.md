@@ -25,6 +25,9 @@ future place for them.
   fixed delays. Scroll-reversible where practical. Simulation-result animations have a
   different contract: reversing a stochastic run is not the same as reversing an authored
   transition.
+- Prefer one illustration per section that morphs as the text develops, over several static
+  figures. Presentation polish — slide-like text in/out, exact morph triggers — is deferred
+  until the words are settled. (added 2026-06-23, see `draft-decisions.md` D5)
 - Show multiple seeded worlds. One vivid trajectory is an example, not evidence.
 - State the model's claim precisely: a fair local exchange process can produce
   concentration. The model does not prove that real inequality is inevitable or that merit
@@ -50,42 +53,39 @@ answer yet.
 
 ### Chapter I — The simplification
 
-**3. The spherical cow**
-A chemist and a physicist are hired to study a cow. The chemist returns with pages of
-biology. The physicist draws a circle: *"First, assume a spherical cow in a vacuum."*
-Scroll-driven: the cow morphs into a perfect circle; the vacuum punchline lands visually
-— held breath, squeezed, trapped. The moral is modest: a simpler model can isolate one
-mechanism. It cannot tell us that every omitted detail is irrelevant.
+> **Structure note (2026-06-23):** beats 3–7 were merged and reordered during the prose
+> draft — see `draft-decisions.md` D3 and D5. The arc is now three beats — the joke (cow),
+> the spherical human, then the money — each carried by ONE morphing illustration. The
+> uphill test is part of the cow drawing; the Musk cartoon simplifies into the circle.
+> Chapter II still begins at beat 8; the numbering gap is intentional.
 
-**4. Why this simplification is honest** ← *the essay's core argument*
-State the key logic before applying it: *if the idealized model — perfectly equal, fair,
-stripped of everything — already produces extreme concentration, then inequality is
-structural, not incidental.* A simpler model that shows X means the richer model does not
-escape X by adding complexity; it gains more paths to produce it. If the spherical cow
-can't avoid it, no shape of cow can.
+**3–4. The spherical cow and the uphill test** ← *carries the essay's core argument*
+The joke: a farmer's cow stops giving milk; the physicist's answer is *"First, assume a
+spherical cow. In a vacuum."* One illustration morphs: cow → sphere → vacuum → the uphill
+test. The joke teaches that we remove detail on purpose. The uphill test then earns the
+load-bearing inference (the old beat 4) without a formal proof: a spherical cow is the
+*easiest* cow to push uphill, so if even it won't move, no shape of cow will — *"the problem
+was never the shape, it was the weight."* Shape = the biography we discard; weight = the
+mechanism we can't. Honesty guard: this claims only that an obstacle present in the ideal
+case survives into messier cases — not that every richer model behaves identically.
 
-This beat earns the method before we use it on a person. The rest of the essay is a
-demonstration of this claim.
+**5–6. The spherical human** ← *Musk morph restored*
+Same trick, new subject: *"First, assume a spherical human. In a vacuum."* One illustration
+morphs a recognisable cartoon of the trillionaire from the opening — person → rough figure →
+blob → circle — as the prose strips biography (companies, contracts, inheritance, talent,
+luck, every argument about whether it was earned). Land the reduction line as criticism of
+the abstraction, not the essay's view of a person: *"You are your net worth"* — authored and
+deliberately wrong; no real quote asserts it (see `draft-decisions.md` D6 for the verified
+inversion candidates: Fight Club, Orman, Aurelius). Causal guard, brief §4: *"we are not
+going to explain how he got it"* — the morph is methodological, never a claim about the cause
+of his fortune. Closer rhymes with the cow: *"the weight was never the shape of the person.
+It was the math."*
 
-**[OPEN]** Find a clean analogy that carries "if the toy model already shows it, the real
-one does too" without becoming a formal argument.
-
-**5. Elon becomes a circle**
-The same transformation applied to the headline subject: Musk's likeness morphs into the
-same circle as the cow. The point is methodological — we are discarding biography to
-isolate one mechanism — not a claim about what caused his fortune.
-
-**6. One variable: wealth**
-Start with a full human: identity, complexity, all of it visible in the icon. Show the
-real things that make a person who they are. Then strip it all away until only wealth
-remains. Land the reduction lines from `copy.md` as criticism of the abstraction, not the
-essay's view of a person: *"You are your net worth."* The icon stays visible; the tension
-between the human and the reduction is the point.
-
-**7. Wealth as circle size**
-A coin jumps into the circle; it grows. Area is proportional to wealth
-(`radius = scale × √wealth`). This beat exists only to teach that encoding before the
-game. Bigger circle, more wealth.
+**7. Then we add the money — wealth as circle size**
+The same circle now gains size: a coin drops in and it grows. Area is proportional to wealth
+(`radius = scale × √wealth`); the eye reads area, so teach it honestly — twice as wide is
+four times as rich. This beat exists only to teach the encoding before the game. Bigger
+circle, more wealth; then everyone starts equal and begins to trade.
 
 **[TEST]** Study A in `reader-study.md`: can readers rank order, detect direction of
 change, and estimate rough ratios without relying on color?
@@ -125,11 +125,13 @@ build the histogram.
 
 **13. The merit illusion** ← *the payload*
 End state: one enormous participant. Every participant had arbitrary, causally inert traits
-assigned before the run began. Now read the winner's parameters; find the most visually
-distinctive trait; build a success story around it. *"Clearly, squares are talented."*
-Then disclose: that trait never entered the pairing, the stake, or the coin. Run again —
-a different winner, a different "winning trait," an equally convincing story. The frame:
-*"Watch how easily a result invites a story."*
+assigned before the run began. Stage the success story as a **generated news headline** that
+crowns the winner using their most distinctive trait, reusing the opening `headline-card`
+motif — *"Squares: the shape of success."* This is a deliberate callback: the essay opened on
+a real headline, and now manufactures fake ones about random circles (close the loop with
+"Remember the headline we started with?"). Then disclose: that trait never entered the
+pairing, the stake, or the coin. Run again — a different winner, a different headline, equally
+convincing. The frame: *"Watch how easily a result invites a story."*
 
 Do not name a specific cognitive bias. This is an authored illustration, not a psychology
 experiment. The pass condition is that readers understand the trait was causally inert and

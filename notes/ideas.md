@@ -587,6 +587,19 @@ Candidate traits include clothing color, accessories, geometric shape, idle-moti
 or other visibly arbitrary features. Race, gender, disability, and facial morphology
 should not become shorthand for merit or failure.
 
+**Promoted (2026-06-23):** the retrospective story is now staged as a **news headline** that
+crowns the winner using their most distinctive trait, reusing the opening `headline-card`
+motif. This rhymes with the real trillionaire headline that opened the essay and closes with
+"Remember the headline we started with?" See `draft-decisions.md` D7 and `outline.md` beat 13.
+
+**Design possibility — ABBA wink (unconfirmed):** "The Winner Takes It All" (ABBA, 1980) is a
+candidate *subtle* nod for the reveal — e.g. a section title near beat 11/12. A bare title is
+not copyrightable and no lyric would be quoted, so the rights cost is low. Keep it only if it
+does a real job (it states the paradox: winner-take-all) rather than as decoration; per the
+cultural-reference rule in `research/narrative-sources.md`, a song earns a place only when it
+performs a named narrative job. Risk: it can read as too cute and undercut the cold tone of
+the reveal. Decision deferred.
+
 ---
 
 ## Mini-game: tax the rich
