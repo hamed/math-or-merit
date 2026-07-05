@@ -215,14 +215,48 @@ Originally dropped to avoid causal-claim risk. Reinstated 2026-06-23 — see D5.
 - **Spine status:** complete end-to-end (beats 1–19, 24–25) EXCEPT the gated middle (20–23),
   which sits as a clearly-marked PLACEHOLDER comment between beat 19 and the ending.
 
+## D12 — Interactive build: all widgets shipped, preset pinned — **decided (2026-07-03)**
+
+The full interactive layer was built; every `sim-stage` placeholder in `essay.en.svx` is
+now a working widget under `src/lib/widgets/`. Decisions made during the build, each
+driven by an honesty guard already in the outline:
+
+- **One shared preset** (`widgets/shared/presets.ts`): N = 100, **β = 0.2**, reveal run =
+  **100,000 trades**. β is pinned by the *scripted* beat: at β = 0.2, "wins it, loses it
+  straight back" leaves a pair at 1.04/0.96 (radius gap 2%, visually even), keeping beat 9
+  honest. At that β, ten thousand trades gives only top-share ≈ 11% — nowhere near "one is
+  enormous, the rest are dust" — so the reveal length is 100k trades (median top ≈ 45%,
+  effective participants ≈ 4, floor ≈ 1e-26).
+- **PROSE CHANGE (flagged):** "ten thousand" → "a hundred thousand" in beats 10–11 and the
+  echo in beat 17. Required for consistency between the scripted beat and the reveal; the
+  alternative was an under-delivering reveal or a dishonest "even again."
+- **Curated seeds, all covered by unit tests** (`shared/traits.test.ts`): reveal seed 332
+  (top 71.1%, runner-up 8.8%); winner-story first seed 501 (winner #48 = square under the
+  round-robin trait table), rerun seed 521 (hexagon). Traits are display-layer only; the
+  sim core has no import path to them.
+- **Beat 10 restructure:** the "Still roughly equal? A little spread?…" question list became
+  the Prediction widget's four options; the prose keeps the question and the commit framing.
+- **Beat 13:** the two static headline cards became `WinnerStory` (generated headlines from
+  the winner's inert trait, "convinced, or run again?" is the rerun button).
+- **Beat 19 [OPEN] resolved as build-default only:** the levy is shared back *equally*
+  (matches the prose "shared back across the room"); the to-the-poorest fork stays open in
+  the prose parenthetical. Tuning honors the design guard: a robot tapping the richest every
+  1,000 trades at 25% holds top share ≈ 9% vs ≈ 31–81% untouched, so a diligent reader CAN
+  hold the room — not rigged either way.
+- **D8 partially realized:** `StageChapter` (sticky canvas + scroll-driven `SceneMark`s) +
+  `MorphStage` (cow → sphere → vacuum → uphill → person → strip → circle → coin → room, and
+  the ending's reverse morph). This is an implementation of the stance, not an ADR: the
+  authoring-vs-presentation hinge stays open; no engine or sim-core coupling was added.
+- **Crowd beat (16):** N = 1,000, seed 77, 2M trades — measured histogram: 860 below 1¢,
+  thinning tail, one agent past $10k. Matches the promised "wall, tail, one past the edge."
+
 ## OPEN ITEMS
 
-### O2 — Headline guardrails missing — **gate (correctness)**
+### O2 — Headline guardrails — **RESOLVED (2026-07-03)**
 
-`essay.en.svx` beat 1 lacks the "on paper" / estimate-moves-with-markets qualifier
-(brief §1, promotion gate) and links a Space.com SpaceX-IPO article instead of the dated
-CBS/Reuters trillionaire report. Fix is mechanical but blocked from this pass by the
-"annotate only" scope; flagged inline as a `TODO … EVIDENCE GATE`.
+`essay.en.svx` beat 1 now carries the "on paper" / moves-with-markets qualifier and links
+the dated CBS trillionaire report from `research/narrative-sources.md` (brief §1). The old
+Space.com link is gone.
 
 ### O3 — Only the gated middle (beats 20–23) remains unwritten
 
@@ -236,7 +270,11 @@ not established. They slot between beat 19 and the ending when cleared.
 
 ### Still-open polish threads (not blocking the spine)
 
-- **O2** above (headline "on paper" + correct source) — mechanical, do when ready.
 - `[TEST]` reader studies A–D (circle legibility, first distribution view, log comprehension,
-  retrospective-story reading) — drafted ahead of formative testing; revisit wording after.
-- The stage-model seam (**D8**) and its ADR-004/005 amendments — revisit only if code needs it.
+  retrospective-story reading) — the widgets they test now exist; run the studies, then
+  revisit wording and encodings.
+- The stage-model seam (**D8**) and its ADR-004/005 amendments — `StageChapter`/`MorphStage`
+  (D12) implement the stance without closing the hinge; write ADR 013 only if something needs
+  to lean on the seam.
+- Widget keyboard access: the canvas rooms (tax game especially) are pointer-first; an
+  accessible alternative input path is future polish.

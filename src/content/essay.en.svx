@@ -1,26 +1,41 @@
+<script>
+  import StageChapter from '$lib/widgets/stage/StageChapter.svelte';
+  import MorphStage from '$lib/widgets/stage/MorphStage.svelte';
+  import SceneMark from '$lib/widgets/stage/SceneMark.svelte';
+  import OneTrade from '$lib/widgets/trade/OneTrade.svelte';
+  import ScriptedRounds from '$lib/widgets/trade/ScriptedRounds.svelte';
+  import Prediction from '$lib/widgets/predict/Prediction.svelte';
+  import RevealRun from '$lib/widgets/reveal/RevealRun.svelte';
+  import WinnerStory from '$lib/widgets/winner/WinnerStory.svelte';
+  import BinsStage from '$lib/widgets/distribution/BinsStage.svelte';
+  import AxisStage from '$lib/widgets/distribution/AxisStage.svelte';
+  import CrowdRun from '$lib/widgets/crowd/CrowdRun.svelte';
+  import TimeLapse from '$lib/widgets/ending/TimeLapse.svelte';
+  import StakeDial from '$lib/widgets/dial/StakeDial.svelte';
+  import TaxGame from '$lib/widgets/tax/TaxGame.svelte';
+</script>
+
 <!--
   WRITING STANCE (2026-06-23, soft — nothing fixed in code): write the narration as VOICEOVER
   to a stage. There is a visual in its own fixed place (the "canvas"/stage) that morphs in
   place; the words arrive and leave in chunks over it. Lean on the canvas — point at it, pause
   for it, do not describe what it already shows — but never name "the canvas" to the reader.
-  Per-beat canvas intent is marked inline as `CANVAS →`. The authored morph can hand the stage
-  to an interactive widget (the simulation); that handoff is a deliberate "break." Architecture
-  is intentionally NOT decided yet. See notes/draft-decisions.md D8.
+  The authored morph can hand the stage to an interactive widget (the simulation); that
+  handoff is a deliberate "break." See notes/draft-decisions.md D8.
+  BUILD NOTE (2026-07-03): the stage is now real — StageChapter pins a MorphStage sticky at
+  the top of the viewport and SceneMark elements in the prose drive its scenes as you scroll.
+  The old `CANVAS →` cues are realized as `<SceneMark scene="…" />` markers.
 -->
 <!--
-  TODO(beat 1 — headline / EVIDENCE GATE): two research-mandated guardrails are missing.
-    1. "on paper" qualifier. chapters-1-3-brief.md §1 requires the estimated-net-worth
-       caveat ("on paper", moves with markets) in the immediate follow-up. The current
-       flat "first trillionaire" reads as cash-in-bank, which the promotion gate forbids.
-    2. Source link. Brief §1 specifies a dated CBS/Reuters Musk-trillionaire report
-       (see research/narrative-sources.md). Current link is a Space.com SpaceX-IPO piece,
-       which does not support the trillionaire claim.
-  Decision logged in notes/draft-decisions.md. Treat as correctness, not polish.
+  RESOLVED(beat 1 — headline / EVIDENCE GATE, O2 closed 2026-07-03): the "on paper"
+  qualifier is in the card and the source is the dated CBS trillionaire report required by
+  chapters-1-3-brief.md §1 (see research/narrative-sources.md "Elon Musk trillionaire hook").
 -->
 <section class="opening-hero" aria-labelledby="opening-title">
   <div class="headline-card">
     <p class="headline-text">The world has its first trillionaire.</p>
-    <p class="headline-source"><a href="https://www.space.com/space-exploration/private-spaceflight/spacex-ipo-brings-starship-to-nyc-space-photo-of-the-day-for-june-16-2026">Space.com</a></p>
+    <p class="headline-qualifier">On paper: an estimate priced off his stock. It moves when the markets move.</p>
+    <p class="headline-source"><a href="https://www.cbsnews.com/news/elon-musk-spacex-ipo-trillionaire-wealth/">CBS News · June 12, 2026</a></p>
   </div>
 
   <h1 id="opening-title" class="opening-title">
@@ -80,20 +95,11 @@ It is too complex, isn't it?
   richer model behaves identically. Flow change logged in notes/draft-decisions.md (D3).
 -->
 
+<StageChapter stage={MorphStage} initial="cow">
+
 ## Let me tell you a joke
 
-<!--
-  STAGE — there is one canvas, in its own fixed place. It holds the picture and MORPHS in place
-  as these words arrive and leave; it does NOT scroll with the text. The through-line is the
-  circle: a cow reduces to it, then a person reduces to the same circle, then the circle grows
-  with money. Nothing here is fixed in code — the `CANVAS →` notes are soft writing cues, not a
-  component spec. Whole-essay writing stance is recorded in notes/draft-decisions.md (D8).
--->
-<figure class="stage" aria-label="An illustration that simplifies a cow, then a person, into a circle, and then grows it">[ stage ]</figure>
-
 A farmer's cow stops giving milk. So he calls a physicist.
-
-<!-- CANVAS → a cow, drawn plainly. -->
 
 She studies it for a long time. Then:
 
@@ -101,13 +107,13 @@ She studies it for a long time. Then:
   <p><strong>"First, assume a spherical cow."</strong></p>
 </aside>
 
-<!-- CANVAS → the cow rounds into a perfect sphere. -->
+<SceneMark scene="sphere" />
 
 <aside class="claim-note">
   <p><strong>"In a vacuum."</strong></p>
 </aside>
 
-<!-- CANVAS → the air is pulled out; the sphere holds, alone in the empty. -->
+<SceneMark scene="vacuum" />
 
 Ridiculous. Which is why it has lasted a hundred years.
 
@@ -118,7 +124,7 @@ And here is the catch that makes it honest. A spherical cow is the *easiest* cow
 uphill — no friction, no legs in the way. So if even it won't move, a square cow won't
 move, and a real cow won't either.
 
-<!-- CANVAS → the sphere sits on a slope and will not go up; a square cow, then a real cow, try in turn — both slide back. -->
+<SceneMark scene="uphill" />
 
 The problem was never the shape. It was the weight.
 
@@ -128,11 +134,11 @@ The problem was never the shape. It was the weight.
 Same trick. New subject.
 
 <!--
-  REMARK(beat 5 via shared canvas): the Musk→circle morph happens ON THE SAME canvas as the cow
-  — the place stays, the occupant changes. Causal-claim guard kept in the words ("we are not
-  going to explain how he got it"); brief §4. Logged in notes/draft-decisions.md (D5).
+  REMARK(beat 5 via shared canvas): the Musk→circle morph happens ON THE SAME canvas as the
+  cow — the place stays, the occupant changes. Causal-claim guard kept in the words ("we are
+  not going to explain how he got it"); brief §4. Logged in notes/draft-decisions.md (D5).
 -->
-<!-- CANVAS → where the cow was, a recognisable cartoon of the trillionaire from the opening fades in. -->
+<SceneMark scene="person" />
 
 Take the most-photographed fortune on earth. We are not going to explain how he got it. We
 are going to do to him exactly what the physicist did to the cow.
@@ -143,7 +149,7 @@ Throw away the companies, the employees, the investors, the contracts, the court
 timing, the inheritance, the talent, the taste, the enemies, the luck — every argument we
 love to have about whether any of it was earned.
 
-<!-- CANVAS → with each thing named, a piece of him drops away — clothes, face, body — down to the same circle the cow became. -->
+<SceneMark scene="strip" />
 
 What is left is almost offensively small:
 
@@ -157,6 +163,8 @@ I don't believe that sentence. I want it to feel wrong. The wrongness is the poi
 We are not describing a human being. We are building the smallest possible room: everyone
 starts equal, every trade is fair, and the only thing a person *is*, is a number.
 
+<SceneMark scene="circle" />
+
 If even that room fills with billionaires and paupers, then the weight was never the shape
 of the person. It was the math.
 
@@ -165,7 +173,7 @@ of the person. It was the math.
 
 So: a circle. That is the person now. Give it a coin —
 
-<!-- CANVAS → a coin drops into the circle and it grows; area ∝ wealth (radius = scale·√wealth), so the eye reads size honestly (Cleveland/McGill, narrative-sources.md). -->
+<SceneMark scene="coin" />
 
 — and it grows.
 
@@ -177,19 +185,21 @@ rich. Big circle, big fortune. That is the whole language.
 Now there is not one circle but a roomful, every one the same size — same circle, same
 coin, same chance.
 
-<!-- CANVAS → the single circle multiplies into a room of identical circles. From here the stage's occupant becomes the interactive simulation: the authored morph hands over. -->
+<SceneMark scene="room" />
 
 Then they begin to trade.
+
+</StageChapter>
 
 ## One trade
 
 Pick two of them at random. Any two.
 
 <!--
-  WIDGET: ENCOUNTER — the room of circles; two are picked uniformly at random and pulled into
-  focus. Interactive sim slot (mount/config/events/cleanup per widget contract).
+  WIDGET: OneTrade — the room of circles; two picked uniformly at random, an equal ante of
+  β·min on the table, a fair coin, the pot to the winner. Real rule, real randomness.
 -->
-<figure class="sim-stage" data-stage="encounter" aria-label="Two circles picked at random from the room">[ two circles ]</figure>
+<OneTrade />
 
 They put something on the table. Not everything — a fixed slice of whatever the *poorer*
 one owns. So no one can ever stake more than they have.
@@ -214,10 +224,10 @@ That is the whole game.
 Let me run a few by hand — I will pick the outcomes, just to show you the rule.
 
 <!--
-  WIDGET: SCRIPTED — authored (non-random) sequence: one wins, loses it back, a few more, and
-  a return to roughly equal. Must read as instruction, not a random run (label it as such).
+  WIDGET: ScriptedRounds — authored (non-random) outcome sequence, labelled as scripted; the
+  wealth numbers still come from the real trade rule, so "roughly equal" stays honest.
 -->
-<figure class="sim-stage" data-stage="scripted" aria-label="A few scripted trades that return to equal">[ scripted trades ]</figure>
+<ScriptedRounds />
 
 One wins, and pulls ahead. Next trade, it loses the slice straight back. Even again. A few
 more, back and forth — and look, everyone is roughly where they started.
@@ -235,26 +245,26 @@ Here is the setup, clean:
 - every trade picks a random pair;
 - every coin is fair, fifty-fifty.
 
-Now let it run. Not five trades. Ten thousand.
+Now let it run. Not five trades. A hundred thousand.
+
+What does the room look like after a hundred thousand fair trades? Pick one before you
+scroll.
 
 <!--
-  WIDGET: PREDICTION — let the reader commit to an outcome before the reveal (e.g. pick a rough
-  shape for the room). Their guess is the setup for the reveal below; log it if cheap.
+  WIDGET: Prediction — the reader commits to an outcome before the reveal; the choice is
+  quoted back by the reveal widget. Stored locally only.
 -->
-<figure class="sim-stage" data-stage="predict" aria-label="Predict the room after ten thousand trades">[ your guess ]</figure>
-
-What does the room look like after ten thousand fair trades? Still roughly equal? A little
-spread? Something else? Pick one before you scroll.
+<Prediction />
 
 ## Now run it
 
 <!--
-  WIDGET: MAIN REVEAL — the real Yard-Sale rule, tuned preset, NO user controls. Run to a
-  visibly concentrated state: one circle enormous, the rest near zero. Seeded / reproducible.
-  Claim discipline: describe the finite run only — NO power-law or distribution-family claim
-  here (that is gated, Chapter III). Convergence-to-one-owner is the asymptotic beat 17, not this.
+  WIDGET: RevealRun mode="reveal" — the real Yard-Sale rule, tuned preset, no parameter
+  controls. Seeded (332) and reproducible: top share 71%, runner-up 8.8%.
+  Claim discipline: describes the finite run only — NO power-law or distribution-family
+  claim here (gated, Chapter III). Convergence-to-one-owner is the asymptotic beat 17.
 -->
-<figure class="sim-stage" data-stage="reveal" aria-label="Ten thousand fair trades; one circle grows enormous">[ the run ]</figure>
+<RevealRun mode="reveal" />
 
 One of them is enormous. The rest are dust.
 
@@ -267,10 +277,11 @@ lives in the gap between them.
 ## Don't believe it? Run it again.
 
 <!--
-  WIDGET: RE-RUN — new seed, same preset; a different agent wins. Silently log each run's end
-  state to build the histogram in beat 14 (Chapter III).
+  WIDGET: RevealRun mode="rerun" — new seed each run, same preset; a different agent wins.
+  Each run's end state is logged so Chapter III builds its histogram from a room the reader
+  actually watched.
 -->
-<figure class="sim-stage" data-stage="rerun" aria-label="Run again; a different winner, same concentration">[ run again ]</figure>
+<RevealRun mode="rerun" />
 
 Different winner. Same ending.
 
@@ -282,19 +293,15 @@ The winner is random. The winner-take-all is not.
 The room has its winner. The next morning, the news explains them.
 
 <!--
-  WIDGET: WINNER HEADLINE — generate a news headline that crowns the winner, built from their
-  single most visually distinctive (pre-assigned, arbitrary) trait. Reuses the opening
-  `headline-card` motif ON PURPOSE: the essay opened on a real headline; now we manufacture one
-  about a random circle. The headline text + source line are widget-filled from the winner.
-  [TEST] reader-study Study D (research/reader-study.md).
-  GUARD (critical failure mode + widget contract): traits are assigned BEFORE the run and must
-  NEVER enter pair selection, the stake, or the coin. The sim core must not read them.
-  Do NOT name a cognitive bias in prose (research.md C12).
+  WIDGET: WinnerStory mode="first" — a seeded run (501) whose winner happens to hold the
+  "square" trait; the headline is generated from that trait, reusing the opening
+  `headline-card` motif ON PURPOSE (the essay opened on a real headline; now we manufacture
+  one about a random circle). [TEST] reader-study Study D.
+  GUARD (critical failure mode + widget contract): traits are assigned BEFORE the run and
+  NEVER enter pair selection, the stake, or the coin. The sim core cannot read them — it has
+  no import path to the trait table. Do NOT name a cognitive bias in prose (research.md C12).
 -->
-<div class="headline-card winner-headline">
-  <p class="headline-text">Squares: the shape of success</p>
-  <p class="headline-source">How one sharp-cornered trader out-played the room</p>
-</div>
+<WinnerStory mode="first" />
 
 Look at them. A square, in a room full of circles. Sharper. More decisive. Built to win.
 The story writes itself.
@@ -304,13 +311,11 @@ who got picked, not the stake. I handed out the shapes at random before the firs
 and not one of them changed a single outcome.
 
 <!--
-  WIDGET: RE-RUN HEADLINE — run again; a different winner, a different distinctive trait, a new
-  headline written with the same confidence. The story is always selected after the result.
+  WIDGET: WinnerStory mode="rerun" — run again: a different winner, a different distinctive
+  trait, a new headline written with the same confidence. The story is always selected after
+  the result. The reader chooses their own stopping point ("convinced, or run again?").
 -->
-<div class="headline-card winner-headline">
-  <p class="headline-text">[ new winner, new "winning trait" ]</p>
-  <p class="headline-source">[ an equally confident explanation ]</p>
-</div>
+<WinnerStory mode="rerun" />
 
 Same room. New winner. New headline, just as convincing.
 
@@ -326,7 +331,12 @@ Nobody can.
 So sort them. Smallest to largest, and drop each one into a bin — a pile for the near-broke,
 a pile for the comfortable, a pile for the rich.
 
-<!-- CANVAS → the scattered circles slide into stacks by size; the stacks square off into bars. The histogram is built FROM the same circles the reader watched trade. -->
+<!--
+  WIDGET: BinsStage — the histogram is built FROM the same circles the reader watched trade
+  (the latest logged run; the seeded reveal room as fallback). Bin width is a reader-visible
+  choice, not nature's.
+-->
+<BinsStage />
 
 Now it is a shape: a chart whose bars are the people you just watched. (Where I cut the
 lines between the piles is a choice, not nature's — move them and the picture shifts a
@@ -343,12 +353,15 @@ There is a problem with that chart. The winner is so large that, to fit them on 
 everyone else gets crushed into one thin sliver at the bottom. Every difference among the
 people who actually lost — gone.
 
-<!-- CANVAS → linear axis: the poor collapse into a single sliver; the winner shoots off the edge. -->
-
 So change the ruler. Instead of each step *adding* the same amount, each step *multiplies*:
 1, 10, 100, 1,000. The same distance across the screen now means ten times the money.
 
-<!-- CANVAS → the axis re-rules itself; circles glide from their linear spots to logarithmic ones; the crushed sliver opens into a readable spread. -->
+<!--
+  WIDGET: AxisStage — the same people glide from their linear spots to logarithmic ones; the
+  crushed sliver opens into a readable spread. The truly empty sit in their own pile, off the
+  ruler.
+-->
+<AxisStage />
 
 Now you can see all of them at once. And the gap between two circles stops telling you how
 much more one has. It tells you how many *times* more.
@@ -369,7 +382,11 @@ no spot on this ruler. The truly empty sit in their own pile, off to the side.)
 
 You have seen it with a handful. Watch it with a crowd.
 
-<!-- CANVAS → a much larger seeded population runs the same fair trades; the log-ruled histogram forms again. -->
+<!--
+  WIDGET: CrowdRun — a much larger seeded population (1,000 agents, 2M trades) runs the same
+  fair trades; the log-ruled histogram forms live.
+-->
+<CrowdRun />
 
 Same rules. Same fair coin. Many more people. Read it yourself — the wall of the poor, the
 thinning tail, the one circle out past the edge. The crowd does not soften the result. It
@@ -380,9 +397,14 @@ sharpens it.
 So where does this go, if no one ever stops it?
 
 This part is a theorem, not just an animation. Keep the room finite. Keep every trade fair,
-every coin even. Then let it run — not ten thousand trades, but without end.
+every coin even. Then let it run — not a hundred thousand trades, but without end.
 
-<!-- CANVAS → time accelerates; the tail thins and thins until one circle holds everything and the rest are dust. -->
+<!--
+  WIDGET: TimeLapse — time accelerates; the tail thins until one circle holds everything the
+  pixels can show. Picks up the reveal room where it stopped; a fresh room ends the same way
+  with a different owner.
+-->
+<TimeLapse />
 
 With probability one, it ends with a single owner. Everyone else goes to zero. A different
 winner each time you run it — but always, in the end, exactly one.
@@ -409,7 +431,16 @@ The stake — the slice each trade puts on the table — has been fixed this who
 hold of it. Turn it down, and each trade risks almost nothing. Turn it up, and each trade is
 a gamble for a real chunk.
 
-<!-- CANVAS → a stake control appears on the room; dragging it re-runs the room live at the chosen stake. -->
+<!--
+  WIDGET: StakeDial — dragging the stake re-runs the room live at the chosen value; each
+  stake replays a fixed seed, so the comparison is repeatable.
+  GATE(β timing): the qualitative split is safe — asymptotic concentration is the same for
+  every fixed β in (0,1) (C4); the *rate* is shown as what the live runs do, not a precise
+  law. Do NOT state a precise timing relationship (e.g. a formula in β or N) until the
+  confirmatory grid across N, β, seeds lands (research/baseline.md). The widget's own
+  footnote says "what these runs did — not a law."
+-->
+<StakeDial />
 
 Watch what changes — and what refuses to.
 
@@ -418,13 +449,6 @@ while. Turn it up and the winner arrives fast and brutal. The speed is yours.
 
 The ending is not. Any stake above nothing, given enough time, still empties into a single
 circle. You can change how fast the room falls. You do not get to vote on whether it falls.
-
-<!--
-  GATE(β timing): the qualitative split is safe — asymptotic concentration is the same for every
-  fixed β in (0,1) (C4); the *rate* is shown as what the live runs do, not a precise law. Do NOT
-  state a precise timing relationship (e.g. a formula in β or N) until the confirmatory grid
-  across N, β, seeds lands (research/baseline.md). Keep rate language observational.
--->
 
 (Set the stake to exactly zero and the room freezes — but only because then nobody is
 trading at all. Nothing at stake, nothing happens.)
@@ -438,14 +462,15 @@ blunt and satisfying — point at a circle that has grown too fat, and tax it. W
 pull out is shared back across the room.
 
 <!--
-  CANVAS → the live room keeps trading while the reader taps; tapping a large circle siphons
-  wealth from it and sprinkles it across the rest; the tapped circle flinches (display affect).
-  This is a manual WEALTH levy (taxes current wealth, not income) — name the quantity, C13.
-  DESIGN GUARD: do NOT tune this so the reader provably cannot win, then present that as a
-  result. Let them feel it; whether a fast hand can hold a room is a real, open question
-  (ideas.md tax-the-rich; outline beat 19). Frame stays "inside this toy," never real tax policy.
+  WIDGET: TaxGame — the live room keeps trading while the reader taps; tapping a circle
+  levies a quarter of its current wealth and shares it back equally; the tapped circle
+  flinches (display affect only). This is a manual WEALTH levy (taxes current wealth, not
+  income) — named in the widget copy, C13.
+  DESIGN GUARD honored: the pace is NOT tuned so the reader provably cannot win — a diligent
+  hand genuinely can hold the room (robot-player tuning notes in the build log). Whether a
+  fast enough hand can keep a room fair is left as the real, open question the prose asks.
 -->
-<figure class="sim-stage" data-stage="manual-tax" aria-label="A live room you can tax by tapping the largest circles">[ tax the rich ]</figure>
+<TaxGame />
 
 Go ahead. Chase the big ones. Tap, tap, tap.
 
@@ -458,7 +483,8 @@ pretend to know the answer for you: can a fast enough hand keep a room fair?
 <!--
   OPEN(outline beat 19): where the taxed wealth goes is an unresolved design fork — split evenly
   to everyone vs. handed to whoever is poorest. Different mechanisms, different lessons. The
-  parenthetical below flags it without deciding; resolve when the widget is specified.
+  widget implements the split-evenly reading the prose describes ("shared back across the
+  room"); the parenthetical below flags the fork without deciding it.
 -->
 (There is a quieter question hiding in here, too: the money you take — should it be split
 evenly across everyone, or handed straight to whoever has least? Those are different choices,
@@ -481,6 +507,8 @@ and they teach different lessons. Hold that thought.)
   ============================================================================================
 -->
 
+<StageChapter stage={MorphStage} initial="lone">
+
 ## What I left out
 
 Before the ending, the honesty bill.
@@ -490,7 +518,7 @@ back — work, wages, jobs, the things people actually make and sell. Debt. Savi
 Inheritance. Prices. Skill. Effort. Luck. Power. Law. The thousand ways real people climb,
 fall, cheat, help one another, and start over.
 
-<!-- CANVAS → everything stripped away in the opening floods back onto the lone circle — the labels, the biography, the cartoon person re-forming around it. The reverse of the opening morph. -->
+<SceneMark scene="reform" />
 
 That list is not an apology. It is the fence around the claim. A model this bare cannot tell
 you what causes real inequality, and it never tried to. It shows one thing, cleanly, with
@@ -500,7 +528,7 @@ everything else taken out of the way.
 
 We began with a person and a number. A headline. The first trillionaire.
 
-<!-- CANVAS → the re-formed person finishes morphing back into the opening headline card, closing the loop. -->
+<SceneMark scene="headcard" />
 
 I cannot tell you how he got there. This little room does not know his name, and neither of
 us should pretend it does.
@@ -521,10 +549,12 @@ There was no loaded coin here. No villain in the code. No conspiracy. Every trad
   <p><strong>Nothing was unfair. That was the unfairness.</strong></p>
 </aside>
 
+</StageChapter>
+
 <!--
   END OF ESSAY. The spine is complete end-to-end (beats 1–19, then 24–25) EXCEPT the gated
   middle placeholder above (beats 20–23), which is intentionally held until its evidence clears.
-  Still-open content threads live in notes/draft-decisions.md (headline guardrails O2, the
-  reduction-line/quote thread, the [TEST] reader studies, and the stage-model seam D8).
+  Still-open content threads live in notes/draft-decisions.md (the reduction-line/quote thread,
+  the [TEST] reader studies A–D, and the stage-model seam D8 — now partially realized by
+  StageChapter/MorphStage, still revisable).
 -->
-

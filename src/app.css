@@ -152,3 +152,288 @@ a:hover {
     margin-block-start: 4rem;
   }
 }
+
+/* ---------- opening hero ---------- */
+
+.opening-hero {
+  padding-block: clamp(2rem, 6vw, 4rem) clamp(2rem, 5vw, 3.5rem);
+  text-align: center;
+}
+
+.headline-card {
+  max-inline-size: 30rem;
+  margin-inline: auto;
+  padding-block: 1.4rem 1.1rem;
+  padding-inline: 1.6rem;
+  border: 1px solid #c9bca5;
+  border-radius: 0.7rem;
+  background: #fffdf8;
+  box-shadow: 0 0.8rem 2rem rgb(65 50 29 / 10%);
+  transform: rotate(-0.6deg);
+  text-align: start;
+}
+
+.headline-text {
+  margin-block: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: clamp(1.35rem, 3.4vw, 1.7rem);
+  font-weight: 650;
+  line-height: 1.25;
+  color: #211e19;
+}
+
+.headline-qualifier {
+  margin-block: 0.5rem 0;
+  font-size: 0.88rem;
+  font-style: italic;
+  line-height: 1.45;
+  color: #6e6659;
+}
+
+.headline-source {
+  margin-block: 0.7rem 0;
+  font-family: Vazirmatn, system-ui, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #756c5d;
+}
+
+.opening-title {
+  margin-block: clamp(3rem, 8vw, 5rem) 0;
+}
+
+.opening-title .title-word,
+.opening-title .title-reveal {
+  display: inline-block;
+}
+
+.opening-title > .title-word {
+  animation: title-rise 0.9s cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+.opening-title .title-reveal {
+  animation: title-rise 0.9s cubic-bezier(0.3, 0, 0.2, 1) 1.2s both;
+}
+
+.opening-title .title-or {
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.45em;
+  color: #8b3f2b;
+  vertical-align: 0.32em;
+  margin-inline: 0.15em;
+}
+
+@keyframes title-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.4em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- labor hero ---------- */
+
+.labor-hero {
+  padding-block: clamp(1.5rem, 4vw, 3rem);
+  text-align: center;
+}
+
+.labor-card {
+  max-inline-size: 26rem;
+  margin-inline: auto;
+  padding-block: 1.5rem;
+  padding-inline: 1.7rem;
+  border: 1px solid #c9bca5;
+  border-radius: 0.7rem;
+  background: #fffdf8;
+  box-shadow: 0 0.8rem 2rem rgb(65 50 29 / 8%);
+  transform: rotate(0.5deg);
+  text-align: start;
+}
+
+.labor-card p {
+  margin-block: 0;
+}
+
+.labor-small {
+  font-family: Vazirmatn, system-ui, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #756c5d;
+}
+
+.labor-line {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  font-size: clamp(1.15rem, 2.6vw, 1.45rem);
+  font-weight: 600;
+  line-height: 1.4;
+  color: #211e19;
+}
+
+.labor-still {
+  margin-block-start: 0.6rem !important;
+  font-style: italic;
+  font-size: clamp(1rem, 2.2vw, 1.2rem);
+  color: #8b3f2b;
+}
+
+.opening-question {
+  margin-block: clamp(2.2rem, 5vw, 3.2rem) 1.4rem;
+}
+
+.answer-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  max-inline-size: 34rem;
+  margin-inline: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.answer-cloud li {
+  padding-block: 0.3rem;
+  padding-inline: 0.85rem;
+  border: 1px solid #cbbfa8;
+  border-radius: 999px;
+  background: #fffdf8;
+  font-family: Vazirmatn, system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: #5c5344;
+}
+
+/* ---------- stage chapters (scroll-morphing canvas) ---------- */
+
+.stage-chapter {
+  position: relative;
+}
+
+.stage-chapter > :is(h2, p, ol, ul, aside) {
+  max-inline-size: 43rem;
+  margin-inline: auto;
+}
+
+/* ---------- shared widget chrome ---------- */
+
+.widget {
+  max-inline-size: 52rem;
+  margin-block: 2.8rem;
+  margin-inline: auto;
+  padding-block: clamp(1rem, 3vw, 1.5rem);
+  padding-inline: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid #d3c7b0;
+  border-radius: 1.1rem;
+  background: #fffaf0;
+  box-shadow: 0 1rem 2.6rem rgb(65 50 29 / 8%);
+  font-family: Vazirmatn, system-ui, sans-serif;
+}
+
+.widget p {
+  margin-block: 0.7rem 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.widget .kicker {
+  margin-block: 0 0.9rem;
+  color: #8b3f2b;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.widget .caption {
+  min-block-size: 2.6em;
+  margin-block: 0.85rem 0;
+  color: #4d493f;
+}
+
+.widget .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-block-start: 0.9rem;
+}
+
+.widget .toolbar button {
+  min-block-size: 2.6rem;
+  padding-block: 0.45rem;
+  padding-inline: 1rem;
+  border: 1px solid #a99980;
+  border-radius: 999px;
+  color: #3c352b;
+  background: #fffdf8;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.widget .toolbar button:hover:not(:disabled) {
+  border-color: #7a3f2b;
+  color: #7a3f2b;
+}
+
+.widget .toolbar button:focus-visible {
+  outline: 3px solid rgb(139 63 43 / 35%);
+  outline-offset: 2px;
+}
+
+.widget .toolbar button.primary {
+  border-color: #7a3f2b;
+  color: #fffaf0;
+  background: #8b3f2b;
+}
+
+.widget .toolbar button.primary:hover:not(:disabled) {
+  color: #fffaf0;
+  background: #7a3f2b;
+}
+
+.widget .toolbar button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.widget .toolbar output {
+  margin-inline-start: auto;
+  color: #3c352b;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.widget .headline-card {
+  margin-block-end: 1.2rem;
+  transform: rotate(-0.4deg);
+}
+
+.widget .headline-card .headline-text {
+  font-size: clamp(1.25rem, 3vw, 1.55rem);
+}
+
+.widget .headline-card .headline-source {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 0.84rem;
+}
+
+/* ---------- motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
