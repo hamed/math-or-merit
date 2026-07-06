@@ -1,0 +1,83 @@
+/**
+ * Display styles for agents: pastel fill + independent stroke + simple shape.
+ *
+ * GUARD (same discipline as traits.ts): styles are assigned by index BEFORE any
+ * run and exist only in the display layer. They must never enter pair
+ * selection, the stake, or the coin — the simulation core cannot see this
+ * module. The whole point of the essay's ending is that these traits are
+ * causally inert.
+ *
+ * Colors are validated against the warm-paper surface (#f4efe4) with the
+ * dataviz six checks: strokes carry identity (all ≥ 3:1 contrast; worst
+ * all-pairs CVD ΔE 10.3, floor band — legal because shape + fill/stroke
+ * pairing are strong secondary encodings). Fills are light washes of the same
+ * hue families. `src/app.css` mirrors these values as --agent-* custom
+ * properties; keep both lists in sync.
+ */
+
+export const AGENT_SHAPES = ['circle', 'triangle', 'square', 'pentagon', 'hexagon'] as const;
+
+export type AgentShape = (typeof AGENT_SHAPES)[number];
+
+export const COLOR_NAMES = ['red', 'blue', 'green', 'violet', 'teal', 'pink'] as const;
+
+export type ColorName = (typeof COLOR_NAMES)[number];
+
+export const STROKES: Record<ColorName, string> = {
+  red: '#9d3533',
+  blue: '#284e99',
+  green: '#59985b',
+  violet: '#865eb1',
+  teal: '#1d9999',
+  pink: '#a7547e',
+};
+
+export const FILLS: Record<ColorName, string> = {
+  red: '#f6beb8',
+  blue: '#b7cff9',
+  green: '#b4dab4',
+  violet: '#d7c4f1',
+  teal: '#9bdcdb',
+  pink: '#f0bdd4',
+};
+
+/** Golden-yellow money — reserved: no agent hue may impersonate the coin. */
+export const COIN_FILL = '#e9c96a';
+export const COIN_STROKE = '#8a6a2a';
+
+export interface AgentStyle {
+  readonly fill: string;
+  readonly stroke: string;
+  readonly fillName: ColorName;
+  readonly strokeName: ColorName;
+  readonly shape: AgentShape;
+}
+
+/**
+ * Deterministic style table: fill cycles the 6 hues; the stroke sits 1–5 hue
+ * slots away (never the fill's own hue); shapes cycle the 5 kinds. The cycle
+ * lengths are coprime, so 30 consecutive agents show 30 distinct fill/stroke
+ * pairs — a "unique mix" without randomness.
+ */
+export function assignStyles(n: number): AgentStyle[] {
+  const styles: AgentStyle[] = [];
+  for (let i = 0; i < n; i++) {
+    const fillIdx = i % COLOR_NAMES.length;
+    const strokeIdx = (fillIdx + 1 + (i % (COLOR_NAMES.length - 1))) % COLOR_NAMES.length;
+    const fillName = COLOR_NAMES[fillIdx];
+    const strokeName = COLOR_NAMES[strokeIdx];
+    styles.push({
+      fill: FILLS[fillName],
+      stroke: STROKES[strokeName],
+      fillName,
+      strokeName,
+      shape: AGENT_SHAPES[i % AGENT_SHAPES.length],
+    });
+  }
+  return styles;
+}
+
+/** "a red pentagon with a blue edge" — for the manufactured-headline gag. */
+export function styleNoun(style: AgentStyle): string {
+  return `a ${style.fillName} ${style.shape} with a ${style.strokeName} edge`;
+}

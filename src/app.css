@@ -1,7 +1,40 @@
 :root {
-  font-family: "Iowan Old Style", "Palatino Linotype", Vazirmatn, Georgia, serif;
-  color: #28251f;
-  background: #f4efe4;
+  /* ---- design tokens (ADR-013) ---- */
+  --paper: #f4efe4;
+  --paper-bright: #fffaf0;
+  --ink: #28251f;
+  --ink-strong: #1e1b17;
+  --ink-soft: #756c5d;
+  --ink-mid: #4d493f;
+  --accent: #8b3f2b;
+  --accent-deep: #4d271c;
+  --line: #c9bca5;
+
+  /* money is golden yellow — reserved, no agent hue may impersonate it */
+  --coin: #e9c96a;
+  --coin-ink: #8a6a2a;
+
+  /* agent palette — mirrors shared/agentStyle.ts (validated; keep in sync) */
+  --agent-stroke-red: #9d3533;
+  --agent-stroke-blue: #284e99;
+  --agent-stroke-green: #59985b;
+  --agent-stroke-violet: #865eb1;
+  --agent-stroke-teal: #1d9999;
+  --agent-stroke-pink: #a7547e;
+  --agent-fill-red: #f6beb8;
+  --agent-fill-blue: #b7cff9;
+  --agent-fill-green: #b4dab4;
+  --agent-fill-violet: #d7c4f1;
+  --agent-fill-teal: #9bdcdb;
+  --agent-fill-pink: #f0bdd4;
+
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Vazirmatn, Georgia, serif;
+  --font-sans: Vazirmatn, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  font-family: var(--font-serif);
+  color: var(--ink);
+  background: var(--paper);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
