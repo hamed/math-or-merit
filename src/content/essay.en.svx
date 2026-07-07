@@ -1,6 +1,8 @@
 <script>
   import PinScene from '$lib/widgets/stage/PinScene.svelte';
   import Caption from '$lib/widgets/stage/Caption.svelte';
+  import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
+  import BeliefCloudScene from '$lib/widgets/stage/scenes/BeliefCloudScene.svelte';
   import CowScene from '$lib/widgets/stage/scenes/CowScene.svelte';
   import StageChapter from '$lib/widgets/stage/StageChapter.svelte';
   import MorphStage from '$lib/widgets/stage/MorphStage.svelte';
@@ -34,60 +36,24 @@
   qualifier is in the card and the source is the dated CBS trillionaire report required by
   chapters-1-3-brief.md §1 (see research/narrative-sources.md "Elon Musk trillionaire hook").
 -->
-<section class="opening-hero" aria-labelledby="opening-title">
-  <div class="headline-card">
-    <p class="headline-text">The world has its first trillionaire.</p>
-    <p class="headline-qualifier">On paper: an estimate priced off his stock. It moves when the markets move.</p>
-    <p class="headline-source"><a href="https://www.cbsnews.com/news/elon-musk-spacex-ipo-trillionaire-wealth/">CBS News · June 12, 2026</a></p>
-  </div>
-
-  <h1 id="opening-title" class="opening-title">
-    <span class="title-word">Merit</span>
-    <span class="title-reveal">
-      <span class="title-or">or</span>
-      <span class="title-word">Math</span>
-    </span>
-  </h1>
-</section>
-
 <!--
-  REMARK(beat 2 — labor/merit setup): divergence from chapters-1-3-brief.md §2 for a
-  FACTUAL reason. The brief built this beat on a Musk hustle quote, but that quote was
-  found to be MISATTRIBUTED. To stay correct, the draft drops the named quote and uses an
-  anonymous "millions working 16 hours" card + answer-cloud, which keeps the same point
-  (long hours ≠ wealth) without standing on a wrong attribution.
-  DECISION (2026-06-23): keep the anonymous framing — driven by accuracy, not tone.
-  WARNING: do not "restore" the Musk quote from the brief; it is flagged misattributed
-  pending re-verification. See notes/draft-decisions.md D1 and research/narrative-sources.md.
+  BUILD NOTE (2026-07-06, M2): opening rebuilt to the storyboard — empty page, teletype
+  headline (source name only, clickable; "on paper" qualifier returns in the ending),
+  then the title words fade in one by one. The labor card's point (long hours ≠ wealth)
+  survives as the belief-cloud caption; the misattributed-Musk-quote guard (D1) still
+  applies — do not reintroduce the hustle quote.
 -->
-<section class="labor-hero" aria-labelledby="labor-title">
-  <div class="labor-card">
-    <p class="labor-small">Millions are</p>
-    <p class="labor-line">working 16 hours a day,</p>
-    <p class="labor-line">7 days a week,</p>
-    <p class="labor-line">52 weeks a year,</p>
-    <p class="labor-still">and still cannot make ends meet.</p>
-  </div>
+<h1 class="visually-hidden">Merit or Math?</h1>
 
-  <h2 id="labor-title" class="opening-question">So what is it?</h2>
+<PinScene pace={0.9}>
+  <OpeningScene />
+</PinScene>
 
-  <ul class="answer-cloud" aria-label="Possible explanations">
-    <li>Luck</li>
-    <li>DNA</li>
-    <li>IQ</li>
-    <li>EQ</li>
-    <li>class</li>
-    <li>race</li>
-    <li>skin color</li>
-    <li>religion</li>
-    <li>country</li>
-    <li>family</li>
-    <li>timing</li>
-    <li>connections</li>
-  </ul>
-</section>
-
-It is too complex, isn't it?
+<PinScene>
+  <BeliefCloudScene />
+  <Caption beat={0}>Millions work 16-hour days, and still can't make ends meet.</Caption>
+  <Caption beat={2}>It is too complex, isn't it?</Caption>
+</PinScene>
 
 <!--
   REMARK(beats 3+4 MERGED): this joke beat now carries the load-bearing inference that

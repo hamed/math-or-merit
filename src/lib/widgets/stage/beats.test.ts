@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { validateBeats, type BeatSpec } from './contract';
 import { BEATS as COW_BEATS } from './scenes/CowScene.svelte';
+import { BEATS as OPENING_BEATS } from './scenes/OpeningScene.svelte';
+import { BEATS as BELIEF_BEATS } from './scenes/BeliefCloudScene.svelte';
 
 /** Every scene's beat table, checked at data level (no DOM mounting). */
 const SCENES: Record<string, readonly BeatSpec[]> = {
   CowScene: COW_BEATS,
+  OpeningScene: OPENING_BEATS,
+  BeliefCloudScene: BELIEF_BEATS,
 };
 
 describe('scene beat tables', () => {

@@ -4,7 +4,7 @@ export interface Point {
 }
 
 /** Deterministic hash noise in [-1, 1] so the room reads organic but stable. */
-function noise(index: number, salt: number): number {
+export function noise(index: number, salt: number): number {
   let h = (index * 374761393 + salt * 668265263) >>> 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
   return ((h ^ (h >>> 16)) / 0xffff_ffff) * 2 - 1;
