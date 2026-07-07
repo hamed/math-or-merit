@@ -66,3 +66,26 @@ of manual and structural controls without the confirmatory game protocol above.
 **Defer.** The matched-budget runner is ready and its current result is ambiguous. No
 "structural beats manual" lesson passes without realistic action constraints and a
 broader confirmatory grid.
+
+## Phase-map stability memo (2026-07-06, M8 build)
+
+Beat 23 shipped as a **measured map plus a fitted curve**, per the GATE:
+
+- Grid: β ∈ {0.05…0.50, step 0.05} × flat levy τ ∈ {0…0.12, step 0.01} per round
+  (levy every N trades), N = 100, 200k trades, burn-in 120k, tail-mean Gini of 8
+  checkpoints, two seeds averaged in the shipped widget
+  (`src/lib/widgets/phase/PhaseDiagram.svelte`, compute in `src/lib/research/phase.ts`).
+- The white contour is the **measured** Gini = 0.5 frontier (marching squares).
+- The dashed curve is a **least-squares fit** of τ*(β) = c·β² through the measured
+  column crossings. Scaling motivation only (per-trade variance ∝ β²); no theorem claimed,
+  and the Boghosian caveat above still applies — their transition involves biased coins,
+  not this fair-coin model.
+- Stability (`scripts/phase-stability.ts`): c across seeds {11, 271, 977} and
+  N ∈ {50, 100, 200} stays in **0.344–0.379** (N = 100: 0.370–0.379). The map and the
+  frontier are reproducible; the widget displays whatever c its own live grid fits.
+- Language guard: captions say "measured" for the contour and "fitted" for the curve;
+  "theoretical", "law", and "phase transition" stay out of the essay.
+- Beat 20 discipline unchanged: TaxOnlyDemo shows the structural levy alone
+  (β = 0, geometric equalization — exact: one flat levy scales every deviation by
+  1 − rate). The manual-vs-structural comparison remains **unclaimed** (Verdict above
+  still Defer).

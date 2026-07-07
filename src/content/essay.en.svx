@@ -19,6 +19,8 @@
   import TimeLapse from '$lib/widgets/ending/TimeLapse.svelte';
   import StakeDial from '$lib/widgets/dial/StakeDial.svelte';
   import TaxGame from '$lib/widgets/tax/TaxGame.svelte';
+  import TaxOnlyDemo from '$lib/widgets/tax/TaxOnlyDemo.svelte';
+  import PhaseDiagram from '$lib/widgets/phase/PhaseDiagram.svelte';
 </script>
 
 <!--
@@ -391,21 +393,47 @@ evenly across everyone, or handed straight to whoever has least? Those are diffe
 and they teach different lessons. Hold that thought.)
 
 <!--
-  ============================================================================================
-  PLACEHOLDER — GATED MIDDLE (Chapter IV interventions, outline beats 20–23). NOT YET DRAFTED.
-  This is a deliberate hole in an otherwise complete spine: these beats need evidence before any
-  prose can be written, and writing them now would mean claiming past the research record.
-    20  automatic structural levy + manual-vs-automatic comparison — leans on C13; the
-        "structural beats manual" lesson is a DESIGN AMBITION, not a tested result; needs a
-        matched-budget comparison before any claim (research/interventions.md).
-    21  Gini — introduce only when comparing whole rooms; 0 = equal, max = (N-1)/N (0.99 at
-        N=100); keep top share beside it; do NOT imply Gini rises on every trade (C5).
-    22  design a progressive wealth levy — [GATE] on Lima/Vieira/Anteneodo (2022) mechanism match.
-    23  parameter map / phase diagram — [GATE], not established (needs reproducible regimes).
-  When these clear (research.md Include verdicts), they slot in HERE, between the manual game
-  (beat 19, above) and the ending (beats 24–25, below). See draft-decisions.md D10 + outline.md.
-  ============================================================================================
+  BUILD NOTE (2026-07-06, M8) — the formerly gated middle, now built to the storyboard with
+  claim discipline intact:
+    20  automatic structural levy: TaxOnlyDemo shows the levy as a RULE (trading off). The
+        "structural beats manual" comparison is still NOT claimed — no matched-budget test
+        has run (research/interventions.md); the prose only invites the contrast.
+    21  Gini — shipped in Chapter III (GiniStage), rooms-comparison only.
+    22  progressive levy designer — ships inside the sandbox (M9), as a toy, no empirical claim.
+    23  phase diagram — MEASURED grid + measured Gini-0.5 contour; the smooth curve is labeled
+        FITTED (τ* ≈ c·β², c ≈ 0.42; stability memo in research/interventions.md). No regime
+        theorem is claimed.
 -->
+
+## Put the levy in the rules
+
+Your hands were always going to tire. So take you out of it: make the levy part of the
+room's physics, not a hero's reflexes.
+
+First, see the tool alone — freeze the trading.
+
+<TaxOnlyDemo />
+
+## Tax against trade
+
+Now both rules run at once: every trade pushes the room toward one owner, every levy pulls
+it back toward equal. Who wins depends on the two dials. So let's stop running one room at
+a time and run <em>all of them</em>.
+
+<!--
+  WIDGET: PhaseDiagram — 10×13 grid of (stake β, flat levy per round), each cell the tail-mean
+  Gini of a 200k-trade room, two seeds averaged, computed live in-page from the same engine
+  (chunked under one frame budget; cached per session). White contour = MEASURED Gini 0.5.
+  Dashed curve = FITTED τ* ≈ c·β² (calibration + fit: scripts/phase-calibrate.ts and
+  research/phase.ts; stability notes in notes/research/interventions.md). GATE discipline:
+  "fitted", never "theoretical"/"law".
+-->
+<PhaseDiagram />
+
+One map, two regimes. Below the frontier, the stake outruns the levy and the room slides
+toward its single owner — slower, but surely. Above it, the levy holds. And the frontier
+itself is not a straight trade-off: double the stake and you need roughly <em>four times</em>
+the tax to stand still.
 
 <StageChapter stage={MorphStage} initial="lone">
 
