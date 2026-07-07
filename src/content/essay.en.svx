@@ -5,11 +5,10 @@
   import BeliefCloudScene from '$lib/widgets/stage/scenes/BeliefCloudScene.svelte';
   import CowScene from '$lib/widgets/stage/scenes/CowScene.svelte';
   import PersonScene from '$lib/widgets/stage/scenes/PersonScene.svelte';
+  import TradeScene from '$lib/widgets/stage/scenes/TradeScene.svelte';
   import StageChapter from '$lib/widgets/stage/StageChapter.svelte';
   import MorphStage from '$lib/widgets/stage/MorphStage.svelte';
   import SceneMark from '$lib/widgets/stage/SceneMark.svelte';
-  import OneTrade from '$lib/widgets/trade/OneTrade.svelte';
-  import ScriptedRounds from '$lib/widgets/trade/ScriptedRounds.svelte';
   import Prediction from '$lib/widgets/predict/Prediction.svelte';
   import RevealRun from '$lib/widgets/reveal/RevealRun.svelte';
   import WinnerStory from '$lib/widgets/winner/WinnerStory.svelte';
@@ -103,51 +102,20 @@ Same trick. New subject.
   <Caption beat={4}>I want that to feel wrong. The wrongness is the point. We are building the smallest possible room — a person is a number, nothing else.</Caption>
 </PinScene>
 
-## One trade
-
-Pick two of them at random. Any two.
-
 <!--
-  WIDGET: OneTrade — the room of circles; two picked uniformly at random, an equal ante of
-  β·min on the table, a fair coin, the pot to the winner. Real rule, real randomness.
+  BUILD NOTE (2026-07-06, M4): OneTrade + ScriptedRounds merged into TradeScene — one
+  scrub-reversible teaching sequence. Numbers still come from the real trade rule with
+  authored outcomes only (presets.ts honesty note). Two-sided coin wears the traders'
+  fill colors: no heads/tails to remember, the color that lands wins (storyboard p5–6).
 -->
-<OneTrade />
-
-They put something on the table. Not everything — a fixed slice of whatever the *poorer*
-one owns. So no one can ever stake more than they have.
-
-Then they flip a coin.
-
-<aside class="claim-note">
-  <p><strong>Heads, the first one takes the slice. Tails, the second.</strong></p>
-</aside>
-
-Nothing else decides it. Not who is bigger. Not who is smarter. Not who "deserves" it. A
-fair coin, every time.
-
-And *fair* here means one exact thing: before the flip, neither one expects to come out
-ahead. The winner gains exactly what the loser loses. No money is made. None is destroyed.
-It only moves.
-
-That is the whole game.
-
-## Watch a few
-
-Let me run a few by hand — I will pick the outcomes, just to show you the rule.
-
-<!--
-  WIDGET: ScriptedRounds — authored (non-random) outcome sequence, labelled as scripted; the
-  wealth numbers still come from the real trade rule, so "roughly equal" stays honest.
--->
-<ScriptedRounds />
-
-One wins, and pulls ahead. Next trade, it loses the slice straight back. Even again. A few
-more, back and forth — and look, everyone is roughly where they started.
-
-See? Symmetric. Win some, lose some. The money sloshes around and settles. Nothing runs
-away. How could it? The coin is fair.
-
-Hold on to that feeling. It is about to betray you.
+<PinScene>
+  <TradeScene />
+  <Caption beat={0}>Give it company. Someone new walks in — different colors, a little poorer.</Caption>
+  <Caption beat={1}>To trade, each antes the same slice: a fifth of whatever the <em>poorer</em> one owns. Nobody can stake more than they have.</Caption>
+  <Caption beat={2}>Then a two-sided coin, one side each. Whichever color lands takes the pot. Nothing else decides — not size, not shape, not who "deserves" it.</Caption>
+  <Caption beat={3}>A win, a loss — and everyone is roughly where they started. The winner took exactly what the loser lost. No money made, none destroyed. That is the whole game, and it is fair.</Caption>
+  <Caption beat={4}>Hold on to that feeling. It is about to betray you.</Caption>
+</PinScene>
 
 ## Your turn to guess
 
