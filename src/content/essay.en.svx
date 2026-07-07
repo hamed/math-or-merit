@@ -21,6 +21,7 @@
   import TaxGame from '$lib/widgets/tax/TaxGame.svelte';
   import TaxOnlyDemo from '$lib/widgets/tax/TaxOnlyDemo.svelte';
   import PhaseDiagram from '$lib/widgets/phase/PhaseDiagram.svelte';
+  import Sandbox from '$lib/widgets/sandbox/Sandbox.svelte';
 </script>
 
 <!--
@@ -434,6 +435,21 @@ One map, two regimes. Below the frontier, the stake outruns the levy and the roo
 toward its single owner — slower, but surely. Above it, the levy holds. And the frontier
 itself is not a straight trade-off: double the stake and you need roughly <em>four times</em>
 the tax to stand still.
+
+## The sandbox
+
+Everything you have seen was this one machine wearing different costumes. Here it is with
+every dial exposed: people, stake, interest, a flat levy or a progressive one you shape
+yourself. Break it. Save it. See what it takes.
+
+<!--
+  WIDGET: Sandbox — the "all bells and whistles" finale (review.md). SandboxWorld composes
+  engine primitives (shares sum 1 + totalDollars scalar; brackets in DOLLARS; interest
+  scales the total, not the shares — mechanism note in notes/research/extensions.md).
+  Beat-22 discipline: the progressive designer is a TOY — no empirical claim is made about
+  real tax design (Lima/Vieira/Anteneodo gate still open).
+-->
+<Sandbox />
 
 <StageChapter stage={MorphStage} initial="lone">
 

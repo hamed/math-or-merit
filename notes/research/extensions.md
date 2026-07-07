@@ -40,3 +40,22 @@ hide the main causal choice: who receives newly created wealth.
 
 **Defer.** The growth-allocation paper is a useful concrete lead. Subsistence and monetary
 policy remain model-definition tasks before they become literature-review questions.
+
+## Sandbox interest mechanism (2026-07-06, M9 build)
+
+The sandbox (`src/lib/widgets/sandbox/SandboxWorld.ts`) adds a "passive income"
+dial. Mechanism and accounting, for the record:
+
+- State stays shares-summing-to-1 plus one `totalDollars` scalar. Interest is a
+  **uniform return on capital**: `totalDollars *= (1 + r)` once per round. It
+  changes what a share is *worth*, never who holds it — shares are untouched,
+  Gini is unchanged by interest alone.
+- Its distributional bite appears only through **dollar-denominated brackets**:
+  a growing total pushes more agents across progressive thresholds, so the same
+  bracket schedule collects more as the room inflates (tested:
+  `SandboxWorld.test.ts` "growing total pushes agents across dollar thresholds").
+- Flat levies are proportional and therefore scale-free — interest and a flat
+  levy never interact.
+- This is a TOY surface. It is not a model of returns-to-wealth heterogeneity
+  (r > g style advantages would require per-agent rates — a different, gated
+  extension), and no prose claim rides on it.
