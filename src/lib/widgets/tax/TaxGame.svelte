@@ -3,31 +3,45 @@
   import RoomCanvas from '../shared/RoomCanvas.svelte';
   import { createTicker } from '../shared/ticker';
   import { countTrades, dollars, percent } from '../shared/format';
-  import { TaxWorld } from './TaxWorld';
+  import { measureWealth } from '$lib/research';
+  import { assignStyles } from '../shared/agentStyle';
+  import { TaxWorld, judgeGame } from './TaxWorld';
   import { ROOM_BETA, ROOM_N, START_DOLLARS } from '../shared/presets';
 
   const TRADES_PER_FRAME = 26; // ≈ 1,500 trades per second at 60 fps
   const LEVY_RATE = 0.25;
+  const ESCALATION = 0.012; // per levy; the tool itself raises the stakes
+  const LOSE_SHARE = 0.35;
+  const LOSE_SUSTAIN = 240; // frames ≈ 4 s over the line = game over
 
-  let world = $state(new TaxWorld({ n: ROOM_N, beta: ROOM_BETA, seed: Math.floor(Math.random() * 0xffff_ffff) }));
+  const styles = assignStyles(ROOM_N);
+
+  const newWorld = () =>
+    new TaxWorld({
+      n: ROOM_N,
+      beta: ROOM_BETA,
+      seed: Math.floor(Math.random() * 0xffff_ffff),
+      escalationPerLevy: ESCALATION,
+      betaMax: 0.5,
+    });
+
+  let world = $state(newWorld());
   let room: RoomCanvas | undefined = $state();
   let revision = $state(0);
   let running = $state(false);
   let started = $state(false);
+  let gameOver = $state(false);
   let topShare = $state(0);
+  let gini = $state(0);
   let taps = $state(0);
   let playMs = $state(0);
   let levied = $state(0);
+  let shareHistory: number[] = [];
 
   function measure(): void {
-    const w = world.wealth;
-    let total = 0;
-    let max = 0;
-    for (let i = 0; i < w.length; i++) {
-      total += w[i];
-      if (w[i] > max) max = w[i];
-    }
-    topShare = total === 0 ? 0 : max / total;
+    const metrics = measureWealth(world.wealth);
+    topShare = metrics.topShare;
+    gini = metrics.gini;
   }
 
   const ticker = createTicker((dt) => {
@@ -35,6 +49,13 @@
     world.step(TRADES_PER_FRAME);
     revision++;
     measure();
+    shareHistory.push(topShare);
+    if (shareHistory.length > LOSE_SUSTAIN + 8) shareHistory = shareHistory.slice(-LOSE_SUSTAIN - 4);
+    if (judgeGame(shareHistory, LOSE_SHARE, LOSE_SUSTAIN)) {
+      running = false;
+      gameOver = true;
+      ticker.stop();
+    }
   });
 
   function toggle(): void {
@@ -61,11 +82,13 @@
   function reset(): void {
     running = false;
     started = false;
+    gameOver = false;
     ticker.stop();
-    world = new TaxWorld({ n: ROOM_N, beta: ROOM_BETA, seed: Math.floor(Math.random() * 0xffff_ffff) });
+    world = newWorld();
     taps = 0;
     playMs = 0;
     levied = 0;
+    shareHistory = [];
     revision++;
     measure();
   }
@@ -75,6 +98,11 @@
   const trades = $derived.by(() => {
     void revision;
     return world.trades;
+  });
+
+  const stake = $derived.by(() => {
+    void revision;
+    return world.beta;
   });
 
   const seconds = $derived(Math.floor(playMs / 1000));
@@ -89,24 +117,40 @@
     bind:this={room}
     wealth={world.wealth}
     {revision}
+    {styles}
     height={340}
     onTap={running ? tap : null}
-    label="A live trading room; tap a circle to tax a quarter of its wealth and share it back equally"
+    label="A live trading room; tap a shape to tax a quarter of its wealth and share it back equally"
   />
 
   <div class="stats">
     <output>{seconds}s</output>
     <output>{countTrades(trades)} trades</output>
     <output>{taps} taps · {dollars(levied * ROOM_N * START_DOLLARS)} shared back</output>
-    <div class="meter" role="img" aria-label={`Biggest circle holds ${percent(topShare)}`}>
-      <div class="meter-fill" class:alarming={topShare > 0.4} style={`inline-size: ${Math.min(100, topShare * 100)}%`}></div>
-      <span class="meter-label">biggest circle: {percent(topShare)}</span>
+  </div>
+
+  <div class="stats">
+    <div class="meter" role="img" aria-label={`Biggest holder has ${percent(topShare)}`}>
+      <div class="meter-fill" class:alarming={topShare > LOSE_SHARE} style={`inline-size: ${Math.min(100, topShare * 100)}%`}></div>
+      <span class="meter-label">biggest: {percent(topShare)}</span>
+    </div>
+    <div class="meter" role="img" aria-label={`Gini ${gini.toFixed(2)}`}>
+      <div class="meter-fill" class:alarming={gini > 0.8} style={`inline-size: ${Math.min(100, gini * 100)}%`}></div>
+      <span class="meter-label">Gini: {gini.toFixed(2)}</span>
+    </div>
+    <div class="meter" role="img" aria-label={`Stake ${percent(stake)}`}>
+      <div class="meter-fill stake" style={`inline-size: ${Math.min(100, stake * 200)}%`}></div>
+      <span class="meter-label">stake: {percent(stake)}</span>
     </div>
   </div>
 
   <p class="caption" aria-live="polite">
-    {#if !started}
-      Tap a circle that has grown too fat: a quarter of its wealth is pulled out and shared back equally, all {ROOM_N} of them. The trading never stops for you.
+    {#if gameOver}
+      <strong>The room got away.</strong> You held it for {seconds}s and {countTrades(trades)} trades — by the end,
+      every tap was pushing the stake higher, and the stake always wins. Nothing was unfair along the way.
+    {:else if !started}
+      Tap a shape that has grown too fat: a quarter of its wealth is pulled out and shared back equally, all {ROOM_N} of them.
+      One catch — every levy nudges the stake up, so the room trades harder the more you intervene.
     {:else if !running}
       Paused. The room waits — it won’t when you’re back.
     {:else if topShare < 0.12}
@@ -119,8 +163,12 @@
   </p>
 
   <div class="toolbar">
-    <button class="primary" type="button" onclick={toggle}>{running ? 'Pause' : started ? 'Back to it' : 'Start the room'}</button>
-    <button type="button" onclick={reset} disabled={!started}>New room</button>
+    {#if gameOver}
+      <button class="primary" type="button" onclick={reset}>Try a fresh room</button>
+    {:else}
+      <button class="primary" type="button" onclick={toggle}>{running ? 'Pause' : started ? 'Back to it' : 'Start the room'}</button>
+      <button type="button" onclick={reset} disabled={!started}>New room</button>
+    {/if}
   </div>
 </div>
 
@@ -159,6 +207,10 @@
 
   .meter-fill.alarming {
     background: linear-gradient(90deg, rgb(139 63 43 / 55%), rgb(93 30 18 / 85%));
+  }
+
+  .meter-fill.stake {
+    background: linear-gradient(90deg, rgb(233 201 106 / 55%), rgb(138 106 42 / 80%));
   }
 
   .meter-label {
