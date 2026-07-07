@@ -11,4 +11,7 @@ import { MorphSVGPlugin } from 'gsap/MorphSVGPlugin';
 
 gsap.registerPlugin(ScrollTrigger, MorphSVGPlugin);
 
+/** The master timeline type scenes build into (see contract.ts). */
+export type StageTimeline = ReturnType<typeof gsap.timeline>;
+
 export { gsap, ScrollTrigger, MorphSVGPlugin };

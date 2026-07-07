@@ -1,4 +1,7 @@
 <script>
+  import PinScene from '$lib/widgets/stage/PinScene.svelte';
+  import Caption from '$lib/widgets/stage/Caption.svelte';
+  import CowScene from '$lib/widgets/stage/scenes/CowScene.svelte';
   import StageChapter from '$lib/widgets/stage/StageChapter.svelte';
   import MorphStage from '$lib/widgets/stage/MorphStage.svelte';
   import SceneMark from '$lib/widgets/stage/SceneMark.svelte';
@@ -95,39 +98,19 @@ It is too complex, isn't it?
   richer model behaves identically. Flow change logged in notes/draft-decisions.md (D3).
 -->
 
-<StageChapter stage={MorphStage} initial="cow">
-
-## Let me tell you a joke
-
-A farmer's cow stops giving milk. So he calls a physicist.
-
-She studies it for a long time. Then:
-
-<aside class="claim-note">
-  <p><strong>"First, assume a spherical cow."</strong></p>
-</aside>
-
-<SceneMark scene="sphere" />
-
-<aside class="claim-note">
-  <p><strong>"In a vacuum."</strong></p>
-</aside>
-
-<SceneMark scene="vacuum" />
-
-Ridiculous. Which is why it has lasted a hundred years.
-
-It is also the best trick in science: throw away every detail but one, and ask if that one
-is enough.
-
-And here is the catch that makes it honest. A spherical cow is the *easiest* cow to push
-uphill — no friction, no legs in the way. So if even it won't move, a square cow won't
-move, and a real cow won't either.
-
-<SceneMark scene="uphill" />
-
-The problem was never the shape. It was the weight.
-
+<!--
+  BUILD NOTE (2026-07-06, M1): the cow beat is the first PinScene — a scroll-scrubbed,
+  reversible GSAP timeline (ADR-013). Captions are the only visible text; the old prose
+  for this section lives in git history. Beat indices refer to CowScene.BEATS.
+-->
+<PinScene>
+  <CowScene />
+  <Caption beat={0}>A farmer's cow stops giving milk. So he calls a physicist.</Caption>
+  <Caption beat={1}>"First," she says, "assume a spherical cow."</Caption>
+  <Caption beat={2}>"In a vacuum."</Caption>
+  <Caption beat={3}>Ridiculous — and honest. A spherical cow is the <em>easiest</em> cow to push uphill. If even it won't move, no cow will.</Caption>
+  <Caption beat={4}>The problem was never the shape. It was the weight.</Caption>
+</PinScene>
 
 ## Now, the spherical human
 
@@ -138,6 +121,7 @@ Same trick. New subject.
   cow — the place stays, the occupant changes. Causal-claim guard kept in the words ("we are
   not going to explain how he got it"); brief §4. Logged in notes/draft-decisions.md (D5).
 -->
+<StageChapter stage={MorphStage} initial="person">
 <SceneMark scene="person" />
 
 Take the most-photographed fortune on earth. We are not going to explain how he got it. We
