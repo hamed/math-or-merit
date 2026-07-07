@@ -278,3 +278,26 @@ not established. They slot between beat 19 and the ending when cleared.
   to lean on the seam.
 - Widget keyboard access: the canvas rooms (tax game especially) are pointer-first; an
   accessible alternative input path is future polish.
+
+## D13 — Scrollytelling rebuild shipped (2026-07-06)
+
+The owner's review + storyboard (transcribed in [`storyboard.md`](storyboard.md))
+were built end-to-end on branch `claude/interactive-build` (M0–M10; ADR-013):
+
+- **D8 resolved:** the stage engine is PinScene — scroll-scrubbed reversible GSAP
+  timelines for authored beats; unpinned "yield" widgets on the reader's clock for
+  everything stochastic. Two clocks, enforced by structure.
+- **GSAP adopted** (owner-confirmed), quarantined behind `stage/gsap.ts` +
+  boundary test.
+- **Histogram AND Gini** (owner-confirmed): GiniStage builds Lorenz/Gini from the
+  reader's own room; Gini then powers the game meters, the phase map, the sandbox.
+- **Reveal runs unseeded** (storyboard): concentration claims stay distributional.
+- **Trait vocabulary is now agentStyle** (pastel fill + independent stroke + shape;
+  validated palette); traits.ts deleted; seed-501 winner promise re-guarded
+  ("a red pentagon with a teal edge").
+- **Formerly gated middle (beats 20–23) shipped with discipline:** TaxOnlyDemo
+  (no manual-vs-structural claim — that gate stays open), GiniStage, sandbox
+  progressive designer (toy, no policy claim), phase map (measured contour, FITTED
+  curve, stability memo in research/interventions.md).
+- **Open, unchanged:** reader studies A–D; redistribute-to-poorest fork (beat 19
+  parenthetical still flags it); full language pass (owner: "later").
