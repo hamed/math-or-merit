@@ -4,6 +4,7 @@
   import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
   import BeliefCloudScene from '$lib/widgets/stage/scenes/BeliefCloudScene.svelte';
   import CowScene from '$lib/widgets/stage/scenes/CowScene.svelte';
+  import PersonScene from '$lib/widgets/stage/scenes/PersonScene.svelte';
   import StageChapter from '$lib/widgets/stage/StageChapter.svelte';
   import MorphStage from '$lib/widgets/stage/MorphStage.svelte';
   import SceneMark from '$lib/widgets/stage/SceneMark.svelte';
@@ -87,59 +88,20 @@ Same trick. New subject.
   cow — the place stays, the occupant changes. Causal-claim guard kept in the words ("we are
   not going to explain how he got it"); brief §4. Logged in notes/draft-decisions.md (D5).
 -->
-<StageChapter stage={MorphStage} initial="person">
-<SceneMark scene="person" />
-
-Take the most-photographed fortune on earth. We are not going to explain how he got it. We
-are going to do to him exactly what the physicist did to the cow.
-
-First, assume a spherical human. In a vacuum.
-
-Throw away the companies, the employees, the investors, the contracts, the courts, the
-timing, the inheritance, the talent, the taste, the enemies, the luck — every argument we
-love to have about whether any of it was earned.
-
-<SceneMark scene="strip" />
-
-What is left is almost offensively small:
-
-<!-- REMARK(reduction line): authored, crude, UNATTRIBUTED; "money" not "net worth" (jargon). See notes/draft-decisions.md D6. -->
-<aside class="claim-note">
-  <p><strong>You are your money.</strong></p>
-</aside>
-
-I don't believe that sentence. I want it to feel wrong. The wrongness is the point.
-
-We are not describing a human being. We are building the smallest possible room: everyone
-starts equal, every trade is fair, and the only thing a person *is*, is a number.
-
-<SceneMark scene="circle" />
-
-If even that room fills with billionaires and paupers, then the weight was never the shape
-of the person. It was the math.
-
-
-## Then we add the money
-
-So: a circle. That is the person now. Give it a coin —
-
-<SceneMark scene="coin" />
-
-— and it grows.
-
-The size is the money: the area, not the width. A circle twice as wide is four times as
-rich. Big circle, big fortune. That is the whole language.
-
-<!-- TEST(Study A, reader-study.md): can readers rank circles, read the direction of a change, and judge rough ratios from area alone, without colour? Revisit if area is misread as radius. -->
-
-Now there is not one circle but a roomful, every one the same size — same circle, same
-coin, same chance.
-
-<SceneMark scene="room" />
-
-Then they begin to trade.
-
-</StageChapter>
+<!--
+  REMARK(reduction line): authored, crude, UNATTRIBUTED; "money" not "net worth" (jargon).
+  See notes/draft-decisions.md D6. The area-honesty lesson rides the 'coins' beat caption.
+  TEST(Study A, reader-study.md): can readers rank circles and judge rough ratios from
+  area alone? Revisit if area is misread as radius.
+-->
+<PinScene>
+  <PersonScene />
+  <Caption beat={0}>Take the most-photographed fortune on earth. We won't explain how he got it — we'll do to him exactly what the physicist did to the cow.</Caption>
+  <Caption beat={1}>Throw away the companies, the timing, the inheritance, the talent, the luck — every argument about whether any of it was earned.</Caption>
+  <Caption beat={2}>What is left is almost offensively small.</Caption>
+  <Caption beat={3}><strong>You are your money.</strong> The area is the fortune: twice as wide, four times as rich.</Caption>
+  <Caption beat={4}>I want that to feel wrong. The wrongness is the point. We are building the smallest possible room — a person is a number, nothing else.</Caption>
+</PinScene>
 
 ## One trade
 

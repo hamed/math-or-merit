@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { radiusScale, roomPositions, type Point } from './layout';
+  import { drawAgents } from './roomRenderer';
+  import type { AgentStyle } from './agentStyle';
   import type { TraitShape } from './traits';
 
   interface Props {
@@ -8,6 +10,9 @@
     wealth: ArrayLike<number>;
     /** Bump to tell the canvas the wealth values changed. */
     revision?: number;
+    /** Per-agent pastel fill / stroke / shape (agentStyle.ts). */
+    styles?: readonly AgentStyle[] | null;
+    /** Legacy trait shapes; ignored when styles are given. */
     shapes?: readonly TraitShape[] | null;
     winner?: number | null;
     highlight?: readonly number[];
@@ -19,6 +24,7 @@
   let {
     wealth,
     revision = 0,
+    styles = null,
     shapes = null,
     winner = null,
     highlight = [],
@@ -56,74 +62,10 @@
     return scale * Math.sqrt(Math.max(0, share));
   }
 
-  function tracePath(ctx: CanvasRenderingContext2D, shape: TraitShape | null, x: number, y: number, r: number): void {
-    ctx.beginPath();
-    if (shape === null) {
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      return;
-    }
-    const area = Math.PI * r * r;
-    if (shape === 'square' || shape === 'diamond') {
-      const half = Math.sqrt(area) / 2;
-      if (shape === 'square') {
-        ctx.rect(x - half, y - half, half * 2, half * 2);
-      } else {
-        const d = half * Math.SQRT2;
-        ctx.moveTo(x, y - d);
-        ctx.lineTo(x + d, y);
-        ctx.lineTo(x, y + d);
-        ctx.lineTo(x - d, y);
-        ctx.closePath();
-      }
-      return;
-    }
-    if (shape === 'triangle') {
-      const side = Math.sqrt((4 * area) / Math.sqrt(3));
-      const h = (side * Math.sqrt(3)) / 2;
-      ctx.moveTo(x, y - (2 / 3) * h);
-      ctx.lineTo(x + side / 2, y + h / 3);
-      ctx.lineTo(x - side / 2, y + h / 3);
-      ctx.closePath();
-      return;
-    }
-    if (shape === 'hexagon') {
-      const rr = Math.sqrt(area / 2.598);
-      for (let k = 0; k < 6; k++) {
-        const a = (Math.PI / 3) * k - Math.PI / 6;
-        const px = x + rr * Math.cos(a);
-        const py = y + rr * Math.sin(a);
-        if (k === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      return;
-    }
-    if (shape === 'star') {
-      const outer = Math.sqrt(area / 1.12);
-      const inner = outer * 0.475;
-      for (let k = 0; k < 10; k++) {
-        const rr = k % 2 === 0 ? outer : inner;
-        const a = (Math.PI / 5) * k - Math.PI / 2;
-        const px = x + rr * Math.cos(a);
-        const py = y + rr * Math.sin(a);
-        if (k === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      return;
-    }
-    // heart
-    const s = Math.sqrt(area / 2.05);
-    ctx.moveTo(x, y + s);
-    ctx.bezierCurveTo(x - 1.5 * s, y - 0.1 * s, x - 0.6 * s, y - 1.1 * s, x, y - 0.45 * s);
-    ctx.bezierCurveTo(x + 0.6 * s, y - 1.1 * s, x + 1.5 * s, y - 0.1 * s, x, y + s);
-    ctx.closePath();
-  }
-
   function draw(now: number): void {
     const ctx = canvas.getContext('2d');
     if (!ctx || width === 0) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
@@ -133,53 +75,26 @@
     ensureLayout();
 
     order.sort((a, b) => displayed[b] - displayed[a]);
-    const highlightSet = new Set(highlight);
 
-    for (const i of order) {
-      const p = positions[i];
-      let x = p.x;
-      const pulseStart = pulses.get(i);
-      let pulseT = -1;
-      if (pulseStart !== undefined) {
-        pulseT = (now - pulseStart) / 550;
-        if (pulseT >= 1) {
-          pulses.delete(i);
-          pulseT = -1;
-        } else {
-          x += Math.sin(pulseT * 26) * 2.4 * (1 - pulseT);
-        }
-      }
-      const r = radius(displayed[i]);
-      if (r < 0.7) {
-        ctx.fillStyle = 'rgb(110 85 62 / 60%)';
-        ctx.fillRect(x - 0.7, p.y - 0.7, 1.4, 1.4);
-        continue;
-      }
-      const isWinner = winner === i;
-      const isHot = highlightSet.has(i);
-      tracePath(ctx, shapes ? shapes[i] : null, x, p.y, r);
-      ctx.fillStyle = isWinner ? 'rgb(139 63 43 / 45%)' : 'rgb(189 98 69 / 26%)';
-      ctx.fill();
-      ctx.strokeStyle = isWinner ? '#4d271c' : isHot ? '#2e2a23' : '#96543c';
-      ctx.lineWidth = isWinner || isHot ? 2.2 : 1.2;
-      ctx.stroke();
-      if (isWinner) {
-        ctx.beginPath();
-        ctx.arc(x, p.y, r + 5, 0, Math.PI * 2);
-        ctx.setLineDash([4, 5]);
-        ctx.lineWidth = 1.4;
-        ctx.strokeStyle = 'rgb(77 39 28 / 65%)';
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      if (pulseT >= 0) {
-        ctx.beginPath();
-        ctx.arc(x, p.y, r + 4 + pulseT * 20, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgb(139 63 43 / ${(1 - pulseT) * 0.6})`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
+    // pulse progress in [0, 1); expired entries drop out
+    const pulseProgress = new Map<number, number>();
+    for (const [i, start] of pulses) {
+      const t = (now - start) / 550;
+      if (t >= 1) pulses.delete(i);
+      else pulseProgress.set(i, t);
     }
+
+    drawAgents(ctx, {
+      positions,
+      displayed,
+      order,
+      scale,
+      styles,
+      shapes,
+      winner,
+      highlight: new Set(highlight),
+      pulses: pulseProgress,
+    });
   }
 
   function tick(now: number): void {
@@ -241,6 +156,7 @@
     void winner;
     void highlight;
     void wealth;
+    void styles;
     start();
   });
 
@@ -276,14 +192,9 @@
 </div>
 
 <style>
+  /* frameless: agents sit directly on the paper */
   .room {
     inline-size: 100%;
-    border: 1px solid #d8cdb9;
-    border-radius: 0.9rem;
-    background:
-      radial-gradient(circle at 30% 20%, rgb(255 255 255 / 55%), transparent 60%),
-      #fbf6ea;
-    overflow: hidden;
   }
 
   .room.tappable {
