@@ -4,7 +4,10 @@
   import { latestRun } from '../shared/runLog.svelte';
   import { dollars } from '../shared/format';
   import { linearBins, toDollars } from './binning';
-  import { REVEAL_SEED, REVEAL_TRADES, START_DOLLARS } from '../shared/presets';
+  import { assignStyles } from '../shared/agentStyle';
+  import { REVEAL_SEED, REVEAL_TRADES, ROOM_N, START_DOLLARS } from '../shared/presets';
+
+  const styles = assignStyles(ROOM_N);
 
   const VIEW_W = 480;
   const VIEW_H = 330;
@@ -104,7 +107,7 @@
       <circle
         class="dot"
         class:winner={i === run.winner}
-        style={`transform: ${dotTransform(i)}`}
+        style={`transform: ${dotTransform(i)}; fill: ${styles[i].fill}; stroke: ${styles[i].stroke};`}
         r={dotRadius(i)}
       />
     {/each}
@@ -131,26 +134,18 @@
     display: block;
     inline-size: 100%;
     block-size: auto;
-    border: 1px solid #d8cdb9;
-    border-radius: 0.9rem;
-    background:
-      radial-gradient(circle at 30% 20%, rgb(255 255 255 / 55%), transparent 60%),
-      #fbf6ea;
   }
 
   .dot {
-    fill: rgb(189 98 69 / 34%);
-    stroke: #96543c;
     stroke-width: 1;
+    fill-opacity: 0.8;
     transition:
       transform 0.8s cubic-bezier(0.45, 0, 0.2, 1),
       r 0.8s cubic-bezier(0.45, 0, 0.2, 1);
   }
 
   .dot.winner {
-    fill: rgb(139 63 43 / 55%);
-    stroke: #4d271c;
-    stroke-width: 1.6;
+    stroke-width: 1.8;
   }
 
   .bar {

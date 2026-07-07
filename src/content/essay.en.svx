@@ -14,6 +14,7 @@
   import WinnerStory from '$lib/widgets/winner/WinnerStory.svelte';
   import BinsStage from '$lib/widgets/distribution/BinsStage.svelte';
   import AxisStage from '$lib/widgets/distribution/AxisStage.svelte';
+  import GiniStage from '$lib/widgets/distribution/GiniStage.svelte';
   import CrowdRun from '$lib/widgets/crowd/CrowdRun.svelte';
   import TimeLapse from '$lib/widgets/ending/TimeLapse.svelte';
   import StakeDial from '$lib/widgets/dial/StakeDial.svelte';
@@ -258,6 +259,24 @@ no spot on this ruler. The truly empty sit in their own pile, off to the side.)
   TEST(Study C, reader-study.md): does a side-by-side linear↔log transform plus a comprehension
   check leave readers able to read ratios? A bare label is not enough (Ryan & Evers).
 -->
+
+## One number for the whole room
+
+A histogram is a picture. Sometimes you need a single number instead — to compare two
+rooms, or to watch one room drift.
+
+<!--
+  WIDGET: GiniStage — the Gini coefficient built FROM the same circles the reader watched
+  (latest logged run; reveal-room fallback): line up, accumulate (Lorenz), equal line,
+  shaded gap. Same build-it-from-the-people animation style as the histogram (review.md:
+  "we can do the same for gini"). Beat 21 discipline: introduced only for comparing whole
+  rooms; top share stays beside it; no per-trade Gini claims (C5).
+-->
+<GiniStage />
+
+Zero: everyone holds the same. One: a single owner and everyone else at nothing. This room
+already speaks for itself — and now it can be compared with any other room, later, with one
+number.
 
 ## More of them
 

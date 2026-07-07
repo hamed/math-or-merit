@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { createEngine } from '$lib/sim';
+  import { measureWealth } from '$lib/research';
   import { createTicker } from '../shared/ticker';
-  import { countTrades, dollars } from '../shared/format';
+  import { countTrades, dollars, dollarsCompact, percent } from '../shared/format';
   import { logBins, toDollars } from '../distribution/binning';
-  import { CROWD_BETA, CROWD_N, CROWD_SEED, CROWD_TRADES, DUST_DOLLARS, START_DOLLARS } from '../shared/presets';
+  import { CROWD_BETA, CROWD_N, CROWD_SEED, CROWD_START_DOLLARS, CROWD_TRADES, DUST_DOLLARS } from '../shared/presets';
 
   const DURATION_MS = 7000;
   const HEIGHT = 300;
@@ -18,16 +19,21 @@
   let finished = $state(false);
   let trades = $state(0);
   let dustCount = $state(0);
-  let topDollars = $state(START_DOLLARS);
+  let topDollars = $state(CROWD_START_DOLLARS);
+  let topShare = $state(1 / CROWD_N);
+  let gini = $state(0);
   let elapsed = 0;
 
   function measureAndDraw(): void {
-    const amounts = toDollars(engine.state.wealth, START_DOLLARS);
+    const amounts = toDollars(engine.state.wealth, CROWD_START_DOLLARS);
     const bins = logBins(amounts, DUST_DOLLARS);
     dustCount = bins.dustCount;
     let max = 0;
     for (let i = 0; i < amounts.length; i++) max = Math.max(max, amounts[i]);
     topDollars = max;
+    const metrics = measureWealth(engine.state.wealth);
+    topShare = metrics.topShare;
+    gini = metrics.gini;
 
     const ctx = canvas?.getContext('2d');
     if (!ctx || width === 0) return;
@@ -44,11 +50,13 @@
     const plotW = width - 2 * plotX;
     const slots = 1 + bins.counts.length; // dust pile + decades
     const slotW = plotW / slots;
-    const yScale = (baseline - 26) / CROWD_N;
+    // log-y (storyboard p8): the 800-strong dust wall must not crush the tail
+    const yMax = baseline - 26;
+    const yOf = (count: number) => (yMax * Math.log10(count + 1)) / Math.log10(CROWD_N + 1);
 
     const drawBar = (slot: number, count: number, label: string, dust: boolean) => {
       const x = plotX + slot * slotW + 5;
-      const h = Math.max(count > 0 ? 2 : 0, count * yScale);
+      const h = Math.max(count > 0 ? 2 : 0, yOf(count));
       ctx.fillStyle = dust ? 'rgb(110 85 62 / 38%)' : 'rgb(189 98 69 / 55%)';
       ctx.strokeStyle = dust ? '#8a7a64' : '#96543c';
       if (dust) ctx.setLineDash([5, 4]);
@@ -67,7 +75,7 @@
 
     drawBar(0, bins.dustCount, '≈ 0', true);
     for (let b = 0; b < bins.counts.length; b++) {
-      drawBar(b + 1, bins.counts[b], dollars(bins.edges[b]), false);
+      drawBar(b + 1, bins.counts[b], dollarsCompact(bins.edges[b]), false);
     }
 
     ctx.strokeStyle = '#a99980';
@@ -77,7 +85,7 @@
     ctx.stroke();
     ctx.fillStyle = '#8b3f2b';
     ctx.font = 'italic 11px Vazirmatn, system-ui, sans-serif';
-    ctx.fillText('each pile to the right: ten times the money', plotX + plotW / 2, baseline + 34);
+    ctx.fillText('ten times the money per step — and bar height is stepped too, so the tail stays visible', plotX + plotW / 2, baseline + 34);
   }
 
   const ticker = createTicker((dt) => {
@@ -124,9 +132,17 @@
     <canvas bind:this={canvas} style={`block-size: ${HEIGHT}px`}></canvas>
   </div>
 
+  <div class="meters" aria-live="off">
+    <div class="meter" role="img" aria-label={`Richest person holds ${percent(topShare)} of everything`}>
+      <div class="meter-fill" style={`inline-size: ${Math.min(100, topShare * 100)}%`}></div>
+      <span class="meter-label">richest holds {percent(topShare)}</span>
+    </div>
+    <output class="gini-out">Gini {gini.toFixed(2)}</output>
+  </div>
+
   <p class="caption" aria-live="polite">
     {#if trades === 0}
-      One thousand people, $100 each, $100,000 in the room. Same rule, same fair coin.
+      One thousand people, $10,000 each, $10 million in the room. Same rule, same fair coin.
     {:else}
       {countTrades(trades)} trades · {dustCount} of 1,000 below one cent · the richest holds {dollars(topDollars)}.
     {/if}
@@ -142,16 +158,51 @@
 <style>
   .plot {
     inline-size: 100%;
-    border: 1px solid #d8cdb9;
-    border-radius: 0.9rem;
-    background:
-      radial-gradient(circle at 30% 20%, rgb(255 255 255 / 55%), transparent 60%),
-      #fbf6ea;
-    overflow: hidden;
   }
 
   canvas {
     display: block;
     inline-size: 100%;
+  }
+
+  .meters {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-block-start: 0.6rem;
+  }
+
+  .meter {
+    position: relative;
+    flex: 1;
+    block-size: 1.5rem;
+    border: 1px solid #cbbfa8;
+    border-radius: 999px;
+    background: var(--paper-bright);
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    block-size: 100%;
+    background: linear-gradient(90deg, rgb(189 98 69 / 35%), rgb(139 63 43 / 75%));
+    transition: inline-size 0.2s linear;
+  }
+
+  .meter-label {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 0.8rem;
+    transform: translateY(-50%);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #3c352b;
+    white-space: nowrap;
+  }
+
+  .gini-out {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #3c352b;
   }
 </style>

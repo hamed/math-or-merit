@@ -3,7 +3,10 @@
   import { latestRun } from '../shared/runLog.svelte';
   import { dollars } from '../shared/format';
   import { toDollars } from './binning';
-  import { DUST_DOLLARS, REVEAL_SEED, REVEAL_TRADES, START_DOLLARS } from '../shared/presets';
+  import { assignStyles } from '../shared/agentStyle';
+  import { DUST_DOLLARS, REVEAL_SEED, REVEAL_TRADES, ROOM_N, START_DOLLARS } from '../shared/presets';
+
+  const styles = assignStyles(ROOM_N);
 
   const VIEW_W = 480;
   const VIEW_H = 300;
@@ -95,7 +98,7 @@
         class="dot"
         class:winner={i === run.winner}
         class:dust={p.dust}
-        style={`transform: translate(${p.x}px, ${p.y}px)`}
+        style={`transform: translate(${p.x}px, ${p.y}px); fill: ${styles[i].fill}; stroke: ${styles[i].stroke};`}
         r={DOT_R}
       />
     {/each}
@@ -124,29 +127,20 @@
     display: block;
     inline-size: 100%;
     block-size: auto;
-    border: 1px solid #d8cdb9;
-    border-radius: 0.9rem;
-    background:
-      radial-gradient(circle at 30% 20%, rgb(255 255 255 / 55%), transparent 60%),
-      #fbf6ea;
   }
 
   .dot {
-    fill: rgb(189 98 69 / 40%);
-    stroke: #96543c;
     stroke-width: 1;
+    fill-opacity: 0.8;
     transition: transform 0.9s cubic-bezier(0.45, 0, 0.2, 1);
   }
 
   .dot.winner {
-    fill: rgb(139 63 43 / 60%);
-    stroke: #4d271c;
-    stroke-width: 1.6;
+    stroke-width: 1.8;
   }
 
   .dot.dust {
-    fill: rgb(110 85 62 / 45%);
-    stroke: #8a7a64;
+    fill-opacity: 0.4;
   }
 
   .axis {
