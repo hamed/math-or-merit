@@ -121,8 +121,19 @@
   }
 
   .option circle {
-    fill: rgb(189 98 69 / 30%);
-    stroke: #96543c;
+    fill: var(--agent-fill-red);
+    fill-opacity: 0.75;
+    stroke: var(--agent-stroke-blue);
     stroke-width: 1.2;
+  }
+
+  .option circle:nth-child(3n + 2) {
+    fill: var(--agent-fill-blue);
+    stroke: var(--agent-stroke-violet);
+  }
+
+  .option circle:nth-child(3n) {
+    fill: var(--agent-fill-green);
+    stroke: var(--agent-stroke-pink);
   }
 </style>

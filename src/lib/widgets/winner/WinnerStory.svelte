@@ -1,21 +1,21 @@
 <script lang="ts">
   import RoomCanvas from '../shared/RoomCanvas.svelte';
   import { completedRoomRun, type LoggedRun } from '../shared/roomRun';
-  import { assignShapes, headlineFor, shapeNoun } from '../shared/traits';
+  import { assignStyles, headlineForStyle, styleNoun } from '../shared/agentStyle';
   import { percent } from '../shared/format';
   import { REVEAL_TRADES, ROOM_N, WINNER_FIRST_SEED, WINNER_RERUN_SEED } from '../shared/presets';
 
   interface Props {
-    /** 'first' shows the curated square-crowning run; 'rerun' rolls new rooms. */
+    /** 'first' shows a curated run; 'rerun' rolls new rooms. */
     mode: 'first' | 'rerun';
   }
 
   let { mode }: Props = $props();
 
-  // GUARD (beat 13): shapes are dealt round-robin before any run and live only
+  // GUARD (beat 13): styles are dealt by index before any run and live only
   // in this display layer. The engine below never sees them — it cannot: the
-  // sim package has no import path to traits.
-  const shapes = assignShapes(ROOM_N);
+  // sim package has no import path to agentStyle.
+  const styles = assignStyles(ROOM_N);
 
   // `mode` is fixed per essay slot; reading it once at init is intentional.
   // svelte-ignore state_referenced_locally
@@ -25,8 +25,8 @@
   let run = $state<LoggedRun>(completedRoomRun(firstSeed, REVEAL_TRADES));
   let revision = $state(0);
 
-  const winnerShape = $derived(shapes[run.winner]);
-  const headline = $derived(headlineFor(winnerShape, runCount));
+  const winnerStyle = $derived(styles[run.winner]);
+  const headline = $derived(headlineForStyle(winnerStyle, runCount));
 
   function again(): void {
     runCount++;
@@ -44,18 +44,18 @@
   <RoomCanvas
     wealth={run.wealth}
     {revision}
-    {shapes}
+    {styles}
     winner={run.winner}
     height={300}
-    label={`The finished room: the winner, ${shapeNoun(winnerShape)}, holds ${percent(run.topShare)} of everything`}
+    label={`The finished room: the winner, ${styleNoun(winnerStyle)}, holds ${percent(run.topShare)} of everything`}
   />
 
   <p class="caption" aria-live="polite">
-    The winner: <strong>{shapeNoun(winnerShape)}</strong>, holding {percent(run.topShare)} of the room.
+    The winner: <strong>{styleNoun(winnerStyle)}</strong>, holding {percent(run.topShare)} of the room.
     {#if mode === 'rerun' && runCount > 0}
       A fresh room, a fresh coin — and the headline is just as sure of itself.
     {:else}
-      The shapes were dealt out before the first trade, at random, and never touched the game.
+      The colors and shapes were dealt out before the first trade, by position, and never touched the game.
     {/if}
   </p>
 

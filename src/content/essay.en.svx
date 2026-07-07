@@ -140,9 +140,10 @@ scroll.
 
 <!--
   WIDGET: RevealRun mode="reveal" — the real Yard-Sale rule, tuned preset, no parameter
-  controls. Seeded (332) and reproducible: top share 71%, runner-up 8.8%.
-  Claim discipline: describes the finite run only — NO power-law or distribution-family
-  claim here (gated, Chapter III). Convergence-to-one-owner is the asymptotic beat 17.
+  controls. UNSEEDED per the storyboard ("do not use seed, let every run be different");
+  median top share ≈ 45% at this preset, so the concentration claim is distributional,
+  never per-run. Claim discipline: describes the finite run only — NO power-law or
+  distribution-family claim here (gated, Chapter III). Asymptotics are beat 17.
 -->
 <RevealRun mode="reveal" />
 
@@ -183,12 +184,12 @@ The room has its winner. The next morning, the news explains them.
 -->
 <WinnerStory mode="first" />
 
-Look at them. A square, in a room full of circles. Sharper. More decisive. Built to win.
-The story writes itself.
+Look at them. A red pentagon with a teal edge, in a room of every other mix. Sharper. More
+decisive. Built to win. The story writes itself.
 
-And it is a lie. That trait — being a square — never touched the game. Not the coin, not
-who got picked, not the stake. I handed out the shapes at random before the first trade,
-and not one of them changed a single outcome.
+And it is a lie. That trait — the color, the edge, the corners — never touched the game.
+Not the coin, not who got picked, not the stake. I dealt the looks out before the first
+trade, and not one of them changed a single outcome.
 
 <!--
   WIDGET: WinnerStory mode="rerun" — run again: a different winner, a different distinctive

@@ -5,20 +5,26 @@
   import { createTicker } from '../shared/ticker';
   import { countTrades, percent } from '../shared/format';
   import { logRun, predictionLabel, session } from '../shared/runLog.svelte';
-  import { REVEAL_SEED, REVEAL_TRADES, ROOM_BETA, ROOM_N } from '../shared/presets';
+  import { REVEAL_TRADES, ROOM_BETA, ROOM_N } from '../shared/presets';
+  import { assignStyles, styleNoun } from '../shared/agentStyle';
 
   interface Props {
-    /** 'reveal' replays the curated seed; 'rerun' rolls a new seed every run. */
+    /** 'reveal' is the first dramatic run; 'rerun' keeps a winners history. Both roll fresh dice every run (storyboard: no seed). */
     mode: 'reveal' | 'rerun';
   }
 
   let { mode }: Props = $props();
 
+  // Display-only styles, dealt before any run (agentStyle.ts GUARD).
+  const styles = assignStyles(ROOM_N);
+
   // `mode` is fixed per essay slot; reading it once at init is intentional.
   // svelte-ignore state_referenced_locally
   const DURATION_MS = mode === 'reveal' ? 9000 : 3600;
 
-  let engine: SimEngine = $state(createEngine({ n: ROOM_N, beta: ROOM_BETA, seed: REVEAL_SEED }));
+  const freshSeed = () => Math.floor(Math.random() * 0xffff_ffff);
+
+  let engine: SimEngine = $state(createEngine({ n: ROOM_N, beta: ROOM_BETA, seed: freshSeed() }));
   let revision = $state(0);
   let running = $state(false);
   let finished = $state(false);
@@ -82,10 +88,9 @@
 
   function run(): void {
     if (running) return;
-    if (mode === 'rerun') {
-      engine = createEngine({ n: ROOM_N, beta: ROOM_BETA, seed: Math.floor(Math.random() * 0xffff_ffff) });
-    } else if (finished) {
-      engine.reset();
+    if (finished) {
+      // every run rolls new dice — no curated seed, per the storyboard
+      engine = createEngine({ n: ROOM_N, beta: ROOM_BETA, seed: freshSeed() });
     }
     elapsed = 0;
     finished = false;
@@ -109,11 +114,12 @@
   <RoomCanvas
     wealth={engine.state.wealth}
     {revision}
+    {styles}
     {winner}
     height={320}
     label={mode === 'reveal'
-      ? 'One hundred circles trading; one grows enormous while the rest shrink'
-      : 'The same room re-run with a fresh seed; a different circle wins'}
+      ? 'One hundred shapes trading; one grows enormous while the rest shrink'
+      : 'The same room re-run with fresh dice; a different shape wins'}
   />
 
   <div class="readout">
@@ -131,9 +137,9 @@
       {:else if running}
         No one is cheating. Watch the sizes.
       {:else}
-        The biggest circle holds <strong>{percent(topShare)}</strong> of everything there is.
+        The winner — {winner !== null ? styleNoun(styles[winner]) : 'one of them'} — holds
+        <strong>{percent(topShare)}</strong> of everything there is.
         {guess ? `You guessed: ${guess.toLowerCase()}.` : ''}
-        This exact run replays identically — it is seeded. The next widget rolls fresh dice.
       {/if}
     {:else if history.length === 0}
       Same rule, same equal start — but this time the dice are new every run.
@@ -151,15 +157,15 @@
       {#if running}
         Trading…
       {:else if mode === 'reveal'}
-        {finished ? 'Replay the same run' : `Run ${countTrades(REVEAL_TRADES)} trades`}
+        {finished ? 'Run it again — new dice' : `Run ${countTrades(REVEAL_TRADES)} trades`}
       {:else}
         {history.length === 0 ? 'Run it again — new dice' : 'Again'}
       {/if}
     </button>
     {#if mode === 'rerun' && history.length > 0}
       <ul class="history" aria-label="Winners so far">
-        {#each history.slice(-4) as h, i (h.seed)}
-          <li>circle #{h.winner + 1} took {percent(h.topShare)}</li>
+        {#each history.slice(-4) as h (h.seed)}
+          <li>{styleNoun(styles[h.winner])} took {percent(h.topShare)}</li>
         {/each}
       </ul>
     {/if}

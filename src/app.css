@@ -366,17 +366,17 @@ a:hover {
 
 /* ---------- shared widget chrome ---------- */
 
+/* frameless yield sections: a full viewport each, content on bare paper */
 .widget {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   max-inline-size: 52rem;
-  margin-block: 2.8rem;
+  min-block-size: 100svh;
+  margin-block: 1.5rem;
   margin-inline: auto;
   padding-block: clamp(1rem, 3vw, 1.5rem);
-  padding-inline: clamp(1rem, 3vw, 1.5rem);
-  border: 1px solid #d3c7b0;
-  border-radius: 1.1rem;
-  background: #fffaf0;
-  box-shadow: 0 1rem 2.6rem rgb(65 50 29 / 8%);
-  font-family: Vazirmatn, system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .widget p {

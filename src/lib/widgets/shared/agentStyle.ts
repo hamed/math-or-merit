@@ -81,3 +81,45 @@ export function assignStyles(n: number): AgentStyle[] {
 export function styleNoun(style: AgentStyle): string {
   return `a ${style.fillName} ${style.shape} with a ${style.strokeName} edge`;
 }
+
+export interface WinnerHeadline {
+  readonly text: string;
+  readonly source: string;
+}
+
+/**
+ * Confident machine-written success stories for the winner's inert traits.
+ * $FILL / $STROKE / $SHAPE interpolate the winner's style so every rerun gets
+ * a fresh, equally-sure headline about a trait that never touched the game.
+ */
+const HEADLINE_TEMPLATES: Record<AgentShape, readonly WinnerHeadline[]> = {
+  circle: [
+    { text: 'The $FILL circle that out-rolled the room', source: 'No corners, no friction, no mercy — the roundness advantage, explained' },
+    { text: 'Well-rounded and worth it', source: 'Why $FILL-with-$STROKE is the palette of quiet winners' },
+  ],
+  triangle: [
+    { text: 'Born pointing up', source: 'Three corners, no doubts: anatomy of a $FILL triangle that never looked down' },
+    { text: 'The triangle method', source: 'The sharpest angle in the room always finds the top' },
+  ],
+  square: [
+    { text: 'Squares: the shape of success', source: 'How one $FILL square with a $STROKE edge out-played the room' },
+    { text: 'Think inside the box', source: 'The square strategy every circle refuses to learn' },
+  ],
+  pentagon: [
+    { text: 'Five sides of vision', source: 'The $FILL pentagon that saw what the room could not' },
+    { text: 'The pentagon principle', source: 'One side more than a square — and it shows in the numbers' },
+  ],
+  hexagon: [
+    { text: 'Six sides of genius', source: 'The most efficient shape in nature does it again — in $FILL, edged $STROKE' },
+    { text: 'The hexagon habit', source: 'Six small edges, one enormous advantage' },
+  ],
+};
+
+/** A headline for the winner's style; `run` cycles the variants. */
+export function headlineForStyle(style: AgentStyle, run = 0): WinnerHeadline {
+  const variants = HEADLINE_TEMPLATES[style.shape];
+  const pick = variants[Math.abs(run) % variants.length];
+  const fill = (s: string) =>
+    s.replaceAll('$FILL', style.fillName).replaceAll('$STROKE', style.strokeName).replaceAll('$SHAPE', style.shape);
+  return { text: fill(pick.text), source: fill(pick.source) };
+}

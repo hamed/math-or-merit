@@ -42,3 +42,22 @@ describe('styleNoun', () => {
     expect(styleNoun(first)).toBe(`a ${first.fillName} ${first.shape} with a ${first.strokeName} edge`);
   });
 });
+
+describe('headlineForStyle', () => {
+  it('interpolates the winner style and leaves no placeholders', async () => {
+    const { headlineForStyle } = await import('./agentStyle');
+    for (const style of assignStyles(30)) {
+      for (const run of [0, 1, 2]) {
+        const h = headlineForStyle(style, run);
+        expect(h.text + h.source).not.toMatch(/\$(FILL|STROKE|SHAPE)/);
+        expect(h.text.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('cycles variants across reruns', async () => {
+    const { headlineForStyle } = await import('./agentStyle');
+    const [style] = assignStyles(1);
+    expect(headlineForStyle(style, 0)).not.toEqual(headlineForStyle(style, 1));
+  });
+});
