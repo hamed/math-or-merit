@@ -3,24 +3,13 @@
  * scenes, RoomCanvas, and the sandbox all draw through this so the agent
  * look (pastel fill, independent stroke, shape, winner ring) has one home.
  */
-import type { AgentStyle } from './agentStyle';
+import type { AgentShape, AgentStyle } from './agentStyle';
 import type { Point } from './layout';
-
-/** Union of current agent shapes and the legacy trait vocabulary. */
-export type DrawableShape =
-  | 'circle'
-  | 'triangle'
-  | 'square'
-  | 'pentagon'
-  | 'hexagon'
-  | 'diamond'
-  | 'star'
-  | 'heart';
 
 /** Trace an equal-area shape centered on (x, y); area = π·r². */
 export function traceShape(
   ctx: CanvasRenderingContext2D,
-  shape: DrawableShape | null,
+  shape: AgentShape | null,
   x: number,
   y: number,
   r: number,
@@ -31,18 +20,9 @@ export function traceShape(
     return;
   }
   const area = Math.PI * r * r;
-  if (shape === 'square' || shape === 'diamond') {
+  if (shape === 'square') {
     const half = Math.sqrt(area) / 2;
-    if (shape === 'square') {
-      ctx.rect(x - half, y - half, half * 2, half * 2);
-    } else {
-      const d = half * Math.SQRT2;
-      ctx.moveTo(x, y - d);
-      ctx.lineTo(x + d, y);
-      ctx.lineTo(x, y + d);
-      ctx.lineTo(x - d, y);
-      ctx.closePath();
-    }
+    ctx.rect(x - half, y - half, half * 2, half * 2);
     return;
   }
   if (shape === 'triangle') {
@@ -67,37 +47,15 @@ export function traceShape(
     ctx.closePath();
     return;
   }
-  if (shape === 'hexagon') {
-    const rr = Math.sqrt(area / 2.598);
-    for (let k = 0; k < 6; k++) {
-      const a = (Math.PI / 3) * k - Math.PI / 6;
-      const px = x + rr * Math.cos(a);
-      const py = y + rr * Math.sin(a);
-      if (k === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    return;
+  // hexagon
+  const rr = Math.sqrt(area / 2.598);
+  for (let k = 0; k < 6; k++) {
+    const a = (Math.PI / 3) * k - Math.PI / 6;
+    const px = x + rr * Math.cos(a);
+    const py = y + rr * Math.sin(a);
+    if (k === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
   }
-  if (shape === 'star') {
-    const outer = Math.sqrt(area / 1.12);
-    const inner = outer * 0.475;
-    for (let k = 0; k < 10; k++) {
-      const rr = k % 2 === 0 ? outer : inner;
-      const a = (Math.PI / 5) * k - Math.PI / 2;
-      const px = x + rr * Math.cos(a);
-      const py = y + rr * Math.sin(a);
-      if (k === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    return;
-  }
-  // heart
-  const s = Math.sqrt(area / 2.05);
-  ctx.moveTo(x, y + s);
-  ctx.bezierCurveTo(x - 1.5 * s, y - 0.1 * s, x - 0.6 * s, y - 1.1 * s, x, y - 0.45 * s);
-  ctx.bezierCurveTo(x + 0.6 * s, y - 1.1 * s, x + 1.5 * s, y - 0.1 * s, x, y + s);
   ctx.closePath();
 }
 
@@ -118,8 +76,6 @@ export interface DrawAgentsOptions {
   /** radius = scale · √share. */
   readonly scale: number;
   readonly styles?: readonly AgentStyle[] | null;
-  /** Legacy trait shapes; ignored when styles are given. */
-  readonly shapes?: readonly DrawableShape[] | null;
   readonly winner?: number | null;
   readonly highlight?: ReadonlySet<number>;
   /** Pulse progress per agent in [0, 1) for the levy flinch. */
@@ -135,7 +91,6 @@ export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOption
     order,
     scale,
     styles = null,
-    shapes = null,
     winner = null,
     highlight,
     pulses,
@@ -158,9 +113,8 @@ export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOption
     const isWinner = winner === i;
     const isHot = highlight?.has(i) ?? false;
     const style = styles ? styles[i] : null;
-    const shape: DrawableShape | null = style ? style.shape : shapes ? shapes[i] : null;
 
-    traceShape(ctx, shape, x, p.y, r);
+    traceShape(ctx, style ? style.shape : null, x, p.y, r);
     if (style) {
       ctx.globalAlpha = fillAlpha;
       ctx.fillStyle = style.fill;

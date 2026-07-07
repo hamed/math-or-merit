@@ -6,9 +6,7 @@
   import CowScene from '$lib/widgets/stage/scenes/CowScene.svelte';
   import PersonScene from '$lib/widgets/stage/scenes/PersonScene.svelte';
   import TradeScene from '$lib/widgets/stage/scenes/TradeScene.svelte';
-  import StageChapter from '$lib/widgets/stage/StageChapter.svelte';
-  import MorphStage from '$lib/widgets/stage/MorphStage.svelte';
-  import SceneMark from '$lib/widgets/stage/SceneMark.svelte';
+  import ClosingScene from '$lib/widgets/stage/scenes/ClosingScene.svelte';
   import Prediction from '$lib/widgets/predict/Prediction.svelte';
   import RevealRun from '$lib/widgets/reveal/RevealRun.svelte';
   import WinnerStory from '$lib/widgets/winner/WinnerStory.svelte';
@@ -31,9 +29,10 @@
   for it, do not describe what it already shows — but never name "the canvas" to the reader.
   The authored morph can hand the stage to an interactive widget (the simulation); that
   handoff is a deliberate "break." See notes/draft-decisions.md D8.
-  BUILD NOTE (2026-07-03): the stage is now real — StageChapter pins a MorphStage sticky at
-  the top of the viewport and SceneMark elements in the prose drive its scenes as you scroll.
-  The old `CANVAS →` cues are realized as `<SceneMark scene="…" />` markers.
+  BUILD NOTE (2026-07-06, ADR-013): the stage is PinScene — a scroll-scrubbed, reversible
+  GSAP timeline per authored scene, captions tweened inside it. Interactive widgets are
+  unpinned full-viewport "yield" sections on the reader's clock (never scrubbed; runs
+  re-run). Scenes live in $lib/widgets/stage/scenes/, one deep module each.
 -->
 <!--
   RESOLVED(beat 1 — headline / EVIDENCE GATE, O2 closed 2026-07-03): the "on paper"
@@ -451,54 +450,24 @@ yourself. Break it. Save it. See what it takes.
 -->
 <Sandbox />
 
-<StageChapter stage={MorphStage} initial="lone">
-
-## What I left out
-
-Before the ending, the honesty bill.
-
-This room is almost nothing like an economy. To build it, I threw away — and never handed
-back — work, wages, jobs, the things people actually make and sell. Debt. Saving.
-Inheritance. Prices. Skill. Effort. Luck. Power. Law. The thousand ways real people climb,
-fall, cheat, help one another, and start over.
-
-<SceneMark scene="reform" />
-
-That list is not an apology. It is the fence around the claim. A model this bare cannot tell
-you what causes real inequality, and it never tried to. It shows one thing, cleanly, with
-everything else taken out of the way.
-
 ## So — merit, or math?
 
-We began with a person and a number. A headline. The first trillionaire.
-
-<SceneMark scene="headcard" />
-
-I cannot tell you how he got there. This little room does not know his name, and neither of
-us should pretend it does.
-
-But here is what the room *does* show, and it is smaller and harder than any headline:
-
-A process can be fair in every single step and still end with everything in one place. Local
-fairness does not add up to a fair whole. Nobody has to cheat. Equal starts do not promise
-equal ends.
-
-So the next time a fortune crosses some impossible line and the stories arrive to explain it
-— the talent, the grind, the vision — keep one cold possibility in the back of your mind.
-Maybe all of that is real. Or maybe you are reading a winning trait off a fair coin.
-
-There was no loaded coin here. No villain in the code. No conspiracy. Every trade was fair.
-
-<aside class="claim-note">
-  <p><strong>Nothing was unfair. That was the unfairness.</strong></p>
-</aside>
-
-</StageChapter>
+<!--
+  BUILD NOTE (2026-07-06, M10): the ending is a PinScene bookending the opening — the lone
+  winner, the honesty bill (the discarded world drifting back), the headline echoed in the
+  teletype mono, then bare paper and the closing line. Beats 24–25.
+-->
+<PinScene>
+  <ClosingScene />
+  <Caption beat={0}>This is where every fair room ends, given time. Before the last word — the honesty bill.</Caption>
+  <Caption beat={1}>To build this room I threw away work, wages, debt, inheritance, skill, effort, luck, power, law — and never handed them back. That list is the fence around the claim: a model this bare cannot explain real inequality, and it never tried to.</Caption>
+  <Caption beat={2}>I still cannot tell you how he got there — this little room does not know his name. But it shows something smaller and harder: a process can be fair in every single step and still end with everything in one place. So when the stories arrive — the talent, the grind, the vision — maybe they're real. Or maybe you are reading a winning trait off a fair coin.</Caption>
+  <Caption beat={3}><strong>Nothing was unfair. That was the unfairness.</strong></Caption>
+</PinScene>
 
 <!--
-  END OF ESSAY. The spine is complete end-to-end (beats 1–19, then 24–25) EXCEPT the gated
-  middle placeholder above (beats 20–23), which is intentionally held until its evidence clears.
-  Still-open content threads live in notes/draft-decisions.md (the reduction-line/quote thread,
-  the [TEST] reader studies A–D, and the stage-model seam D8 — now partially realized by
-  StageChapter/MorphStage, still revisable).
+  END OF ESSAY. The spine is complete end-to-end, storyboard beats 1–25 built, including the
+  formerly gated middle (20–23) under the claim discipline recorded at each widget. Still-open
+  content threads live in notes/draft-decisions.md (the [TEST] reader studies A–D, the
+  manual-vs-structural comparison gate, the redistribute-to-poorest fork).
 -->

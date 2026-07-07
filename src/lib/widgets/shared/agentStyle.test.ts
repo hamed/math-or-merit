@@ -43,6 +43,19 @@ describe('styleNoun', () => {
   });
 });
 
+describe('curated winner promise (essay prose guard)', () => {
+  it('seed 501 crowns agent 48: a red pentagon with a teal edge', async () => {
+    const { completedRoomRun } = await import('./roomRun');
+    const { WINNER_FIRST_SEED, REVEAL_TRADES } = await import('./presets');
+    const run = completedRoomRun(WINNER_FIRST_SEED, REVEAL_TRADES);
+    expect(run.winner).toBe(48);
+    const style = assignStyles(100)[run.winner];
+    expect(style.fillName).toBe('red');
+    expect(style.shape).toBe('pentagon');
+    expect(style.strokeName).toBe('teal');
+  });
+});
+
 describe('headlineForStyle', () => {
   it('interpolates the winner style and leaves no placeholders', async () => {
     const { headlineForStyle } = await import('./agentStyle');

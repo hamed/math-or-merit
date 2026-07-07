@@ -3,7 +3,6 @@
   import { radiusScale, roomPositions, type Point } from './layout';
   import { drawAgents } from './roomRenderer';
   import type { AgentStyle } from './agentStyle';
-  import type { TraitShape } from './traits';
 
   interface Props {
     /** Target wealth shares (sums to ~1). May be mutated in place by the owner. */
@@ -12,8 +11,6 @@
     revision?: number;
     /** Per-agent pastel fill / stroke / shape (agentStyle.ts). */
     styles?: readonly AgentStyle[] | null;
-    /** Legacy trait shapes; ignored when styles are given. */
-    shapes?: readonly TraitShape[] | null;
     winner?: number | null;
     highlight?: readonly number[];
     height?: number;
@@ -25,7 +22,6 @@
     wealth,
     revision = 0,
     styles = null,
-    shapes = null,
     winner = null,
     highlight = [],
     height = 300,
@@ -90,7 +86,6 @@
       order,
       scale,
       styles,
-      shapes,
       winner,
       highlight: new Set(highlight),
       pulses: pulseProgress,

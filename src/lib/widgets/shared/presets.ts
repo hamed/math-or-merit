@@ -7,10 +7,11 @@
  *   a radius difference of 2%, invisible at circle scale;
  * - 100,000 trades at N = 100 reliably produces one dominant circle
  *   (median top share ≈ 45%, effective participants ≈ 4);
- * - seed 332 is the curated reveal run: top share 71%, runner-up 8.8%;
- * - seed 501's winner is agent 48, which the round-robin trait table makes a
- *   square; seed 521's winner is a hexagon. Traits are display-only and never
- *   enter the simulation (see traits.ts).
+ * - seed 332 is the curated fallback room (top share 71%, runner-up 8.8%),
+ *   used by the distribution stages when the reader hasn't run a room;
+ * - seed 501's winner is agent 48 — a red pentagon with a teal edge under the
+ *   agentStyle table (the essay's winner prose names it; guarded by test).
+ *   Styles are display-only and never enter the simulation (agentStyle.ts).
  */
 export const ROOM_N = 100;
 export const ROOM_BETA = 0.2;

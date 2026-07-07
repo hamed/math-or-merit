@@ -5,6 +5,7 @@ import { BEATS as OPENING_BEATS } from './scenes/OpeningScene.svelte';
 import { BEATS as BELIEF_BEATS } from './scenes/BeliefCloudScene.svelte';
 import { BEATS as PERSON_BEATS } from './scenes/PersonScene.svelte';
 import { BEATS as TRADE_BEATS } from './scenes/TradeScene.svelte';
+import { BEATS as CLOSING_BEATS } from './scenes/ClosingScene.svelte';
 
 /** Every scene's beat table, checked at data level (no DOM mounting). */
 const SCENES: Record<string, readonly BeatSpec[]> = {
@@ -13,6 +14,7 @@ const SCENES: Record<string, readonly BeatSpec[]> = {
   BeliefCloudScene: BELIEF_BEATS,
   PersonScene: PERSON_BEATS,
   TradeScene: TRADE_BEATS,
+  ClosingScene: CLOSING_BEATS,
 };
 
 describe('scene beat tables', () => {
