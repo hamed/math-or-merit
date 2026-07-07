@@ -1,8 +1,9 @@
 # CONTEXT.md — session handoff for agents
 
-Read `AGENTS.md` first (architecture law). This file is the *state* snapshot: what
-is built, what was decided, how to verify, what remains. Written 2026-07-06 after
-the scrollytelling rebuild shipped.
+Read `AGENTS.md` first (architecture law) and `MEMORY.md` (durable lessons and
+owner preferences). This file is the *state* snapshot: what is built, what was
+decided, how to verify, what remains. Written 2026-07-06 after the scrollytelling
+rebuild shipped; update it when the state moves.
 
 ## Where things stand
 
