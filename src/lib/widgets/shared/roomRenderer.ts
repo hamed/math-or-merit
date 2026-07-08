@@ -131,8 +131,9 @@ export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOption
     ctx.stroke();
 
     if (isWinner) {
-      ctx.beginPath();
-      ctx.arc(x, p.y, r + 5, 0, Math.PI * 2);
+      // the halo wears the winner's own silhouette — a dashed pentagon for a
+      // pentagon, never a generic circle (owner review 2026-07-08)
+      traceShape(ctx, style ? style.shape : null, x, p.y, r + 5);
       ctx.setLineDash([4, 5]);
       ctx.lineWidth = 1.4;
       ctx.strokeStyle = style ? style.stroke : 'rgb(77 39 28 / 65%)';

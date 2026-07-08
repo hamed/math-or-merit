@@ -9,8 +9,7 @@
   import ClosingScene from '$lib/widgets/stage/scenes/ClosingScene.svelte';
   import Prediction from '$lib/widgets/predict/Prediction.svelte';
   import RevealRun from '$lib/widgets/reveal/RevealRun.svelte';
-  import BinsStage from '$lib/widgets/distribution/BinsStage.svelte';
-  import AxisStage from '$lib/widgets/distribution/AxisStage.svelte';
+  import DistributionStage from '$lib/widgets/distribution/DistributionStage.svelte';
   import GiniStage from '$lib/widgets/distribution/GiniStage.svelte';
   import CrowdRun from '$lib/widgets/crowd/CrowdRun.svelte';
   import TimeLapse from '$lib/widgets/ending/TimeLapse.svelte';
@@ -194,43 +193,28 @@ So sort them. Smallest to largest, and drop each one into a bin — a pile for t
 a pile for the comfortable, a pile for the rich.
 
 <!--
-  WIDGET: BinsStage — the histogram is built FROM the same circles the reader watched trade
-  (the latest logged run; the seeded reveal room as fallback). Bin width is a reader-visible
-  choice, not nature's.
+  WIDGET: DistributionStage (R5, owner review 2026-07-08: "one stage for both sorting and
+  log scale") — BinsStage + AxisStage merged into one stepper: room → sorted → binned →
+  multiplying ruler. Built FROM the same circles the reader watched trade (latest logged
+  run; the seeded reveal room as fallback). Bin width is a reader-visible choice, not
+  nature's. Original circle coloring; no shape vocabulary needed here.
 -->
-<BinsStage />
+<DistributionStage />
 
 Now it is a shape: a chart whose bars are the people you just watched. (Where I cut the
 lines between the piles is a choice, not nature's — move them and the picture shifts a
-little.)
+little.) And the shape leans hard: a crowd of the poor piled on one side, a thin tail
+reaching out the other — and far past everyone, alone, the winner.
 
-And the shape leans hard. A crowd of the poor piled up on one side, a thin tail reaching
-out the other — and far past everyone, alone, the winner.
-
-<!-- TEST(Study B, reader-study.md): histogram vs cumulative/Lorenz as the first distribution view; choose by comprehension, not familiarity. -->
-
-## The picture is broken
-
-There is a problem with that chart. The winner is so large that, to fit them on the screen,
-everyone else gets crushed into one thin sliver at the bottom. Every difference among the
-people who actually lost — gone.
-
-So change the ruler. Instead of each step *adding* the same amount, each step *multiplies*:
-1, 10, 100, 1,000. The same distance across the screen now means ten times the money.
-
-<!--
-  WIDGET: AxisStage — the same people glide from their linear spots to logarithmic ones; the
-  crushed sliver opens into a readable spread. The truly empty sit in their own pile, off the
-  ruler.
--->
-<AxisStage />
-
-Now you can see all of them at once. And the gap between two circles stops telling you how
-much more one has. It tells you how many *times* more.
+The linear chart has a problem, though: to fit the winner on screen, everyone else gets
+crushed into a sliver. So the last step changes the ruler — each step *multiplies* by ten
+instead of adding. The crowd opens up, and a gap between circles stops meaning how much
+more; it means how many <em>times</em> more.
 
 (One honest catch: you cannot multiply your way up from zero, so a circle with nothing has
-no spot on this ruler. The truly empty sit in their own pile, off to the side.)
+no spot on that ruler. The truly empty sit in their own pile, off to the side.)
 
+<!-- TEST(Study B, reader-study.md): histogram vs cumulative/Lorenz as the first distribution view; choose by comprehension, not familiarity. -->
 <!--
   GATE(no power law): the log view only reveals values a linear scale hid. It does NOT show or
   prove a power-law / heavy-tailed distribution family — omit "power law" from the baseline arc
@@ -246,17 +230,19 @@ A histogram is a picture. Sometimes you need a single number instead — to comp
 rooms, or to watch one room drift.
 
 <!--
-  WIDGET: GiniStage — the Gini coefficient built FROM the same circles the reader watched
-  (latest logged run; reveal-room fallback): line up, accumulate (Lorenz), equal line,
-  shaded gap. Same build-it-from-the-people animation style as the histogram (review.md:
-  "we can do the same for gini"). Beat 21 discipline: introduced only for comparing whole
-  rooms; top share stays beside it; no per-trade Gini claims (C5).
+  WIDGET: GiniStage (R5, owner storyboard 2026-07-08) — the Gini built from first
+  principles: equal circles merge one by one into a running total (the diagonal); keep the
+  graph, deal an unequal teaching room (Gini ≈ 0.5), sort, merge again (the sagging Lorenz
+  curve); hatch the gap; then a slider bends parametric Lorenz curves (L = x^k) for
+  intuition. Axes are the same scale, exactly square. TOY discipline: slider rooms are
+  parametric, not simulation output; the number shown is the discrete Gini of the twelve
+  on-screen circles. Beat 21 discipline: introduced only for comparing whole rooms; no
+  per-trade Gini claims (C5).
 -->
 <GiniStage />
 
-Zero: everyone holds the same. One: a single owner and everyone else at nothing. This room
-already speaks for itself — and now it can be compared with any other room, later, with one
-number.
+Zero: everyone holds the same. One: a single owner and everyone else at nothing. The room
+you ran earlier has its own number — and from here on you will see it on every meter.
 
 ## More of them
 
