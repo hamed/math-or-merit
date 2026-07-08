@@ -2,9 +2,11 @@
   import { onMount } from 'svelte';
   import { createEngine, type SimEngine } from '$lib/sim';
   import RoomCanvas from '../shared/RoomCanvas.svelte';
+  import HistoMini from '../shared/HistoMini.svelte';
+  import LorenzMini from '../shared/LorenzMini.svelte';
   import { createTicker } from '../shared/ticker';
   import { countTrades, percent } from '../shared/format';
-  import { ROOM_N } from '../shared/presets';
+  import { ROOM_N, START_DOLLARS } from '../shared/presets';
 
   const TRADES_PER_FRAME = 2600;
   const MAX_TRADES = 25_000_000;
@@ -91,21 +93,27 @@
     <span>the stake: <strong>{stakePercent}%</strong> of the poorer trader’s wealth</span>
     <input
       type="range"
-      min="0"
-      max="90"
-      step="5"
+      min="1"
+      max="99"
+      step="1"
       bind:value={stakePercent}
       oninput={restart}
       aria-label="Stake as a percentage of the poorer trader's wealth"
     />
   </label>
 
-  <RoomCanvas
-    wealth={engine.state.wealth}
-    {revision}
-    height={300}
-    label={`The room trading live at a ${stakePercent} percent stake`}
-  />
+  <div class="duo">
+    <RoomCanvas
+      wealth={engine.state.wealth}
+      {revision}
+      height={300}
+      label={`The room trading live at a ${stakePercent} percent stake`}
+    />
+    <aside class="sidebar" aria-label="The same room as a histogram and a Lorenz curve">
+      <HistoMini wealth={engine.state.wealth} startDollars={START_DOLLARS} {revision} />
+      <LorenzMini wealth={engine.state.wealth} {revision} />
+    </aside>
+  </div>
 
   <div class="readout">
     <output>{countTrades(step)} trades</output>
@@ -116,9 +124,7 @@
   </div>
 
   <p class="caption" aria-live="polite">
-    {#if stakePercent === 0}
-      Stake zero: the room is frozen — but only because nobody is trading at all.
-    {:else if halfAt !== null}
+    {#if halfAt !== null}
       At a {stakePercent}% stake, one circle passed half the room after {countTrades(halfAt)} trades — in this run.
     {:else if running}
       Watching for the half-the-room moment at {stakePercent}%…
@@ -154,6 +160,29 @@
 
   .dial input {
     accent-color: #8b3f2b;
+  }
+
+  .duo {
+    display: grid;
+    grid-template-columns: 1fr 10rem;
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  @media (max-width: 40rem) {
+    .duo {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      flex-direction: row;
+    }
   }
 
   .readout {

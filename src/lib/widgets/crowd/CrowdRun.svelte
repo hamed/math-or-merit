@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { createEngine } from '$lib/sim';
   import { measureWealth } from '$lib/research';
+  import LorenzMini from '../shared/LorenzMini.svelte';
   import { createTicker } from '../shared/ticker';
   import { countTrades, dollars, dollarsCompact, percent } from '../shared/format';
   import { logBins, toDollars } from '../distribution/binning';
@@ -18,6 +19,7 @@
   let running = $state(false);
   let finished = $state(false);
   let trades = $state(0);
+  let revision = $state(0);
   let dustCount = $state(0);
   let topDollars = $state(CROWD_START_DOLLARS);
   let topShare = $state(1 / CROWD_N);
@@ -95,6 +97,7 @@
     const step = target - engine.state.step;
     if (step > 0) engine.step(step);
     trades = engine.state.step;
+    revision++;
     measureAndDraw();
     if (progress >= 1) {
       ticker.stop();
@@ -110,6 +113,17 @@
     finished = false;
     running = true;
     ticker.start();
+  }
+
+  function reset(): void {
+    ticker.stop();
+    running = false;
+    finished = false;
+    elapsed = 0;
+    engine.reset();
+    trades = 0;
+    revision++;
+    measureAndDraw();
   }
 
   onMount(() => {
@@ -128,16 +142,20 @@
 <div class="widget" aria-label="A thousand traders, two million trades, on the multiplying ruler">
   <p class="kicker">A thousand of them this time</p>
 
-  <div bind:this={container} class="plot" role="img" aria-label={`Log-scale histogram of a thousand traders: ${dustCount} below one cent, richest at ${dollars(topDollars)}`}>
-    <canvas bind:this={canvas} style={`block-size: ${HEIGHT}px`}></canvas>
+  <div class="duo">
+    <div bind:this={container} class="plot" role="img" aria-label={`Log-scale histogram of a thousand traders: ${dustCount} below one cent, richest at ${dollars(topDollars)}`}>
+      <canvas bind:this={canvas} style={`block-size: ${HEIGHT}px`}></canvas>
+    </div>
+    <aside class="sidebar" aria-label="The same crowd as a Lorenz curve">
+      <LorenzMini wealth={engine.state.wealth} {revision} label="Lorenz curve of the crowd" />
+    </aside>
   </div>
 
   <div class="meters" aria-live="off">
-    <div class="meter" role="img" aria-label={`Richest person holds ${percent(topShare)} of everything`}>
+    <div class="meter" role="img" aria-label={`Richest person holds ${percent(topShare)} of everything; Gini ${gini.toFixed(2)}`}>
       <div class="meter-fill" style={`inline-size: ${Math.min(100, topShare * 100)}%`}></div>
       <span class="meter-label">richest holds {percent(topShare)}</span>
     </div>
-    <output class="gini-out">Gini {gini.toFixed(2)}</output>
   </div>
 
   <p class="caption" aria-live="polite">
@@ -152,10 +170,33 @@
     <button class="primary" type="button" onclick={run} disabled={running}>
       {running ? 'Trading…' : finished ? 'Run it again' : 'Trade two million times'}
     </button>
+    <button type="button" onclick={reset} disabled={trades === 0}>Back to the start</button>
   </div>
 </div>
 
 <style>
+  .duo {
+    display: grid;
+    grid-template-columns: 1fr 10rem;
+    gap: 1rem;
+    align-items: end;
+  }
+
+  .sidebar {
+    padding-block-end: 2.2rem;
+  }
+
+  @media (max-width: 40rem) {
+    .duo {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      max-inline-size: 11rem;
+      padding-block-end: 0;
+    }
+  }
+
   .plot {
     inline-size: 100%;
   }
@@ -199,10 +240,4 @@
     white-space: nowrap;
   }
 
-  .gini-out {
-    font-variant-numeric: tabular-nums;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #3c352b;
-  }
 </style>

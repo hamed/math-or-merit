@@ -12,7 +12,10 @@
   const LEVY_RATE = 0.1;
   const LEVY_INTERVAL_MS = 320;
 
-  const styles = assignStyles(ROOM_N);
+  // Plain pastel circles here — the tax chapter reads cleaner without the
+  // shape vocabulary (owner review 2026-07-08: "whichever is visually more
+  // pleasant"). Display-only, as always.
+  const styles = assignStyles(ROOM_N).map((s) => ({ ...s, shape: 'circle' as const }));
 
   // Start from a condensed room — the one the reader just fought, if any.
   const snapshot = () => (latestRun() ?? completedRoomRun(REVEAL_SEED, REVEAL_TRADES)).wealth;
