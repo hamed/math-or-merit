@@ -73,6 +73,10 @@ rewrite history. Date every entry.
   Screenshot beats and **look** at them; console-error capture on every sweep.
 - `/tmp` scratch state dies on reboot/crash — reinstall scratch deps, never rely
   on it across sessions.
+- (2026-07-08) Never mix `svgOrigin` scaling and x/y translation on the SAME
+  SVG element across tweens — gsap re-derives the transform and the element
+  teleports. Nest two groups: outer translates, inner scales/mirrors. Also
+  never combine `scale` and `scaleX` in one vars object (shorthand overwrites).
 - 100k trades ≈ 1 ms: prefer computing simulation grids live in-page (chunked
   under a frame budget, session-cached) over precomputed JSON pipelines.
 
