@@ -10,19 +10,27 @@
 
   const TRADES_PER_FRAME = 26; // ≈ 1,500 trades per second at 60 fps
   const LEVY_RATE = 0.25;
-  const ESCALATION = 0.012; // per levy; the tool itself raises the stakes
   const LOSE_SHARE = 0.35;
   const LOSE_SUSTAIN = 240; // frames ≈ 4 s over the line = game over
 
+  // Difficulty = the room's stake, fixed for the whole game (owner decision
+  // 2026-07-08: no mid-game escalation — taxing must not change the trade
+  // rule, or the lesson gets contaminated).
+  const DIFFICULTIES = [
+    { label: 'Gentle', beta: 0.12 },
+    { label: 'Normal', beta: ROOM_BETA },
+    { label: 'Brutal', beta: 0.3 },
+  ] as const;
+
   const styles = assignStyles(ROOM_N);
+
+  let difficulty = $state(1);
 
   const newWorld = () =>
     new TaxWorld({
       n: ROOM_N,
-      beta: ROOM_BETA,
+      beta: DIFFICULTIES[difficulty].beta,
       seed: Math.floor(Math.random() * 0xffff_ffff),
-      escalationPerLevy: ESCALATION,
-      betaMax: 0.5,
     });
 
   let world = $state(newWorld());
@@ -93,6 +101,12 @@
     measure();
   }
 
+  function setDifficulty(i: number): void {
+    if (i === difficulty) return;
+    difficulty = i;
+    reset();
+  }
+
   measure();
 
   const trades = $derived.by(() => {
@@ -146,11 +160,11 @@
 
   <p class="caption" aria-live="polite">
     {#if gameOver}
-      <strong>The room got away.</strong> You held it for {seconds}s and {countTrades(trades)} trades — by the end,
-      every tap was pushing the stake higher, and the stake always wins. Nothing was unfair along the way.
+      <strong>The room got away.</strong> You held it for {seconds}s and {countTrades(trades)} trades. The rule never
+      changed — the room simply outpaced your taps. Nothing was unfair along the way.
     {:else if !started}
       Tap a shape that has grown too fat: a quarter of its wealth is pulled out and shared back equally, all {ROOM_N} of them.
-      One catch — every levy nudges the stake up, so the room trades harder the more you intervene.
+      Pick how hard the room trades — a higher stake condenses faster.
     {:else if !running}
       Paused. The room waits — it won’t when you’re back.
     {:else if topShare < 0.12}
@@ -169,6 +183,13 @@
       <button class="primary" type="button" onclick={toggle}>{running ? 'Pause' : started ? 'Back to it' : 'Start the room'}</button>
       <button type="button" onclick={reset} disabled={!started}>New room</button>
     {/if}
+    <div class="difficulty" role="group" aria-label="Difficulty — the room's fixed stake">
+      {#each DIFFICULTIES as d, i}
+        <button type="button" class="level" aria-pressed={difficulty === i} onclick={() => setDifficulty(i)}>
+          {d.label} · {percent(d.beta)}
+        </button>
+      {/each}
+    </div>
   </div>
 </div>
 
@@ -222,5 +243,23 @@
     font-weight: 700;
     color: #3c352b;
     white-space: nowrap;
+  }
+
+  .difficulty {
+    display: flex;
+    gap: 0.35rem;
+    margin-inline-start: auto;
+  }
+
+  .level {
+    font-size: 0.78rem;
+    padding-block: 0.3rem;
+    padding-inline: 0.7rem;
+  }
+
+  .level[aria-pressed='true'] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--paper);
   }
 </style>
