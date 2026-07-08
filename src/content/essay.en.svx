@@ -121,9 +121,9 @@ Same trick. New subject.
 -->
 <PinScene>
   <TradeScene />
-  <Caption beat={0}>Give it company. Someone new walks in — different colors, a little poorer.</Caption>
-  <Caption beat={1}>To trade, each antes the same slice: a fifth of whatever the <em>poorer</em> one owns. Nobody can stake more than they have.</Caption>
-  <Caption beat={2}>Then a two-sided coin, one side each. Whichever color lands takes the pot. Nothing else decides — not size, not shape, not who "deserves" it.</Caption>
+  <Caption beat={0}>Someone new walks in — noticeably poorer.</Caption>
+  <Caption beat={1}>The rule: both stake the <em>same</em> amount. Say, half of whatever the <em>poorer</em> one owns. One coin each, on the table.</Caption>
+  <Caption beat={2}>Then a two-sided coin, one side each. Whichever color lands takes both coins. Nothing else decides — not size, not who "deserves" it.</Caption>
   <Caption beat={3}>A win, a loss — and everyone is roughly where they started. The winner took exactly what the loser lost. No money made, none destroyed. That is the whole game, and it is fair.</Caption>
   <Caption beat={4}>Hold on to that feeling. It is about to betray you.</Caption>
 </PinScene>

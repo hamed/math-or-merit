@@ -7,16 +7,30 @@
     { label: 'circle', length: 0.9 },
     { label: 'coins', length: 1.2 },
     { label: 'one', length: 1 },
+    { label: 'slide', length: 0.9 },
   ];
 
-  /** 4×4 grid of equal coins whose total area equals the r=62 circle. */
-  const COIN_R = 15.5;
+  /**
+   * Honeycomb lattice of 14 identical coins whose total area equals the r=62
+   * circle (r = 62/√14). Wealth is coin COUNT at a fixed coin size — the
+   * canonical coin never changes size (owner review 2026-07-08).
+   */
+  const COIN_R = 62 / Math.sqrt(14);
   const COIN_GRID: { cx: number; cy: number }[] = [];
-  for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < 4; col++) {
-      COIN_GRID.push({ cx: 240 + (col - 1.5) * 44, cy: 150 + (row - 1.5) * 44 });
-    }
+  {
+    const dx = COIN_R * 2;
+    const dy = COIN_R * Math.sqrt(3);
+    const rows = [3, 4, 4, 3];
+    rows.forEach((count, ri) => {
+      const y = 150 + (ri - 1.5) * dy;
+      for (let ci = 0; ci < count; ci++) {
+        COIN_GRID.push({ cx: 240 + (ci - (count - 1) / 2) * dx, cy: y });
+      }
+    });
   }
+
+  /** Where the circle parks at the end — the next scene's trader-A spot. */
+  const SLIDE = { x: -90, y: 8 };
 </script>
 
 <script lang="ts">
@@ -24,6 +38,7 @@
   import { STAGE_CONTEXT, type StageContext } from '../contract';
   import { SPHERE } from './paths';
   import { assignStyles } from '../../shared/agentStyle';
+  import Coin from './Coin.svelte';
 
   const stage = getContext<StageContext | undefined>(STAGE_CONTEXT);
 
@@ -33,6 +48,7 @@
 
   let root: SVGSVGElement;
   let body: SVGPathElement;
+  let bodyG: SVGGElement;
   let person: SVGGElement;
   let torso: SVGGElement;
   let armLeft: SVGGElement;
@@ -44,7 +60,7 @@
 
   onMount(() => {
     stage?.attach(BEATS, (tl) => {
-      const coinEls = coins.querySelectorAll<SVGCircleElement>('circle');
+      const coinEls = coins.querySelectorAll<SVGGElement>('.lattice-coin');
 
       // person — the cartoon fortune arrives over the waiting circle
       tl.fromTo(person, { autoAlpha: 0, y: -10 }, { autoAlpha: 1, y: 0, duration: 0.4 }, 'person+=0.1');
@@ -75,8 +91,8 @@
       tl.to(
         coinEls,
         {
-          x: (_, el) => Number((el as SVGCircleElement).dataset.dx),
-          y: (_, el) => Number((el as SVGCircleElement).dataset.dy),
+          x: (_, el) => Number((el as SVGGElement).dataset.dx),
+          y: (_, el) => Number((el as SVGGElement).dataset.dy),
           scale: 0.35,
           autoAlpha: 0,
           duration: 0.35,
@@ -85,13 +101,18 @@
         'one',
       );
       tl.to(body, { autoAlpha: 1, scale: 1, duration: 0.3 }, 'one+=0.3');
+
+      // slide — the circle parks left; the next scene continues from here
+      tl.to(bodyG, { x: SLIDE.x, y: SLIDE.y, duration: 0.5, ease: 'power1.inOut' }, 'slide+=0.15');
     });
   });
 </script>
 
 <figure class="scene-art" aria-label="A person simplified to a circle, then to money">
   <svg bind:this={root} viewBox="0 0 480 280" role="img">
-    <path bind:this={body} class="body" d={SPHERE} />
+    <g bind:this={bodyG}>
+      <path bind:this={body} class="body" d={SPHERE} />
+    </g>
 
     <g bind:this={person} class="person">
       <g bind:this={torso}>
@@ -131,7 +152,9 @@
 
     <g bind:this={coins} class="coins">
       {#each COIN_GRID as c}
-        <circle cx={c.cx} cy={c.cy} r={COIN_R} data-dx={240 - c.cx} data-dy={150 - c.cy} />
+        <g class="lattice-coin" data-dx={240 - c.cx} data-dy={150 - c.cy}>
+          <Coin cx={c.cx} cy={c.cy} r={COIN_R} />
+        </g>
       {/each}
     </g>
   </svg>
@@ -207,9 +230,4 @@
     fill: #2e2a23;
   }
 
-  .coins circle {
-    fill: var(--coin);
-    stroke: var(--coin-ink);
-    stroke-width: 2;
-  }
 </style>

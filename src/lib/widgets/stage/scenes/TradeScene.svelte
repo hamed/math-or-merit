@@ -11,25 +11,29 @@
 
   /**
    * Scripted two-flip sequence, numbers from the REAL trade rule (only the
-   * outcomes are authored, presets.ts honesty note): A starts at 0.55, B at
-   * 0.45 of the pair's total. B wins the first pot, A the second; both end
-   * within 0.5% of where they started — "win some, lose some" stays honest.
+   * outcomes are authored, presets.ts honesty note). The demo stake is HALF
+   * of the poorer trader's wealth (owner review 2026-07-08: big enough that
+   * the area change is meaningful; later rooms use gentler stakes).
    *
-   *   t1: stake 0.2·min(.55,.45) = .090 → B wins → A .46, B .54
-   *   t2: stake 0.2·min(.46,.54) = .092 → A wins → A .552, B .448
+   *   start: A .62, B .38 — B meaningfully smaller
+   *   t1: stake .5·min = .19  → B wins both coins → A .43,  B .57
+   *   t2: stake .5·min = .215 → A wins both coins → A .645, B .355
+   *
+   * Ends within ~2% of the start — "win some, lose some" stays honest.
    */
-  const W_A = 0.55;
-  const W_B = 0.45;
-  const STAKE_1 = 0.09;
-  const STAKE_2 = 0.092;
+  const W_A = 0.62;
+  const W_B = 0.38;
+  const STAKE_1 = 0.19;
+  const STAKE_2 = 0.215;
 
   /** radius = K·√wealth so area = wealth (the essay's honest encoding). */
   const K = 60;
   const R_A = K * Math.sqrt(W_A);
   const R_B = K * Math.sqrt(W_B);
-  const POT_1 = K * Math.sqrt(2 * STAKE_1);
-  const POT_2 = K * Math.sqrt(2 * STAKE_2);
-  const COIN_R = K * Math.sqrt(STAKE_1);
+
+  /** The canonical coin: fixed size, a token of the ante — the agents' areas
+   * carry the truth. Two coins sit side by side; no merged pot. */
+  const COIN_R = 16.6;
 
   const A_POS = { x: 150, y: 158 };
   const B_POS = { x: 330, y: 158 };
@@ -44,7 +48,7 @@
   });
   const A_SLOT = 10;
   const B_SLOT = 3;
-  const CROWD_R = 26;
+  const CROWD_R = 23;
 
   /** Equal-area SVG path for a shape centered at (0,0); area = π·r². */
   function svgShapePath(shape: string, r: number): string {
@@ -79,6 +83,7 @@
   import { getContext, onMount } from 'svelte';
   import { STAGE_CONTEXT, type StageContext } from '../contract';
   import { assignStyles } from '../../shared/agentStyle';
+  import Coin from './Coin.svelte';
 
   const stage = getContext<StageContext | undefined>(STAGE_CONTEXT);
 
@@ -92,9 +97,8 @@
   let agentB: SVGPathElement;
   let groupA: SVGGElement;
   let groupB: SVGGElement;
-  let coinA: SVGCircleElement;
-  let coinB: SVGCircleElement;
-  let pot: SVGCircleElement;
+  let coinA: SVGGElement;
+  let coinB: SVGGElement;
   let flipG: SVGGElement;
   let flipFace: SVGCircleElement;
   let crowd: SVGGElement;
@@ -103,8 +107,9 @@
     stage?.attach(BEATS, (tl) => {
       const sA = (w: number) => Math.sqrt(w / W_A);
       const sB = (w: number) => Math.sqrt(w / W_B);
+      const coins = [coinA, coinB];
 
-      // meet — the second trader walks in from the side
+      // meet — the second trader walks in from the side, noticeably poorer
       // (gsap reads the g's translate attr, so x/y are absolute coordinates)
       tl.fromTo(
         groupB,
@@ -113,22 +118,25 @@
         'meet+=0.2',
       );
 
-      // ante — equal golden slices slide to the table and merge into one pot
-      tl.fromTo(coinA, { autoAlpha: 0, attr: { cx: A_POS.x + 30, cy: A_POS.y + 14 } }, { autoAlpha: 1, attr: { cx: TABLE.x - 14, cy: TABLE.y }, duration: 0.3 }, 'ante+=0.05');
-      tl.to(agentA, { scale: sA(W_A - STAKE_1), duration: 0.3 }, 'ante+=0.05');
-      tl.fromTo(coinB, { autoAlpha: 0, attr: { cx: B_POS.x - 30, cy: B_POS.y + 14 } }, { autoAlpha: 1, attr: { cx: TABLE.x + 14, cy: TABLE.y }, duration: 0.3 }, 'ante+=0.25');
-      tl.to(agentB, { scale: sB(W_B - STAKE_1), duration: 0.3 }, 'ante+=0.25');
-      tl.to([coinA, coinB], { attr: { cx: TABLE.x }, duration: 0.2 }, 'ante+=0.6');
-      tl.to([coinA, coinB], { autoAlpha: 0, duration: 0.12 }, 'ante+=0.75');
+      // ante — one coin each slides out; the agents shrink by what they staked.
+      // The coin wrappers carry no transform attr, so x/y tween relative.
       tl.fromTo(
-        pot,
-        { autoAlpha: 0, scale: 0.6, transformOrigin: '50% 50%', attr: { r: POT_1 } },
-        { autoAlpha: 1, scale: 1, duration: 0.2 },
-        'ante+=0.75',
+        coinA,
+        { autoAlpha: 0, x: A_POS.x - TABLE.x + 20, y: A_POS.y - TABLE.y },
+        { autoAlpha: 1, x: -COIN_R - 2, y: 0, duration: 0.3 },
+        'ante+=0.05',
       );
+      tl.to(agentA, { scale: sA(W_A - STAKE_1), duration: 0.3 }, 'ante+=0.05');
+      tl.fromTo(
+        coinB,
+        { autoAlpha: 0, x: B_POS.x - TABLE.x - 20, y: B_POS.y - TABLE.y },
+        { autoAlpha: 1, x: COIN_R + 2, y: 0, duration: 0.3 },
+        'ante+=0.25',
+      );
+      tl.to(agentB, { scale: sB(W_B - STAKE_1), duration: 0.3 }, 'ante+=0.25');
 
-      // flip 1 — the two-sided coin spins; B's color lands; the pot is B's
-      // (y is absolute: gsap reads the g's translate attr as its y)
+      // flip 1 — the coin spins about its central VERTICAL axis; B's color
+      // lands; BOTH coins go to the winner, whose area grows by exactly both
       tl.fromTo(flipG, { autoAlpha: 0, y: FLIP.y - 14 }, { autoAlpha: 1, y: FLIP.y, duration: 0.2 }, 'flip');
       tl.set(flipFace, { transformOrigin: '50% 50%' }, 0);
       tl.to(flipFace, {
@@ -143,14 +151,32 @@
       tl.set(flipFace, { fill: styleB.fill, stroke: styleB.stroke }, 'flip+=0.29');
       tl.set(flipFace, { fill: styleA.fill, stroke: styleA.stroke }, 'flip+=0.47');
       tl.set(flipFace, { fill: styleB.fill, stroke: styleB.stroke }, 'flip+=0.65');
-      tl.to(pot, { attr: { cx: B_POS.x, cy: B_POS.y }, autoAlpha: 0, duration: 0.3, ease: 'power2.in' }, 'flip+=0.8');
+      tl.to(coins, {
+        x: B_POS.x - TABLE.x,
+        y: B_POS.y - TABLE.y,
+        autoAlpha: 0,
+        duration: 0.3,
+        ease: 'power2.in',
+        stagger: 0.05,
+      }, 'flip+=0.8');
       tl.to(agentB, { scale: sB(W_B + STAKE_1), duration: 0.25 }, 'flip+=1.0');
 
-      // flip 2 — ante again; A's color lands; both are back where they began
-      tl.set(pot, { attr: { cx: TABLE.x, cy: TABLE.y, r: POT_2 } }, 'flip+=1.15');
+      // flip 2 — ante again (the poorer one is now A's side of the rule);
+      // A's color lands; both coins come back; both stand near the start
+      tl.fromTo(
+        coinA,
+        { autoAlpha: 0, x: A_POS.x - TABLE.x + 20, y: A_POS.y - TABLE.y },
+        { autoAlpha: 1, x: -COIN_R - 2, y: 0, duration: 0.15 },
+        'flip+=1.15',
+      );
+      tl.fromTo(
+        coinB,
+        { autoAlpha: 0, x: B_POS.x - TABLE.x - 20, y: B_POS.y - TABLE.y },
+        { autoAlpha: 1, x: COIN_R + 2, y: 0, duration: 0.15 },
+        'flip+=1.15',
+      );
       tl.to(agentA, { scale: sA(W_A - STAKE_1 - STAKE_2), duration: 0.15 }, 'flip+=1.15');
       tl.to(agentB, { scale: sB(W_B + STAKE_1 - STAKE_2), duration: 0.15 }, 'flip+=1.15');
-      tl.to(pot, { autoAlpha: 1, duration: 0.1 }, 'flip+=1.2');
       tl.to(flipFace, {
         keyframes: [
           { scaleX: 0.08, duration: 0.08 }, { scaleX: 1, duration: 0.08 },
@@ -159,7 +185,14 @@
         ease: 'none',
       }, 'flip+=1.3');
       tl.set(flipFace, { fill: styleA.fill, stroke: styleA.stroke }, 'flip+=1.38');
-      tl.to(pot, { attr: { cx: A_POS.x, cy: A_POS.y }, autoAlpha: 0, duration: 0.25, ease: 'power2.in' }, 'flip+=1.5');
+      tl.to(coins, {
+        x: A_POS.x - TABLE.x,
+        y: A_POS.y - TABLE.y,
+        autoAlpha: 0,
+        duration: 0.25,
+        ease: 'power2.in',
+        stagger: 0.05,
+      }, 'flip+=1.5');
       tl.to(agentA, { scale: sA(W_A + STAKE_2 - STAKE_1), duration: 0.2 }, 'flip+=1.65');
 
       // fair — the coin bows out; both stand where they started
@@ -182,13 +215,13 @@
   });
 </script>
 
-<figure class="scene-art" aria-label="Two agents ante equal slices, flip a two-colored coin, and end where they started; then the room fills">
+<figure class="scene-art" aria-label="Two circles ante one coin each, flip a two-colored coin, the winner takes both; then the room fills">
   <svg viewBox="0 0 480 300" role="img">
     <g bind:this={groupA} transform={`translate(${A_POS.x} ${A_POS.y})`}>
       <path
         bind:this={agentA}
         class="agent"
-        d={svgShapePath(styleA.shape, R_A)}
+        d={svgShapePath('circle', R_A)}
         style={`fill:${styleA.fill}; stroke:${styleA.stroke};`}
         vector-effect="non-scaling-stroke"
       />
@@ -197,15 +230,19 @@
       <path
         bind:this={agentB}
         class="agent"
-        d={svgShapePath(styleB.shape, R_B)}
+        d={svgShapePath('circle', R_B)}
         style={`fill:${styleB.fill}; stroke:${styleB.stroke};`}
         vector-effect="non-scaling-stroke"
       />
     </g>
 
-    <circle bind:this={coinA} class="coin" r={COIN_R} cx={TABLE.x - 14} cy={TABLE.y} />
-    <circle bind:this={coinB} class="coin" r={COIN_R} cx={TABLE.x + 14} cy={TABLE.y} />
-    <circle bind:this={pot} class="pot" r={POT_1} cx={TABLE.x} cy={TABLE.y} />
+    <!-- the two antes: side by side on the table, never merged -->
+    <g bind:this={coinA} class="ante">
+      <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} />
+    </g>
+    <g bind:this={coinB} class="ante">
+      <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} />
+    </g>
 
     <g bind:this={flipG} class="flip" transform={`translate(${FLIP.x} ${FLIP.y})`}>
       <circle bind:this={flipFace} class="flip-face" r="24" style={`fill:${styleA.fill}; stroke:${styleA.stroke};`} />
@@ -235,29 +272,19 @@
     transform-origin: center;
   }
 
-  .coin,
-  .pot {
-    fill: var(--coin);
-    stroke: var(--coin-ink);
-    stroke-width: 1.6;
+  .ante {
     opacity: 0;
-  }
-
-  .pot {
-    stroke-dasharray: 4 3;
-    transform-box: fill-box;
-    transform-origin: center;
   }
 
   .flip {
     opacity: 0;
   }
 
+  /* No CSS transform-box here: gsap owns the origin, or the spin pivots off
+     the coin's edge instead of its central vertical axis. */
   .flip-face {
     stroke-width: 2.4;
     fill-opacity: 0.9;
-    transform-box: fill-box;
-    transform-origin: center;
   }
 
   .crowd .agent {
