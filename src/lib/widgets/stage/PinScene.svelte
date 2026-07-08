@@ -11,10 +11,17 @@
   interface Props {
     /** Viewport-heights of scroll per beat-length unit. */
     pace?: number;
+    /**
+     * What advances the timeline. 'scroll' (default) pins the viewport and
+     * scrubs; 'time' plays the same timeline once on the wall clock when the
+     * scene first becomes visible (beat lengths are seconds) — no pin, the
+     * section scrolls away in normal flow.
+     */
+    driver?: 'scroll' | 'time';
     children: Snippet;
   }
 
-  let { pace = 0.85, children }: Props = $props();
+  let { pace = 0.85, driver = 'scroll', children }: Props = $props();
 
   let root: HTMLElement;
   let beats: readonly BeatSpec[] = [];
@@ -64,8 +71,13 @@
       tl.to({}, { duration: 0.001 }, total);
 
       if (reduced) {
-        // Discrete fallback: no pin, no scrub. Captions sit in the document
-        // flow; one crossing the read line seeks that beat's settled pose.
+        // Discrete fallback: no pin, no scrub. A timed scene settles straight
+        // into its final pose; captions sit in the document flow.
+        if (driver === 'time') {
+          tl.progress(1, false);
+          return;
+        }
+        // Scroll scenes: a caption crossing the read line seeks its beat's pose.
         observer = new IntersectionObserver(
           (entries) => {
             for (const entry of entries) {
@@ -97,6 +109,21 @@
           const fadeOut = Math.min(0.25, len * 0.25);
           tl.to(c.el, { autoAlpha: 0, y: -10, duration: fadeOut, ease: 'none' }, starts[i + 1] - fadeOut);
         }
+      }
+
+      if (driver === 'time') {
+        // Wall-clock playback, started once when the scene first shows.
+        observer = new IntersectionObserver(
+          (entries) => {
+            if (entries.some((e) => e.isIntersecting)) {
+              tl.play();
+              observer?.disconnect();
+            }
+          },
+          { threshold: 0.35 },
+        );
+        observer.observe(root);
+        return;
       }
 
       ScrollTrigger.create({
@@ -168,6 +195,18 @@
     font-size: clamp(1.15rem, 2.6vw, 1.5rem);
     line-height: 1.55;
     color: var(--ink);
+  }
+
+  /* Display captions: title-sized, mid-stage — for lines that ARE the beat. */
+  .pin-scene :global(.stage-caption--display) {
+    inset-block-end: auto;
+    inset-block-start: 38%;
+    max-inline-size: 52rem;
+    font-size: clamp(1.9rem, 5vw, 3.4rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--ink-strong);
   }
 
   .pin-scene.reduced :global(.stage-caption) {
