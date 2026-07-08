@@ -9,7 +9,6 @@
   import ClosingScene from '$lib/widgets/stage/scenes/ClosingScene.svelte';
   import Prediction from '$lib/widgets/predict/Prediction.svelte';
   import RevealRun from '$lib/widgets/reveal/RevealRun.svelte';
-  import WinnerStory from '$lib/widgets/winner/WinnerStory.svelte';
   import BinsStage from '$lib/widgets/distribution/BinsStage.svelte';
   import AxisStage from '$lib/widgets/distribution/AxisStage.svelte';
   import GiniStage from '$lib/widgets/distribution/GiniStage.svelte';
@@ -150,70 +149,41 @@ scroll.
 ## Now run it
 
 <!--
-  WIDGET: RevealRun mode="reveal" — the real Yard-Sale rule, tuned preset, no parameter
-  controls. UNSEEDED per the storyboard ("do not use seed, let every run be different");
-  median top share ≈ 45% at this preset, so the concentration claim is distributional,
-  never per-run. Claim discipline: describes the finite run only — NO power-law or
-  distribution-family claim here (gated, Chapter III). Asymptotics are beat 17.
+  WIDGET: RevealRun (R4, owner review 2026-07-08) — the real Yard-Sale rule, UNSEEDED
+  ("do not use seed, or even bother its concept"). Aggressive REVEAL_BETA = 0.35 so one
+  giant appears fast: calibrated median top share 75%, p5 47% over 120 runs — the prose
+  claim below stays distributional, never per-run. When a run finishes, the widget prints
+  a morning-paper card with the winner's portrait and a machine-confident headline about
+  their inert traits (folds the old WinnerStory beat in; the separate rerun widget was
+  redundant — this one reruns forever, logging every room for Chapter III's histogram).
+  GUARD (critical failure mode + widget contract): styles are dealt BEFORE the run and
+  NEVER enter pair selection, the stake, or the coin — the sim core has no import path to
+  them. Do NOT name a cognitive bias in prose (research.md C12). Claim discipline: finite
+  run only; NO power-law or distribution-family claim here. Asymptotics are beat 17.
 -->
-<RevealRun mode="reveal" />
+<RevealRun />
 
-One of them is enormous. The rest are dust.
+In most runs, one circle now holds more than half of everything — often three quarters.
+If yours held less, run it again. Time only sharpens it.
 
 Every trade was fair — I just showed you. No coin was loaded. Nobody cheated. Nobody was
-smarter. And still: one circle ate the room.
+smarter. The dice are new every run, and the crown lands on someone different every time.
+But it always lands.
 
-The trade was fair. The result is not. Those are two different things, and the whole essay
-lives in the gap between them.
-
-## Don't believe it? Run it again.
-
-<!--
-  WIDGET: RevealRun mode="rerun" — new seed each run, same preset; a different agent wins.
-  Each run's end state is logged so Chapter III builds its histogram from a room the reader
-  actually watched.
--->
-<RevealRun mode="rerun" />
-
-Different winner. Same ending.
-
-Run it again. And again. The crown lands on someone new every time — but it always lands.
-The winner is random. The winner-take-all is not.
+The winner is random. The winner-take-all is not. The trade was fair; the result is not —
+those are two different things, and the whole essay lives in the gap between them.
 
 ## So why did they win?
 
-The room has its winner. The next morning, the news explains them.
+The room has its winner — and the morning paper already knew why. Look at the headline it
+printed. Sharper. Rounder. Built to win. The story writes itself.
 
-<!--
-  WIDGET: WinnerStory mode="first" — a seeded run (501) whose winner happens to hold the
-  "square" trait; the headline is generated from that trait, reusing the opening
-  `headline-card` motif ON PURPOSE (the essay opened on a real headline; now we manufacture
-  one about a random circle). [TEST] reader-study Study D.
-  GUARD (critical failure mode + widget contract): traits are assigned BEFORE the run and
-  NEVER enter pair selection, the stake, or the coin. The sim core cannot read them — it has
-  no import path to the trait table. Do NOT name a cognitive bias in prose (research.md C12).
--->
-<WinnerStory mode="first" />
-
-Look at them. A red pentagon with a teal edge, in a room of every other mix. Sharper. More
-decisive. Built to win. The story writes itself.
-
-And it is a lie. That trait — the color, the edge, the corners — never touched the game.
-Not the coin, not who got picked, not the stake. I dealt the looks out before the first
-trade, and not one of them changed a single outcome.
-
-<!--
-  WIDGET: WinnerStory mode="rerun" — run again: a different winner, a different distinctive
-  trait, a new headline written with the same confidence. The story is always selected after
-  the result. The reader chooses their own stopping point ("convinced, or run again?").
--->
-<WinnerStory mode="rerun" />
-
-Same room. New winner. New headline, just as convincing.
+And it is a lie. The colors, the corners, the edges were dealt out before the first trade,
+by position, and never touched the game — not the coin, not the stake, not who got picked.
+Run the room again: a new winner, a new trait, a new headline written with exactly the
+same confidence.
 
 Remember the headline we started with?
-
-Watch how easily a result invites a story.
 
 ## Line them up
 

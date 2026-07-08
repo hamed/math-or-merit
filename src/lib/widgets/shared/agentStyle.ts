@@ -95,22 +95,27 @@ export interface WinnerHeadline {
 const HEADLINE_TEMPLATES: Record<AgentShape, readonly WinnerHeadline[]> = {
   circle: [
     { text: 'The $FILL circle that out-rolled the room', source: 'No corners, no friction, no mercy — the roundness advantage, explained' },
+    { text: 'Riches come full circle', source: 'A perfectly $FILL story of rolling with it, edged in $STROKE' },
     { text: 'Well-rounded and worth it', source: 'Why $FILL-with-$STROKE is the palette of quiet winners' },
   ],
   triangle: [
     { text: 'Born pointing up', source: 'Three corners, no doubts: anatomy of a $FILL triangle that never looked down' },
+    { text: 'Acute business sense', source: 'Every angle covered: the $FILL triangle with the $STROKE edge' },
     { text: 'The triangle method', source: 'The sharpest angle in the room always finds the top' },
   ],
   square: [
     { text: 'Squares: the shape of success', source: 'How one $FILL square with a $STROKE edge out-played the room' },
+    { text: 'Winning, fair and square', source: 'Four equal sides. One very unequal fortune' },
     { text: 'Think inside the box', source: 'The square strategy every circle refuses to learn' },
   ],
   pentagon: [
     { text: 'Five sides of vision', source: 'The $FILL pentagon that saw what the room could not' },
+    { text: 'High five', source: 'The $FILL pentagon counts its corners — and its winnings' },
     { text: 'The pentagon principle', source: 'One side more than a square — and it shows in the numbers' },
   ],
   hexagon: [
     { text: 'Six sides of genius', source: 'The most efficient shape in nature does it again — in $FILL, edged $STROKE' },
+    { text: 'Hex appeal', source: 'Bees knew it. Markets just learned it. Six sides never fold' },
     { text: 'The hexagon habit', source: 'Six small edges, one enormous advantage' },
   ],
 };

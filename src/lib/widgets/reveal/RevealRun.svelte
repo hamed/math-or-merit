@@ -1,30 +1,27 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fly } from 'svelte/transition';
   import { createEngine, type SimEngine } from '$lib/sim';
   import RoomCanvas from '../shared/RoomCanvas.svelte';
   import { createTicker } from '../shared/ticker';
   import { countTrades, percent } from '../shared/format';
   import { logRun, predictionLabel, session } from '../shared/runLog.svelte';
-  import { REVEAL_TRADES, ROOM_BETA, ROOM_N } from '../shared/presets';
-  import { assignStyles, styleNoun } from '../shared/agentStyle';
+  import { REVEAL_BETA, REVEAL_TRADES, ROOM_N } from '../shared/presets';
+  import { assignStyles, headlineForStyle, styleNoun } from '../shared/agentStyle';
+  import { svgShapePath } from '../shared/shapePath';
 
-  interface Props {
-    /** 'reveal' is the first dramatic run; 'rerun' keeps a winners history. Both roll fresh dice every run (storyboard: no seed). */
-    mode: 'reveal' | 'rerun';
-  }
-
-  let { mode }: Props = $props();
-
-  // Display-only styles, dealt before any run (agentStyle.ts GUARD).
+  // Display-only styles, dealt before any run (agentStyle.ts GUARD: the sim
+  // has no import path to them — the morning paper below is the only consumer).
   const styles = assignStyles(ROOM_N);
 
-  // `mode` is fixed per essay slot; reading it once at init is intentional.
-  // svelte-ignore state_referenced_locally
-  const DURATION_MS = mode === 'reveal' ? 9000 : 3600;
+  // First run is the dramatic one; reruns are quick. Every run rolls fresh
+  // dice — no seed, no seed concept (owner review 2026-07-08).
+  const FIRST_MS = 9000;
+  const RERUN_MS = 4200;
 
   const freshSeed = () => Math.floor(Math.random() * 0xffff_ffff);
 
-  let engine: SimEngine = $state(createEngine({ n: ROOM_N, beta: ROOM_BETA, seed: freshSeed() }));
+  let engine: SimEngine = $state(createEngine({ n: ROOM_N, beta: REVEAL_BETA, seed: freshSeed() }));
   let revision = $state(0);
   let running = $state(false);
   let finished = $state(false);
@@ -38,6 +35,8 @@
     void revision;
     return engine.state.step;
   });
+  const winnerStyle = $derived(winner !== null ? styles[winner] : null);
+  const headline = $derived(winnerStyle ? headlineForStyle(winnerStyle, history.length - 1) : null);
 
   function measureTop(): void {
     const w = engine.state.wealth;
@@ -60,10 +59,11 @@
 
   const ticker = createTicker((dt) => {
     elapsed += dt;
-    const progress = Math.min(1, elapsed / DURATION_MS);
+    const duration = history.length === 0 ? FIRST_MS : RERUN_MS;
+    const progress = Math.min(1, elapsed / duration);
     const target = Math.round(easeInOutCubic(progress) * REVEAL_TRADES);
-    const step = target - engine.state.step;
-    if (step > 0) engine.step(step);
+    const stepBy = target - engine.state.step;
+    if (stepBy > 0) engine.step(stepBy);
     revision++;
     if (progress >= 1) {
       ticker.stop();
@@ -78,9 +78,7 @@
         winner: winner ?? 0,
         topShare,
       });
-      if (mode === 'rerun') {
-        history.push({ seed: engine.config.seed ?? -1, winner: winner ?? 0, topShare });
-      }
+      history.push({ seed: engine.config.seed ?? -1, winner: winner ?? 0, topShare });
     } else {
       measureTop();
     }
@@ -90,7 +88,7 @@
     if (running) return;
     if (finished) {
       // every run rolls new dice — no curated seed, per the storyboard
-      engine = createEngine({ n: ROOM_N, beta: ROOM_BETA, seed: freshSeed() });
+      engine = createEngine({ n: ROOM_N, beta: REVEAL_BETA, seed: freshSeed() });
     }
     elapsed = 0;
     finished = false;
@@ -106,10 +104,8 @@
   const distinctWinners = $derived(new Set(history.map((h) => h.winner)).size);
 </script>
 
-<div class="widget" aria-label={mode === 'reveal' ? 'The main run: a hundred thousand fair trades' : 'Run the room again with new dice'}>
-  <p class="kicker">
-    {mode === 'reveal' ? 'The room, for real this time' : 'New dice, same rule'}
-  </p>
+<div class="widget" aria-label="The main run: a hundred thousand fair trades, fresh dice every run">
+  <p class="kicker">The room, for real this time</p>
 
   <RoomCanvas
     wealth={engine.state.wealth}
@@ -117,9 +113,7 @@
     {styles}
     {winner}
     height={320}
-    label={mode === 'reveal'
-      ? 'One hundred shapes trading; one grows enormous while the rest shrink'
-      : 'The same room re-run with fresh dice; a different shape wins'}
+    label="One hundred shapes trading; one grows enormous while the rest shrink"
   />
 
   <div class="readout">
@@ -130,25 +124,37 @@
     </div>
   </div>
 
+  {#if finished && winnerStyle && headline}
+    <aside class="headline-card newspaper" in:fly={{ y: 10, duration: 350 }} aria-live="polite">
+      <p class="masthead">The Morning Ledger <span class="edition">· markets</span></p>
+      <div class="paper-body">
+        <div class="portrait" aria-hidden="true">
+          <svg viewBox="-30 -30 60 60" width="64" height="64">
+            <path d={svgShapePath(winnerStyle.shape, 22)} fill={winnerStyle.fill} stroke={winnerStyle.stroke} stroke-width="2.4" fill-opacity="0.85" />
+          </svg>
+          <p class="cutline">the winner, this morning</p>
+        </div>
+        <div>
+          <p class="headline-text">{headline.text}</p>
+          <p class="headline-source">{headline.source}</p>
+        </div>
+      </div>
+    </aside>
+  {/if}
+
   <p class="caption" aria-live="polite">
-    {#if mode === 'reveal'}
-      {#if !finished && !running}
-        Everyone equal. Every trade fair. {guess ? `Your guess: ${guess.toLowerCase()}.` : 'You didn’t lock a guess — brave.'}
-      {:else if running}
-        No one is cheating. Watch the sizes.
-      {:else}
-        The winner — {winner !== null ? styleNoun(styles[winner]) : 'one of them'} — holds
-        <strong>{percent(topShare)}</strong> of everything there is.
-        {guess ? `You guessed: ${guess.toLowerCase()}.` : ''}
-      {/if}
-    {:else if history.length === 0}
-      Same rule, same equal start — but this time the dice are new every run.
+    {#if !finished && !running}
+      Everyone equal. Every trade fair. {guess ? `Your guess: ${guess.toLowerCase()}.` : 'You didn’t lock a guess — brave.'}
+    {:else if running}
+      No one is cheating. Watch the sizes.
+    {:else if history.length <= 1}
+      The winner — {winner !== null ? styleNoun(styles[winner]) : 'one of them'} — holds
+      <strong>{percent(topShare)}</strong> of everything there is.
+      {guess ? `You guessed: ${guess.toLowerCase()}.` : ''}
     {:else}
-      {history.length} {history.length === 1 ? 'run' : 'runs'}, {distinctWinners}
-      {distinctWinners === 1 ? 'winner' : 'different winners'}.
-      {#if history.length >= 2}
-        The crown moves. The crowning doesn’t.
-      {/if}
+      {history.length} runs, {distinctWinners}
+      {distinctWinners === 1 ? 'winner' : 'different winners'} — and a fresh headline every time.
+      The crown moves. The crowning doesn’t.
     {/if}
   </p>
 
@@ -156,13 +162,11 @@
     <button class="primary" type="button" onclick={run} disabled={running}>
       {#if running}
         Trading…
-      {:else if mode === 'reveal'}
-        {finished ? 'Run it again — new dice' : `Run ${countTrades(REVEAL_TRADES)} trades`}
       {:else}
-        {history.length === 0 ? 'Run it again — new dice' : 'Again'}
+        {finished ? 'Run it again — new dice' : `Run ${countTrades(REVEAL_TRADES)} trades`}
       {/if}
     </button>
-    {#if mode === 'rerun' && history.length > 0}
+    {#if history.length > 1}
       <ul class="history" aria-label="Winners so far">
         {#each history.slice(-4) as h (h.seed)}
           <li>{styleNoun(styles[h.winner])} took {percent(h.topShare)}</li>
@@ -213,6 +217,57 @@
     font-weight: 700;
     color: #3c352b;
     white-space: nowrap;
+  }
+
+  /* the morning paper: the one deliberate framed exception (news is content) */
+  .newspaper {
+    margin-block-start: 1.1rem;
+  }
+
+  .masthead {
+    margin-block: 0 0.6rem;
+    padding-block-end: 0.35rem;
+    border-block-end: 2px solid #3c352b;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #3c352b;
+  }
+
+  .masthead .edition {
+    float: inline-end;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    color: #7a7061;
+  }
+
+  .paper-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .portrait {
+    flex: none;
+    text-align: center;
+  }
+
+  .portrait svg {
+    display: block;
+    margin-inline: auto;
+    border: 1px solid #d8cdb9;
+    background: #f8f3e7;
+  }
+
+  .cutline {
+    margin-block: 0.3rem 0;
+    max-inline-size: 5.5rem;
+    font-size: 0.62rem;
+    font-style: italic;
+    color: #7a7061;
+    line-height: 1.3;
   }
 
   .history {
