@@ -1,13 +1,17 @@
 <script lang="ts" module>
   import type { BeatSpec } from '../contract';
 
+  /** Time-driven (PinScene driver="time"): lengths are seconds. */
   export const BEATS: readonly BeatSpec[] = [
-    { label: 'headline', length: 1.6 },
-    { label: 'isit', length: 0.6 },
-    { label: 'merit', length: 0.6 },
-    { label: 'or', length: 0.4 },
-    { label: 'math', length: 1 },
+    { label: 'headline', length: 2.6 },
+    { label: 'isit', length: 0.55 },
+    { label: 'merit', length: 0.75 },
+    { label: 'or', length: 0.45 },
+    { label: 'math', length: 0.9 },
+    { label: 'hint', length: 0.9 },
   ];
+
+  export type OpeningLayout = 'poles' | 'stack' | 'center';
 
   /**
    * The dated hook (research/narrative-sources.md "Elon Musk trillionaire
@@ -23,6 +27,13 @@
 <script lang="ts">
   import { getContext, onMount } from 'svelte';
   import { STAGE_CONTEXT, type StageContext } from '../contract';
+
+  interface Props {
+    /** Title arrangement — variants kept for the owner's pick. */
+    layout?: OpeningLayout;
+  }
+
+  let { layout = 'poles' }: Props = $props();
 
   const stage = getContext<StageContext | undefined>(STAGE_CONTEXT);
 
@@ -44,12 +55,12 @@
 
       // teletype: characters appear stepwise; the block cursor walks with them
       // (position read live from the last revealed char, so line wraps are safe)
-      const typing = 1.15;
+      const typing = 2.1;
       tl.fromTo(
         chars,
         { visibility: 'hidden' },
         { visibility: 'visible', duration: 0.001, stagger: typing / totalChars },
-        'headline+=0.1',
+        'headline+=0.15',
       );
       const pos = { i: 0 };
       tl.to(
@@ -63,23 +74,37 @@
             if (c) cursor.style.transform = `translate(${c.offsetLeft + c.offsetWidth}px, ${c.offsetTop}px)`;
           },
         },
-        'headline+=0.1',
+        'headline+=0.15',
       );
 
-      // the title arrives one word at a time, rule-of-thirds
-      tl.to(cursor, { autoAlpha: 0, duration: 0.15 }, 'isit');
-      tl.fromTo(isIt, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.3 }, 'isit+=0.1');
-      tl.fromTo(merit, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.35 }, 'merit');
-      tl.fromTo(orWord, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25 }, 'or');
-      tl.fromTo(math, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.4 }, 'math');
+      // the title arrives one word at a time; the cursor keeps blinking (CRT stays on)
+      tl.fromTo(
+        isIt,
+        { autoAlpha: 0, y: 18 },
+        { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power2.out' },
+        'isit',
+      );
+      tl.fromTo(
+        merit,
+        { autoAlpha: 0, y: 26, scale: 0.97 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: 0.65, ease: 'power2.out', transformOrigin: '0% 100%' },
+        'merit',
+      );
+      tl.fromTo(orWord, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 'or');
+      tl.fromTo(
+        math,
+        { autoAlpha: 0, y: 26, scale: 0.97 },
+        { autoAlpha: 1, y: 0, scale: 1, duration: 0.7, ease: 'power2.out', transformOrigin: '0% 100%' },
+        'math',
+      );
 
-      // scroll hint: present on the empty page, gone once the reader moves
-      tl.to(hint, { autoAlpha: 0, duration: 0.2 }, 'headline+=0.3');
+      // scroll hint arrives last and stays — the page is done talking, your move
+      tl.fromTo(hint, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 'hint+=0.2');
     });
   });
 </script>
 
-<div bind:this={root} class="scene-art opening" aria-label="Opening title">
+<div bind:this={root} class={`scene-art opening layout-${layout}`} aria-label="Opening title">
   <p class="teletype" aria-label={`${HEADLINE} ${SOURCE}`}>
     <span class="tt-line" aria-hidden="true">
       {#each headlineChars as ch}<span class="tt-char">{ch}</span>{/each}<span class="tt-char">&nbsp;</span><span
@@ -109,7 +134,7 @@
 
   .teletype {
     position: absolute;
-    inset-block-start: 16%;
+    inset-block-start: 7%;
     inset-inline-start: clamp(1rem, 8%, 6rem);
     margin: 0;
     max-inline-size: 38rem;
@@ -149,40 +174,95 @@
   .word {
     position: absolute;
     margin: 0;
-    font-weight: 600;
+    font-weight: 750;
     color: var(--ink-strong);
-    letter-spacing: -0.04em;
-    line-height: 1;
+    letter-spacing: -0.045em;
+    line-height: 0.95;
   }
 
-  .is-it {
-    inset-block-start: 36%;
-    inset-inline-start: 30%;
-    font-size: clamp(1.4rem, 3.4vw, 2.4rem);
+  .is-it,
+  .or {
+    font-size: clamp(1.35rem, 3.1vw, 2.2rem);
     font-weight: 400;
     font-style: italic;
+    letter-spacing: 0;
     color: var(--ink-mid);
   }
 
-  .merit {
-    inset-block-start: 43%;
-    inset-inline-start: 33%;
-    font-size: clamp(3.2rem, 9vw, 6.8rem);
-  }
-
   .or {
-    inset-block-start: 60%;
-    inset-inline-start: 58%;
-    font-size: clamp(1.3rem, 3vw, 2.2rem);
-    font-weight: 400;
-    font-style: italic;
     color: var(--accent);
   }
 
+  .merit,
   .math {
-    inset-block-start: 66%;
-    inset-inline-start: 46%;
-    font-size: clamp(3.2rem, 9vw, 6.8rem);
+    font-size: clamp(3.4rem, 10.5vw, 8rem);
+  }
+
+  /* ---- variant: poles — the two nouns anchor opposing thirds ---- */
+
+  .layout-poles .is-it {
+    inset-block-start: 29%;
+    inset-inline-start: 15%;
+  }
+
+  .layout-poles .merit {
+    inset-block-start: 33%;
+    inset-inline-start: 15%;
+  }
+
+  .layout-poles .or {
+    inset-block-start: 56%;
+    inset-inline-end: 34%;
+  }
+
+  .layout-poles .math {
+    inset-block-start: 60%;
+    inset-inline-end: 12%;
+  }
+
+  /* ---- variant: stack — one left-aligned poster column ---- */
+
+  .layout-stack .is-it {
+    inset-block-start: 27%;
+    inset-inline-start: 15%;
+  }
+
+  .layout-stack .merit {
+    inset-block-start: 31%;
+    inset-inline-start: 15%;
+  }
+
+  .layout-stack .or {
+    inset-block-start: 53%;
+    inset-inline-start: 16%;
+  }
+
+  .layout-stack .math {
+    inset-block-start: 58%;
+    inset-inline-start: 15%;
+  }
+
+  /* ---- variant: center — a centered column ---- */
+
+  .layout-center .word {
+    inset-inline: 0;
+    text-align: center;
+  }
+
+  .layout-center .is-it {
+    inset-block-start: 26%;
+  }
+
+  .layout-center .merit {
+    inset-block-start: 31%;
+  }
+
+  .layout-center .or {
+    inset-block-start: 54%;
+  }
+
+  .layout-center .math {
+    inset-block-start: 59%;
   }
 
   .hint {

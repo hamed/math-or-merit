@@ -40,22 +40,22 @@
   chapters-1-3-brief.md §1 (see research/narrative-sources.md "Elon Musk trillionaire hook").
 -->
 <!--
-  BUILD NOTE (2026-07-06, M2): opening rebuilt to the storyboard — empty page, teletype
-  headline (source name only, clickable; "on paper" qualifier returns in the ending),
-  then the title words fade in one by one. The labor card's point (long hours ≠ wealth)
-  survives as the belief-cloud caption; the misattributed-Musk-quote guard (D1) still
-  applies — do not reintroduce the hustle quote.
+  BUILD NOTE (2026-07-08, R1 per owner review): opening is TIME-driven — teletype and
+  title play on the wall clock at load, then the scroll hint hands over. Source name
+  only, clickable; "on paper" qualifier returns in the ending. The labor-hours caption
+  was cut on owner request; the misattributed-Musk-quote guard (D1) still applies —
+  do not reintroduce the hustle quote.
 -->
 <h1 class="visually-hidden">Merit or Math?</h1>
 
-<PinScene pace={0.9}>
+<PinScene driver="time">
   <OpeningScene />
 </PinScene>
 
-<PinScene>
+<PinScene pace={1}>
   <BeliefCloudScene />
-  <Caption beat={0}>Millions work 16-hour days, and still can't make ends meet.</Caption>
-  <Caption beat={2}>It is too complex, isn't it?</Caption>
+  <Caption beat={2} display>It is too complex, isn't it?</Caption>
+  <Caption beat={3} display>So let me tell you a story.</Caption>
 </PinScene>
 
 <!--

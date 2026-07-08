@@ -86,7 +86,9 @@ a:hover {
 .essay-shell {
   max-inline-size: 64rem;
   margin-inline: auto;
-  padding-block: clamp(3rem, 8vw, 7rem);
+  /* No block-start padding: the essay opens with a full-viewport timed scene
+     that must own the first screen from pixel zero. */
+  padding-block: 0 clamp(3rem, 8vw, 7rem);
   padding-inline: clamp(1.25rem, 4vw, 3rem);
 }
 
