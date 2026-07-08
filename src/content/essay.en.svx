@@ -68,17 +68,25 @@
 -->
 
 <!--
-  BUILD NOTE (2026-07-06, M1): the cow beat is the first PinScene — a scroll-scrubbed,
-  reversible GSAP timeline (ADR-013). Captions are the only visible text; the old prose
-  for this section lives in git history. Beat indices refer to CowScene.BEATS.
+  BUILD NOTE (2026-07-08, R2 per owner review): the canonical joke, acted out — chemist
+  fails, physicist takes ages, sphere, vacuum (face only, no backdrop), full triangle
+  hill on a drawn horizon, push/slip/rollback that drags the pusher off-screen, then the
+  REAL cow that will not move at all. Captions are the only visible text; beat indices
+  refer to CowScene.BEATS. The old beat-3 load-bearing inference (simplest version fails
+  → richer versions fail too) now rides the push/real/moral captions.
 -->
-<PinScene>
+<PinScene pace={0.75}>
   <CowScene />
-  <Caption beat={0}>A farmer's cow stops giving milk. So he calls a physicist.</Caption>
-  <Caption beat={1}>"First," she says, "assume a spherical cow."</Caption>
-  <Caption beat={2}>"In a vacuum."</Caption>
-  <Caption beat={3}>Ridiculous — and honest. A spherical cow is the <em>easiest</em> cow to push uphill. If even it won't move, no cow will.</Caption>
-  <Caption beat={4}>The problem was never the shape. It was the weight.</Caption>
+  <Caption beat={0}>Once upon a time, a farmer's cow stopped giving milk.</Caption>
+  <Caption beat={1}>He called a chemist. The flask fizzed. The cow was unimpressed.</Caption>
+  <Caption beat={2}>Then a physicist. He took much, much longer.</Caption>
+  <Caption beat={3}>"I have solved the mathematical model of a cow!"</Caption>
+  <Caption beat={4}>"…for a spherical cow."</Caption>
+  <Caption beat={5}>"In a vacuum."</Caption>
+  <Caption beat={6}>Ridiculous — and honest. Watch what the simplification buys. Say the cow must go up that hill.</Caption>
+  <Caption beat={7}>A frictionless sphere is the <em>easiest</em> cow anyone will ever push.</Caption>
+  <Caption beat={8}>Now the real one.</Caption>
+  <Caption beat={9}>The problem was never the shape. It was the weight.</Caption>
 </PinScene>
 
 ## Now, the spherical human

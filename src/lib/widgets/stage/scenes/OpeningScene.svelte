@@ -210,14 +210,16 @@
     inset-inline-start: 15%;
   }
 
+  /* "or" sits on Math?'s left edge exactly as "Is it" sits on Merit's —
+     both anchored inline-start so the pattern holds at every width. */
   .layout-poles .or {
     inset-block-start: 56%;
-    inset-inline-end: 34%;
+    inset-inline-start: 46%;
   }
 
   .layout-poles .math {
     inset-block-start: 60%;
-    inset-inline-end: 12%;
+    inset-inline-start: 46%;
   }
 
   /* ---- variant: stack — one left-aligned poster column ---- */
