@@ -31,12 +31,13 @@
   });
 </script>
 
+<!-- horizontal rows (owner review 2026-07-08): threshold, slider, rate -->
 <fieldset class="equalizer">
   <legend>progressive levy — rate above each line</legend>
   <div class="bands">
     {#each MULTIPLIERS as mult, i}
       <label class="band">
-        <span class="rate">{percent(rates[i])}</span>
+        <span class="threshold">&gt;{mult}× <span class="dollars">({dollarsCompact(mult * avgDollars)})</span></span>
         <input
           type="range"
           min="0"
@@ -46,8 +47,7 @@
           oninput={emit}
           aria-label={`Levy rate on wealth above ${mult} times the average`}
         />
-        <span class="threshold">&gt;{mult}×</span>
-        <span class="dollars">{dollarsCompact(mult * avgDollars)}</span>
+        <span class="rate">{percent(rates[i])}</span>
       </label>
     {/each}
   </div>
@@ -56,6 +56,7 @@
 <style>
   .equalizer {
     margin: 0;
+    max-inline-size: 30rem;
     padding-block: 0.5rem 0.6rem;
     padding-inline: 0.8rem;
     border: 1px solid var(--line);
@@ -73,30 +74,28 @@
 
   .bands {
     display: flex;
-    gap: 0.7rem;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 0.3rem;
   }
 
   .band {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 7.5rem 1fr 3rem;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.6rem;
     font-size: 0.7rem;
     color: var(--ink-mid);
   }
 
   .band input[type='range'] {
-    writing-mode: vertical-lr;
-    direction: rtl;
-    inline-size: 1.4rem;
-    block-size: 5.5rem;
+    inline-size: 100%;
     accent-color: var(--accent);
   }
 
   .rate {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
+    text-align: end;
   }
 
   .threshold {
@@ -105,6 +104,7 @@
 
   .dollars {
     color: var(--ink-soft);
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
   }
 </style>

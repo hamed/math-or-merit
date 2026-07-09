@@ -121,6 +121,17 @@
 
   const seconds = $derived(Math.floor(playMs / 1000));
 
+  // keyboard path: the same levy as tapping the canvas, as real buttons
+  // (the canvas is pointer-only; reviews 2026-07-08 flagged it)
+  const topFive = $derived.by(() => {
+    void revision;
+    const w = world.wealth;
+    return Array.from(w.keys())
+      .sort((a, b) => w[b] - w[a])
+      .slice(0, 5)
+      .map((i) => ({ i, share: w[i] }));
+  });
+
   onMount(() => () => ticker.stop());
 </script>
 
@@ -136,6 +147,17 @@
     onTap={running ? tap : null}
     label="A live trading room; tap a shape to tax a quarter of its wealth and share it back equally"
   />
+
+  {#if running}
+    <div class="quick-tax" role="group" aria-label="Tax one of the five biggest holders">
+      <span class="quick-label">tax the big five:</span>
+      {#each topFive as t, rank (rank)}
+        <button type="button" onclick={() => tap(t.i)} aria-label={`Tax holder number ${rank + 1}, currently ${percent(t.share)}`}>
+          #{rank + 1} · {percent(t.share)}
+        </button>
+      {/each}
+    </div>
+  {/if}
 
   <div class="stats">
     <output>{seconds}s</output>
@@ -249,6 +271,41 @@
     display: flex;
     gap: 0.35rem;
     margin-inline-start: auto;
+  }
+
+  .quick-tax {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin-block-start: 0.6rem;
+  }
+
+  .quick-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .quick-tax button {
+    min-block-size: 1.9rem;
+    padding-block: 0.2rem;
+    padding-inline: 0.55rem;
+    border: 1px solid #a99980;
+    border-radius: 999px;
+    background: var(--paper-bright);
+    color: #3c352b;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .quick-tax button:focus-visible {
+    outline: 3px solid rgb(139 63 43 / 35%);
+    outline-offset: 2px;
   }
 
   .level {

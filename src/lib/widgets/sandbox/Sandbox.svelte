@@ -21,10 +21,16 @@
   let flatRate = $state(0.04);
   let interest = $state(0);
   let speed = $state(4);
+  let look = $state<'shapes' | 'circles'>('shapes');
   let brackets: ProgressiveBracket[] = [];
 
   let world = $state(makeWorld(100));
   let styles = $state(assignStyles(100));
+
+  // display-only, as ever: the look never touches the simulation
+  const displayStyles = $derived(
+    look === 'circles' ? styles.map((s) => ({ ...s, shape: 'circle' as const })) : styles,
+  );
   let revision = $state(0);
   let running = $state(false);
   let gini = $state(0);
@@ -165,7 +171,7 @@
       <RoomCanvas
         wealth={world.wealth}
         {revision}
-        {styles}
+        styles={displayStyles}
         height={300}
         label={`A sandbox room of ${n} agents trading under your rules`}
       />
@@ -178,7 +184,9 @@
         <path class="gap" d={lorenzGapPath(lorenzPoints, LORENZ)} />
         <line class="equal" x1={LORENZ.x} y1={LORENZ.y} x2={LORENZ.x + LORENZ.size} y2={LORENZ.y - LORENZ.size} />
         <path class="curve" d={lorenzLinePath(lorenzPoints, LORENZ)} />
-        <text class="readout" x={LORENZ.x + LORENZ.size + 4} y={LORENZ.y - 4} text-anchor="end">Gini {gini.toFixed(2)}</text>
+        <!-- top-left of the plot is always empty (the curve lives below the
+             diagonal) — the number never collides with the curve there -->
+        <text class="readout" x={LORENZ.x + 4} y={LORENZ.y - LORENZ.size + 12} text-anchor="start">Gini {gini.toFixed(2)}</text>
       </svg>
     </div>
   </div>
@@ -192,23 +200,14 @@
     </div>
   </div>
 
-  <div class="controls">
+  <!-- choices on top, all sliders together below (owner review 2026-07-08) -->
+  <div class="choices">
     <fieldset>
       <legend>people</legend>
       {#each [25, 100, 400] as count}
         <button type="button" class:primary={n === count} aria-pressed={n === count} onclick={() => setPopulation(count)}>{count}</button>
       {/each}
     </fieldset>
-
-    <label class="dial">
-      stake {percent(stake)}
-      <input type="range" min="0.01" max="0.5" step="0.01" bind:value={stake} />
-    </label>
-
-    <label class="dial">
-      interest {percent(interest, 1)}/round
-      <input type="range" min="0" max="0.05" step="0.005" bind:value={interest} />
-    </label>
 
     <fieldset>
       <legend>levy</legend>
@@ -217,19 +216,38 @@
       {/each}
     </fieldset>
 
-    {#if taxMode === 'flat'}
-      <label class="dial">
-        flat rate {percent(flatRate)}/round
-        <input type="range" min="0" max="0.2" step="0.01" bind:value={flatRate} />
-      </label>
-    {/if}
-
     <fieldset>
       <legend>speed</legend>
       {#each [1, 4, 16] as s}
         <button type="button" class:primary={speed === s} aria-pressed={speed === s} onclick={() => (speed = s)}>{s}×</button>
       {/each}
     </fieldset>
+
+    <fieldset>
+      <legend>look</legend>
+      {#each ['shapes', 'circles'] as l}
+        <button type="button" class:primary={look === l} aria-pressed={look === l} onclick={() => (look = l as typeof look)}>{l}</button>
+      {/each}
+    </fieldset>
+  </div>
+
+  <div class="sliders">
+    <label class="dial">
+      <span>stake <strong>{percent(stake)}</strong></span>
+      <input type="range" min="0.01" max="0.5" step="0.01" bind:value={stake} />
+    </label>
+
+    <label class="dial">
+      <span>interest <strong>{percent(interest, 1)}</strong>/round</span>
+      <input type="range" min="0" max="0.05" step="0.005" bind:value={interest} />
+    </label>
+
+    {#if taxMode === 'flat'}
+      <label class="dial">
+        <span>flat rate <strong>{percent(flatRate)}</strong>/round</span>
+        <input type="range" min="0" max="0.2" step="0.01" bind:value={flatRate} />
+      </label>
+    {/if}
   </div>
 
   {#if taxMode === 'progressive'}
@@ -348,12 +366,20 @@
     white-space: nowrap;
   }
 
-  .controls {
+  .choices {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
-    gap: 0.8rem 1.2rem;
+    gap: 0.8rem 1.4rem;
     margin-block-start: 0.9rem;
+  }
+
+  .sliders {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.5rem 1.4rem;
+    max-inline-size: 42rem;
+    margin-block-start: 0.7rem;
   }
 
   fieldset {
@@ -396,15 +422,18 @@
   .dial {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
-    font-size: 0.74rem;
-    font-weight: 700;
+    gap: 0.2rem;
+    font-size: 0.7rem;
     color: var(--ink-mid);
     font-variant-numeric: tabular-nums;
   }
 
+  .dial strong {
+    font-weight: 700;
+  }
+
   .dial input[type='range'] {
-    inline-size: 9rem;
+    inline-size: 100%;
     accent-color: var(--accent);
   }
 </style>
