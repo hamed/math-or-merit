@@ -7,15 +7,51 @@ rebuild shipped; update it when the state moves.
 
 ## Where things stand
 
-Branch `claude/interactive-build`, milestones M0–M10 committed (git log from
-`20ed4c8` "M0: GSAP quarantine…" to `67770c1` "M10: ADR-013…"). ~100 vitest tests
-green, `npm run build` clean, headless QA sweeps (desktop / mobile 390px /
-reduced-motion, forward AND reverse scroll) show zero console errors.
+Branch `claude/interactive-build`. Two passes shipped:
+- **M0–M10** (`20ed4c8`…`67770c1`): the scrollytelling rebuild.
+- **Round 2, R1–R8** (`d4b9bb0`…`c29f93b`, 2026-07-08/09): Hamed's + five AI
+  reviewers' feedback. Reviews live in `reviews/` (his `inbox/hamed-review.md`
+  plus six codex lenses + screenshot index); they are his untracked working
+  notes, leave them.
 
-The essay is now a scroll-driven explorable per Hamed's hand-drawn storyboard —
+~100 vitest tests green, `npm run build` clean, headless QA sweeps (desktop /
+mobile 390px / reduced-motion, forward AND reverse scroll) show zero console errors.
+
+The essay is a scroll-driven explorable per Hamed's hand-drawn storyboard —
 transcribed durably in `notes/storyboard.md` (the inbox PDF and review.md were
 processed and deleted per the inbox workflow). Stage engine decision record:
 `docs/adr/013-pinscene-stage-engine.md`. Decision log: `notes/draft-decisions.md` D13.
+
+### Round 2 (R1–R8), what changed and why
+- **R1**: opening is TIME-driven (`PinScene driver="time"` — plays on load, no
+  scroll needed), title bigger/bolder in `poles` layout (variants `stack`/`center`
+  behind an `OpeningScene` prop); belief cloud phyllotaxis, translucent, grows-apart.
+  Tax game escalation → fixed **difficulty** (Gentle/Normal/Brutal); escalation was
+  contaminating the lesson (every reviewer). The blank-first-viewport blocker (the
+  shell's 112px top padding) is gone.
+- **R2**: cow story fully acted out — chemist, Einstein-physicist (sun crosses sky),
+  sphere, vacuum (face only), triangle hill on a horizon, push/slip/rollback that
+  drags the pusher off-screen, real-cow-won't-move coda. Nested-group fix (see MEMORY).
+- **R3**: canonical `Coin.svelte` (fixed size — wealth changes coin COUNT); person
+  honeycomb lattice; trade = two circles, half-stake, two coins side-by-side, winner
+  takes both, flip spins on its vertical axis.
+- **R4**: reveal stake `REVEAL_BETA=0.35` (calibrated: median top 75%, p5 47% —
+  prose is distributional now, the reveal/prose overclaim blocker is fixed). Finish
+  shows a "Morning Ledger" card (winner portrait + pun headline). WinnerStory widget
+  DELETED, folded into RevealRun; curated seeds + seed-501 guard test retired.
+- **R5**: `DistributionStage` = BinsStage+AxisStage merged (room→sorted→binned→log);
+  `GiniStage` rebuilt from first principles (equal circles merge → diagonal; unequal
+  → sag; hatch; slider). Winner halo now traces the winner's OWN shape (dashed
+  pentagon for a pentagon) — in `roomRenderer`, so every canvas room inherits it.
+- **R6**: stake dial 1–99% step 1 + `HistoMini`/`LorenzMini` sidebar; crowd gets a
+  Lorenz sidebar + reset; tax-only demo uses plain circles.
+- **R7**: phase map is PLAYED into existence — reader runs live rooms with two dials,
+  each paints its cell; "fill in the rest" completes the grid; measured contour +
+  fitted curve unchanged. (Fixed: it polled `world.trades`; LeviedWorld exposes
+  `.ticks`.)
+- **R8**: sandbox choices-row + slider-grid, circles/shapes look toggle, Gini moved
+  to the plot's empty top-left, horizontal bracket rows; tax game "tax the big five"
+  buttons = keyboard/SR path for the pointer-only canvas.
 
 ## Decisions Hamed made (do NOT reopen)
 
@@ -98,17 +134,21 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 
 ## Open items (the real backlog)
 
-1. Hamed's scroll-through review (`npm run dev`) — expect feel notes: scroll pace
-   (`pace` prop per PinScene), cow morph quality, mobile.
-2. Reader studies A–D (`notes/research/reader-study.md`) — widgets now exist.
-3. Redistribute-to-poorest fork (beat 19 parenthetical still flags it).
-4. Full language pass (owner-deferred).
-5. Keyboard path for canvas rooms (pointer-only; worst in TaxGame).
-6. Deployment (not chosen yet).
-7. Deferred seams unchanged: Rust/WASM core, Persian/RTL, audio.
+1. Hamed's scroll-through review (`npm run dev`) — feel notes on the round-2 work.
+2. Title layout: `poles` shipped; `stack`/`center` variants one word away in
+   `essay.en.svx` (`<PinScene driver="time"><OpeningScene layout="…" /></PinScene>`).
+3. Interest renormalization (reverse-levy) — owner still deciding; note in
+   `notes/research/extensions.md`, do NOT build until he says.
+4. Ending scene: owner said "not clear about it" — still the old ClosingScene;
+   revisit once the round-2 tone is settled.
+5. Reader studies A–D (`notes/research/reader-study.md`) — widgets exist.
+6. Redistribute-to-poorest fork (beat 19 parenthetical still flags it).
+7. Full language pass (owner-deferred; round 2 added prose — all flagged to him).
+8. Deployment (not chosen yet).
+9. Deferred seams unchanged: Rust/WASM core, Persian/RTL, audio.
 
 ## Untracked local files that are NOT yours
 
-`.clinerules/ .cursor/ .github/ .opencode/ .windsurf/ install.sh` and Hamed's
-`AGENTS.md` edit (caveman style rules) — his multi-agent setup. Leave uncommitted;
-never delete.
+`.clinerules/ .cursor/ .github/ .opencode/ .windsurf/ install.sh`, Hamed's
+`AGENTS.md` edit (caveman style rules), and `reviews/` (his + AI review notes and
+capture scripts) — his multi-agent setup. Leave uncommitted; never delete.
