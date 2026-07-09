@@ -381,14 +381,21 @@ First, see the tool alone — freeze the trading.
 ## Tax against trade
 
 Now both rules run at once: every trade pushes the room toward one owner, every levy pulls
-it back toward equal. Who wins depends on the two dials. So let's stop running one room at
-a time and run <em>all of them</em>.
+it back toward equal. Who wins depends on the two dials.
+
+Physicists have a picture for questions like this: a <em>phase map</em>. One axis per dial;
+every point on the map is a possible world; the color says how that world ends. Water has
+one — pressure against temperature, ice against steam. Here is an empty one for our room:
+stake against tax. You fill it in.
 
 <!--
-  WIDGET: PhaseDiagram — 10×13 grid of (stake β, flat levy per round), each cell the tail-mean
-  Gini of a 200k-trade room, two seeds averaged, computed live in-page from the same engine
-  (chunked under one frame budget; cached per session). White contour = MEASURED Gini 0.5.
-  Dashed curve = FITTED τ* ≈ c·β² (calibration + fit: scripts/phase-calibrate.ts and
+  WIDGET: PhaseDiagram (R7, owner review 2026-07-08: "let the user play with the two params,
+  and use that to populate phase diagram… teach them what phase diagram is") — the reader
+  runs live rooms (LeviedWorld, fresh dice, ~2.3 s each) with snap-to-grid stake/tax dials;
+  each finished room paints its own cell with its measured tail-mean Gini. After three
+  plays, "fill in the rest" completes the 10×13 grid live in-page (two fixed seeds per
+  remaining cell, chunked under a frame budget; cached per session). White contour =
+  MEASURED Gini 0.5. Dashed curve = FITTED τ* ≈ c·β² (scripts/phase-calibrate.ts,
   research/phase.ts; stability notes in notes/research/interventions.md). GATE discipline:
   "fitted", never "theoretical"/"law".
 -->
