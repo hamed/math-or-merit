@@ -40,6 +40,7 @@
   import LorenzPlot from './LorenzPlot.svelte';
   import NewsFlash from './NewsFlash.svelte';
   import StopSlider, { MONEY_STOPS, RATE_STOPS } from './StopSlider.svelte';
+  import { collectStats } from './newsroom';
   import { createTicker } from '../shared/ticker';
   import { FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
@@ -379,6 +380,7 @@
         pos={newsPos}
         run={newsRun}
         zone={newsZone}
+        stats={collectStats(world, gini, topShare)}
         onClose={closeNews}
       />
     {/if}
