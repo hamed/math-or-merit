@@ -74,6 +74,12 @@ export function logBinTicks(lo: number, hi: number, binCount: number, maxCount =
 export function compactNumber(v: number): string {
   if (v === 0) return '0';
   const abs = Math.abs(v);
+  if (abs >= 1e9) {
+    // a broken economy reaches 1e300 — exponent form, never "1e294M"
+    const e = Math.floor(Math.log10(abs));
+    const m = Number((v / 10 ** e).toPrecision(2));
+    return `${m === 1 ? '1' : m}e${e}`;
+  }
   if (abs >= 1_000_000) return trim(v / 1_000_000) + 'M';
   if (abs >= 1_000) return trim(v / 1_000) + 'k';
   if (abs >= 1) return trim(v);

@@ -1,6 +1,29 @@
 import { createRandomSource, type RandomSource } from '$lib/sim';
 import { applyYardSaleTrade } from '$lib/sim/internal/YardSaleTrade';
-import { applyFlatWealthLevy, measureWealth } from '$lib/research';
+
+/**
+ * Chaos-tolerant Gini + top share. The research metrics validate their
+ * inputs (rightly); the sandbox in expert mode produces negative wealth on
+ * purpose and still wants numbers on screen. Non-finite input → NaN.
+ */
+export function measureToy(wealth: ArrayLike<number>): { gini: number; topShare: number } {
+  const n = wealth.length;
+  const sorted = new Float64Array(n);
+  let sum = 0;
+  let max = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const v = wealth[i];
+    if (!Number.isFinite(v)) return { gini: NaN, topShare: NaN };
+    sorted[i] = v;
+    sum += v;
+    if (v > max) max = v;
+  }
+  if (sum === 0) return { gini: NaN, topShare: NaN };
+  sorted.sort();
+  let weighted = 0;
+  for (let i = 0; i < n; i++) weighted += (i + 1) * sorted[i];
+  return { gini: (2 * weighted) / (n * sum) - (n + 1) / n, topShare: max / sum };
+}
 
 export interface SandboxConfig {
   readonly n: number;
@@ -100,9 +123,14 @@ export class SandboxWorld {
   readonly agentSeries: readonly RoundSeries[];
   readonly trackedAgents: readonly number[];
 
-  /** Live-tunable dials (the sandbox UI writes these directly). */
+  /**
+   * Live-tunable dials (the sandbox UI writes these directly). DELIBERATELY
+   * unclamped (owner review 2026-07-14): expert mode may set a negative tax
+   * or a 250% stake — watching the math break is part of the lesson. The
+   * sandbox ticker carries the watchdog that catches non-finite wealth.
+   */
   beta = 0.2;
-  /** Flat wealth levy per round in [0, 1]; 0 = off. */
+  /** Flat wealth levy per round; 0 = off. */
   taxRate = 0;
   /** Trades between levies (a "round" is n trades). */
   taxEvery = 100;
@@ -150,10 +178,10 @@ export class SandboxWorld {
     if (!Number.isSafeInteger(trades) || trades < 0) throw new RangeError('trades must be non-negative');
     const n = this.config.n;
     const w = this._wealth;
-    const beta = Math.min(1, Math.max(0, this.beta));
+    const beta = this.beta;
     for (let t = 0; t < trades; t++) {
       this._trades++;
-      if (beta > 0) {
+      if (beta !== 0) {
         const a = Math.floor(this.random.next() * n);
         let b = Math.floor(this.random.next() * (n - 1));
         if (b >= a) b++;
@@ -171,9 +199,8 @@ export class SandboxWorld {
   levyAgent(index: number, rate: number): number {
     const w = this._wealth;
     if (!Number.isSafeInteger(index) || index < 0 || index >= w.length) throw new RangeError('index out of range');
-    const r = Math.min(1, Math.max(0, rate));
-    const takeShare = w[index] * r;
-    if (takeShare <= 0) return 0;
+    const takeShare = w[index] * rate;
+    if (takeShare === 0) return 0;
     const dividend = takeShare / w.length;
     w[index] -= takeShare;
     for (let i = 0; i < w.length; i++) w[i] += dividend;
@@ -182,15 +209,28 @@ export class SandboxWorld {
     return dollars;
   }
 
-  /** Round boundary: apply the flat levy, then record every series point. */
+  /**
+   * Round boundary: apply the flat levy, then record every series point.
+   * The levy is inlined rather than borrowed from research/ — the research
+   * primitive validates rates to [0, 1], and this toy deliberately does not.
+   * (A negative rate is a wealth-proportional subsidy, financed equally.)
+   */
   private endRound(): void {
-    const rate = Math.min(1, Math.max(0, this.taxRate));
-    if (rate > 0) {
-      const revenueShare = applyFlatWealthLevy(this._wealth, rate);
+    const rate = this.taxRate;
+    if (rate !== 0) {
+      const w = this._wealth;
+      let revenueShare = 0;
+      for (let i = 0; i < w.length; i++) {
+        const take = w[i] * rate;
+        w[i] -= take;
+        revenueShare += take;
+      }
+      const dividend = revenueShare / w.length;
+      for (let i = 0; i < w.length; i++) w[i] += dividend;
       this._leviedDollars += revenueShare * this._totalDollars;
     }
     this._rounds++;
-    const m = measureWealth(this._wealth);
+    const m = measureToy(this._wealth);
     this.giniSeries.push(m.gini);
     this.topShareSeries.push(m.topShare);
     this.volumeSeries.push(this._volumeBucket * this._totalDollars);

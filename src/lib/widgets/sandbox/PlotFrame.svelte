@@ -49,13 +49,18 @@
 
   const clipId = `plotclip-${++clipCounter}`;
 
+  // coordinates clamp far outside the frame (never inside it): a 1e300 value
+  // from a deliberately broken economy must not write exponent notation into
+  // a path — the clip already hides everything beyond the plot anyway
+  const sane = (px: number) => (Number.isFinite(px) ? Math.max(-1000, Math.min(1200, px)) : -1000);
+
   function scaleOf(axis: AxisSpec, span: number): (v: number) => number {
     if (axis.type === 'log') {
       const lo = Math.log10(axis.lo);
       const hi = Math.log10(axis.hi);
-      return (v: number) => (v <= 0 ? 0 : ((Math.log10(v) - lo) / (hi - lo || 1)) * span);
+      return (v: number) => sane(v <= 0 ? 0 : ((Math.log10(v) - lo) / (hi - lo || 1)) * span);
     }
-    return (v: number) => ((v - axis.lo) / (axis.hi - axis.lo || 1)) * span;
+    return (v: number) => sane(((v - axis.lo) / (axis.hi - axis.lo || 1)) * span);
   }
 
   const xOf = $derived.by(() => {

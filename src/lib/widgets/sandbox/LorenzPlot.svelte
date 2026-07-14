@@ -1,6 +1,5 @@
 <script lang="ts">
   import PlotFrame, { type AxisSpec } from './PlotFrame.svelte';
-  import { lorenzCurve } from '$lib/research';
   import { logTicks, niceLinearTicks, percentNumber } from './ticks';
   import { gatedClick } from './gatedClick';
 
@@ -16,9 +15,23 @@
   let xLog = $state(false);
   let yLog = $state(false);
 
+  // built locally, chaos-tolerant: the research lorenzCurve validates its
+  // input, but expert mode makes negative wealth on purpose — the curve
+  // dipping below zero is exactly the picture the reader should see
   const points = $derived.by(() => {
     void revision;
-    return lorenzCurve(wealth);
+    const n = wealth.length;
+    const sorted: number[] = [];
+    for (let i = 0; i < n; i++) sorted.push(Number.isFinite(wealth[i]) ? wealth[i] : 0);
+    sorted.sort((a, b) => a - b);
+    const total = sorted.reduce((a, b) => a + b, 0) || 1;
+    const pts = [{ populationShare: 0, wealthShare: 0 }];
+    let cumulative = 0;
+    for (let i = 0; i < n; i++) {
+      cumulative += sorted[i];
+      pts.push({ populationShare: (i + 1) / n, wealthShare: cumulative / total });
+    }
+    return pts;
   });
 
   // log floors: the first agent's slot on x; the smallest positive share on y
@@ -63,7 +76,7 @@
 <PlotFrame
   x={xAxis}
   y={yAxis}
-  title={`Lorenz — Gini ${gini.toFixed(2)}`}
+  title={`Lorenz — Gini ${Number.isFinite(gini) ? gini.toFixed(2) : '—'}`}
   sharedZero={!xLog && !yLog}
   ariaLabel={`Lorenz curve, Gini ${gini.toFixed(2)}. Click an axis to toggle its scale.`}
 >

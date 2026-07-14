@@ -39,13 +39,13 @@
   import GiniCurve from './GiniCurve.svelte';
   import LorenzPlot from './LorenzPlot.svelte';
   import NewsFlash from './NewsFlash.svelte';
+  import StopSlider, { MONEY_STOPS, RATE_STOPS } from './StopSlider.svelte';
   import { createTicker } from '../shared/ticker';
-  import { measureWealth } from '$lib/research';
   import { FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
   import { roomPositions, radiusScale, zoneName } from '../shared/layout';
   import { countTrades, dollarsCompact, percent } from '../shared/format';
-  import { SandboxWorld } from './SandboxWorld';
+  import { SandboxWorld, measureToy } from './SandboxWorld';
   import { START_DOLLARS } from '../shared/presets';
 
   interface Props {
@@ -97,6 +97,10 @@
   let startDollars = $state(START_DOLLARS);
   let speed = $state(4);
   let look = $state<Look>('shapes');
+  /** Raw number inputs, unclamped — negative taxes welcome. */
+  let expert = $state(false);
+  /** The watchdog tripped: wealth went non-finite. A badge of honor. */
+  let broke = $state(false);
   // the look button wears a fresh palette pair on every press
   let lookSwatch = $state({ fill: FILLS.violet, stroke: STROKES.teal });
 
@@ -137,13 +141,16 @@
     return w;
   }
 
+  /** "0.1%", "25%", "99.9%" — as many digits as the stop needs. */
+  const rateLabel = (v: number) => `${Number((v * 100).toPrecision(3))}%`;
+
   function pushDials(): void {
     world.beta = stake;
     world.taxRate = taxRate;
   }
 
   function measure(): void {
-    const m = measureWealth(world.wealth);
+    const m = measureToy(world.wealth);
     gini = m.gini;
     topShare = m.topShare;
   }
@@ -153,6 +160,16 @@
     world.step(Math.max(1, Math.round((n / 3) * speed)));
     revision++;
     measure();
+    // the watchdog: expert dials may blow the math up — freeze the wreck and
+    // say so, instead of a silently dead room (owner review 2026-07-14)
+    for (let i = 0; i < world.wealth.length; i++) {
+      if (!Number.isFinite(world.wealth[i])) {
+        broke = true;
+        running = false;
+        ticker.stop();
+        return;
+      }
+    }
   });
 
   function toggle(): void {
@@ -171,12 +188,13 @@
   }
 
   function setStartDollars(value: number): void {
-    startDollars = Math.min(1_000_000, Math.max(1, Math.round(value) || START_DOLLARS));
+    if (Number.isFinite(value) && value > 0) startDollars = value;
     reset();
   }
 
   function reset(): void {
     running = false;
+    broke = false;
     ticker.stop();
     closeNews();
     world = makeWorld(n);
@@ -330,7 +348,7 @@
       <div class="stats">
         <output>{countTrades(trades)} trades</output>
         <output>holds {dollarsCompact(totalDollars)}</output>
-        <output>biggest {percent(topShare)}</output>
+        <output>biggest {Number.isFinite(topShare) ? percent(topShare) : '—'}</output>
       </div>
     {/if}
   </div>
@@ -347,6 +365,13 @@
         onTap={ctl.clickTax && clickRate > 0 && !newsOpen ? tapAgent : null}
         label={`A sandbox room of ${n} agents trading under your rules — tap anyone to levy them`}
       />
+    {/if}
+    {#if broke}
+      <div class="broke" role="alert">
+        <p class="broke-head">THE ECONOMY BROKE</p>
+        <p class="broke-sub">Wealth stopped being a number. Whatever you dialed in, physics has filed a complaint.</p>
+        <button class="primary" type="button" onclick={reset}>Start a new room</button>
+      </div>
     {/if}
     {#if newsOpen && newsWinner >= 0}
       <NewsFlash
@@ -370,30 +395,28 @@
   <div class="controls">
     <div class="sliders">
       {#if ctl.stake}
-        <label class="dial">
-          <span>stake <strong>{percent(stake)}</strong></span>
-          <input type="range" min="0" max="1" step="0.01" bind:value={stake} />
-        </label>
+        <StopSlider label="stake" bind:value={stake} stops={RATE_STOPS} format={rateLabel} {expert} />
       {/if}
       {#if ctl.tax}
-        <label class="dial">
-          <span>tax <strong>{percent(taxRate)}</strong>/round</span>
-          <input type="range" min="0" max="1" step="0.01" bind:value={taxRate} />
-        </label>
+        <StopSlider label="tax /round" bind:value={taxRate} stops={RATE_STOPS} format={rateLabel} {expert} />
       {/if}
       {#if ctl.clickTax}
-        <label class="dial">
-          <span>tax per click <strong>{percent(clickRate)}</strong></span>
-          <input type="range" min="0" max="1" step="0.01" bind:value={clickRate} />
-        </label>
+        <StopSlider label="tax per click" bind:value={clickRate} stops={RATE_STOPS} format={rateLabel} {expert} />
+      {/if}
+      {#if ctl.startWealth}
+        <StopSlider
+          label="start $ each"
+          bind:value={startDollars}
+          stops={MONEY_STOPS}
+          format={dollarsCompact}
+          {expert}
+          onChange={setStartDollars}
+        />
       {/if}
       {#if ctl.progressivity}
         <!-- placeholder (owner review 2026-07-13): one dial, rate rising with
              log wealth, replaces the old bracket table. Dummy until wired. -->
-        <label class="dial soon" title="Coming soon: the rate climbs with log wealth">
-          <span>progressivity <strong>soon</strong></span>
-          <input type="range" min="0" max="1" step="0.01" value={0} disabled />
-        </label>
+        <StopSlider label="progressivity" value={0} stops={RATE_STOPS} format={() => 'soon'} {expert} disabled />
       {/if}
     </div>
 
@@ -429,20 +452,16 @@
           </button>
         </fieldset>
       {/if}
-      {#if ctl.startWealth}
-        <fieldset>
-          <legend>start $ each</legend>
-          <input
-            class="wealth-input"
-            type="number"
-            min="1"
-            max="1000000"
-            value={startDollars}
-            aria-label="Starting dollars per person; changing it starts a new room"
-            onchange={(e) => setStartDollars(Number(e.currentTarget.value))}
-          />
-        </fieldset>
-      {/if}
+      <fieldset>
+        <legend>inputs</legend>
+        <button
+          type="button"
+          class:primary={expert}
+          aria-pressed={expert}
+          title="Raw numbers accept anything — negative tax included"
+          onclick={() => (expert = !expert)}
+        >{expert ? 'dials' : '123'}</button>
+      </fieldset>
     </div>
 
     <!-- the most-used buttons live at the bottom edge, easiest reach -->
@@ -543,6 +562,49 @@
     position: relative;
     min-block-size: 0;
     overflow: hidden;
+  }
+
+  .broke {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 1rem;
+    text-align: center;
+    background: rgb(40 37 31 / 20%);
+    font-family: var(--font-sans);
+  }
+
+  .broke-head {
+    margin: 0;
+    font-size: clamp(1.2rem, 3vw, 1.8rem);
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--accent-deep);
+    text-shadow: 0 1px 0 var(--paper-bright);
+  }
+
+  .broke-sub {
+    margin: 0;
+    max-inline-size: 26rem;
+    font-size: 0.85rem;
+    color: #2e2a23;
+  }
+
+  .broke button {
+    margin-block-start: 0.4rem;
+    min-block-size: 2.2rem;
+    padding-inline: 1rem;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--paper-bright);
+    font-weight: 650;
+    cursor: pointer;
   }
 
   /* ---- 1:1 plot boxes; double-click blows one up over the whole widget ---- */
@@ -702,41 +764,7 @@
     block-size: 1.25rem;
   }
 
-  .wealth-input {
-    inline-size: 5.2rem;
-    min-block-size: 1.9rem;
-    padding-block: 0.2rem;
-    padding-inline: 0.5rem;
-    border: 1px solid #a99980;
-    border-radius: 0.5rem;
-    background: var(--paper-bright);
-    color: #3c352b;
-    font-size: 0.78rem;
-    font-variant-numeric: tabular-nums;
-  }
 
-  .dial {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    font-family: var(--font-sans);
-    font-size: 0.68rem;
-    color: var(--ink-mid);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .dial strong {
-    font-weight: 700;
-  }
-
-  .dial input[type='range'] {
-    inline-size: 100%;
-    accent-color: var(--accent);
-  }
-
-  .dial.soon {
-    opacity: 0.45;
-  }
 
   /* ---- portrait: one column of near-square boxes, the room on top ---- */
   @media (orientation: portrait), (max-width: 44rem) {

@@ -89,6 +89,28 @@ describe('SandboxWorld', () => {
     expect(world.leviedDollars).toBeCloseTo(40, 9);
   });
 
+  it('expert chaos: a 150% stake conserves the total while it stays finite', () => {
+    const world = new SandboxWorld({ n: 6, seed: 12, startDollars: 100 });
+    world.beta = 1.5; // loser goes NEGATIVE — deliberately allowed
+    world.taxEvery = 6;
+    world.step(30);
+    expect(total(world.wealth)).toBeCloseTo(1, 6);
+    expect(Array.from(world.wealth).some((w) => w < 0)).toBe(true);
+  });
+
+  it('expert chaos: a negative tax is a wealth-proportional subsidy, still conserving', () => {
+    const world = new SandboxWorld({ n: 5, seed: 13, startDollars: 100 });
+    world.wealth.set([0.4, 0.3, 0.15, 0.1, 0.05]);
+    world.beta = 0;
+    world.taxRate = -0.1; // the rich get 10% richer, financed equally by all
+    world.taxEvery = 5;
+    world.step(5);
+    expect(total(world.wealth)).toBeCloseTo(1, 9);
+    expect(world.wealth[0]).toBeGreaterThan(0.4); // richest gained
+    expect(world.wealth[4]).toBeLessThan(0.05); // poorest paid
+    expect(world.leviedDollars).toBeLessThan(0);
+  });
+
   it('handles the tiniest room: n = 2 with fewer tracked agents than TRACKED_AGENTS', () => {
     const world = new SandboxWorld({ n: 2, seed: 9, startDollars: 100 });
     world.beta = 0.5;

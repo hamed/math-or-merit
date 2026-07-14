@@ -92,6 +92,7 @@
     if (vals.length === 0) return '';
     let d = '';
     for (let i = 0; i < vals.length; i++) {
+      if (!Number.isFinite(vals[i])) continue; // a broken economy has gaps
       if (yLog && vals[i] <= 0) continue; // zeros have no log home
       d += `${d === '' ? 'M' : 'L'} ${xOf(s.roundOf(i)).toFixed(1)} ${yOf(vals[i]).toFixed(1)} `;
     }
