@@ -106,6 +106,33 @@
   };
 
   const cycleMode = gatedClick(() => (mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]));
+
+  let hovered = $state(false);
+
+  // hover insight: the run's peak — where it happened and how high
+  const peak = $derived.by(() => {
+    void revision;
+    const s = view.list[0]?.s;
+    if (!s || s.values.length === 0) return null;
+    let bi = -1;
+    let bv = -Infinity;
+    for (let i = 0; i < s.values.length; i++) {
+      if (Number.isFinite(s.values[i]) && s.values[i] > bv) {
+        bv = s.values[i];
+        bi = i;
+      }
+    }
+    return bi < 0 ? null : { round: s.roundOf(bi), value: bv };
+  });
+
+  const peakLabel = $derived.by(() => {
+    if (!peak) return '';
+    const v =
+      mode === 'inequality'
+        ? `${percentNumber(Number(peak.value.toPrecision(3)))}%`
+        : `$${compactNumber(Number(peak.value.toPrecision(2)))}`;
+    return `peak ${v} @ round ${compactNumber(peak.round)}`;
+  });
 </script>
 
 <PlotFrame
@@ -114,6 +141,7 @@
   title={titles[mode]}
   onBody={cycleMode}
   bodyTooltip="next view"
+  onHoverChange={(inside) => (hovered = inside)}
   ariaLabel={`${titles[mode]} over ${actualRounds} rounds, anchored at round one. Click the body for the next view, an axis to toggle its scale.`}
 >
   {#snippet children({ xOf, yOf, frame })}
@@ -121,6 +149,13 @@
       {#each view.list as { s, color, dash }}
         <path class="line" d={pathOf(s, xOf, yOf)} stroke={color} stroke-dasharray={dash ?? 'none'} />
       {/each}
+      <g class="insight" class:on={hovered && peak !== null} aria-hidden="true">
+        {#if peak}
+          <line class="peak-line" x1={frame.x} y1={yOf(peak.value)} x2={frame.x + frame.w} y2={yOf(peak.value)} />
+          <circle class="peak-dot" cx={xOf(peak.round)} cy={yOf(peak.value)} r="2.4" />
+          <text class="peak-label" x={frame.x + frame.w - 3} y={yOf(peak.value) - 3} text-anchor="end">{peakLabel}</text>
+        {/if}
+      </g>
     {:else}
       <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2} text-anchor="middle">no rounds yet</text>
     {/if}
@@ -139,5 +174,34 @@
     fill: var(--ink-soft);
     font-size: 8.5px;
     font-family: var(--font-sans);
+  }
+
+  .insight {
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    pointer-events: none;
+  }
+
+  .insight.on {
+    opacity: 1;
+    transform: none;
+  }
+
+  .peak-line {
+    stroke: var(--ink);
+    stroke-width: 0.9;
+    stroke-dasharray: 4 3;
+    opacity: 0.6;
+  }
+
+  .peak-dot {
+    fill: var(--accent-deep);
+  }
+
+  .peak-label {
+    fill: var(--ink);
+    font-size: 7.5px;
+    font-weight: 650;
   }
 </style>

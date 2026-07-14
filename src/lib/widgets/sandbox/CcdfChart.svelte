@@ -2,6 +2,7 @@
   import PlotFrame, { type AxisSpec } from './PlotFrame.svelte';
   import { StickyRange } from './histBins';
   import { compactNumber, logTicks, niceLinearTicks, percentNumber } from './ticks';
+  import { exponentialFit, powerTailFit } from './fits';
   import { gatedClick } from './gatedClick';
 
   interface Props {
@@ -48,7 +49,7 @@
     type: xLog ? 'log' : 'linear',
     lo: xLog ? bounds.lo : 0,
     hi: bounds.hi,
-    ticks: xLog ? logTicks(bounds.lo, bounds.hi) : niceLinearTicks(0, bounds.hi),
+    ticks: xLog ? logTicks(bounds.lo, bounds.hi, 5) : niceLinearTicks(0, bounds.hi),
     format: compactNumber,
     label: 'wealth $',
     onToggle: gatedClick(() => (xLog = !xLog)),
@@ -63,6 +64,13 @@
     label: '% holding more',
     onToggle: gatedClick(() => (yLog = !yLog)),
   });
+
+  let hovered = $state(false);
+
+  // hover insights: the straight line each scale pair is FOR — a power-law
+  // tail on log-log, an exponential bulk on semi-log (owner review 2026-07-14)
+  const tail = $derived.by(() => (xLog && yLog && hovered ? powerTailFit(sorted.dollars, sorted.n) : null));
+  const decay = $derived.by(() => (!xLog && yLog && hovered ? exponentialFit(sorted.dollars, sorted.n) : null));
 
   function buildPath(xOf: (v: number) => number, yOf: (v: number) => number): string {
     const { dollars, n } = sorted;
@@ -81,13 +89,39 @@
   x={xAxis}
   y={yAxis}
   title="who holds more than x"
+  onHoverChange={(inside) => (hovered = inside)}
   ariaLabel={`Survival curve, ${xLog ? 'log' : 'linear'}-${yLog ? 'log' : 'linear'}: the share of the room holding more than each amount, over the data's full range. Click an axis to toggle its scale.`}
 >
-  {#snippet children({ xOf, yOf })}
+  {#snippet children({ xOf, yOf, frame })}
     {@const d = buildPath(xOf, yOf)}
     {#if d}
       <path class="line" d={d} />
     {/if}
+    <g class="insight" class:on={hovered && (tail !== null || decay !== null)} aria-hidden="true">
+      {#if tail}
+        <line
+          class="fit"
+          x1={xOf(tail.lo)}
+          y1={yOf(tail.yAtLo)}
+          x2={xOf(tail.hi)}
+          y2={yOf(tail.yAtLo * (tail.hi / tail.lo) ** -tail.alpha)}
+        />
+        <text class="fit-label" x={frame.x + frame.w - 3} y={frame.y + 9} text-anchor="end">
+          tail ≈ x^−{tail.alpha.toFixed(1)}
+        </text>
+      {:else if decay}
+        <line
+          class="fit"
+          x1={xOf(decay.lo)}
+          y1={yOf(decay.yAtLo)}
+          x2={xOf(decay.hi)}
+          y2={yOf(decay.yAtLo * Math.exp(-(decay.hi - decay.lo) / decay.scale))}
+        />
+        <text class="fit-label" x={frame.x + frame.w - 3} y={frame.y + 9} text-anchor="end">
+          ≈ e^(−x/{compactNumber(Number(decay.scale.toPrecision(2)))})
+        </text>
+      {/if}
+    </g>
   {/snippet}
 </PlotFrame>
 
@@ -97,5 +131,30 @@
     stroke: var(--accent);
     stroke-width: 1.6;
     stroke-linejoin: round;
+  }
+
+  .insight {
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    pointer-events: none;
+  }
+
+  .insight.on {
+    opacity: 1;
+    transform: none;
+  }
+
+  .fit {
+    stroke: var(--ink);
+    stroke-width: 1.1;
+    stroke-dasharray: 5 3;
+    opacity: 0.75;
+  }
+
+  .fit-label {
+    fill: var(--ink);
+    font-size: 7.5px;
+    font-weight: 650;
   }
 </style>

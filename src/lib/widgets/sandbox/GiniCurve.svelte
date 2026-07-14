@@ -74,6 +74,22 @@
 
   const other = $derived(axis === 'tax' ? 'stake' : 'tax');
 
+  let hovered = $state(false);
+
+  // hover insight: the Gini this cut predicts at the dial's exact position
+  const atDial = $derived.by(() => {
+    if (curve.length < 2) return null;
+    let lower = curve[0];
+    let upper = curve[curve.length - 1];
+    for (const p of curve) {
+      if (p.v <= dial && p.v >= lower.v) lower = p;
+      if (p.v >= dial && p.v <= upper.v) upper = p;
+    }
+    const span = upper.v - lower.v;
+    const t = span > 0 ? (dial - lower.v) / span : 0;
+    return lower.gini + (upper.gini - lower.gini) * t;
+  });
+
   onMount(() => (rootEl ? ensurePhaseGrid(rootEl) : undefined));
 </script>
 
@@ -83,6 +99,7 @@
     y={yAxis}
     title={`Gini vs ${axis} — at your ${other}`}
     sharedZero={!xLog && !yLog}
+    onHoverChange={(inside) => (hovered = inside)}
     ariaLabel={`Gini as a function of the ${axis} dial, cut through the phase map at your ${other} (${percent(fixed)}). Click an axis to toggle its scale.`}
   >
     {#snippet children({ xOf, yOf, frame })}
@@ -95,6 +112,14 @@
       {#if !(xLog && dial <= 0)}
         <line class="section" x1={xOf(Math.max(dial, xLog ? X_FLOOR : 0))} y1={frame.y} x2={xOf(Math.max(dial, xLog ? X_FLOOR : 0))} y2={frame.y + frame.h} />
       {/if}
+      <g class="insight" class:on={hovered && atDial !== null} aria-hidden="true">
+        {#if atDial !== null && !(yLog && atDial <= 0)}
+          {@const ix = xOf(Math.max(dial, xLog ? X_FLOOR : 0))}
+          {@const iy = yOf(Math.max(atDial, yLog ? yFloor : 0))}
+          <circle class="at-dot" cx={ix} cy={iy} r="2.6" />
+          <text class="at-label" x={ix + 5} y={iy - 4} text-anchor="start">settles near {atDial.toFixed(2)}</text>
+        {/if}
+      </g>
     {/snippet}
   </PlotFrame>
 </div>
@@ -124,5 +149,27 @@
     fill: var(--ink-soft);
     font-size: 8.5px;
     font-family: var(--font-sans);
+  }
+
+  .insight {
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    pointer-events: none;
+  }
+
+  .insight.on {
+    opacity: 1;
+    transform: none;
+  }
+
+  .at-dot {
+    fill: var(--accent-deep);
+  }
+
+  .at-label {
+    fill: var(--ink);
+    font-size: 7.5px;
+    font-weight: 650;
   }
 </style>

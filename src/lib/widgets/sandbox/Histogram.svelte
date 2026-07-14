@@ -29,34 +29,41 @@
   const logRange = $derived.by(() => new StickyRange(1, 10 * startDollars));
   const linRange = $derived.by(() => new StickyRange(0, 2 * startDollars));
 
+  let hovered = $state(false);
+
   const view = $derived.by(() => {
     void revision;
     const amounts = new Float64Array(n);
     let minPos = Infinity;
     let maxV = 0;
+    let sum = 0;
     for (let i = 0; i < n; i++) {
       const d = wealth[i] * totalDollars;
       amounts[i] = d;
+      sum += Number.isFinite(d) ? d : 0;
       if (d > 0 && d < minPos) minPos = d;
       if (d > maxV) maxV = d;
     }
     if (!Number.isFinite(minPos)) minPos = 1;
+    const sorted = Float64Array.from(amounts).sort();
+    const median = sorted[Math.floor(n / 2)];
+    const mean = sum / n;
     const now = performance.now();
     if (xLog) {
       const binCount = LOG_BIN_CYCLE[logBinIdx];
       const { lo, hi } = logRange.update(Math.max(1e-9, minPos), Math.max(maxV, 2), now);
-      return { bins: geometricBins(amounts, lo, hi, binCount), lo, hi, binCount };
+      return { bins: geometricBins(amounts, lo, hi, binCount), lo, hi, binCount, median, mean };
     }
     const binCount = LIN_BIN_CYCLE[linBinIdx];
     const { hi } = linRange.update(0, maxV, now);
-    return { bins: rangedLinearBins(amounts, hi, binCount), lo: 0, hi, binCount };
+    return { bins: rangedLinearBins(amounts, hi, binCount), lo: 0, hi, binCount, median, mean };
   });
 
   const xAxis: AxisSpec = $derived({
     type: xLog ? 'log' : 'linear',
     lo: view.lo,
     hi: view.hi,
-    ticks: xLog ? logBinTicks(view.lo, view.hi, view.binCount) : niceLinearTicks(0, view.hi),
+    ticks: xLog ? logBinTicks(view.lo, view.hi, view.binCount, 5) : niceLinearTicks(0, view.hi),
     format: compactNumber,
     label: 'wealth $',
     onToggle: gatedClick(() => (xLog = !xLog)),
@@ -85,6 +92,7 @@
   title="how many hold how much"
   onBody={cycleBins}
   bodyTooltip={`${view.binCount} bins — click for the next count`}
+  onHoverChange={(inside) => (hovered = inside)}
   ariaLabel={`Wealth histogram, ${view.binCount} ${xLog ? 'log' : 'linear'} bins, ${yLog ? 'log' : 'linear'} people axis. Click an axis to toggle its scale; click the bars to change the bin count.`}
 >
   {#snippet children({ xOf, yOf, frame })}
@@ -101,6 +109,20 @@
         {view.bins.underCount} at ≈0, off scale
       </text>
     {/if}
+    <!-- hover insight: where the middle and the average sit (they drift apart
+         as the room condenses — that gap IS the story) -->
+    <g class="insight" class:on={hovered} aria-hidden="true">
+      {#if !xLog || view.median > 0}
+        {@const mx = xOf(view.median)}
+        <line class="median" x1={mx} y1={frame.y + 8} x2={mx} y2={baseline} />
+        <text class="insight-label" x={mx} y={frame.y + 6} text-anchor={mx > frame.x + frame.w - 34 ? 'end' : 'middle'}>median {compactNumber(Number(view.median.toPrecision(2)))}</text>
+      {/if}
+      {#if !xLog || view.mean > 0}
+        {@const ax = xOf(view.mean)}
+        <line class="mean" x1={ax} y1={frame.y + 18} x2={ax} y2={baseline} />
+        <text class="insight-label mean-label" x={ax} y={frame.y + 16} text-anchor={ax > frame.x + frame.w - 30 ? 'end' : 'middle'}>mean {compactNumber(Number(view.mean.toPrecision(2)))}</text>
+      {/if}
+    </g>
   {/snippet}
 </PlotFrame>
 
@@ -113,5 +135,39 @@
     fill: var(--ink-soft);
     font-size: 8px;
     font-style: italic;
+  }
+
+  .insight {
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+    pointer-events: none;
+  }
+
+  .insight.on {
+    opacity: 1;
+    transform: none;
+  }
+
+  .median {
+    stroke: var(--accent-deep);
+    stroke-width: 1.1;
+    stroke-dasharray: 4 3;
+  }
+
+  .mean {
+    stroke: var(--ink-mid);
+    stroke-width: 1.1;
+    stroke-dasharray: 1.5 2.5;
+  }
+
+  .insight-label {
+    fill: var(--accent-deep);
+    font-size: 7.5px;
+    font-weight: 650;
+  }
+
+  .mean-label {
+    fill: var(--ink-mid);
   }
 </style>
