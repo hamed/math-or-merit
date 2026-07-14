@@ -34,10 +34,10 @@
   import CcdfChart from './CcdfChart.svelte';
   import TimeSeries from './TimeSeries.svelte';
   import PhasePanel from './PhasePanel.svelte';
+  import LorenzPlot from './LorenzPlot.svelte';
   import NewsFlash from './NewsFlash.svelte';
   import { createTicker } from '../shared/ticker';
-  import { measureWealth, lorenzCurve } from '$lib/research';
-  import { lorenzGapPath, lorenzLinePath } from '../shared/lorenzPath';
+  import { measureWealth } from '$lib/research';
   import { FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
   import { roomPositions, radiusScale, zoneName } from '../shared/layout';
@@ -76,7 +76,6 @@
     ...controls,
   });
 
-  const LORENZ = { x: 34, y: 130, size: 104 };
   // powers of two, half/double, like a calculator (owner review 2026-07-14)
   const MIN_N = 2;
   const MAX_N = 1024;
@@ -143,11 +142,6 @@
     gini = m.gini;
     topShare = m.topShare;
   }
-
-  const lorenzPoints = $derived.by(() => {
-    void revision;
-    return lorenzCurve(world.wealth);
-  });
 
   const ticker = createTicker(() => {
     pushDials();
@@ -304,22 +298,7 @@
     {#if id === 'hist'}
       <Histogram wealth={world.wealth} {totalDollars} {n} {revision} {startDollars} />
     {:else if id === 'lorenz'}
-      <svg viewBox="0 0 170 170" class="lorenz" role="img" aria-label={`Lorenz curve, Gini ${gini.toFixed(2)}`}>
-        <path class="gap" d={lorenzGapPath(lorenzPoints, LORENZ)} />
-        <line class="equal" x1={LORENZ.x} y1={LORENZ.y} x2={LORENZ.x + LORENZ.size} y2={LORENZ.y - LORENZ.size} />
-        <path class="curve" d={lorenzLinePath(lorenzPoints, LORENZ)} />
-        <line class="axis" x1={LORENZ.x} y1={LORENZ.y} x2={LORENZ.x + LORENZ.size} y2={LORENZ.y} />
-        <line class="axis" x1={LORENZ.x} y1={LORENZ.y} x2={LORENZ.x} y2={LORENZ.y - LORENZ.size} />
-        <!-- top-left of the plot is always empty (the curve lives below the
-             diagonal) — the number never collides with the curve there -->
-        <text class="readout" x={LORENZ.x + 6} y={LORENZ.y - LORENZ.size + 12} text-anchor="start">Gini {gini.toFixed(2)}</text>
-        <text class="tick" x={LORENZ.x} y={LORENZ.y + 10} text-anchor="start">0%</text>
-        <text class="tick" x={LORENZ.x + LORENZ.size} y={LORENZ.y + 10} text-anchor="end">100%</text>
-        <text class="tick" x={LORENZ.x - 3} y={LORENZ.y - LORENZ.size + 6} text-anchor="end">100%</text>
-        <text class="tick" x={LORENZ.x - 3} y={LORENZ.y} text-anchor="end">0%</text>
-        <text class="axis-label" x={LORENZ.x + LORENZ.size / 2} y={LORENZ.y + 22} text-anchor="middle">share of people</text>
-        <text class="axis-label rotated" x={LORENZ.x - 22} y={LORENZ.y - LORENZ.size / 2} text-anchor="middle">share of wealth</text>
-      </svg>
+      <LorenzPlot wealth={world.wealth} {gini} {revision} />
     {:else if id === 'ccdf'}
       <CcdfChart wealth={world.wealth} {totalDollars} {revision} {startDollars} />
     {:else if id === 'time'}
@@ -601,54 +580,6 @@
     cursor: pointer;
   }
 
-  .lorenz {
-    display: block;
-  }
-
-  .lorenz .curve {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 2;
-  }
-
-  .lorenz .equal {
-    stroke: var(--ink-mid);
-    stroke-width: 1;
-    stroke-dasharray: 4 4;
-  }
-
-  .lorenz .gap {
-    fill: var(--accent);
-    fill-opacity: 0.12;
-  }
-
-  .lorenz .axis {
-    stroke: #a99980;
-    stroke-width: 1;
-  }
-
-  .lorenz .readout {
-    fill: var(--accent-deep);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .lorenz .tick {
-    fill: var(--ink-soft);
-    font-size: 8px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .lorenz .axis-label {
-    fill: var(--ink-soft);
-    font-size: 9px;
-  }
-
-  .lorenz .axis-label.rotated {
-    transform-box: fill-box;
-    transform-origin: center;
-    transform: rotate(-90deg);
-  }
 
   /* ---- all controls in one tidy box ---- */
   .controls {
