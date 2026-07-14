@@ -48,6 +48,7 @@ export const GINI_RAMP = ['#d59b87', '#c78168', '#b7684c', '#a45032', '#8c3d20',
  */
 export const PHASE_RAMPS: readonly (readonly string[])[] = [
   GINI_RAMP,
+  ['#2166ac', '#67a9cf', '#d1e5f0', '#f7f7f7', '#fddbc7', '#ef8a62', '#b2182b'], // RdBu diverging: 0.5 is unmistakable
   ['#440154', '#443983', '#31688e', '#21918c', '#35b779', '#90d743', '#fde725'], // viridis
   ['#0d0887', '#5c01a6', '#9c179e', '#cc4778', '#ed7953', '#fdb42f', '#f0f921'], // plasma
   ['#000004', '#320a5e', '#781c6d', '#bc3754', '#ed6925', '#fbb61a', '#fcffa4'], // inferno

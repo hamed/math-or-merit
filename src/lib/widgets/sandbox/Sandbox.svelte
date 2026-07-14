@@ -11,6 +11,8 @@
     ccdf: boolean;
     time: boolean;
     phase: boolean;
+    gtax: boolean;
+    gstake: boolean;
     stats: boolean;
   }
 
@@ -33,7 +35,8 @@
   import Histogram from './Histogram.svelte';
   import CcdfChart from './CcdfChart.svelte';
   import TimeSeries from './TimeSeries.svelte';
-  import PhasePanel from './PhasePanel.svelte';
+  import PhaseMap from './PhaseMap.svelte';
+  import GiniCurve from './GiniCurve.svelte';
   import LorenzPlot from './LorenzPlot.svelte';
   import NewsFlash from './NewsFlash.svelte';
   import { createTicker } from '../shared/ticker';
@@ -60,6 +63,8 @@
     ccdf: true,
     time: true,
     phase: true,
+    gtax: true,
+    gstake: true,
     stats: true,
     ...panels,
   });
@@ -116,7 +121,7 @@
   let roomW = $state(0);
   let roomH = $state(0);
 
-  let zoomed = $state<null | 'hist' | 'lorenz' | 'ccdf' | 'time' | 'phase'>(null);
+  let zoomed = $state<null | 'hist' | 'lorenz' | 'ccdf' | 'time' | 'phase' | 'gtax' | 'gstake'>(null);
 
   let newsOpen = $state(false);
   let newsWinner = $state(-1);
@@ -303,8 +308,12 @@
       <CcdfChart wealth={world.wealth} {totalDollars} {revision} {startDollars} />
     {:else if id === 'time'}
       <TimeSeries {world} {revision} />
+    {:else if id === 'gtax'}
+      <GiniCurve axis="tax" {stake} {taxRate} />
+    {:else if id === 'gstake'}
+      <GiniCurve axis="stake" {stake} {taxRate} />
     {:else}
-      <PhasePanel {stake} {taxRate} />
+      <PhaseMap {stake} {taxRate} />
     {/if}
   </div>
 {/snippet}
@@ -354,6 +363,8 @@
   {#if show.lorenz}{@render plotBox('lorenz')}{/if}
   {#if show.ccdf}{@render plotBox('ccdf')}{/if}
   {#if show.time}{@render plotBox('time')}{/if}
+  {#if show.gtax}{@render plotBox('gtax')}{/if}
+  {#if show.gstake}{@render plotBox('gstake')}{/if}
   {#if show.phase}{@render plotBox('phase')}{/if}
 
   <div class="controls">
@@ -456,10 +467,10 @@
     grid-template-areas:
       'head head'
       'room room'
-      'phase phase'
-      'hist lorenz'
-      'ccdf time'
-      'ctrl ctrl';
+      'gtax phase'
+      'lorenz gstake'
+      'hist ccdf'
+      'time ctrl';
     grid-template-rows: auto minmax(16rem, 40vh);
   }
 
@@ -480,18 +491,24 @@
     grid-template-columns: repeat(5, minmax(0, 1fr));
     grid-template-areas:
       'head head head head head'
-      'room room room phase phase'
-      'room room room phase phase'
-      'ctrl hist lorenz ccdf time';
+      'room room room gtax phase'
+      'room room room lorenz gstake'
+      'ctrl ctrl hist ccdf time';
     /* the bottom row sizes to its content (square plots, full controls) so
        the controls can never overflow up into the room */
     grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 
-  .sandbox.full .plot:not(.plot-phase) {
-    aspect-ratio: 1;
+  .sandbox.full .plot {
     justify-self: center;
     inline-size: 100%;
+  }
+
+  /* bottom-row plots size themselves square; the controls row follows suit */
+  .sandbox.full .plot-hist,
+  .sandbox.full .plot-ccdf,
+  .sandbox.full .plot-time {
+    aspect-ratio: 1;
   }
 
   .head {
@@ -729,10 +746,10 @@
       grid-template-areas:
         'head head'
         'room room'
-        'phase phase'
-        'hist lorenz'
-        'ccdf time'
-        'ctrl ctrl';
+        'gtax phase'
+        'lorenz gstake'
+        'hist ccdf'
+        'time ctrl';
       grid-template-rows: auto minmax(30dvh, 36dvh) auto auto auto auto;
     }
 
@@ -743,11 +760,6 @@
 
     .plot {
       aspect-ratio: 1;
-    }
-
-    .plot-phase {
-      justify-self: center;
-      inline-size: min(100%, 62dvh);
     }
 
     .plot.zoomed {
