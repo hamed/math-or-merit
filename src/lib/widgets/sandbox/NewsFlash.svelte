@@ -170,44 +170,43 @@
     }
   }
 
+  /* two papers on the same desk: the Ledger lands top-left, the Gazette
+     answers from the bottom-right (owner review 2026-07-14) */
   .pages {
     position: absolute;
-    inset-block-start: clamp(0.4rem, 3%, 1.2rem);
-    inset-inline-start: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 0.6rem;
-    inline-size: min(46rem, 96%);
+    inset: 0;
+    pointer-events: none;
     transition: opacity 0.3s ease;
   }
 
   .pages.hidden {
     opacity: 0;
-    pointer-events: none;
   }
 
   .page {
-    flex: 1 1 17rem;
-    max-inline-size: 24rem;
+    position: absolute;
+    inline-size: min(24rem, 62%);
     padding-block: 0.7rem 0.7rem;
     padding-inline: 0.9rem;
     border: 1px solid #c9bca5;
     border-radius: 0.7rem;
     background: #fffdf8;
     box-shadow: 0 0.8rem 2rem rgb(65 50 29 / 18%);
+    pointer-events: auto;
   }
 
   .page.ledger {
+    inset-block-start: 4%;
+    inset-inline-start: 3%;
     rotate: -0.7deg;
   }
 
   .page.gazette {
+    inset-block-end: 4%;
+    inset-inline-end: 3%;
     rotate: 0.8deg;
     opacity: 0;
-    transform: translateY(10px);
+    transform: translate(14px, 14px);
     transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.15);
   }
 
@@ -330,9 +329,10 @@
   }
 
   .close {
-    flex: 1 1 100%; /* force its own row … */
-    max-inline-size: fit-content; /* … then shrink back to a pill */
-    margin-inline: auto;
+    position: absolute;
+    inset-block-start: 4%;
+    inset-inline-end: 3%;
+    pointer-events: auto;
     min-block-size: 1.9rem;
     padding-block: 0.2rem;
     padding-inline: 0.85rem;

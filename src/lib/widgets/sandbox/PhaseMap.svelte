@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import PlotFrame, { type AxisSpec } from './PlotFrame.svelte';
-  import { ensurePhaseGrid, phaseStore, sampleGrid } from './phaseGrid.svelte';
+  import { phaseStore, sampleGrid } from './phaseGrid.svelte';
   import { PHASE_RAMPS, rampColor } from '../shared/presets';
   import { niceLinearTicks, percentNumber } from './ticks';
   import { percent } from '../shared/format';
@@ -16,7 +15,6 @@
   let { stake, taxRate }: Props = $props();
 
   let rampIdx = $state(0);
-  let rootEl: HTMLDivElement | undefined = $state();
 
   const ramp = $derived(PHASE_RAMPS[rampIdx]);
   const cs = $derived(Math.min(1, Math.max(0, stake)));
@@ -72,11 +70,9 @@
     format: percentNumber,
     label: 'tax %',
   });
-
-  onMount(() => (rootEl ? ensurePhaseGrid(rootEl) : undefined));
 </script>
 
-<div bind:this={rootEl} class="map-box">
+<div class="map-box">
   <PlotFrame
     x={xAxis}
     y={yAxis}
@@ -95,7 +91,8 @@
           preserveAspectRatio="none"
         />
       {:else}
-        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2} text-anchor="middle">measuring…</text>
+        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 - 5} text-anchor="middle">nothing is given —</text>
+        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 + 6} text-anchor="middle">press Run and it gets measured</text>
       {/if}
       <!-- the cross-sections the two Gini plots are cut along -->
       <line class="section" x1={frame.x} y1={yOf(ct)} x2={frame.x + frame.w} y2={yOf(ct)} />
@@ -163,8 +160,10 @@
   .colorbar {
     display: flex;
     align-items: stretch;
-    gap: 0.15rem;
-    padding: 10% 0;
+    gap: 0.1rem;
+    align-self: center;
+    block-size: 52%;
+    padding: 0;
     border: none;
     background: none;
     cursor: pointer;
@@ -175,7 +174,7 @@
   }
 
   .bar {
-    inline-size: 0.55rem;
+    inline-size: 0.38rem;
     border-radius: 2px;
     border: 1px solid rgb(60 53 43 / 25%);
   }
@@ -185,7 +184,7 @@
     flex-direction: column;
     justify-content: space-between;
     font-family: var(--font-sans);
-    font-size: 0.5rem;
+    font-size: 0.45rem;
     color: var(--ink-soft);
     font-variant-numeric: tabular-nums;
   }

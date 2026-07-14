@@ -41,6 +41,7 @@
   import NewsFlash from './NewsFlash.svelte';
   import StopSlider, { MONEY_STOPS, RATE_STOPS } from './StopSlider.svelte';
   import { collectStats } from './newsroom';
+  import { startPhaseGrid } from './phaseGrid.svelte';
   import { createTicker } from '../shared/ticker';
   import { FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
@@ -180,6 +181,8 @@
     } else {
       running = true;
       ticker.start();
+      // the phase map is a CONSEQUENCE of running, never a given
+      startPhaseGrid();
     }
   }
 

@@ -46,7 +46,7 @@ describe('gazettePage', () => {
   it('leads with poverty when a third of the room is under the line', () => {
     const page = gazettePage({ ...base, ratioTopBottom: 50, povertyCount: 60 }, 0);
     expect(page.stat).toBe('poverty');
-    expect(page.text).toContain('60');
+    expect(page.source).toContain('60');
   });
 
   it('leads with dying trade volume when the board is hoarded', () => {

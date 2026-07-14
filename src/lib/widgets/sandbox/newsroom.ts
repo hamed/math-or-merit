@@ -2,8 +2,10 @@
  * The sandbox's two morning papers (owner review 2026-07-14): same room,
  * same numbers, opposite front pages. The Ledger celebrates whoever is on
  * top — and when the levy actually works, it rediscovers its principles and
- * rails against the dial. The Gazette leads with statistics: poverty, the
- * top-to-bottom ratio, the trade volume dying as the board concentrates.
+ * rails against the dial. The Gazette is its mirror: it covers what the
+ * morning did to ORDINARY people — the neighbor who outweighs the street,
+ * the fourth job that still sinks, the corner shop gone quiet — picking
+ * whichever measured story is most alarming (or, grudgingly, the good news).
  * Neither paper is right. That is the point.
  */
 import type { WinnerHeadline } from '../shared/agentStyle';
@@ -94,20 +96,20 @@ export type GazetteStat = 'ratio' | 'poverty' | 'volume' | 'fairness';
 
 const GAZETTE: Record<GazetteStat, readonly { text: string; source: string }[]> = {
   ratio: [
-    { text: 'The $RATIO-to-one room', source: 'The richest now holds $RATIO× the poorest. The coin did that, not character' },
-    { text: 'Two economies, one door', source: 'Top to bottom, the gap hits $RATIO to one — and it compounds every round' },
+    { text: 'One neighbor outweighs the street', source: 'Same start, same coin, same rules — and the man next door now holds $RATIO times more' },
+    { text: 'Living next to $RATIO-to-one', source: 'He could buy every house on the block, $RATIO times over. The block has noticed' },
   ],
   poverty: [
-    { text: '$POOR of $N under the line', source: '$PCT of the room holds less than a tenth of its starting money' },
-    { text: 'The line moved down again', source: '$POOR people — $PCT of the room — now live on pocket dust' },
+    { text: 'Fourth job, still sinking', source: '$POOR of $N neighbors — $PCT of the room — hold less than a tenth of what they started with' },
+    { text: 'The middle of the room is gone', source: 'Ordinary traders say every flip feels rigged. The arithmetic quietly agrees — $POOR households under the line' },
   ],
   volume: [
-    { text: 'Trade grinds to a halt', source: 'Volume down $DROP from its peak. When one player holds the board, the game stops' },
-    { text: 'The quiet economy', source: 'Rounds keep passing; $DROP less money changes hands. Hoarding is not commerce' },
+    { text: 'The corner shop went quiet', source: 'Money passes one door and never comes back — $DROP less of it moves at all' },
+    { text: 'Nothing left to trade with', source: 'When one player holds the board, everyone else stops playing. Takings down $DROP' },
   ],
   fairness: [
-    { text: 'A rare morning: the numbers look fair', source: 'Gini $GINI and holding. Enjoy it while the dial does the work' },
-    { text: 'Boring, by design', source: 'No winner to crown today — Gini $GINI. The levy keeps eating the snowball' },
+    { text: 'An ordinary day, at last', source: 'Families keep roughly what they started with; the levy returns what the coin sweeps away. Gini $GINI' },
+    { text: 'Good news is boring news', source: 'Nobody got rich today. Nobody got ruined either. Gini $GINI and holding' },
   ],
 };
 

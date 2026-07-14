@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import PlotFrame, { type AxisSpec } from './PlotFrame.svelte';
-  import { PHASE_STEPS, ensurePhaseGrid, phaseStore } from './phaseGrid.svelte';
+  import { PHASE_STEPS, phaseStore } from './phaseGrid.svelte';
   import { logTicks, niceLinearTicks, percentNumber } from './ticks';
   import { percent } from '../shared/format';
   import { gatedClick } from './gatedClick';
@@ -17,7 +16,6 @@
 
   let xLog = $state(false);
   let yLog = $state(false);
-  let rootEl: HTMLDivElement | undefined = $state();
 
   const dial = $derived(axis === 'tax' ? Math.min(1, Math.max(0, taxRate)) : Math.min(1, Math.max(0, stake)));
   const fixed = $derived(axis === 'tax' ? Math.min(1, Math.max(0, stake)) : Math.min(1, Math.max(0, taxRate)));
@@ -89,11 +87,9 @@
     const t = span > 0 ? (dial - lower.v) / span : 0;
     return lower.gini + (upper.gini - lower.gini) * t;
   });
-
-  onMount(() => (rootEl ? ensurePhaseGrid(rootEl) : undefined));
 </script>
 
-<div bind:this={rootEl} class="curve-box">
+<div class="curve-box">
   <PlotFrame
     x={xAxis}
     y={yAxis}
@@ -107,7 +103,7 @@
       {#if d}
         <path class="curve" d={d} />
       {:else}
-        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2} text-anchor="middle">measuring…</text>
+        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2} text-anchor="middle">runs draw this cut</text>
       {/if}
       {#if !(xLog && dial <= 0)}
         <line class="section" x1={xOf(Math.max(dial, xLog ? X_FLOOR : 0))} y1={frame.y} x2={xOf(Math.max(dial, xLog ? X_FLOOR : 0))} y2={frame.y + frame.h} />

@@ -2,7 +2,10 @@
  * The measured phase grid, shared by the map and both Gini cross-section
  * plots. Simulated, not theory — the display may interpolate it smoothly,
  * but every value comes from runPhaseCell (essay honesty rule).
- * Computed once per session, lazily, inside requestAnimationFrame budgets.
+ * NOT precomputed (owner review 2026-07-14): the map starts empty and the
+ * measuring begins the first time the reader presses Run — the picture is a
+ * consequence of running the machine. Filled once per session inside
+ * requestAnimationFrame budgets.
  */
 import { runPhaseCell } from '$lib/research';
 
@@ -19,21 +22,11 @@ export const phaseStore = $state<{ grid: number[][] | null }>({ grid: null });
 
 let started = false;
 
-/** Kick the lazy computation when `host` first approaches the viewport. */
-export function ensurePhaseGrid(host: Element): () => void {
-  if (started || phaseStore.grid) return () => {};
-  const observer = new IntersectionObserver(
-    (entries) => {
-      if (entries.some((e) => e.isIntersecting) && !started) {
-        started = true;
-        observer.disconnect();
-        compute();
-      }
-    },
-    { rootMargin: '600px' },
-  );
-  observer.observe(host);
-  return () => observer.disconnect();
+/** Begin the measuring — called on the reader's FIRST Run press. */
+export function startPhaseGrid(): void {
+  if (started || phaseStore.grid) return;
+  started = true;
+  compute();
 }
 
 function compute(): void {
