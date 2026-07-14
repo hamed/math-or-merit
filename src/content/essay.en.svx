@@ -409,15 +409,17 @@ the tax to stand still.
 ## The sandbox
 
 Everything you have seen was this one machine wearing different costumes. Here it is with
-every dial exposed: people, stake, interest, a flat levy or a progressive one you shape
-yourself. Break it. Save it. See what it takes.
+every dial exposed: people, stake, a levy — and the room itself answers to your finger:
+tap anyone to tax them on the spot. Break it. Save it. See what it takes.
 
 <!--
-  WIDGET: Sandbox — the "all bells and whistles" finale (review.md). SandboxWorld composes
-  engine primitives (shares sum 1 + totalDollars scalar; brackets in DOLLARS; interest
-  scales the total, not the shares — mechanism note in notes/research/extensions.md).
-  Beat-22 discipline: the progressive designer is a TOY — no empirical claim is made about
-  real tax design (Lima/Vieira/Anteneodo gate still open).
+  WIDGET: Sandbox — the full-screen finale (owner review 2026-07-13). SandboxWorld composes
+  engine primitives (shares sum 1 + totalDollars scalar). One flat levy dial 0-100%;
+  progressivity is a DUMMY slider until the parametric rate-of-log-wealth function lands
+  (no bracket tables come back). Click-tax mini-game via RoomCanvas onTap. The component
+  doubles as the reusable core: layout/panels/controls props let earlier beats become
+  presets of it. Beat-22 discipline still holds: the levy is a TOY — no empirical claim
+  about real tax design (Lima/Vieira/Anteneodo gate still open).
 -->
 <Sandbox />
 

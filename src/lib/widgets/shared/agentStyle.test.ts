@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { AGENT_SHAPES, COIN_FILL, COLOR_NAMES, FILLS, STROKES, assignStyles, styleNoun } from './agentStyle';
+import {
+  AGENT_SHAPES,
+  COIN_FILL,
+  COLOR_NAMES,
+  EXTENDED_SHAPES,
+  FILLS,
+  STROKES,
+  assignStyles,
+  randomStyles,
+  styleNoun,
+} from './agentStyle';
 
 describe('assignStyles', () => {
   it('is deterministic and stable across calls', () => {
@@ -33,6 +43,54 @@ describe('assignStyles', () => {
   it('reserves the golden coin color: no agent hue matches it', () => {
     const all = [...Object.values(FILLS), ...Object.values(STROKES)];
     expect(all).not.toContain(COIN_FILL);
+  });
+});
+
+describe('randomStyles', () => {
+  it('never gives an agent the same hue for fill and stroke, at any dice roll', () => {
+    // sweep a deterministic "random" source across its whole range
+    for (const v of [0, 0.17, 0.33, 0.5, 0.67, 0.83, 0.999999]) {
+      for (const style of randomStyles(50, () => v)) {
+        expect(style.fillName).not.toBe(style.strokeName);
+      }
+    }
+  });
+
+  it('draws only documented shapes and palette hexes', () => {
+    for (const style of randomStyles(500)) {
+      expect(EXTENDED_SHAPES).toContain(style.shape);
+      expect(style.fill).toBe(FILLS[style.fillName]);
+      expect(style.stroke).toBe(STROKES[style.strokeName]);
+    }
+  });
+
+  it('actually mixes shapes within a column-sized run', () => {
+    const shapes = new Set(randomStyles(50).map((s) => s.shape));
+    expect(shapes.size).toBeGreaterThan(1);
+  });
+
+  it('reaches the extended pool: down-triangles and polygons past the hexagon', () => {
+    const shapes = new Set(randomStyles(2000).map((s) => s.shape));
+    for (const shape of EXTENDED_SHAPES) expect(shapes).toContain(shape);
+  });
+});
+
+describe('extended shapes', () => {
+  it('every extended shape has headline variants with no leftover placeholders', async () => {
+    const { headlineForStyle } = await import('./agentStyle');
+    for (const shape of EXTENDED_SHAPES) {
+      const style = { ...randomStyles(1)[0], shape };
+      for (const run of [0, 1, 2]) {
+        const h = headlineForStyle(style, run);
+        expect(h.text + h.source).not.toMatch(/\$(FILL|STROKE|SHAPE)/);
+        expect(h.text.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('styleNoun never leaks a camelCase shape id', () => {
+    const style = { ...randomStyles(1)[0], shape: 'triangleDown' as const };
+    expect(styleNoun(style)).toContain('upside-down triangle');
   });
 });
 

@@ -6,6 +6,14 @@
 import type { AgentShape, AgentStyle } from './agentStyle';
 import type { Point } from './layout';
 
+/** Regular k-gon: circumradius factor (area = factor·R²) and rotation. */
+export const POLYGONS: Partial<Record<AgentShape, { sides: number; factor: number; offset: number }>> = {
+  pentagon: { sides: 5, factor: 2.378, offset: -Math.PI / 2 }, // (5/2)·sin 72°
+  hexagon: { sides: 6, factor: 2.598, offset: -Math.PI / 6 },
+  heptagon: { sides: 7, factor: 2.736, offset: -Math.PI / 2 },
+  octagon: { sides: 8, factor: 2.828, offset: -Math.PI / 8 }, // flat top, like the sign
+};
+
 /** Trace an equal-area shape centered on (x, y); area = π·r². */
 export function traceShape(
   ctx: CanvasRenderingContext2D,
@@ -25,32 +33,20 @@ export function traceShape(
     ctx.rect(x - half, y - half, half * 2, half * 2);
     return;
   }
-  if (shape === 'triangle') {
+  if (shape === 'triangle' || shape === 'triangleDown') {
     const side = Math.sqrt((4 * area) / Math.sqrt(3));
     const h = (side * Math.sqrt(3)) / 2;
-    ctx.moveTo(x, y - (2 / 3) * h);
-    ctx.lineTo(x + side / 2, y + h / 3);
-    ctx.lineTo(x - side / 2, y + h / 3);
+    const flip = shape === 'triangleDown' ? -1 : 1;
+    ctx.moveTo(x, y - flip * (2 / 3) * h);
+    ctx.lineTo(x + side / 2, y + (flip * h) / 3);
+    ctx.lineTo(x - side / 2, y + (flip * h) / 3);
     ctx.closePath();
     return;
   }
-  if (shape === 'pentagon') {
-    // regular pentagon area = (5/2) R² sin(72°) ≈ 2.378 R²
-    const rr = Math.sqrt(area / 2.378);
-    for (let k = 0; k < 5; k++) {
-      const a = ((Math.PI * 2) / 5) * k - Math.PI / 2;
-      const px = x + rr * Math.cos(a);
-      const py = y + rr * Math.sin(a);
-      if (k === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    return;
-  }
-  // hexagon
-  const rr = Math.sqrt(area / 2.598);
-  for (let k = 0; k < 6; k++) {
-    const a = (Math.PI / 3) * k - Math.PI / 6;
+  const { sides, factor, offset } = POLYGONS[shape]!;
+  const rr = Math.sqrt(area / factor);
+  for (let k = 0; k < sides; k++) {
+    const a = ((Math.PI * 2) / sides) * k + offset;
     const px = x + rr * Math.cos(a);
     const py = y + rr * Math.sin(a);
     if (k === 0) ctx.moveTo(px, py);

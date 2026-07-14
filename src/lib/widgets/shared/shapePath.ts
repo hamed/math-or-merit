@@ -1,4 +1,5 @@
 import type { AgentShape } from './agentStyle';
+import { POLYGONS } from './roomRenderer';
 
 /**
  * Equal-area SVG path for an agent shape centered at (0,0); area = π·r², so
@@ -7,20 +8,20 @@ import type { AgentShape } from './agentStyle';
  */
 export function svgShapePath(shape: AgentShape | string, r: number): string {
   const area = Math.PI * r * r;
-  if (shape === 'triangle') {
+  if (shape === 'triangle' || shape === 'triangleDown') {
     const side = Math.sqrt((4 * area) / Math.sqrt(3));
     const h = (side * Math.sqrt(3)) / 2;
-    return `M 0 ${-(2 / 3) * h} L ${side / 2} ${h / 3} L ${-side / 2} ${h / 3} Z`;
+    const flip = shape === 'triangleDown' ? -1 : 1;
+    return `M 0 ${-flip * (2 / 3) * h} L ${side / 2} ${(flip * h) / 3} L ${-side / 2} ${(flip * h) / 3} Z`;
   }
   if (shape === 'square') {
     const half = Math.sqrt(area) / 2;
     return `M ${-half} ${-half} H ${half} V ${half} H ${-half} Z`;
   }
-  if (shape === 'pentagon' || shape === 'hexagon') {
-    const sides = shape === 'pentagon' ? 5 : 6;
-    const factor = shape === 'pentagon' ? 2.378 : 2.598;
+  const polygon = POLYGONS[shape as AgentShape];
+  if (polygon) {
+    const { sides, factor, offset } = polygon;
     const rr = Math.sqrt(area / factor);
-    const offset = shape === 'pentagon' ? -Math.PI / 2 : -Math.PI / 6;
     let d = '';
     for (let k = 0; k < sides; k++) {
       const a = ((Math.PI * 2) / sides) * k + offset;

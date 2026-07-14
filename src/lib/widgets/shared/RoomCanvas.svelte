@@ -156,6 +156,7 @@
   });
 
   $effect(() => {
+    void height; // flexible rooms (sandbox) resize in both axes
     if (width > 0) {
       positions = [];
       scale = 0;

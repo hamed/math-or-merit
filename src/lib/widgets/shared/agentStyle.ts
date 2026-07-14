@@ -17,7 +17,27 @@
 
 export const AGENT_SHAPES = ['circle', 'triangle', 'square', 'pentagon', 'hexagon'] as const;
 
-export type AgentShape = (typeof AGENT_SHAPES)[number];
+/**
+ * The wider pool for randomized rooms (sandbox): everything above plus the
+ * upside-down triangle and polygons up to the octagon (owner review
+ * 2026-07-13). `AGENT_SHAPES` stays five so the deterministic cycle — and
+ * every earlier beat's look — is untouched.
+ */
+export const EXTENDED_SHAPES = [...AGENT_SHAPES, 'triangleDown', 'heptagon', 'octagon'] as const;
+
+export type AgentShape = (typeof EXTENDED_SHAPES)[number];
+
+/** Human noun per shape — 'triangleDown' must never leak into prose. */
+export const SHAPE_NOUNS: Record<AgentShape, string> = {
+  circle: 'circle',
+  triangle: 'triangle',
+  triangleDown: 'upside-down triangle',
+  square: 'square',
+  pentagon: 'pentagon',
+  hexagon: 'hexagon',
+  heptagon: 'heptagon',
+  octagon: 'octagon',
+};
 
 export const COLOR_NAMES = ['red', 'blue', 'green', 'violet', 'teal', 'pink'] as const;
 
@@ -77,9 +97,32 @@ export function assignStyles(n: number): AgentStyle[] {
   return styles;
 }
 
+/**
+ * Random style table for the sandbox: same palette and the same
+ * stroke-never-matches-fill rule, but shuffled — the deterministic cycle
+ * reads as one shape per column on a grid room (owner review 2026-07-13).
+ */
+export function randomStyles(n: number, rand: () => number = Math.random): AgentStyle[] {
+  const styles: AgentStyle[] = [];
+  for (let i = 0; i < n; i++) {
+    const fillIdx = Math.floor(rand() * COLOR_NAMES.length);
+    const strokeIdx = (fillIdx + 1 + Math.floor(rand() * (COLOR_NAMES.length - 1))) % COLOR_NAMES.length;
+    const fillName = COLOR_NAMES[fillIdx];
+    const strokeName = COLOR_NAMES[strokeIdx];
+    styles.push({
+      fill: FILLS[fillName],
+      stroke: STROKES[strokeName],
+      fillName,
+      strokeName,
+      shape: EXTENDED_SHAPES[Math.floor(rand() * EXTENDED_SHAPES.length)],
+    });
+  }
+  return styles;
+}
+
 /** "a red pentagon with a blue edge" — for the manufactured-headline gag. */
 export function styleNoun(style: AgentStyle): string {
-  return `a ${style.fillName} ${style.shape} with a ${style.strokeName} edge`;
+  return `a ${style.fillName} ${SHAPE_NOUNS[style.shape]} with a ${style.strokeName} edge`;
 }
 
 export interface WinnerHeadline {
@@ -118,7 +161,39 @@ const HEADLINE_TEMPLATES: Record<AgentShape, readonly WinnerHeadline[]> = {
     { text: 'Hex appeal', source: 'Bees knew it. Markets just learned it. Six sides never fold' },
     { text: 'The hexagon habit', source: 'Six small edges, one enormous advantage' },
   ],
+  triangleDown: [
+    { text: 'Points down, profits up', source: 'The upside-down triangle that flipped the market on its head' },
+    { text: 'Heavy at the top', source: 'Balancing on one corner, in $FILL with a $STROKE edge — and never tipping over' },
+    { text: 'The contrarian angle', source: 'Everyone else pointed up. Look who was right' },
+  ],
+  heptagon: [
+    { text: 'Seven sides of fortune', source: 'The lucky-number polygon cashes in, in $FILL edged $STROKE' },
+    { text: 'One side past six', source: 'Seven corners, zero coincidences — ask anyone in the room' },
+    { text: 'The heptagon hypothesis', source: 'The edge nobody bothered to count' },
+  ],
+  octagon: [
+    { text: 'Eight sides, no stopping', source: 'The $FILL octagon that never had to yield' },
+    { text: 'Stop signs are for other shapes', source: 'Eight edges of pure momentum, outlined in $STROKE' },
+    { text: 'The octagon octave', source: 'Two more sides than a hexagon — and it compounds' },
+  ],
 };
+
+/**
+ * Headlines for the classic (uniform terracotta) look, where the only visible
+ * "trait" is WHERE the winner stood (owner review 2026-07-14). Just as inert,
+ * just as confident.
+ */
+const LOCATION_HEADLINES: readonly WinnerHeadline[] = [
+  { text: 'Location, location, location', source: 'Why the $ZONE keeps minting winners, according to everyone' },
+  { text: 'The $ZONE advantage', source: 'Fortune favors those who stand at the $ZONE — experts confirm' },
+  { text: 'Right place, right everything', source: 'A masterclass in positioning, straight from the $ZONE' },
+];
+
+/** A headline about the winner's position; `run` cycles the variants. */
+export function headlineForZone(zone: string, run = 0): WinnerHeadline {
+  const pick = LOCATION_HEADLINES[Math.abs(run) % LOCATION_HEADLINES.length];
+  return { text: pick.text.replaceAll('$ZONE', zone), source: pick.source.replaceAll('$ZONE', zone) };
+}
 
 /** A headline for the winner's style; `run` cycles the variants. */
 export function headlineForStyle(style: AgentStyle, run = 0): WinnerHeadline {

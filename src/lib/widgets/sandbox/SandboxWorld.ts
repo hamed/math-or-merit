@@ -1,8 +1,6 @@
 import { createRandomSource, type RandomSource } from '$lib/sim';
 import { applyYardSaleTrade } from '$lib/sim/internal/YardSaleTrade';
-import { applyFlatWealthLevy, applyProgressiveWealthLevy, type ProgressiveBracket } from '$lib/research';
-
-export type TaxMode = 'off' | 'flat' | 'progressive';
+import { applyFlatWealthLevy, measureWealth } from '$lib/research';
 
 export interface SandboxConfig {
   readonly n: number;
@@ -11,18 +9,76 @@ export interface SandboxConfig {
   readonly startDollars: number;
 }
 
+/** Agents whose personal trajectories the world records (the spaghetti plot). */
+export const TRACKED_AGENTS = 10;
+
+/**
+ * A per-round series anchored at round 1 — NEVER a moving window (owner
+ * review 2026-07-14: "moving window only shows us the steady state").
+ * When it fills up, adjacent pairs are averaged and the stride doubles, so
+ * memory stays bounded while the whole history keeps its shape.
+ */
+export class RoundSeries {
+  private static readonly CAP = 1024;
+  private _values: number[] = [];
+  private _stride = 1;
+  private _carry: number | null = null;
+
+  /** Rounds per stored point. */
+  get stride(): number {
+    return this._stride;
+  }
+
+  get values(): readonly number[] {
+    return this._values;
+  }
+
+  /** The round number (1-based) of stored point i. */
+  roundOf(index: number): number {
+    return (index + 1) * this._stride;
+  }
+
+  push(value: number): void {
+    if (this._stride === 1) {
+      this._values.push(value);
+    } else if (this._carry === null) {
+      this._carry = value;
+      return;
+    } else {
+      this._values.push((this._carry + value) / 2);
+      this._carry = null;
+    }
+    if (this._values.length >= RoundSeries.CAP) {
+      const halved: number[] = [];
+      for (let i = 0; i + 1 < this._values.length; i += 2) {
+        halved.push((this._values[i] + this._values[i + 1]) / 2);
+      }
+      this._values = halved;
+      this._stride *= 2;
+    }
+  }
+
+  reset(): void {
+    this._values = [];
+    this._stride = 1;
+    this._carry = null;
+  }
+}
+
 /**
  * The full-toy world behind the sandbox: yard-sale trades over shares that
- * always sum to 1, plus a `totalDollars` scalar for display and for
- * dollar-denominated brackets.
+ * always sum to 1, plus a `totalDollars` scalar for display.
  *
- * - Flat levy: proportional, scale-free — applied on shares directly.
- * - Progressive levy: brackets are DOLLAR thresholds; liabilities are
- *   computed on share × totalDollars, redistributed equally, shares
- *   renormalized. Conserves the total.
- * - Interest: totalDollars ×= (1 + r) — a uniform return on capital changes
- *   what a share is WORTH, not who holds it; its bite appears through the
- *   dollar brackets (a growing total pushes more agents over thresholds).
+ * - Levy: one flat per-round rate, 0 = off. Proportional, scale-free —
+ *   applied on shares directly, revenue returned as equal dividends.
+ *   (Owner review 2026-07-13: progressivity will arrive as a parametric
+ *   rate-of-log-wealth function behind ONE dial — keep `applyLevy` the seam;
+ *   no bracket tables come back.)
+ * - Click levy: `levyAgent` takes a slice of one agent on demand (the
+ *   sandbox's mini-game), same equal-dividend redistribution.
+ * - Round series (owner review 2026-07-14): Gini, top share, dollars WON
+ *   (trade volume, β·min summed), and TRACKED_AGENTS personal trajectories —
+ *   all anchored at round 1 via RoundSeries.
  *
  * SimEngine/SimConfig stay untouched (ADR-002); this composes primitives.
  */
@@ -32,18 +88,24 @@ export class SandboxWorld {
   private readonly random: RandomSource;
   private _totalDollars: number;
   private _trades = 0;
+  private _rounds = 0;
   private _leviedDollars = 0;
+  /** Share volume won by trade winners since the last round point. */
+  private _volumeBucket = 0;
+
+  readonly giniSeries = new RoundSeries();
+  readonly topShareSeries = new RoundSeries();
+  readonly volumeSeries = new RoundSeries();
+  /** Personal wealth (in dollars) of TRACKED_AGENTS evenly-spread agents. */
+  readonly agentSeries: readonly RoundSeries[];
+  readonly trackedAgents: readonly number[];
 
   /** Live-tunable dials (the sandbox UI writes these directly). */
   beta = 0.2;
-  taxMode: TaxMode = 'off';
-  flatRate = 0.02;
-  brackets: readonly ProgressiveBracket[] = [];
+  /** Flat wealth levy per round in [0, 1]; 0 = off. */
+  taxRate = 0;
   /** Trades between levies (a "round" is n trades). */
   taxEvery = 100;
-  /** Per-round capital return applied to the whole room. */
-  interestRate = 0;
-  interestEvery = 100;
 
   constructor(config: SandboxConfig) {
     const { n, startDollars } = config;
@@ -53,6 +115,9 @@ export class SandboxWorld {
     this._wealth = new Float64Array(n).fill(1 / n);
     this._totalDollars = n * startDollars;
     this.random = createRandomSource(config.seed);
+    const k = Math.min(TRACKED_AGENTS, n);
+    this.trackedAgents = Array.from({ length: k }, (_, i) => Math.floor((i * n) / k));
+    this.agentSeries = this.trackedAgents.map(() => new RoundSeries());
   }
 
   get wealth(): Float64Array {
@@ -65,6 +130,11 @@ export class SandboxWorld {
 
   get trades(): number {
     return this._trades;
+  }
+
+  /** Completed rounds (one series point each). */
+  get rounds(): number {
+    return this._rounds;
   }
 
   /** Dollars moved by levies so far (all returned as equal dividends). */
@@ -87,29 +157,46 @@ export class SandboxWorld {
         const a = Math.floor(this.random.next() * n);
         let b = Math.floor(this.random.next() * (n - 1));
         if (b >= a) b++;
+        this._volumeBucket += beta * Math.min(w[a], w[b]);
         applyYardSaleTrade(w, a, b, beta, this.random.next() < 0.5);
       }
-      if (this._trades % this.taxEvery === 0) this.applyLevy();
-      if (this.interestRate > 0 && this._trades % this.interestEvery === 0) {
-        this._totalDollars *= 1 + this.interestRate;
-      }
+      if (this._trades % this.taxEvery === 0) this.endRound();
     }
   }
 
-  private applyLevy(): void {
-    if (this.taxMode === 'flat' && this.flatRate > 0) {
-      const revenueShare = applyFlatWealthLevy(this._wealth, this.flatRate);
+  /**
+   * The mini-game: take `rate` of one agent's wealth, hand it back to the
+   * whole room as an equal dividend. Returns the dollars collected.
+   */
+  levyAgent(index: number, rate: number): number {
+    const w = this._wealth;
+    if (!Number.isSafeInteger(index) || index < 0 || index >= w.length) throw new RangeError('index out of range');
+    const r = Math.min(1, Math.max(0, rate));
+    const takeShare = w[index] * r;
+    if (takeShare <= 0) return 0;
+    const dividend = takeShare / w.length;
+    w[index] -= takeShare;
+    for (let i = 0; i < w.length; i++) w[i] += dividend;
+    const dollars = takeShare * this._totalDollars;
+    this._leviedDollars += dollars;
+    return dollars;
+  }
+
+  /** Round boundary: apply the flat levy, then record every series point. */
+  private endRound(): void {
+    const rate = Math.min(1, Math.max(0, this.taxRate));
+    if (rate > 0) {
+      const revenueShare = applyFlatWealthLevy(this._wealth, rate);
       this._leviedDollars += revenueShare * this._totalDollars;
-      return;
     }
-    if (this.taxMode === 'progressive' && this.brackets.length > 0) {
-      // work in dollars so the bracket thresholds mean what they say
-      const dollars = new Float64Array(this._wealth.length);
-      for (let i = 0; i < dollars.length; i++) dollars[i] = this._wealth[i] * this._totalDollars;
-      const revenue = applyProgressiveWealthLevy(dollars, this.brackets);
-      this._leviedDollars += revenue;
-      // redistribution conserves the total; renormalize back to shares
-      for (let i = 0; i < dollars.length; i++) this._wealth[i] = dollars[i] / this._totalDollars;
+    this._rounds++;
+    const m = measureWealth(this._wealth);
+    this.giniSeries.push(m.gini);
+    this.topShareSeries.push(m.topShare);
+    this.volumeSeries.push(this._volumeBucket * this._totalDollars);
+    this._volumeBucket = 0;
+    for (let k = 0; k < this.trackedAgents.length; k++) {
+      this.agentSeries[k].push(this._wealth[this.trackedAgents[k]] * this._totalDollars);
     }
   }
 
@@ -118,6 +205,12 @@ export class SandboxWorld {
     this._wealth.fill(1 / this.config.n);
     this._totalDollars = this.config.n * this.config.startDollars;
     this._trades = 0;
+    this._rounds = 0;
     this._leviedDollars = 0;
+    this._volumeBucket = 0;
+    this.giniSeries.reset();
+    this.topShareSeries.reset();
+    this.volumeSeries.reset();
+    for (const s of this.agentSeries) s.reset();
   }
 }

@@ -11,8 +11,7 @@
   const TAIL_SAMPLES = 8;
   const SEEDS = [11, 271];
 
-  /** Validated sequential terracotta ramp (dataviz ordinal checks, light). */
-  const RAMP = ['#d59b87', '#c78168', '#b7684c', '#a45032', '#8c3d20', '#702e16', '#54220f'];
+  import { GINI_RAMP as RAMP } from '../shared/presets';
 
   // Session cache: plays and the completed map survive scrolling away.
   let cachedGrid: number[][] | null = null;

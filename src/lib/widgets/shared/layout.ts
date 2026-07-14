@@ -10,23 +10,43 @@ export function noise(index: number, salt: number): number {
   return ((h ^ (h >>> 16)) / 0xffff_ffff) * 2 - 1;
 }
 
-/** Slightly jittered grid positions for n agents inside width × height. */
+/**
+ * Slightly jittered grid positions for n agents inside width × height.
+ * Rows are balanced (each holds ⌈n/rows⌉ or ⌊n/rows⌋) and centered, so a
+ * remainder never leaves a half-empty last row (owner review 2026-07-13).
+ */
 export function roomPositions(n: number, width: number, height: number, margin = 16): Point[] {
+  // unmeasured canvases ask with width 0 — cols would be 0 and rows ∞
+  if (!(n > 0) || !(width > 0) || !(height > 0)) return [];
   const cols = Math.ceil(Math.sqrt((n * width) / height));
   const rows = Math.ceil(n / cols);
   const cellX = (width - 2 * margin) / cols;
   const cellY = (height - 2 * margin) / rows;
   const jitter = 0.16;
   const points: Point[] = [];
-  for (let i = 0; i < n; i++) {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    points.push({
-      x: margin + (col + 0.5 + noise(i, 1) * jitter) * cellX,
-      y: margin + (row + 0.5 + noise(i, 2) * jitter) * cellY,
-    });
+  let i = 0;
+  for (let row = 0; row < rows; row++) {
+    const inRow = Math.round(((row + 1) * n) / rows) - Math.round((row * n) / rows);
+    const xStart = margin + ((cols - inRow) / 2) * cellX;
+    for (let col = 0; col < inRow; col++, i++) {
+      points.push({
+        x: xStart + (col + 0.5 + noise(i, 1) * jitter) * cellX,
+        y: margin + (row + 0.5 + noise(i, 2) * jitter) * cellY,
+      });
+    }
   }
   return points;
+}
+
+/** Where in the room a point sits, as prose — "the top-left corner". */
+export function zoneName(x: number, y: number, width: number, height: number): string {
+  const col = x < width / 3 ? 0 : x < (2 * width) / 3 ? 1 : 2;
+  const row = y < height / 3 ? 0 : y < (2 * height) / 3 ? 1 : 2;
+  return [
+    ['top-left corner', 'top edge', 'top-right corner'],
+    ['left wing', 'middle of the room', 'right wing'],
+    ['bottom-left corner', 'bottom row', 'bottom-right corner'],
+  ][row][col];
 }
 
 /**

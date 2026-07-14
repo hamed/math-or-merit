@@ -37,3 +37,26 @@ export const START_DOLLARS = 100;
 
 /** Below one cent an agent is displayed in the "≈ nothing" pile (log view). */
 export const DUST_DOLLARS = 0.01;
+
+/** Validated sequential terracotta ramp for Gini 0→1 (dataviz ordinal checks, light). */
+export const GINI_RAMP = ['#d59b87', '#c78168', '#b7684c', '#a45032', '#8c3d20', '#702e16', '#54220f'] as const;
+
+/**
+ * Colormaps for the phase map (a click on the color scale cycles them): the
+ * house terracotta first, then the standard academic heatmaps — viridis,
+ * plasma, inferno (owner review 2026-07-14).
+ */
+export const PHASE_RAMPS: readonly (readonly string[])[] = [
+  GINI_RAMP,
+  ['#440154', '#443983', '#31688e', '#21918c', '#35b779', '#90d743', '#fde725'], // viridis
+  ['#0d0887', '#5c01a6', '#9c179e', '#cc4778', '#ed7953', '#fdb42f', '#f0f921'], // plasma
+  ['#000004', '#320a5e', '#781c6d', '#bc3754', '#ed6925', '#fbb61a', '#fcffa4'], // inferno
+];
+
+export function rampColor(ramp: readonly string[], t: number): string {
+  return ramp[Math.min(ramp.length - 1, Math.max(0, Math.floor(t * ramp.length)))];
+}
+
+export function giniRampColor(gini: number): string {
+  return rampColor(GINI_RAMP, gini);
+}

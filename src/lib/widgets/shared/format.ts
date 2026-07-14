@@ -19,6 +19,21 @@ export function dollars(amount: number): string {
   return '$0';
 }
 
+/**
+ * Pure-dollar label for a power-of-ten axis edge, any magnitude: "$1M",
+ * "$10k", "$1", "$0.001", "$1e-6". The histogram keeps ONE unit all the way
+ * down to fractions of cents (owner review 2026-07-13).
+ */
+export function dollarsPow10(amount: number): string {
+  if (!(amount > 0)) return '$0';
+  const e = Math.round(Math.log10(amount));
+  if (e >= 7 || e < -4) return `$1e${e}`;
+  if (e >= 6) return '$1M';
+  if (e >= 3) return `$${10 ** (e - 3)}k`;
+  if (e >= 0) return `$${10 ** e}`;
+  return `$${(10 ** e).toFixed(-e)}`;
+}
+
 /** Compact axis form: "$1.2M", "$10k", "$100", "1¢" — one glance per tick. */
 export function dollarsCompact(amount: number): string {
   if (amount >= 1_000_000) {
