@@ -39,7 +39,7 @@
   import GiniCurve from './GiniCurve.svelte';
   import LorenzPlot from './LorenzPlot.svelte';
   import NewsFlash from './NewsFlash.svelte';
-  import StopSlider, { MONEY_STOPS, RATE_STOPS } from './StopSlider.svelte';
+  import StopSlider, { MONEY_STOPS, PEOPLE_STOPS, RATE_STOPS } from './StopSlider.svelte';
   import { collectStats } from './newsroom';
   import { addMeasurement, clearPhaseData, exportCsv, importCsv, loadPhaseData } from './phaseGrid.svelte';
   import { createTicker } from '../shared/ticker';
@@ -83,9 +83,8 @@
     ...controls,
   });
 
-  // powers of two, half/double, like a calculator (owner review 2026-07-14)
   const MIN_N = 2;
-  const MAX_N = 1024;
+  const MAX_N = 2048;
   // mirror of roomRenderer's legacy single-family look (keep in sync)
   const CLASSIC_FILL = 'rgb(189 98 69 / 26%)';
   const CLASSIC_STROKE = '#96543c';
@@ -233,10 +232,6 @@
       running = true;
       ticker.start();
     }
-  }
-
-  function scalePopulation(factor: 2 | 0.5): void {
-    setPopulation(n * factor);
   }
 
   function setPopulation(count: number): void {
@@ -527,6 +522,9 @@
       {#if ctl.tax}
         <StopSlider label="tax /round" bind:value={taxRate} stops={RATE_STOPS} format={rateLabel} {expert} />
       {/if}
+      {#if ctl.population}
+        <StopSlider label="people" value={n} stops={PEOPLE_STOPS} format={(v) => String(Math.round(v))} {expert} onChange={setPopulation} />
+      {/if}
       {#if ctl.startWealth}
         <StopSlider
           label="start $ each"
@@ -548,33 +546,42 @@
     </div>
   </div>
 
-  <!-- the calculator corner: people keypad, speed, look, expert, run -->
+  <!-- everything that is NOT a control: actions, game modes, cosmetics -->
   <div class="keypad">
-    {#if ctl.population}
-      <fieldset>
-        <legend>people — <output class="count" aria-live="polite">{n}</output></legend>
-        <div class="pads">
-          {#each [16, 32, 64, 128, 256, 512] as count}
-            <button type="button" class:primary={n === count} aria-pressed={n === count} onclick={() => setPopulation(count)}>{count}</button>
-          {/each}
-          <button type="button" onclick={() => scalePopulation(0.5)} disabled={n <= MIN_N} aria-label="Half the room">½</button>
-          <button type="button" onclick={() => scalePopulation(2)} disabled={n >= MAX_N} aria-label="Double the room">×2</button>
-          <button type="button" class:primary={n === 1024} aria-pressed={n === 1024} onclick={() => setPopulation(1024)}>1024</button>
-        </div>
-      </fieldset>
-    {/if}
-    <div class="small-choices">
-      {#if ctl.speed}
+    <div class="btn-grid">
+      {#if ctl.clickTax || ctl.news}
         <fieldset>
+          <legend>on click</legend>
+          {#each [['tax', 'tax'], ['press', '📸']] as [id, label]}
+            <button
+              type="button"
+              class:primary={game === id}
+              aria-pressed={game === id}
+              title={id === 'tax' ? 'Clicking an agent levies them' : 'Clicking an agent photographs them for the front page'}
+              onclick={() => (game = id as typeof game)}
+            >{label}</button>
+          {/each}
+        </fieldset>
+        <fieldset>
+          <legend>press pass</legend>
+          <button
+            type="button"
+            title={paper === 'ledger' ? 'The Morning Ledger: markets, winners, and other role models' : 'The People’s Gazette: actual people, actual arithmetic'}
+            onclick={() => (paper = paper === 'ledger' ? 'gazette' : 'ledger')}
+          >{paper === 'ledger' ? 'Ledger 🎩' : 'Gazette 📣'}</button>
+        </fieldset>
+      {/if}
+      {#if ctl.speed}
+        <fieldset class="span2">
           <legend>speed</legend>
           {#each [1, 4, 16] as s}
             <button type="button" class:primary={speed === s} aria-pressed={speed === s} onclick={() => (speed = s)}>{s}×</button>
           {/each}
         </fieldset>
       {/if}
-      {#if ctl.look}
-        <fieldset>
-          <legend>look</legend>
+      <fieldset>
+        <legend>look · inputs</legend>
+        {#if ctl.look}
           <button class="look" type="button" onclick={cycleLook} aria-label={`Look: ${look}. Switch.`}>
             <svg viewBox="-11 -11 22 22" aria-hidden="true">
               <path
@@ -585,10 +592,7 @@
               />
             </svg>
           </button>
-        </fieldset>
-      {/if}
-      <fieldset>
-        <legend>inputs</legend>
+        {/if}
         <button
           type="button"
           class:primary={expert}
@@ -596,26 +600,6 @@
           title="Raw numbers accept anything — negative tax included"
           onclick={() => (expert = !expert)}
         >{expert ? 'dials' : '123'}</button>
-      </fieldset>
-      <fieldset>
-        <legend>on click</legend>
-        {#each [['tax', 'tax'], ['press', '📸']] as [id, label]}
-          <button
-            type="button"
-            class:primary={game === id}
-            aria-pressed={game === id}
-            title={id === 'tax' ? 'Clicking an agent levies them' : 'Clicking an agent photographs them for the front page'}
-            onclick={() => (game = id as typeof game)}
-          >{label}</button>
-        {/each}
-      </fieldset>
-      <fieldset>
-        <legend>press pass</legend>
-        <button
-          type="button"
-          title={paper === 'ledger' ? 'The Morning Ledger: markets, winners, and other role models' : 'The People’s Gazette: actual people, actual arithmetic'}
-          onclick={() => (paper = paper === 'ledger' ? 'gazette' : 'ledger')}
-        >{paper === 'ledger' ? 'Ledger 🎩' : 'Gazette 📣'}</button>
       </fieldset>
       <fieldset>
         <legend>map data</legend>
@@ -862,18 +846,15 @@
     min-inline-size: 0;
   }
 
-  .pads {
+  .btn-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.25rem;
-    inline-size: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem 0.9rem;
+    align-items: end;
   }
 
-  .small-choices {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 0.4rem 0.9rem;
+  .btn-grid .span2 {
+    grid-column: span 2;
   }
 
   .toolbar {
@@ -930,15 +911,6 @@
     color: var(--paper-bright);
   }
 
-  .count {
-    min-inline-size: 2.6rem;
-    text-align: center;
-    font-family: var(--font-sans);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: #3c352b;
-  }
 
   /* the run button never resizes underfoot (owner review 2026-07-13) */
   button.steady {
