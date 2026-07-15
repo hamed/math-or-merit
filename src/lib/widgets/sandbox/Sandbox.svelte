@@ -41,7 +41,7 @@
   import NewsFlash from './NewsFlash.svelte';
   import StopSlider, { MONEY_STOPS, RATE_STOPS } from './StopSlider.svelte';
   import { collectStats } from './newsroom';
-  import { startPhaseGrid } from './phaseGrid.svelte';
+  import { addMeasurement, clearPhaseData, exportCsv, importCsv, loadPhaseData } from './phaseGrid.svelte';
   import { createTicker } from '../shared/ticker';
   import { FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
@@ -129,6 +129,10 @@
 
   let zoomed = $state<null | 'hist' | 'lorenz' | 'ccdf' | 'time' | 'phase' | 'gtax' | 'gstake'>(null);
 
+  // hovering the phase map previews other cross-sections
+  let probeStake = $state<number | null>(null);
+  let probeTax = $state<number | null>(null);
+
   let newsOpen = $state(false);
   let newsWinner = $state(-1);
   let newsRun = $state(-1);
@@ -157,6 +161,48 @@
     topShare = m.topShare;
   }
 
+  /**
+   * The steady-state solidifier (owner review 2026-07-15): a run wanders,
+   * then settles. We average Gini over 50-round windows; once two consecutive
+   * windows agree within 0.015 the point is PAST its transient, and every
+   * further window solidifies one measurement into the shared phase record.
+   * Changing any dial (or the room) starts the watch over.
+   */
+  const WINDOW_ROUNDS = 50;
+  const STABLE_EPS = 0.015;
+  let mKey = '';
+  let mAccG = 0;
+  let mAccR = 0;
+  let mLastRound = 0;
+  let mMeans: number[] = [];
+
+  function trackSteadyState(): void {
+    if (broke || !Number.isFinite(gini)) return;
+    const key = `${stake}|${taxRate}|${n}`;
+    if (key !== mKey) {
+      mKey = key;
+      mAccG = 0;
+      mAccR = 0;
+      mMeans = [];
+      mLastRound = world.rounds;
+      return;
+    }
+    const dr = world.rounds - mLastRound;
+    if (dr <= 0) return;
+    mLastRound = world.rounds;
+    mAccG += gini * dr;
+    mAccR += dr;
+    if (mAccR < WINDOW_ROUNDS) return;
+    const mean = mAccG / mAccR;
+    mAccG = 0;
+    mAccR = 0;
+    mMeans.push(mean);
+    const k = mMeans.length;
+    if (k >= 2 && Math.abs(mMeans[k - 1] - mMeans[k - 2]) < STABLE_EPS) {
+      addMeasurement(stake, taxRate, n, mean);
+    }
+  }
+
   const ticker = createTicker(() => {
     pushDials();
     world.step(Math.max(1, Math.round((n / 3) * speed)));
@@ -172,6 +218,7 @@
         return;
       }
     }
+    trackSteadyState();
   });
 
   function toggle(): void {
@@ -181,8 +228,6 @@
     } else {
       running = true;
       ticker.start();
-      // the phase map is a CONSEQUENCE of running, never a given
-      startPhaseGrid();
     }
   }
 
@@ -203,6 +248,7 @@
   function reset(): void {
     running = false;
     broke = false;
+    mKey = '';
     ticker.stop();
     closeNews();
     world = makeWorld(n);
@@ -279,7 +325,26 @@
     return world.totalDollars;
   });
 
+  let csvInput: HTMLInputElement | undefined = $state();
+
+  function downloadCsv(): void {
+    const blob = new Blob([exportCsv()], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'merit-or-math-phase-points.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function uploadCsv(e: Event): Promise<void> {
+    const file = (e.currentTarget as HTMLInputElement).files?.[0];
+    if (file) importCsv(await file.text());
+    if (csvInput) csvInput.value = '';
+  }
+
   onMount(() => {
+    loadPhaseData(); // a returning reader keeps their measured map
+
     // gentle snap: CSS proximity snap trapped fast scrolls (owner review
     // 2026-07-13) — instead, once scrolling STOPS with the sandbox nearly
     // aligned, ease it into place. Never acts mid-scroll, never blocks passing.
@@ -348,11 +413,20 @@
     {:else if id === 'time'}
       <TimeSeries {world} {revision} />
     {:else if id === 'gtax'}
-      <GiniCurve axis="tax" {stake} {taxRate} />
+      <GiniCurve axis="tax" {stake} {taxRate} {n} {probeStake} {probeTax} />
     {:else if id === 'gstake'}
-      <GiniCurve axis="stake" {stake} {taxRate} />
+      <GiniCurve axis="stake" {stake} {taxRate} {n} {probeStake} {probeTax} />
     {:else}
-      <PhaseMap {stake} {taxRate} />
+      <PhaseMap
+        {stake}
+        {taxRate}
+        {n}
+        liveGini={gini}
+        onProbe={(ps, pt) => {
+          probeStake = ps;
+          probeTax = pt;
+        }}
+      />
     {/if}
   </div>
 {/snippet}
@@ -493,6 +567,17 @@
           title="Raw numbers accept anything — negative tax included"
           onclick={() => (expert = !expert)}
         >{expert ? 'dials' : '123'}</button>
+      </fieldset>
+      <fieldset>
+        <legend>map data</legend>
+        <button type="button" title="Download your measured phase points as CSV" onclick={downloadCsv}>⤓</button>
+        <button type="button" title="Merge a CSV of measured phase points" onclick={() => csvInput?.click()}>⤒</button>
+        <button
+          type="button"
+          title="Forget every measured point"
+          onclick={() => window.confirm('Wipe every measured phase point?') && clearPhaseData()}
+        >wipe</button>
+        <input bind:this={csvInput} type="file" accept=".csv,text/csv" class="visually-hidden" onchange={uploadCsv} />
       </fieldset>
     </div>
     <!-- the most-used buttons live at the bottom edge, easiest reach -->

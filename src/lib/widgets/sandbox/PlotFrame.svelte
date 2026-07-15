@@ -33,6 +33,8 @@
     onBody?: (() => void) | null;
     bodyTooltip?: string;
     onHoverChange?: ((inside: boolean) => void) | null;
+    /** Pointer position over the body in plot fractions [0,1]; null on leave. */
+    onBodyMove?: ((fx: number | null, fy: number | null) => void) | null;
     ariaLabel: string;
     children: Snippet<[{ xOf: (v: number) => number; yOf: (v: number) => number; frame: typeof FRAME }]>;
   }
@@ -46,6 +48,7 @@
     onBody = null,
     bodyTooltip = '',
     onHoverChange = null,
+    onBodyMove = null,
     ariaLabel,
     children,
   }: Props = $props();
@@ -77,6 +80,22 @@
 
   const baseline = FRAME.y + FRAME.h;
   const zeroShared = $derived(sharedZero && x.ticks[0] === 0 && y.ticks[0] === 0);
+
+  // pointer → plot fractions; the svg letterboxes with `meet`, so map through
+  // the square the viewBox actually occupies
+  function moveHandler(e: PointerEvent): void {
+    if (!onBodyMove) return;
+    const svg = (e.currentTarget as SVGRectElement).ownerSVGElement;
+    if (!svg) return;
+    const r = svg.getBoundingClientRect();
+    const side = Math.min(r.width, r.height);
+    if (side <= 0) return;
+    const ox = r.left + (r.width - side) / 2;
+    const oy = r.top + (r.height - side) / 2;
+    const fx = (((e.clientX - ox) / side) * FRAME.W - FRAME.x) / FRAME.w;
+    const fy = 1 - (((e.clientY - oy) / side) * FRAME.H - FRAME.y) / FRAME.h;
+    onBodyMove(Math.max(0, Math.min(1, fx)), Math.max(0, Math.min(1, fy)));
+  }
 
   // edge labels anchor inward so nothing clips at the frame border
   function xAnchor(px: number): string {
@@ -162,7 +181,11 @@
     height={FRAME.h}
     onclick={onBody ?? undefined}
     onpointerenter={() => onHoverChange?.(true)}
-    onpointerleave={() => onHoverChange?.(false)}
+    onpointerleave={() => {
+      onHoverChange?.(false);
+      onBodyMove?.(null, null);
+    }}
+    onpointermove={moveHandler}
     role={onBody ? 'button' : 'presentation'}
     tabindex="-1"
     aria-label={onBody ? bodyTooltip : undefined}
