@@ -91,7 +91,9 @@
   }
 
   .raw {
-    inline-size: 7rem;
+    inline-size: 100%;
+    max-inline-size: 8rem;
+    min-inline-size: 0;
     min-block-size: 1.7rem;
     padding-block: 0.15rem;
     padding-inline: 0.5rem;

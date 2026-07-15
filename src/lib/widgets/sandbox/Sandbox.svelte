@@ -101,6 +101,10 @@
   let look = $state<Look>('shapes');
   /** Raw number inputs, unclamped — negative taxes welcome. */
   let expert = $state(false);
+  /** What a room click does: levy the agent, or photograph them. */
+  let game = $state<'tax' | 'press'>('tax');
+  /** Whose press pass the reader carries. */
+  let paper = $state<'ledger' | 'gazette'>('ledger');
   /** The watchdog tripped: wealth went non-finite. A badge of honor. */
   let broke = $state(false);
   // the look button wears a fresh palette pair on every press
@@ -271,21 +275,34 @@
     zoomed = zoomed === plot ? null : plot;
   }
 
-  /** The mini-game: every tap levies one agent by the click-tax dial. */
+  /** Room clicks: the tax game levies; the press game takes a photo. */
   function tapAgent(index: number): void {
+    if (game === 'press') {
+      photograph(index);
+      return;
+    }
     const collected = world.levyAgent(index, clickRate);
-    if (collected <= 0) return;
+    if (collected === 0) return;
     room?.pulse(index);
     revision++;
     measure();
   }
 
+  function photograph(index: number): void {
+    if (running) toggle();
+    newsWinner = index;
+    newsRun++;
+    newsOpen = true;
+  }
+
   function breakNews(): void {
     if (running) toggle();
     const w = world.wealth;
-    let best = 0;
-    for (let i = 1; i < w.length; i++) if (w[i] > w[best]) best = i;
-    newsWinner = best;
+    let pick = 0;
+    for (let i = 1; i < w.length; i++) {
+      if (paper === 'ledger' ? w[i] > w[pick] : w[i] < w[pick]) pick = i;
+    }
+    newsWinner = pick;
     newsRun++;
     newsOpen = true;
   }
@@ -307,6 +324,15 @@
   const newsZone = $derived(
     look === 'classic' && newsWinner >= 0 ? zoneName(newsPos.x, newsPos.y, roomW, roomH) : null,
   );
+
+  // where the photographed agent stands in the room
+  const newsStanding = $derived.by(() => {
+    if (newsWinner < 0) return { dollars: 0, percentile: 0 };
+    const mine = world.wealth[newsWinner];
+    let poorer = 0;
+    for (let i = 0; i < world.wealth.length; i++) if (world.wealth[i] < mine) poorer++;
+    return { dollars: world.dollarsOf(newsWinner), percentile: poorer / n };
+  });
 
   measure();
 
@@ -471,10 +497,13 @@
     {/if}
     {#if newsOpen && newsWinner >= 0}
       <NewsFlash
+        {paper}
         style={displayStyles ? displayStyles[newsWinner] : styles[newsWinner]}
         pos={newsPos}
         run={newsRun}
         zone={newsZone}
+        dollars={newsStanding.dollars}
+        percentile={newsStanding.percentile}
         stats={collectStats(world, gini, topShare)}
         onClose={closeNews}
       />
@@ -567,6 +596,26 @@
           title="Raw numbers accept anything — negative tax included"
           onclick={() => (expert = !expert)}
         >{expert ? 'dials' : '123'}</button>
+      </fieldset>
+      <fieldset>
+        <legend>on click</legend>
+        {#each [['tax', 'tax'], ['press', '📸']] as [id, label]}
+          <button
+            type="button"
+            class:primary={game === id}
+            aria-pressed={game === id}
+            title={id === 'tax' ? 'Clicking an agent levies them' : 'Clicking an agent photographs them for the front page'}
+            onclick={() => (game = id as typeof game)}
+          >{label}</button>
+        {/each}
+      </fieldset>
+      <fieldset>
+        <legend>press pass</legend>
+        <button
+          type="button"
+          title={paper === 'ledger' ? 'The Morning Ledger: markets, winners, and other role models' : 'The People’s Gazette: actual people, actual arithmetic'}
+          onclick={() => (paper = paper === 'ledger' ? 'gazette' : 'ledger')}
+        >{paper === 'ledger' ? 'Ledger 🎩' : 'Gazette 📣'}</button>
       </fieldset>
       <fieldset>
         <legend>map data</legend>
@@ -799,7 +848,7 @@
   /* expert: raw inputs pack a two-column grid, no wider than the dials */
   .sliders.expert {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.3rem 0.5rem;
   }
 

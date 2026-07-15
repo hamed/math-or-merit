@@ -2,50 +2,47 @@
   import { onMount } from 'svelte';
   import { headlineForStyle, headlineForZone, styleNoun, type AgentStyle } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
-  import { gazettePage, ledgerPage, type RoomStats } from './newsroom';
+  import { frontPageFor, type RoomStats } from './newsroom';
 
   interface Props {
-    /** The winner's display style — the photo and the headline wear it. */
+    /** Which paper the reader's press pass belongs to. */
+    paper: 'ledger' | 'gazette';
+    /** The photographed agent's display style. */
     style: AgentStyle;
-    /** Winner center + radius in room pixels (the flash fires here). */
-    pos: { x: number; y: number; r: number };
-    /** Cycles the headline variants across re-prints. */
-    run: number;
-    /**
-     * Classic (uniform) look: the winner has no visible traits, so the paper
-     * celebrates WHERE they stood instead (owner review 2026-07-14).
-     */
+    /** Classic look: the subject's only visible trait is WHERE they stood. */
     zone?: string | null;
-    /** Measured room statistics — each paper spins them its own way. */
+    /** The subject's holdings and standing — the papers spin from these. */
+    dollars: number;
+    percentile: number;
+    /** Subject center + radius in room pixels (the flash fires here). */
+    pos: { x: number; y: number; r: number };
+    /** Cycles headline variants across re-prints. */
+    run: number;
+    /** Measured room statistics. */
     stats: RoomStats;
     onClose: () => void;
   }
 
-  let { style, pos, run, zone = null, stats, onClose }: Props = $props();
+  let { paper, style, zone = null, dollars, percentile, pos, run, stats, onClose }: Props = $props();
 
   // mirror of roomRenderer's legacy single-family look (keep in sync)
   const CLASSIC_FILL = 'rgb(189 98 69 / 26%)';
   const CLASSIC_STROKE = '#96543c';
 
   const winnerLine = $derived(zone ? headlineForZone(zone, run) : headlineForStyle(style, run));
-  const ledger = $derived(ledgerPage(stats, winnerLine, run));
-  const gazette = $derived(gazettePage(stats, run));
+  const noun = $derived(zone ? `the one at the ${zone}` : styleNoun(style));
+  const page = $derived(frontPageFor(paper, { noun, dollars, percentile }, stats, winnerLine, run));
 
-  // the poorest circle drawn to honest area scale against the richest
-  const smallR = $derived(
-    Math.max(1.4, 13 / Math.sqrt(Math.max(1, Math.min(stats.ratioTopBottom, 10_000)))),
-  );
-
-  // the news beat: flash the camera → the photo flies to the Ledger → the
-  // headline sets → the Gazette lands with the other side of the story.
-  let phase = $state<'flash' | 'fly' | 'headline' | 'second'>('flash');
-  let flight = $state(''); // FLIP transform: from the winner to the photo slot
+  // the news beat: flash the camera → the photo flies onto the page → the
+  // headline sets. One paper at a time (owner review 2026-07-15).
+  let phase = $state<'flash' | 'fly' | 'headline'>('flash');
+  let flight = $state(''); // FLIP transform: from the subject to the photo slot
   let overlayEl: HTMLDivElement | undefined = $state();
   let photoEl: HTMLDivElement | undefined = $state();
 
   onMount(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      phase = 'second';
+      phase = 'headline';
       return;
     }
     if (overlayEl && photoEl) {
@@ -63,13 +60,12 @@
         requestAnimationFrame(() => requestAnimationFrame(() => (flight = '')));
       }, 480),
       setTimeout(() => (phase = 'headline'), 1250),
-      setTimeout(() => (phase = 'second'), 1800),
     ];
     return () => timers.forEach(clearTimeout);
   });
 </script>
 
-<div bind:this={overlayEl} class="overlay" role="dialog" aria-label={`Two front pages: ${ledger.text} — and — ${gazette.text}`}>
+<div bind:this={overlayEl} class="overlay" role="dialog" aria-label={`${page.paper}: ${page.text}`}>
   <!-- the backdrop swallows the click so a "close" tap never levies an agent -->
   <button class="backdrop" type="button" aria-label="Close the news" onclick={onClose}></button>
 
@@ -77,52 +73,37 @@
     <div class="flash" style={`inset-inline-start: ${pos.x}px; inset-block-start: ${pos.y}px`} aria-hidden="true"></div>
   {/if}
 
-  <div class="pages" class:hidden={phase === 'flash'}>
-    <article class="page ledger" class:composed={phase === 'headline' || phase === 'second'}>
-      <p class="masthead">{ledger.paper}</p>
-      <div class="spread">
-        <div
-          bind:this={photoEl}
-          class="polaroid"
-          class:flying={phase === 'fly' || phase === 'flash'}
-          style={flight ? `transform: ${flight}` : ''}
-        >
-          <svg viewBox="-14 -14 28 28" aria-label={`Photo of the winner: ${zone ? `the one at the ${zone}` : styleNoun(style)}`}>
-            <path
-              d={svgShapePath(zone ? 'circle' : style.shape, 10)}
-              fill={zone ? CLASSIC_FILL : style.fill}
-              stroke={zone ? CLASSIC_STROKE : style.stroke}
-              stroke-width="1.6"
-            />
-          </svg>
-          <span class="photo-caption">the winner, moments ago</span>
-        </div>
-        <div class="copy">
-          <p class="headline-text">{ledger.text}</p>
-          <p class="headline-source">{ledger.source}</p>
-        </div>
+  <article
+    class={`page ${paper}`}
+    class:composed={phase === 'headline'}
+    class:hidden={phase === 'flash'}
+  >
+    <p class="masthead">{page.paper}</p>
+    <div class="spread">
+      <div
+        bind:this={photoEl}
+        class="polaroid"
+        class:flying={phase !== 'headline'}
+        style={flight ? `transform: ${flight}` : ''}
+      >
+        <svg viewBox="-14 -14 28 28" aria-label={`Photo of ${noun}`}>
+          <path
+            d={svgShapePath(zone ? 'circle' : style.shape, 10)}
+            fill={zone ? CLASSIC_FILL : style.fill}
+            stroke={zone ? CLASSIC_STROKE : style.stroke}
+            stroke-width="1.6"
+          />
+        </svg>
+        <span class="photo-caption">{paper === 'ledger' ? 'moments ago' : 'one of us'}</span>
       </div>
-    </article>
-
-    <article class="page gazette" class:composed={phase === 'second'}>
-      <p class="masthead">{gazette.paper}</p>
-      <div class="spread">
-        <div class="stat-graphic" aria-hidden="true">
-          <svg viewBox="0 0 44 34">
-            <circle cx="16" cy="16" r="13" class="rich" />
-            <circle cx="34" cy={29 - smallR} r={smallR} class="poor" />
-          </svg>
-          <span class="photo-caption">richest · poorest, to scale</span>
-        </div>
-        <div class="copy">
-          <p class="headline-text">{gazette.text}</p>
-          <p class="headline-source">{gazette.source}</p>
-        </div>
+      <div class="copy">
+        <p class="headline-text">{page.text}</p>
+        <p class="headline-source">{page.source}</p>
       </div>
-    </article>
+    </div>
+  </article>
 
-    <button class="close" type="button" onclick={onClose}>keep trading</button>
-  </div>
+  <button class="close" type="button" onclick={onClose}>keep trading</button>
 </div>
 
 <style>
@@ -170,19 +151,7 @@
     }
   }
 
-  /* two papers on the same desk: the Ledger lands top-left, the Gazette
-     answers from the bottom-right (owner review 2026-07-14) */
-  .pages {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-  }
-
-  .pages.hidden {
-    opacity: 0;
-  }
-
+  /* the Ledger lands top-left; the Gazette answers from the bottom-right */
   .page {
     position: absolute;
     inline-size: min(24rem, 62%);
@@ -192,7 +161,12 @@
     border-radius: 0.7rem;
     background: #fffdf8;
     box-shadow: 0 0.8rem 2rem rgb(65 50 29 / 18%);
-    pointer-events: auto;
+    transition: opacity 0.3s ease;
+  }
+
+  .page.hidden {
+    opacity: 0;
+    pointer-events: none;
   }
 
   .page.ledger {
@@ -205,14 +179,6 @@
     inset-block-end: 4%;
     inset-inline-end: 3%;
     rotate: 0.8deg;
-    opacity: 0;
-    transform: translate(14px, 14px);
-    transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.15);
-  }
-
-  .page.gazette.composed {
-    opacity: 1;
-    transform: none;
   }
 
   .masthead {
@@ -262,35 +228,6 @@
     background: var(--paper);
   }
 
-  .stat-graphic {
-    flex: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    inline-size: 4.4rem;
-    padding: 0.3rem;
-    background: var(--paper);
-    border: 1px solid #d8cdb6;
-  }
-
-  .stat-graphic svg {
-    display: block;
-    inline-size: 100%;
-    block-size: auto;
-  }
-
-  .stat-graphic .rich {
-    fill: rgb(189 98 69 / 45%);
-    stroke: #8b3f2b;
-    stroke-width: 1;
-  }
-
-  .stat-graphic .poor {
-    fill: rgb(110 85 62 / 45%);
-    stroke: #4d493f;
-    stroke-width: 0.8;
-  }
-
   .photo-caption {
     font-size: 0.5rem;
     font-style: italic;
@@ -300,14 +237,11 @@
 
   .copy {
     min-inline-size: 0;
-  }
-
-  .ledger .copy {
     opacity: 0;
     transition: opacity 0.45s ease 0.1s;
   }
 
-  .ledger.composed .copy {
+  .composed .copy {
     opacity: 1;
   }
 
@@ -332,7 +266,6 @@
     position: absolute;
     inset-block-start: 4%;
     inset-inline-end: 3%;
-    pointer-events: auto;
     min-block-size: 1.9rem;
     padding-block: 0.2rem;
     padding-inline: 0.85rem;

@@ -92,6 +92,78 @@ export function ledgerPage(stats: RoomStats, winnerLine: WinnerHeadline, run = 0
   return { paper: 'The Morning Ledger', text: winnerLine.text, source: winnerLine.source };
 }
 
+/** Whoever the camera caught: where do they sit in the room? */
+export interface Subject {
+  /** "a red pentagon with a blue edge" / "the one at the top edge". */
+  noun: string;
+  dollars: number;
+  /** Fraction of the room poorer than the subject. */
+  percentile: number;
+}
+
+export type SubjectKind = 'rich' | 'poor' | 'middling';
+
+export function subjectKind(subject: Subject): SubjectKind {
+  if (subject.percentile >= 0.9) return 'rich';
+  if (subject.percentile <= 0.35) return 'poor';
+  return 'middling';
+}
+
+const money = (d: number) =>
+  d >= 100 ? `$${Math.round(d).toLocaleString('en-US')}` : d >= 0.01 ? `$${d.toFixed(2)}` : 'pocket dust';
+
+/** The Ledger on a poor subject: it is never the coin's fault. */
+const LEDGER_POOR: readonly { text: string; source: string }[] = [
+  { text: 'Bootstraps, anyone?', source: 'Down to $DOLLARS, and still blaming “the coin”. Our winners page begs to differ' },
+  { text: 'A cautionary tale of poor choices', source: 'Experts agree: $NOUN with $DOLLARS should simply have traded better' },
+  { text: 'Why won’t they hustle?', source: 'Opinion: the safety net is a hammock. Exhibit A: $NOUN' },
+];
+
+const LEDGER_MID: readonly { text: string; source: string }[] = [
+  { text: 'One to watch', source: '$NOUN, sitting on a respectable $DOLLARS — grit, clearly. Watch this space' },
+  { text: 'The quiet climber', source: 'Neither rich nor ruined: $DOLLARS and, our sources say, excellent instincts' },
+];
+
+/** The Gazette photographs actual people, not portfolios. */
+const GAZETTE_POOR: readonly { text: string; source: string }[] = [
+  { text: 'Meet $NOUN, living on $DOLLARS', source: 'Same start, same coin, same rules as the winners — the flips just never landed' },
+  { text: 'Down to $DOLLARS and still in the game', source: 'A portrait of ordinary luck inside an extraordinary machine' },
+];
+
+const GAZETTE_RICH: readonly { text: string; source: string }[] = [
+  { text: 'The fortune next door', source: '$NOUN now holds $DOLLARS. No secret, no strategy — the coin compounds, and it compounded here' },
+  { text: 'What $DOLLARS looks like up close', source: 'We asked $NOUN for their method. There isn’t one. That’s the story' },
+];
+
+/**
+ * One front page, one paper, one subject (owner review 2026-07-15). The
+ * Ledger worships a rich subject (or pivots anti-tax when the levy leveled
+ * things) and blames a poor one; the Gazette humanizes whoever it sees, and
+ * with a middling subject it falls back to its measured-stats lead.
+ */
+export function frontPageFor(
+  paper: 'ledger' | 'gazette',
+  subject: Subject,
+  stats: RoomStats,
+  winnerLine: WinnerHeadline,
+  run = 0,
+): FrontPage {
+  const kind = subjectKind(subject);
+  const fill = (pick: { text: string; source: string }, name: string): FrontPage => ({
+    paper: name,
+    text: pick.text.replaceAll('$NOUN', subject.noun).replaceAll('$DOLLARS', money(subject.dollars)),
+    source: pick.source.replaceAll('$NOUN', subject.noun).replaceAll('$DOLLARS', money(subject.dollars)),
+  });
+  if (paper === 'ledger') {
+    if (kind === 'rich') return ledgerPage(stats, winnerLine, run);
+    const pool = kind === 'poor' ? LEDGER_POOR : LEDGER_MID;
+    return fill(pool[Math.abs(run) % pool.length], 'The Morning Ledger');
+  }
+  if (kind === 'middling') return gazettePage(stats, run);
+  const pool = kind === 'poor' ? GAZETTE_POOR : GAZETTE_RICH;
+  return fill(pool[Math.abs(run) % pool.length], 'The People’s Gazette');
+}
+
 export type GazetteStat = 'ratio' | 'poverty' | 'volume' | 'fairness';
 
 const GAZETTE: Record<GazetteStat, readonly { text: string; source: string }[]> = {

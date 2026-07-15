@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectStats, gazettePage, ledgerPage, type RoomStats } from './newsroom';
+import { collectStats, frontPageFor, gazettePage, ledgerPage, subjectKind, type RoomStats } from './newsroom';
 import { SandboxWorld } from './SandboxWorld';
 
 const base: RoomStats = {
@@ -82,5 +82,33 @@ describe('collectStats', () => {
     expect(stats.ratioTopBottom).toBeGreaterThan(1);
     expect(stats.volumeVsPeak).toBeGreaterThan(0);
     expect(stats.volumeVsPeak).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('frontPageFor', () => {
+  const rich = { noun: 'a red pentagon with a blue edge', dollars: 90_000, percentile: 0.99 };
+  const poor = { noun: 'the one at the bottom row', dollars: 0.4, percentile: 0.02 };
+  const mid = { noun: 'a teal square with a pink edge', dollars: 100, percentile: 0.5 };
+
+  it('classifies subjects by their place in the room', () => {
+    expect(subjectKind(rich)).toBe('rich');
+    expect(subjectKind(poor)).toBe('poor');
+    expect(subjectKind(mid)).toBe('middling');
+  });
+
+  it('the Ledger worships a rich subject and blames a poor one', () => {
+    expect(frontPageFor('ledger', rich, base, winner, 0).text).toBe(winner.text);
+    const blame = frontPageFor('ledger', poor, base, winner, 0);
+    expect(blame.paper).toBe('The Morning Ledger');
+    expect(blame.text + blame.source).not.toMatch(/\$(NOUN|DOLLARS)/);
+  });
+
+  it('the Gazette humanizes rich and poor, and leads with stats for the middle', () => {
+    const humanPoor = frontPageFor('gazette', poor, base, winner, 0);
+    expect(humanPoor.text + humanPoor.source).toContain('bottom row');
+    const humanRich = frontPageFor('gazette', rich, base, winner, 1);
+    expect(humanRich.paper).toBe('The People’s Gazette');
+    const statLead = frontPageFor('gazette', mid, base, winner, 0);
+    expect(statLead.paper).toBe('The People’s Gazette'); // gazettePage fallback
   });
 });
