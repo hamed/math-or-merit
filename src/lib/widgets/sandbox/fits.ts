@@ -84,3 +84,34 @@ export function exponentialFit(sortedAsc: readonly number[], total: number): Dec
   const hi = xs[xs.length - 1];
   return { scale: -1 / fit.slope, lo, hi, yAtLo: Math.exp(fit.intercept + fit.slope * lo) };
 }
+
+export interface LogLinearFit {
+  /** Survival drops `slopePerDecade` (negative) per decade of wealth. */
+  slopePerDecade: number;
+  lo: number;
+  hi: number;
+  yAtLo: number;
+}
+
+/**
+ * Line fit for the x-log / y-linear view: survival vs log10(wealth) over the
+ * curve's middle. A straight line there is the lognormal-ish bulk the
+ * yard-sale drift produces — the slope says what share of the room each
+ * decade of wealth crosses.
+ */
+export function logLinearFit(sortedAsc: readonly number[], total: number): LogLinearFit | null {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i < sortedAsc.length; i++) {
+    const y = (sortedAsc.length - i) / total;
+    if (sortedAsc[i] <= 0 || y < 0.05 || y > 0.95) continue;
+    xs.push(Math.log10(sortedAsc[i]));
+    ys.push(y);
+  }
+  if (xs.length < 4) return null;
+  const fit = linearFit(xs, ys);
+  if (!fit || !(fit.slope < 0)) return null;
+  const lo = 10 ** xs[0];
+  const hi = 10 ** xs[xs.length - 1];
+  return { slopePerDecade: fit.slope, lo, hi, yAtLo: fit.intercept + fit.slope * xs[0] };
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exponentialFit, linearFit, powerTailFit } from './fits';
+import { exponentialFit, linearFit, logLinearFit, powerTailFit } from './fits';
 
 describe('linearFit', () => {
   it('recovers a clean line', () => {
@@ -38,5 +38,16 @@ describe('exponentialFit', () => {
     const fit = exponentialFit(values, n);
     expect(fit).not.toBeNull();
     expect(fit!.scale).toBeCloseTo(50, 0);
+  });
+});
+
+describe('logLinearFit', () => {
+  it('recovers the per-decade slope of a survival curve linear in log x', () => {
+    // survival y falls linearly over 3 decades: x_i = 10^(3(1 - y_i))
+    const n = 300;
+    const values = Array.from({ length: n }, (_, i) => 10 ** (3 * (1 - (n - i) / n)));
+    const fit = logLinearFit(values, n);
+    expect(fit).not.toBeNull();
+    expect(fit!.slopePerDecade).toBeCloseTo(-1 / 3, 1);
   });
 });

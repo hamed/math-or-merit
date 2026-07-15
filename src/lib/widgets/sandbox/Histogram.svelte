@@ -51,7 +51,9 @@
     const now = performance.now();
     if (xLog) {
       const binCount = LOG_BIN_CYCLE[logBinIdx];
-      const { lo, hi } = logRange.update(Math.max(1e-9, minPos), Math.max(maxV, 2), now);
+      // NOTHING goes off scale (owner review 2026-07-15): a single agent
+      // sinking to 1e-30 pulls the axis down with them, immediately
+      const { lo, hi } = logRange.update(minPos, Math.max(maxV, 2), now);
       return { bins: geometricBins(amounts, lo, hi, binCount), lo, hi, binCount, median, mean };
     }
     const binCount = LIN_BIN_CYCLE[linBinIdx];
@@ -107,7 +109,7 @@
     {/each}
     {#if view.bins.underCount > 0}
       <text class="note" x={frame.x + frame.w - 3} y={frame.y + 9} text-anchor="end">
-        {view.bins.underCount} at ≈0, off scale
+        {view.bins.underCount} at exactly $0
       </text>
     {/if}
     <!-- hover insight: where the middle and the average sit (they drift apart
