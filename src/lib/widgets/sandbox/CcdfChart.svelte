@@ -89,6 +89,7 @@
   x={xAxis}
   y={yAxis}
   title="who holds more than x"
+  description="The survival curve: what share of the room holds more than each amount. Straight on log-log = power-law tail."
   onHoverChange={(inside) => (hovered = inside)}
   ariaLabel={`Survival curve, ${xLog ? 'log' : 'linear'}-${yLog ? 'log' : 'linear'}: the share of the room holding more than each amount, over the data's full range. Click an axis to toggle its scale.`}
 >

@@ -88,6 +88,7 @@
   x={xAxis}
   y={yAxis}
   title={`Lorenz — Gini ${Number.isFinite(gini) ? gini.toFixed(2) : '—'}`}
+  description="The poorest x% of people hold y% of the wealth. The dashed diagonal is perfect equality; Gini measures the sag."
   sharedZero={!xLog && !yLog}
   onHoverChange={(inside) => (hovered = inside)}
   ariaLabel={`Lorenz curve, Gini ${Number.isFinite(gini) ? gini.toFixed(2) : '—'}. Click an axis to toggle its scale.`}

@@ -25,6 +25,8 @@
     x: AxisSpec;
     y: AxisSpec;
     title: string;
+    /** One-line explanation, shown when the reader hovers the title. */
+    description?: string;
     /** %×% plots: one shared "0" in the corner instead of two colliding. */
     sharedZero?: boolean;
     /** Body click (cycle bins / next view). Tooltip says only what applies. */
@@ -39,6 +41,7 @@
     x,
     y,
     title,
+    description = '',
     sharedZero = false,
     onBody = null,
     bodyTooltip = '',
@@ -128,7 +131,10 @@
   {/if}
 
   <!-- title + axis labels; the unit rides the label, scale rides the suffix -->
-  <text class="title" x={FRAME.x} y={FRAME.y - 7} text-anchor="start">{title}</text>
+  <text class="title" x={FRAME.x} y={FRAME.y - 7} text-anchor="start">
+    {title}
+    {#if description}<title>{description}</title>{/if}
+  </text>
   <text class="axis-label" x={FRAME.x + FRAME.w} y={FRAME.H - 4} text-anchor="end">
     {x.label}{x.type === 'log' ? ' (log)' : ''}
   </text>

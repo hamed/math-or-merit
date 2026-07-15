@@ -102,7 +102,13 @@
   const titles: Record<Mode, string> = {
     inequality: 'Gini — top share ┄',
     agents: 'each agent',
-    volume: 'won per round',
+    volume: 'turnover / round',
+  };
+
+  const descriptions: Record<Mode, string> = {
+    inequality: 'How concentrated the room is over time: Gini (solid) and the biggest holding (dashed). Click for the next view.',
+    agents: 'Ten tracked people, each line one personal fortune — a multiplicative random walk. Click for the next view.',
+    volume: 'Turnover: money changing hands per round. It collapses as one player hoards the board. Click for the next view.',
   };
 
   const cycleMode = gatedClick(() => (mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]));
@@ -139,6 +145,7 @@
   x={xAxis}
   y={yAxis}
   title={titles[mode]}
+  description={descriptions[mode]}
   onBody={cycleMode}
   bodyTooltip="next view"
   onHoverChange={(inside) => (hovered = inside)}

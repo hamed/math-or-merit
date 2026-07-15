@@ -90,6 +90,7 @@
   x={xAxis}
   y={yAxis}
   title="how many hold how much"
+  description="The wealth distribution: each bar counts the people whose holdings fall in that range. Hover for median and mean."
   onBody={cycleBins}
   bodyTooltip={`${view.binCount} bins — click for the next count`}
   onHoverChange={(inside) => (hovered = inside)}

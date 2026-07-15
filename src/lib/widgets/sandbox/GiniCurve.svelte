@@ -94,6 +94,7 @@
     x={xAxis}
     y={yAxis}
     title={`Gini vs ${axis} — at your ${other}`}
+    description={`A cut through the phase map: how the settled Gini responds to the ${axis} dial, holding your ${other} fixed.`}
     sharedZero={!xLog && !yLog}
     onHoverChange={(inside) => (hovered = inside)}
     ariaLabel={`Gini as a function of the ${axis} dial, cut through the phase map at your ${other} (${percent(fixed)}). Click an axis to toggle its scale.`}

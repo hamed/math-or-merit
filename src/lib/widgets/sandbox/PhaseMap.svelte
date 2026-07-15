@@ -77,6 +77,7 @@
     x={xAxis}
     y={yAxis}
     title="every possible world"
+    description="Each point is a possible economy: stake across, tax up, color = where its Gini settles. Dashed lines mark your cross-sections."
     sharedZero
     ariaLabel={`Phase map, stake and tax both 0 to 100%, smooth-shaded from the measured grid. Your dials sit at ${percent(stake)} stake and ${percent(taxRate)} tax; dashed lines mark the cross-sections.`}
   >

@@ -144,7 +144,7 @@
   }
 
   /** "0.1%", "25%", "99.9%" — as many digits as the stop needs. */
-  const rateLabel = (v: number) => `${Number((v * 100).toPrecision(3))}%`;
+  const rateLabel = (v: number) => `${Number((v * 100).toPrecision(4))}%`;
 
   function pushDials(): void {
     world.beta = stake;
@@ -187,7 +187,11 @@
   }
 
   function scalePopulation(factor: 2 | 0.5): void {
-    n = Math.min(MAX_N, Math.max(MIN_N, n * factor));
+    setPopulation(n * factor);
+  }
+
+  function setPopulation(count: number): void {
+    n = Math.min(MAX_N, Math.max(MIN_N, Math.round(count)));
     reset();
   }
 
@@ -265,6 +269,11 @@
     return world.trades;
   });
 
+  const roundCount = $derived.by(() => {
+    void revision;
+    return world.rounds;
+  });
+
   const totalDollars = $derived.by(() => {
     void revision;
     return world.totalDollars;
@@ -288,6 +297,13 @@
       clearTimeout(snapTimer);
       snapTimer = setTimeout(maybeSnap, 160);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (newsOpen) closeNews();
+      else if (zoomed) zoomed = null;
+    };
+    window.addEventListener('keydown', onKey);
+
     const useScrollEnd = 'onscrollend' in window;
     if (layout === 'full') {
       if (useScrollEnd) window.addEventListener('scrollend', maybeSnap);
@@ -295,6 +311,7 @@
     }
 
     return () => {
+      window.removeEventListener('keydown', onKey);
       ticker.stop();
       clearTimeout(snapTimer);
       if (layout === 'full') {
@@ -351,6 +368,7 @@
     {#if show.stats}
       <div class="stats">
         <output>{countTrades(trades)} trades</output>
+        <output>{countTrades(roundCount)} rounds</output>
         <output>holds {dollarsCompact(totalDollars)}</output>
         <output>biggest {Number.isFinite(topShare) ? percent(topShare) : '—'}</output>
       </div>
@@ -397,16 +415,14 @@
   {#if show.gstake}{@render plotBox('gstake')}{/if}
   {#if show.phase}{@render plotBox('phase')}{/if}
 
+  <!-- dials in order of importance (owner review 2026-07-15) -->
   <div class="controls">
-    <div class="sliders">
+    <div class="sliders" class:expert>
       {#if ctl.stake}
         <StopSlider label="stake" bind:value={stake} stops={RATE_STOPS} format={rateLabel} {expert} />
       {/if}
       {#if ctl.tax}
         <StopSlider label="tax /round" bind:value={taxRate} stops={RATE_STOPS} format={rateLabel} {expert} />
-      {/if}
-      {#if ctl.clickTax}
-        <StopSlider label="tax per click" bind:value={clickRate} stops={RATE_STOPS} format={rateLabel} {expert} />
       {/if}
       {#if ctl.startWealth}
         <StopSlider
@@ -418,22 +434,33 @@
           onChange={setStartDollars}
         />
       {/if}
+      {#if ctl.clickTax}
+        <StopSlider label="tax per click" bind:value={clickRate} stops={RATE_STOPS} format={rateLabel} {expert} />
+      {/if}
       {#if ctl.progressivity}
         <!-- placeholder (owner review 2026-07-13): one dial, rate rising with
              log wealth, replaces the old bracket table. Dummy until wired. -->
         <StopSlider label="progressivity" value={0} stops={RATE_STOPS} format={() => 'soon'} {expert} disabled />
       {/if}
     </div>
+  </div>
 
-    <div class="choices">
-      {#if ctl.population}
-        <fieldset>
-          <legend>people</legend>
+  <!-- the calculator corner: people keypad, speed, look, expert, run -->
+  <div class="keypad">
+    {#if ctl.population}
+      <fieldset>
+        <legend>people — <output class="count" aria-live="polite">{n}</output></legend>
+        <div class="pads">
+          {#each [16, 32, 64, 128, 256, 512] as count}
+            <button type="button" class:primary={n === count} aria-pressed={n === count} onclick={() => setPopulation(count)}>{count}</button>
+          {/each}
           <button type="button" onclick={() => scalePopulation(0.5)} disabled={n <= MIN_N} aria-label="Half the room">½</button>
-          <output class="count" aria-live="polite">{n}</output>
           <button type="button" onclick={() => scalePopulation(2)} disabled={n >= MAX_N} aria-label="Double the room">×2</button>
-        </fieldset>
-      {/if}
+          <button type="button" class:primary={n === 1024} aria-pressed={n === 1024} onclick={() => setPopulation(1024)}>1024</button>
+        </div>
+      </fieldset>
+    {/if}
+    <div class="small-choices">
       {#if ctl.speed}
         <fieldset>
           <legend>speed</legend>
@@ -468,7 +495,6 @@
         >{expert ? 'dials' : '123'}</button>
       </fieldset>
     </div>
-
     <!-- the most-used buttons live at the bottom edge, easiest reach -->
     <div class="toolbar">
       <button class="primary steady" type="button" onclick={toggle}>{running ? 'Pause' : 'Run'}</button>
@@ -494,7 +520,8 @@
       'gtax phase'
       'lorenz gstake'
       'hist ccdf'
-      'time ctrl';
+      'time ctrl'
+      'kbd kbd';
     grid-template-rows: auto minmax(16rem, 40vh);
   }
 
@@ -517,7 +544,7 @@
       'head head head head head'
       'room room room gtax phase'
       'room room room lorenz gstake'
-      'ctrl ctrl hist ccdf time';
+      'ctrl kbd hist ccdf time';
     /* the bottom row sizes to its content (square plots, full controls) so
        the controls can never overflow up into the room */
     grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) auto;
@@ -632,6 +659,8 @@
     position: absolute;
     inset: 0;
     z-index: 4;
+    aspect-ratio: auto; /* a zoomed square plot must fill, and center, the widget */
+    justify-self: stretch;
     background: var(--paper);
     cursor: zoom-out;
     padding: clamp(0.5rem, 3vmin, 2rem);
@@ -679,10 +708,34 @@
   .sliders {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.3rem;
   }
 
-  .choices {
+  /* expert: raw inputs pack a two-column grid, no wider than the dials */
+  .sliders.expert {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem 0.5rem;
+  }
+
+  .keypad {
+    grid-area: kbd;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    min-block-size: 0;
+    min-inline-size: 0;
+  }
+
+  .pads {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+    inline-size: 100%;
+  }
+
+  .small-choices {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
@@ -698,6 +751,7 @@
 
   fieldset {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem;
     margin: 0;
@@ -782,8 +836,9 @@
         'gtax phase'
         'lorenz gstake'
         'hist ccdf'
-        'time ctrl';
-      grid-template-rows: auto minmax(30dvh, 36dvh) auto auto auto auto;
+        'time ctrl'
+        'kbd kbd';
+      grid-template-rows: auto minmax(30dvh, 36dvh) auto auto auto auto auto;
     }
 
     .sandbox.full {
