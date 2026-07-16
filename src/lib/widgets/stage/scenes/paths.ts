@@ -1,19 +1,12 @@
 /**
  * Hand-authored silhouette paths for the morph scenes (480 × 280 viewBox).
- * Single closed paths morph best (MorphSVG); faces/limbs are overlay groups
- * that fade or retract, never morph. All paths project-drawn — no external
- * assets, no license burden.
+ * Single closed paths morph best (MorphSVG). All paths project-drawn — no
+ * external assets, no license burden.
+ *
+ * The cow itself now lives in cow-geometry.ts (its own 300×300 space);
+ * SPHERE stays here as the stage-space circle the cow becomes, which
+ * PersonScene morphs the person into ("the same circle the cow became").
  */
-
-/** Cow torso blob, centered near (240, 152). */
-export const COW_BODY =
-  'M 175 120 ' +
-  'C 190 100 220 94 245 96 ' +
-  'C 275 98 305 102 318 118 ' +
-  'C 332 136 330 168 318 186 ' +
-  'C 300 200 270 206 240 204 ' +
-  'C 210 206 185 200 172 184 ' +
-  'C 160 166 162 138 175 120 Z';
 
 /** The spherical cow: a circle of radius 62 centered at (240, 150). */
 export const SPHERE =
