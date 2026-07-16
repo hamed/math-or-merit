@@ -3,18 +3,19 @@
 Read `AGENTS.md` first (architecture law) and `MEMORY.md` (durable lessons and
 owner preferences). This file is the *state* snapshot: what is built, what was
 decided, how to verify, what remains. Written 2026-07-06 after the scrollytelling
-rebuild shipped; update it when the state moves.
+rebuild; last updated 2026-07-16 after the sandbox-core rounds (R9–R11e).
 
 ## Where things stand
 
-Branch `claude/interactive-build`. Two passes shipped:
+On `main`. Passes shipped:
 - **M0–M10** (`20ed4c8`…`67770c1`): the scrollytelling rebuild.
 - **Round 2, R1–R8** (`d4b9bb0`…`c29f93b`, 2026-07-08/09): Hamed's + five AI
-  reviewers' feedback. Reviews live in `reviews/` (his `inbox/hamed-review.md`
-  plus six codex lenses + screenshot index); they are his untracked working
-  notes, leave them.
+  reviewers' feedback. Reviews live in `reviews/` and `inbox/hamed-review*.md`;
+  they are his untracked working notes, leave them.
+- **Rounds 3–6, R9–R11e** (`aca07ca`…`8fbe360`, 2026-07-13…16): the sandbox
+  became the full-screen reusable core — see "The sandbox core" below.
 
-~100 vitest tests green, `npm run build` clean, headless QA sweeps (desktop /
+~156 vitest tests green, `npm run build` clean, headless QA sweeps (desktop /
 mobile 390px / reduced-motion, forward AND reverse scroll) show zero console errors.
 
 The essay is a scroll-driven explorable per Hamed's hand-drawn storyboard —
@@ -79,10 +80,54 @@ runs re-run, never scrub. Reduced motion: PinScene drops pin+scrub, seeks the sa
 timeline via IntersectionObserver. Known limit: no-JS renders a blank page (Vite
 SPA, no SSR) — pre-existing, reduced-motion is the working a11y fallback.
 
+## The sandbox core (rounds 3–6, owner reviews 00–03)
+
+The finale `Sandbox.svelte` is now THE reusable machine: full-screen 5-column
+grid (room 3×2, six 1:1 plots, dials column, button grid), `layout`
+(`full`/`column`) + `panels` + `controls` props so earlier beats can become
+presets of it. Pieces (all in `src/lib/widgets/sandbox/`):
+
+- `SandboxWorld` — toy world; UNCLAMPED dials on purpose (expert mode);
+  `RoundSeries` = t=0-anchored per-round series with pair-averaging downsample
+  (never a moving window); `measureToy` = chaos-tolerant Gini (negative wealth
+  allowed); inlined flat levy (research/ primitives keep their validation).
+- `PlotFrame` + `ticks.ts` + `fits.ts` — one chrome for every plot: round-number
+  ticks only (unit lives in the axis label), shared geometry/fonts, px clamp so
+  1e300 never writes exponent paths. Site conventions: **axis click = log↔linear
+  (zeros drop off log), body click = cycle (bins / views / map styles), dblclick
+  = zoom, Escape closes, hover = insights** (median/mean, power-law tail fit on
+  top 20%, −%/decade lognormal line, top-1%/median markers, peaks).
+- `phaseGrid.svelte.ts` — the phase record: NOTHING precomputed. The Sandbox
+  ticker watches runs settle (50-round Gini windows, two consecutive within
+  0.015) and solidifies tail averages, keyed by exact dial stops AND n (settled
+  Gini is finite-size — never mix n). localStorage + CSV export/import/wipe.
+  Map draws cells/dots/shade (body-click cycles; owner hasn't picked a default);
+  hover-probe previews cross-sections; closed-form dashes only where theory
+  exists (tax=0 → Gini→1, stake=0 → stays 0).
+- `newsroom.ts` + `NewsFlash` — two papers, ONE per print, chosen by the press
+  pass (Ledger 🎩 top-left / Gazette 📣 bottom-right): subject-aware satire
+  (`frontPageFor`), Ledger pivots anti-tax when the levy leveled the room,
+  Gazette humanizes; button case shoots winner (Ledger) / poorest (Gazette).
+  'On click' toggles the mini-game: tax the agent, or 📸 photograph them.
+- `StopSlider` — every simulation control is a dial over curated round stops
+  (rates 0…0.001…99.99%…1; people 2…2048 powers of two; money 1-2-5 to $1M);
+  the '123' expert toggle flips them all to raw unclamped inputs; the watchdog
+  raises THE ECONOMY BROKE on non-finite wealth.
+
+Svelte gotchas from these rounds (each cost a bug): an absolutely-positioned
+grid child WITH a grid-area resolves inset against its area — drop the
+placement when zooming; class-instance properties are not reactive — read them
+through revision-keyed deriveds; single-click actions must be gated
+(`gatedClick`, e.detail) or they fire inside dblclick zooms; `roomPositions`
+with width 0 used to make rows=∞ and hang the renderer (guarded + regression
+test).
+
 ## Visual system
 
 `src/lib/widgets/shared/agentStyle.ts`: pastel fill + independent stroke + shape
-(circle/triangle/square/pentagon/hexagon), coprime cycles → 30 unique combos.
+(circle/triangle/square/pentagon/hexagon; `EXTENDED_SHAPES` adds triangleDown/
+heptagon/octagon for the sandbox's `randomStyles` only — the deterministic cycle
+and every earlier beat are untouched), coprime cycles → 30 unique combos.
 Palette CVD-validated on the paper background (worst all-pairs ΔE 10.3, floor band
 legal because shape is secondary encoding); golden coin `--coin` reserved for money.
 CSS tokens in `src/app.css` `:root` mirror it — keep both in sync. Frameless
@@ -99,9 +144,10 @@ and must never enter the sim (the essay's whole point) — seed-501 winner promi
   `notes/research/interventions.md`). Words "theoretical/law/phase transition"
   stay out of the essay.
 - Manual-vs-structural levy comparison: STILL UNCLAIMED (gate open).
-- Sandbox progressive designer + interest dial: toys, no policy claims; interest
-  mechanism note in `notes/research/extensions.md` (scales `totalDollars`, never
-  shares).
+- Sandbox: interest REMOVED (was inert — scaled `totalDollars`, never shares;
+  note kept in `notes/research/extensions.md`); progressive brackets REMOVED for
+  good — progressivity ships later as ONE parametric rate-of-log-wealth dial
+  (dummy slider holds the slot). Still toys, no policy claims.
 
 ## Verify like this
 
@@ -111,8 +157,13 @@ npm run build     # must be warning-free
 npm run preview -- --port 4173   # then drive headless:
 ```
 
-Headless: `npm install puppeteer-core` in the session scratchpad (NOT the repo),
-launch with `executablePath: '/usr/bin/google-chrome'`, `--no-sandbox`. Pin
+Headless: `npm install playwright-core` in the session scratchpad (NOT the
+repo), launch chromium with `executablePath: '/usr/bin/google-chrome'`. For the
+sandbox, drive the real flows: Run at 16×, drag dials by stop INDEX, click-tax
+the room, break the news on both passes, dblclick-zoom, Escape, expert '123'
+with tax −50 until THE ECONOMY BROKE appears, and hold dials ~3 s so phase
+points solidify (then reload — they must persist). Check horizontal overflow at
+390 px AFTER the whole flow, not just on load. Pin
 sections wrap in `.pin-spacer` divs — index them to scroll to a scene, use
 `spacer.top + fraction * (spacer.height - viewportHeight)` for beat positions.
 Screenshot beats and LOOK at them. Calibration scripts: `npx vite-node
@@ -134,18 +185,21 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 
 ## Open items (the real backlog)
 
-1. Hamed's scroll-through review (`npm run dev`) — feel notes on the round-2 work.
-2. Title layout: `poles` shipped; `stack`/`center` variants one word away in
-   `essay.en.svx` (`<PinScene driver="time"><OpeningScene layout="…" /></PinScene>`).
-3. Interest renormalization (reverse-levy) — owner still deciding; note in
-   `notes/research/extensions.md`, do NOT build until he says.
-4. Ending scene: owner said "not clear about it" — still the old ClosingScene;
-   revisit once the round-2 tone is settled.
+1. Progressivity dial: owner-promised parametric rate ~ log wealth, ONE slider;
+   the dummy slider and the `endRound` seam are waiting for it.
+2. Phase map default display style: cells / dots / shade all live (map body
+   click cycles) — owner hasn't picked; also consider stamping the reader's own
+   run-dots onto any future backdrop.
+3. Turn earlier beats into `Sandbox` presets (`layout="column"` +
+   `panels`/`controls`) — the seam exists, nothing migrated yet.
+4. Ending scene: owner said "not clear about it" — still the old ClosingScene.
 5. Reader studies A–D (`notes/research/reader-study.md`) — widgets exist.
 6. Redistribute-to-poorest fork (beat 19 parenthetical still flags it).
-7. Full language pass (owner-deferred; round 2 added prose — all flagged to him).
+7. Full language pass (owner-deferred; rounds added prose — all flagged).
 8. Deployment (not chosen yet).
 9. Deferred seams unchanged: Rust/WASM core, Persian/RTL, audio.
+10. Title layout variants (`stack`/`center`) still one word away in
+    `essay.en.svx`.
 
 ## Untracked local files that are NOT yours
 

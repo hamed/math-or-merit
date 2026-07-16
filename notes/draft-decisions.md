@@ -301,3 +301,26 @@ were built end-to-end on branch `claude/interactive-build` (M0–M10; ADR-013):
   curve, stability memo in research/interventions.md).
 - **Open, unchanged:** reader studies A–D; redistribute-to-poorest fork (beat 19
   parenthetical still flags it); full language pass (owner: "later").
+
+## D14 — Sandbox core rounds shipped (2026-07-13…16)
+
+Owner reviews 00–03 rebuilt the finale into the reusable machine (ADR-014;
+commits R9 `aca07ca` … R11e `8fbe360`):
+
+- **Interest deleted** (inert), **progressive brackets deleted for good** —
+  progressivity returns as ONE parametric rate-of-log-wealth dial (dummy
+  slider + `endRound` seam wait for it).
+- **Every simulation control is a stop-list dial** (rates to 99.99%, people
+  2…2048 in powers of two); '123' expert mode unclamps everything, and the
+  economy is allowed to break — loudly.
+- **Plots**: one `PlotFrame`/`ticks.ts` chrome, axis-click log toggles,
+  hover insights (median/mean, top-20% power-law tail, −%/decade lognormal
+  line, top-1% marker), CCDF/histogram never clip data.
+- **Phase map = reader-measured steady states**, keyed by dial stops and n,
+  localStorage + CSV; cells/dots/shade styles (default undecided); hover
+  probes preview the Gini cross-sections; theory dashed only at tax=0 /
+  stake=0.
+- **News**: one paper per print via press pass (Ledger 🎩 / Gazette 📣),
+  subject-aware satire; 'on click' picks the mini-game (tax vs 📸 photo).
+- **Open from these rounds**: parametric progressivity; map default style;
+  migrating earlier beats to Sandbox presets.
