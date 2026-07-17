@@ -342,12 +342,13 @@
       style={`stroke-dashoffset: ${HILL_LENGTH}`}
     />
 
-    <!-- the chemist: lab coat, one flask, no luck -->
+    <!-- the chemist: a bun, an A-line coat, one flask, no luck -->
     <g bind:this={chemist} class="scientist">
       <circle cx="366" cy="170" r="7" class="skin" />
-      <path d="M 357 179 L 375 179 L 379 212 L 353 212 Z" class="coat" />
-      <line x1="361" y1="212" x2="361" y2="236" />
-      <line x1="371" y1="212" x2="371" y2="236" />
+      <circle cx="374" cy="163" r="3.2" class="ink" />
+      <path d="M 357 179 L 375 179 L 382 218 L 350 218 Z" class="coat" />
+      <line x1="362" y1="218" x2="362" y2="236" />
+      <line x1="370" y1="218" x2="370" y2="236" />
       <line x1="373" y1="184" x2="381" y2="196" />
       <g bind:this={flaskArm}>
         <line x1="359" y1="184" x2="346" y2="193" />
