@@ -5,7 +5,13 @@ import { dirname, resolve } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Project-page deploys live under /<repo>/; local dev and any root-domain host
+// use '/'. BASE_PATH is set by the Pages workflow, so nothing here needs editing
+// if the site later moves to its own domain.
+const base = process.env.BASE_PATH ?? '/';
+
 export default defineConfig({
+  base,
   plugins: [svelte()],
   resolve: {
     alias: {

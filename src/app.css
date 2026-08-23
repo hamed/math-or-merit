@@ -348,6 +348,31 @@ a:hover {
   font-size: 0.84rem;
 }
 
+/* ---------- review-copy footer ---------- */
+
+/* Frameless, like everything else: no card, no border — just quiet type after
+   the last line of the essay. Present only in unlisted review builds. */
+.review-footer {
+  max-inline-size: 43rem;
+  margin-inline: auto;
+  padding-block: 0 clamp(3rem, 8vw, 6rem);
+  padding-inline: clamp(1.25rem, 4vw, 3rem);
+  text-align: start;
+}
+
+.review-footer p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.review-footer a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
 /* ---------- motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
