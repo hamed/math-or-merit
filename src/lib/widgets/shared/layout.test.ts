@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { roomPositions } from './layout';
+import { radiusScale, roomPositions } from './layout';
 
 describe('roomPositions', () => {
   it('returns an empty layout for unmeasured canvases instead of hanging', () => {
@@ -40,4 +40,30 @@ describe('roomPositions', () => {
   it('is deterministic', () => {
     expect(roomPositions(60, 640, 480)).toEqual(roomPositions(60, 640, 480));
   });
+});
+
+describe('room shapes stay inside the canvas', () => {
+  // regression 2026-08-25: the inset was a flat 16px and knew nothing about
+  // shape reach, so equal-area triangles — 1.56x their circle's radius —
+  // crossed the edge and the first room rendered visibly clipped.
+  const SHAPE_REACH = 1.6;
+
+  for (const [n, w, h] of [
+    [100, 832, 320],
+    [64, 640, 400],
+    [400, 900, 600],
+    [9, 300, 300],
+  ] as const) {
+    it(`n=${n} in ${w}x${h}`, () => {
+      const pts = roomPositions(n, w, h);
+      const reach = radiusScale(n, w, h) * Math.sqrt(1 / n) * SHAPE_REACH;
+      expect(reach).toBeGreaterThan(0);
+      for (const p of pts) {
+        expect(p.x - reach).toBeGreaterThanOrEqual(0);
+        expect(p.x + reach).toBeLessThanOrEqual(w);
+        expect(p.y - reach).toBeGreaterThanOrEqual(0);
+        expect(p.y + reach).toBeLessThanOrEqual(h);
+      }
+    });
+  }
 });

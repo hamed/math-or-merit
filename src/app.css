@@ -244,14 +244,18 @@ a:hover {
 
 /* ---------- shared widget chrome ---------- */
 
-/* frameless yield sections: a full viewport each, content on bare paper */
+/* Frameless yield sections: content on bare paper.
+   Short of a full viewport ON PURPOSE — the heading and lead-in that introduce
+   a widget sit above it in normal flow, and at 100svh they were pushed off the
+   screen, leaving a dead gap between the words and the thing they describe. */
 .widget {
   display: flex;
   flex-direction: column;
   justify-content: center;
   max-inline-size: 52rem;
-  min-block-size: 100svh;
-  margin-block: 1.5rem;
+  min-block-size: 78svh;
+  scroll-snap-align: center;
+  margin-block: 0.25rem;
   margin-inline: auto;
   padding-block: clamp(1rem, 3vw, 1.5rem);
   font-family: var(--font-sans);
@@ -371,6 +375,24 @@ a:hover {
   color: var(--accent);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
+}
+
+/* ---------- scroll snap ---------- */
+
+/* 'proximity', never 'mandatory': the essay's authored beats are scroll-scrubbed
+   pinned timelines, and a mandatory snap fights the scrub and breaks reverse
+   scrolling. Proximity only engages when the reader comes to rest near a snap
+   point, so the widgets settle at a sensible place and everything else scrolls
+   normally. Snap points are on the yield widgets only — never on .pin-spacer. */
+html {
+  scroll-snap-type: y proximity;
+  scroll-padding-block: 6svh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-snap-type: none;
+  }
 }
 
 /* ---------- motion ---------- */
