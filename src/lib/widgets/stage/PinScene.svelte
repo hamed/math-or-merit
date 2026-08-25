@@ -161,6 +161,12 @@
     overflow: visible;
   }
 
+  /* Where the illustrated stages put the bottom edge of their picture. The
+     caption hangs off the same number, so the two cannot drift apart. */
+  .pin-scene {
+    --picture-bottom: 76svh;
+  }
+
   /* The scene's art layer fills the pinned viewport; scenes mark their root. */
   .pin-scene :global(.scene-art) {
     position: absolute;
@@ -204,6 +210,29 @@
   .pin-scene :global(.cast-stage) ~ :global(.stage-caption),
   .pin-scene :global(.room-stage) ~ :global(.stage-caption) {
     max-inline-size: min(94vw, 62rem);
+  }
+
+  /* Anchor the caption's TOP under the picture rather than its bottom to the
+     viewport. Pinned to the bottom, a short caption sits lower than a long one,
+     so the gap changed from beat to beat; anchored here it is 34px everywhere.
+
+     ONLY for the cast stage. Its plates fill their frame, so the frame's bottom
+     edge IS the picture's bottom edge. The room stage carries sparse vector art
+     centred in its viewBox — anchoring that frame would strand a small circle
+     high above the words. */
+  .pin-scene :global(.cast-stage) ~ :global(.stage-caption) {
+    inset-block-end: auto;
+    inset-block-start: calc(var(--picture-bottom) + 1.1rem);
+  }
+
+  /* Picture and words have to be readable as one thing. Centring the picture in
+     the whole viewport while pinning the caption to the bottom left a gap made
+     of whatever space was left over — 128px on a desktop, 221px on a phone,
+     where it is worst. Anchoring the picture's BOTTOM instead makes the gap a
+     fixed slice of the viewport, so it holds at every size. */
+  .pin-scene :global(.cast-stage) {
+    align-items: end;
+    padding-block-end: calc(100svh - var(--picture-bottom));
   }
 
   /* Display captions: title-sized, mid-stage — for lines that ARE the beat. */
