@@ -385,3 +385,24 @@ wealth come and go, slowly, then too fast to read, then slowly — and settles o
 - **Cadence is one number** (`SPIN`, 8.5s) split 25/40/26/9 across accelerate,
   blur, decelerate, snap — alongside the opening's existing `PAUSE` and `FADE`.
 - **Still open**: nothing from this round; the D15 language pass still stands.
+
+## D17 — The money is a real coin (2026-08-25)
+
+Owner call (R18): the canonical coin is now a photograph of a real one, both
+faces — Mongol Bank, 1000 tögrög, half a gram of gold, Karl Marx, 2019.
+
+- **Both faces are used as faces.** The two antes on the table are one of each,
+  and the fourteen coins of the lattice alternate, so the pile reads as loose
+  change rather than fourteen prints of one decal.
+- **Nothing is re-tinted.** The cast plates are keyed and re-inked because they
+  are black ink that must live on warm paper; the coin is gold, and gold is the
+  essay's one reserved colour for money. `art/coin/process.sh` only squares the
+  frame around the disc and resizes — 20 KB and 16 KB for the pair.
+- **The flip disc was left alone.** It is coloured by whoever wins that toss;
+  that colour IS the outcome. Making it the photographed coin would replace a
+  reading of the result with a picture of a coin. Open if the owner disagrees.
+- **The size law is unchanged**: one fixed coin size, wealth is coin COUNT.
+- **Rights are OPEN and now recorded** in `notes/research/narrative-sources.md`.
+  The coin design is fine to depict; the photographs are uncredited product
+  shots, and this is the first exception to that file's "project-authored
+  visuals only" rule. Settle it before the site is listed publicly.

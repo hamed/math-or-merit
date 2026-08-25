@@ -439,19 +439,20 @@
     </g>
 
     <g bind:this={lattice} class="coins">
-      {#each COIN_GRID as c}
+      {#each COIN_GRID as c, i}
         <g class="lattice-coin" data-dx={HOME.x - c.cx} data-dy={HOME.y - c.cy}>
-          <Coin cx={c.cx} cy={c.cy} r={LATTICE_R} />
+          <!-- faces alternate so the pile reads as loose change, not a decal -->
+          <Coin cx={c.cx} cy={c.cy} r={LATTICE_R} face={i % 2 === 0 ? 'front' : 'back'} />
         </g>
       {/each}
     </g>
 
     <!-- the two antes: side by side on the table, never merged -->
     <g bind:this={coinA} class="ante">
-      <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} />
+      <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} face="front" />
     </g>
     <g bind:this={coinB} class="ante">
-      <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} />
+      <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} face="back" />
     </g>
 
     <g bind:this={flipG} class="flip" transform={`translate(${FLIP.x} ${FLIP.y})`}>

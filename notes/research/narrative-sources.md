@@ -147,3 +147,30 @@ exact scene or line, context, and quotation or clip rights before use.
 
 For the current arc, use project-authored text cards and visuals only. This closes the
 immediate rights question without setting a permanent ban on later sourced material.
+
+## Reference-media provenance
+
+### The coin (2026-08-25, R18) — OPEN RIGHTS ITEM
+
+The essay's money is a photograph of a real coin, both faces: **Mongol Bank,
+1000 tögrög, 0.5 g .9999 gold, Karl Marx, 2019** (legend on the reverse:
+"MONGOLIA 0.5g .9999 GOLD"; obverse dated 2019 with the name in Latin and
+Mongolian script). Owner-supplied via `inbox/karl-max-front.webp` and
+`karl-max-back.webp`; sources kept at `art/coin/source/`, published faces at
+`src/lib/widgets/stage/scenes/coin/`.
+
+- **The coin itself is fine to depict.** The design is a state issue; showing a
+  circulating or bullion coin in an explanatory illustration is ordinary use.
+- **The PHOTOGRAPHS are the open question.** Both are studio product shots on a
+  cut-out background — the house style of mint and dealer catalogues — and no
+  photographer, dealer, or licence came with them. That is a copyright in
+  someone's hands until we know whose.
+- **This is the first exception to the standing rule above** ("for the current
+  arc, use project-authored text cards and visuals only"). It was taken on the
+  owner's instruction and is worth taking — the money in an essay about wealth
+  turning out to be a Marx coin sold as a collectible is the essay's own joke,
+  made of a real object. But the gate has moved, and the rule should not be
+  read as closed any more.
+- **Before the site is listed publicly**, either establish the photographs'
+  source and licence, or reshoot/regenerate the two faces. Until then the risk
+  is bounded by the site being unlisted.
