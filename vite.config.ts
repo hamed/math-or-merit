@@ -20,5 +20,9 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // archive/ holds superseded code kept only for reference; its tests must not
+    // gate the build. Vitest's `exclude` replaces the defaults rather than
+    // extending them, so the usual entries are repeated here.
+    exclude: ['**/node_modules/**', '**/dist/**', 'archive/**'],
   },
 });

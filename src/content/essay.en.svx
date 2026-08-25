@@ -75,8 +75,8 @@
   The uphill push was REPLACED, not supplemented: it argued the same a fortiori point as
   the football beat, and the essay cannot close on both. Football was chosen because the
   whole essay is a fair game with a lopsided outcome, so the metaphor family matches the
-  subject; the hill's Sisyphus framing did not. The old SVG choreography still lives in
-  CowScene.svelte + cow-geometry.ts if this needs reverting.
+  subject; the hill's Sisyphus framing did not. The old SVG choreography is archived
+  under archive/scenes-pre-r13/ if this ever needs reverting.
 
   Captions are the only visible text; beat indices refer to CowCastScene.BEATS. The
   load-bearing inference (simplest version fails → richer versions fail too) rides the

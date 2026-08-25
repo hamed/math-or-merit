@@ -20,6 +20,7 @@
     { label: 'circle', length: 0.9 },
     { label: 'coins', length: 1.2 },
     { label: 'one', length: 1 },
+    { label: 'slide', length: 0.9 },
   ];
 
   /**
@@ -69,6 +70,7 @@
   import { getContext, onMount } from 'svelte';
   import { STAGE_CONTEXT, type StageContext } from '../contract';
   import { SPHERE } from './paths';
+  import { SEAT_A, VIEWBOX_H as TRADE_VIEWBOX_H } from './TradeScene.svelte';
   import { assignStyles } from '../../shared/agentStyle';
   import Coin from './Coin.svelte';
 
@@ -105,8 +107,25 @@
     return { scale: s, origin: `${p(b.x, 240).toFixed(1)} ${p(b.y, 150).toFixed(1)}` };
   })();
 
+  /**
+   * Where the circle goes at the close: trader A's seat in the next scene, so
+   * the room is already made for the second circle when that scene opens and
+   * the same circle simply carries on.
+   *
+   * The seat is published by TradeScene rather than copied, and the y is
+   * corrected by half the viewBox difference: that stage is 300 units tall
+   * against this one's 280, both centred in the same box, so the same screen
+   * point sits 10 units lower over there.
+   */
+  const SEAT = {
+    x: SEAT_A.x - 240,
+    y: SEAT_A.y - (TRADE_VIEWBOX_H - 280) / 2 - 150,
+    scale: SEAT_A.r / 62,
+  };
+
   let plates: SVGImageElement[] = [];
   let body: SVGPathElement;
+  let bodyG: SVGGElement;
   let coins: SVGGElement;
 
   onMount(() => {
@@ -193,11 +212,21 @@
       );
       tl.to(body, { autoAlpha: 1, scale: 1, duration: 0.3 }, 'one+=0.3');
 
-      // The scene ENDS on the circle, centred and full size. It used to park
-      // itself off to the left here, which read as the circle leaving and an
-      // identical one arriving in the next section. TradeScene now picks this
-      // exact circle up — same centre, same radius, same colors — and walks it
-      // to its trading seat, so there is one circle across the seam.
+      // slide — the circle steps aside to open a seat for the trader who is
+      // about to arrive, and settles at the size its wealth earns. The next
+      // scene opens on it exactly here and gives it NO entrance, so there is
+      // one circle across the section boundary rather than one leaving and
+      // another taking its place.
+      //
+      // Translation and scale are split across two elements on purpose: gsap
+      // recomputes x/y when a scale about a fixed origin shares an element with
+      // a translation, and the circle teleports (the lesson CowScene records).
+      tl.to(bodyG, { x: SEAT.x, y: SEAT.y, duration: 0.55, ease: 'power1.inOut' }, 'slide+=0.1');
+      tl.to(
+        body,
+        { scale: SEAT.scale, transformOrigin: '50% 50%', duration: 0.55, ease: 'power1.inOut' },
+        'slide+=0.1',
+      );
     });
   });
 </script>
@@ -219,7 +248,9 @@
       />
     {/each}
 
-    <path bind:this={body} class="body" d={SPHERE} />
+    <g bind:this={bodyG}>
+      <path bind:this={body} class="body" d={SPHERE} />
+    </g>
 
     <g bind:this={coins} class="coins">
       {#each COIN_GRID as c}

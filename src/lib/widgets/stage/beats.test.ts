@@ -1,21 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { validateBeats, type BeatSpec } from './contract';
-import { BEATS as COW_BEATS } from './scenes/CowScene.svelte';
 import { BEATS as CAST_BEATS, FRAMES as CAST_FRAMES } from './scenes/CowCastScene.svelte';
 import { BEATS as OPENING_BEATS } from './scenes/OpeningScene.svelte';
 import { BEATS as BELIEF_BEATS } from './scenes/BeliefCloudScene.svelte';
-import { BEATS as PERSON_BEATS } from './scenes/PersonScene.svelte';
 import { BEATS as PERSON_CAST_BEATS, PLATES as PERSON_PLATES } from './scenes/PersonCastScene.svelte';
 import { BEATS as TRADE_BEATS } from './scenes/TradeScene.svelte';
 import { BEATS as CLOSING_BEATS } from './scenes/ClosingScene.svelte';
 
 /** Every scene's beat table, checked at data level (no DOM mounting). */
 const SCENES: Record<string, readonly BeatSpec[]> = {
-  CowScene: COW_BEATS,
   CowCastScene: CAST_BEATS,
   OpeningScene: OPENING_BEATS,
   BeliefCloudScene: BELIEF_BEATS,
-  PersonScene: PERSON_BEATS,
   PersonCastScene: PERSON_CAST_BEATS,
   TradeScene: TRADE_BEATS,
   ClosingScene: CLOSING_BEATS,

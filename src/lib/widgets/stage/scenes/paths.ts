@@ -3,9 +3,9 @@
  * Single closed paths morph best (MorphSVG). All paths project-drawn — no
  * external assets, no license burden.
  *
- * The cow itself now lives in cow-geometry.ts (its own 300×300 space);
- * SPHERE stays here as the stage-space circle the cow becomes, which
- * PersonScene morphs the person into ("the same circle the cow became").
+ * SPHERE is the stage-space circle the whole essay is built around: the cow
+ * becomes it, PersonCastScene's reduction shrinks onto it, and TradeScene's
+ * first trader IS it, carried across the section seam.
  */
 
 /** The spherical cow: a circle of radius 62 centered at (240, 150). */

@@ -35,24 +35,22 @@
    * carry the truth. Two coins sit side by side; no merged pot. */
   const COIN_R = 16.6;
 
-  /**
-   * Where PersonCastScene leaves its circle: SPHERE, centred, r=62.
-   *
-   * The y is 160, not 150, and that is not a fudge. This scene's viewBox is 300
-   * units tall against the 280 of every other stage, and both are centred in
-   * the same box, so the same viewBox point lands (300 - 280)/2 = 10 units
-   * lower here. Compensating by exactly 10 makes the two circles coincide on
-   * screen at any scale — which is why the height cap above has to keep the
-   * scales equal for this to hold.
-   *
-   * Trader A starts here so the two scenes share one circle across the section
-   * seam rather than swapping one for another. If SPHERE or that scene's final
-   * beat moves, this moves with it.
-   */
-  const HANDOFF = { x: 240, y: 150 + (300 - 280) / 2, r: 62 };
-
   const A_POS = { x: 150, y: 158 };
   const B_POS = { x: 330, y: 158 };
+
+  /**
+   * Trader A's seat, published for PersonCastScene, which has to leave its
+   * circle exactly here so the two scenes share one circle across the section
+   * seam. Exported rather than duplicated so the two cannot drift apart.
+   *
+   * VIEWBOX_H is part of the contract: this stage is 300 units tall against the
+   * 280 of every other one, and both are centred in the same box, so the same
+   * viewBox point sits (300 - 280)/2 = 10 units lower here. The other scene
+   * subtracts that. See the stage CSS below, which keeps the two scales equal
+   * so that offset stays a constant.
+   */
+  export const SEAT_A = { x: A_POS.x, y: A_POS.y, r: R_A };
+  export const VIEWBOX_H = 300;
   const TABLE = { x: 240, y: 176 };
   const FLIP = { x: 240, y: 64 };
 
@@ -98,33 +96,16 @@
       const sB = (w: number) => Math.sqrt(w / W_B);
       const coins = [coinA, coinB];
 
-      // meet — trader A is the circle the previous scene ended on, not a new
-      // one. It starts exactly where PersonCastScene left it (centred, r=62,
-      // already wearing these colors) and walks to its seat, shrinking to the
-      // radius its wealth earns. Without this the circle appeared to slide away
-      // and an identical circle appeared in its place, which is a cut the
-      // reader notices and learns nothing from.
+      // meet — trader A is ALREADY here, and deliberately not animated in: it
+      // is the circle PersonCastScene ended on, which slid left at the close of
+      // that scene to open this seat. Same place, same radius, same colors, so
+      // the section boundary is invisible. Do not give A an entrance.
       // (gsap reads the g's translate attr, so x/y are absolute coordinates)
-      tl.fromTo(
-        groupA,
-        { x: HANDOFF.x, y: HANDOFF.y },
-        { x: A_POS.x, y: A_POS.y, duration: 0.55, ease: 'power2.inOut' },
-        'meet',
-      );
-      tl.fromTo(
-        agentA,
-        { scale: HANDOFF.r / R_A },
-        { scale: 1, duration: 0.55, ease: 'power2.inOut' },
-        'meet',
-      );
-
-      // ...and only once A has taken its seat does the second trader walk in,
-      // noticeably poorer.
       tl.fromTo(
         groupB,
         { x: B_POS.x + 240, autoAlpha: 0 },
         { x: B_POS.x, autoAlpha: 1, duration: 0.5, ease: 'power2.out' },
-        'meet+=0.45',
+        'meet+=0.2',
       );
 
       // ante — one coin each slides out; the agents shrink by what they staked.
