@@ -4,7 +4,7 @@
   import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
   import BeliefCloudScene from '$lib/widgets/stage/scenes/BeliefCloudScene.svelte';
   import CowCastScene from '$lib/widgets/stage/scenes/CowCastScene.svelte';
-  import PersonScene from '$lib/widgets/stage/scenes/PersonScene.svelte';
+  import PersonCastScene from '$lib/widgets/stage/scenes/PersonCastScene.svelte';
   import TradeScene from '$lib/widgets/stage/scenes/TradeScene.svelte';
   import ClosingScene from '$lib/widgets/stage/scenes/ClosingScene.svelte';
   import Prediction from '$lib/widgets/predict/Prediction.svelte';
@@ -111,12 +111,13 @@ Same trick. New subject.
   area alone? Revisit if area is misread as radius.
 -->
 <PinScene>
-  <PersonScene />
+  <PersonCastScene />
   <Caption beat={0}>Take the most-photographed fortune on earth. We won't explain how he got it — we'll do to him exactly what the physicist did to the cow.</Caption>
   <Caption beat={1}>Throw away the companies, the timing, the inheritance, the talent, the luck — every argument about whether any of it was earned.</Caption>
-  <Caption beat={2}>What is left is almost offensively small.</Caption>
-  <Caption beat={3}><strong>You are your money.</strong> The area is the fortune: twice as wide, four times as rich.</Caption>
-  <Caption beat={4}>I want that to feel wrong. The wrongness is the point. We are building the smallest possible room — a person is a number, nothing else.</Caption>
+  <Caption beat={2}>Keep going. Take the face too.</Caption>
+  <Caption beat={3}>What is left is almost offensively small.</Caption>
+  <Caption beat={4}><strong>You are your money.</strong> The area is the fortune: twice as wide, four times as rich.</Caption>
+  <Caption beat={5}>I want that to feel wrong. The wrongness is the point. We are building the smallest possible room — a person is a number, nothing else.</Caption>
 </PinScene>
 
 <!--

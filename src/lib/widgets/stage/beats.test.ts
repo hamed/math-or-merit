@@ -5,6 +5,7 @@ import { BEATS as CAST_BEATS, FRAMES as CAST_FRAMES } from './scenes/CowCastScen
 import { BEATS as OPENING_BEATS } from './scenes/OpeningScene.svelte';
 import { BEATS as BELIEF_BEATS } from './scenes/BeliefCloudScene.svelte';
 import { BEATS as PERSON_BEATS } from './scenes/PersonScene.svelte';
+import { BEATS as PERSON_CAST_BEATS, PLATES as PERSON_PLATES } from './scenes/PersonCastScene.svelte';
 import { BEATS as TRADE_BEATS } from './scenes/TradeScene.svelte';
 import { BEATS as CLOSING_BEATS } from './scenes/ClosingScene.svelte';
 
@@ -15,6 +16,7 @@ const SCENES: Record<string, readonly BeatSpec[]> = {
   OpeningScene: OPENING_BEATS,
   BeliefCloudScene: BELIEF_BEATS,
   PersonScene: PERSON_BEATS,
+  PersonCastScene: PERSON_CAST_BEATS,
   TradeScene: TRADE_BEATS,
   ClosingScene: CLOSING_BEATS,
 };
@@ -50,6 +52,30 @@ describe('CowCastScene frames', () => {
   it('leaves the last beat plateless so the moral holds the pitch', () => {
     const covered = new Set(CAST_FRAMES.map((f) => f.beat));
     expect(covered.has(CAST_BEATS[CAST_BEATS.length - 1].label)).toBe(false);
+  });
+});
+
+describe('PersonCastScene plates', () => {
+  const labels = new Set(PERSON_CAST_BEATS.map((b) => b.label));
+
+  it('every plate lands on a beat that exists', () => {
+    for (const plate of PERSON_PLATES) {
+      expect(labels.has(plate.beat), `no beat "${plate.beat}"`).toBe(true);
+    }
+  });
+
+  it('plates are in beat order', () => {
+    const order = PERSON_CAST_BEATS.map((b) => b.label);
+    const positions = PERSON_PLATES.map((p) => order.indexOf(p.beat));
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+  });
+
+  it('every plate has a distinct source', () => {
+    expect(new Set(PERSON_PLATES.map((p) => p.src)).size).toBe(PERSON_PLATES.length);
+  });
+
+  it('ends on the circle beat, which hands over to SPHERE', () => {
+    expect(PERSON_PLATES[PERSON_PLATES.length - 1].beat).toBe('circle');
   });
 });
 

@@ -171,8 +171,13 @@
 
      These are wide illustrations rather than the sparse line art the other
      scenes hold, so the stage default (54rem) leaves them stranded in margin.
-     Widening only this scene; the vertical cap still comes from PinScene. */
-  .cast-stage svg {
+     Widening only this scene; the vertical cap still comes from PinScene.
+
+     The selector is doubled up on purpose. Svelte scopes `.cast-stage svg` as
+     `.cast-stage svg.svelte-xxx`, which only TIES PinScene's
+     `.pin-scene :global(.scene-art svg)` on specificity — and source order then
+     decides, so the override silently did nothing. Naming both classes wins. */
+  .scene-art.cast-stage svg {
     inline-size: min(94vw, 62rem);
   }
 </style>
