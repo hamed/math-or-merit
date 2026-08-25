@@ -3,7 +3,7 @@
   import Caption from '$lib/widgets/stage/Caption.svelte';
   import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
   import BeliefCloudScene from '$lib/widgets/stage/scenes/BeliefCloudScene.svelte';
-  import CowScene from '$lib/widgets/stage/scenes/CowScene.svelte';
+  import CowCastScene from '$lib/widgets/stage/scenes/CowCastScene.svelte';
   import PersonScene from '$lib/widgets/stage/scenes/PersonScene.svelte';
   import TradeScene from '$lib/widgets/stage/scenes/TradeScene.svelte';
   import ClosingScene from '$lib/widgets/stage/scenes/ClosingScene.svelte';
@@ -59,32 +59,40 @@
 <!--
   REMARK(beats 3+4 MERGED): this joke beat now carries the load-bearing inference that
   outline.md beat 4 wanted ("if the simplest version can't escape it, no richer version
-  can"). The old beat-4 TODO is resolved by the uphill analogy below — shape = biography we
-  discard; weight = the mechanism we can't. Honesty guard: the analogy only claims that an
-  obstacle present in the ideal case survives into messier cases. It does NOT claim every
+  can"). The old beat-4 TODO is resolved by the football analogy below — shape = biography
+  we discard; weight = the mechanism we can't. Honesty guard: the analogy only claims that
+  an obstacle present in the ideal case survives into messier cases. It does NOT claim every
   richer model behaves identically. Flow change logged in notes/draft-decisions.md (D3).
 -->
 
 <!--
-  BUILD NOTE (2026-07-08, R2 per owner review): the canonical joke, acted out — chemist
-  fails, physicist takes ages, sphere, vacuum (face only, no backdrop), full triangle
-  hill on a drawn horizon, push/slip/rollback that drags the pusher off-screen, then the
-  REAL cow that will not move at all. Captions are the only visible text; beat indices
-  refer to CowScene.BEATS. The old beat-3 load-bearing inference (simplest version fails
-  → richer versions fail too) now rides the push/real/moral captions.
+  BUILD NOTE (2026-08-25, R13 per owner): the joke is now the author's illustrated cast
+  (CowCastScene, plates in scenes/cast/) instead of the drawn SVG morph. The experts fail
+  in order of increasing abstraction — biologist, chemist, physicist — which is the spine
+  of the joke: each answers in his own model and none of them produces milk. Then sphere,
+  vacuum, and the pitch.
+
+  The uphill push was REPLACED, not supplemented: it argued the same a fortiori point as
+  the football beat, and the essay cannot close on both. Football was chosen because the
+  whole essay is a fair game with a lopsided outcome, so the metaphor family matches the
+  subject; the hill's Sisyphus framing did not. The old SVG choreography still lives in
+  CowScene.svelte + cow-geometry.ts if this needs reverting.
+
+  Captions are the only visible text; beat indices refer to CowCastScene.BEATS. The
+  load-bearing inference (simplest version fails → richer versions fail too) rides the
+  football/moral captions: sphericity removes the shape but not the mass, and the mass is
+  what decides the outcome.
 -->
 <PinScene pace={0.75}>
-  <CowScene />
-  <Caption beat={0}>Once upon a time, a farmer's cow stopped giving milk.</Caption>
-  <Caption beat={1}>He called a chemist. The flask fizzed. The cow was unimpressed.</Caption>
-  <Caption beat={2}>Then a physicist. He took much, much longer.</Caption>
-  <Caption beat={3}>"I have solved the mathematical model of a cow!"</Caption>
-  <Caption beat={4}>"…for a spherical cow."</Caption>
+  <CowCastScene />
+  <Caption beat={0}>Once upon a time, a farmer's cow stopped giving milk. So he called in the experts.</Caption>
+  <Caption beat={1}>A biologist came first. The farmer learned where cows come from. He did not learn where milk comes from.</Caption>
+  <Caption beat={2}>Then a chemist. She held up the molecule the cow was failing to produce. The cow was unimpressed.</Caption>
+  <Caption beat={3}>Then a physicist. He took much, much longer.</Caption>
+  <Caption beat={4}>"I have solved it — for a spherical cow."</Caption>
   <Caption beat={5}>"In a vacuum."</Caption>
-  <Caption beat={6}>Ridiculous — and honest. Watch what the simplification buys. Say the cow must go up that hill.</Caption>
-  <Caption beat={7}>A frictionless sphere is the <em>easiest</em> cow anyone will ever push.</Caption>
-  <Caption beat={8}>Now the real one.</Caption>
-  <Caption beat={9}>The problem was never the shape. It was the weight.</Caption>
+  <Caption beat={6}>Ridiculous — and honest. Watch what the simplification buys: it is a perfect sphere now. Take it out and kick it.</Caption>
+  <Caption beat={7}>You cannot play football with a spherical cow. The problem was never the shape. It was the weight.</Caption>
 </PinScene>
 
 ## Now, the spherical human
