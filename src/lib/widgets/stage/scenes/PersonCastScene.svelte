@@ -20,7 +20,6 @@
     { label: 'circle', length: 0.9 },
     { label: 'coins', length: 1.2 },
     { label: 'one', length: 1 },
-    { label: 'slide', length: 0.9 },
   ];
 
   /**
@@ -64,8 +63,6 @@
     });
   }
 
-  /** Where the circle parks at the end — the next scene's trader-A spot. */
-  const SLIDE = { x: -90, y: 8 };
 </script>
 
 <script lang="ts">
@@ -110,7 +107,6 @@
 
   let plates: SVGImageElement[] = [];
   let body: SVGPathElement;
-  let bodyG: SVGGElement;
   let coins: SVGGElement;
 
   onMount(() => {
@@ -197,8 +193,11 @@
       );
       tl.to(body, { autoAlpha: 1, scale: 1, duration: 0.3 }, 'one+=0.3');
 
-      // slide — the circle parks left; the next scene continues from here
-      tl.to(bodyG, { x: SLIDE.x, y: SLIDE.y, duration: 0.5, ease: 'power1.inOut' }, 'slide+=0.15');
+      // The scene ENDS on the circle, centred and full size. It used to park
+      // itself off to the left here, which read as the circle leaving and an
+      // identical one arriving in the next section. TradeScene now picks this
+      // exact circle up — same centre, same radius, same colors — and walks it
+      // to its trading seat, so there is one circle across the seam.
     });
   });
 </script>
@@ -220,9 +219,7 @@
       />
     {/each}
 
-    <g bind:this={bodyG}>
-      <path bind:this={body} class="body" d={SPHERE} />
-    </g>
+    <path bind:this={body} class="body" d={SPHERE} />
 
     <g bind:this={coins} class="coins">
       {#each COIN_GRID as c}

@@ -35,6 +35,22 @@
    * carry the truth. Two coins sit side by side; no merged pot. */
   const COIN_R = 16.6;
 
+  /**
+   * Where PersonCastScene leaves its circle: SPHERE, centred, r=62.
+   *
+   * The y is 160, not 150, and that is not a fudge. This scene's viewBox is 300
+   * units tall against the 280 of every other stage, and both are centred in
+   * the same box, so the same viewBox point lands (300 - 280)/2 = 10 units
+   * lower here. Compensating by exactly 10 makes the two circles coincide on
+   * screen at any scale — which is why the height cap above has to keep the
+   * scales equal for this to hold.
+   *
+   * Trader A starts here so the two scenes share one circle across the section
+   * seam rather than swapping one for another. If SPHERE or that scene's final
+   * beat moves, this moves with it.
+   */
+  const HANDOFF = { x: 240, y: 150 + (300 - 280) / 2, r: 62 };
+
   const A_POS = { x: 150, y: 158 };
   const B_POS = { x: 330, y: 158 };
   const TABLE = { x: 240, y: 176 };
@@ -82,13 +98,33 @@
       const sB = (w: number) => Math.sqrt(w / W_B);
       const coins = [coinA, coinB];
 
-      // meet — the second trader walks in from the side, noticeably poorer
+      // meet — trader A is the circle the previous scene ended on, not a new
+      // one. It starts exactly where PersonCastScene left it (centred, r=62,
+      // already wearing these colors) and walks to its seat, shrinking to the
+      // radius its wealth earns. Without this the circle appeared to slide away
+      // and an identical circle appeared in its place, which is a cut the
+      // reader notices and learns nothing from.
       // (gsap reads the g's translate attr, so x/y are absolute coordinates)
+      tl.fromTo(
+        groupA,
+        { x: HANDOFF.x, y: HANDOFF.y },
+        { x: A_POS.x, y: A_POS.y, duration: 0.55, ease: 'power2.inOut' },
+        'meet',
+      );
+      tl.fromTo(
+        agentA,
+        { scale: HANDOFF.r / R_A },
+        { scale: 1, duration: 0.55, ease: 'power2.inOut' },
+        'meet',
+      );
+
+      // ...and only once A has taken its seat does the second trader walk in,
+      // noticeably poorer.
       tl.fromTo(
         groupB,
         { x: B_POS.x + 240, autoAlpha: 0 },
         { x: B_POS.x, autoAlpha: 1, duration: 0.5, ease: 'power2.out' },
-        'meet+=0.2',
+        'meet+=0.45',
       );
 
       // ante — one coin each slides out; the agents shrink by what they staked.
@@ -188,7 +224,7 @@
   });
 </script>
 
-<figure class="scene-art" aria-label="Two circles ante one coin each, flip a two-colored coin, the winner takes both; then the room fills">
+<figure class="scene-art trade-stage" aria-label="Two circles ante one coin each, flip a two-colored coin, the winner takes both; then the room fills">
   <svg viewBox="0 0 480 300" role="img">
     <g bind:this={groupA} transform={`translate(${A_POS.x} ${A_POS.y})`}>
       <path
@@ -238,6 +274,22 @@
 </figure>
 
 <style>
+  /* Must render at the same px-per-unit as PersonCastScene. Trader A is
+     literally the circle that scene ends on, so if the two stages scale
+     differently the circle changes size across the seam.
+
+     Width is easy — same clamp. The height cap is not: PinScene caps every
+     stage at 68svh, which assumes the 280-unit viewBox the other scenes use.
+     This scene's viewBox is 300 units tall, so the same cap would bite sooner
+     and squeeze it to a smaller unit size than its neighbours. Scaling the cap
+     with the viewBox makes both clamp at the same px-per-unit instead.
+
+     Doubled-up selector for the specificity reason documented in CowCastScene. */
+  .scene-art.trade-stage svg {
+    inline-size: min(94vw, 62rem);
+    max-block-size: calc(68svh * 300 / 280);
+  }
+
   .agent {
     stroke-width: 1.8;
     fill-opacity: 0.75;
