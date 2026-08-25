@@ -192,9 +192,18 @@
     max-inline-size: 36rem;
     padding-inline: 1.2rem;
     text-align: center;
+    text-wrap: balance;
     font-size: clamp(1.15rem, 2.6vw, 1.5rem);
     line-height: 1.55;
     color: var(--ink);
+  }
+
+  /* The illustrated scenes are wider than the line-art ones, and their captions
+     read better on one or two lines across the picture rather than four down a
+     narrow column. */
+  .pin-scene :global(.cast-stage) ~ :global(.stage-caption),
+  .pin-scene :global(.room-stage) ~ :global(.stage-caption) {
+    max-inline-size: min(94vw, 62rem);
   }
 
   /* Display captions: title-sized, mid-stage — for lines that ARE the beat. */

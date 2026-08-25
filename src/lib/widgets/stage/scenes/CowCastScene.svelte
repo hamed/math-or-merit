@@ -69,26 +69,42 @@
   const SWITCH = 0.05;
 
   /** How far the closing push drives into the pitch. */
-  const PUSH = 2.4;
+  const PUSH = 2.1;
 
   /**
    * Origin for the closing push, in viewBox user units.
    *
-   * The pitch plate is 1600x869 fitted into the 480x280 viewBox by width, so it
-   * renders 480 wide, 260.7 tall, inset 9.6 from the top; the ball sits at about
-   * (0.656, 0.253) of the picture, i.e. (315, 71).
+   * Derived rather than hardcoded, because the plate pipeline adds a margin
+   * around every finished plate (art/cast-scene/process.sh MARGIN) and that
+   * moves the ball's position within the plate. BALL_FRAC is measured against
+   * the PICTURE, not the plate, so it survives a margin change; the plate
+   * dimensions below come from the pipeline's output and are the only numbers
+   * to update if it is re-run with different settings.
    *
-   * Scaling about the ball itself is not what we want: the ball would stay at
-   * y=71 and its top would leave the frame. Scaling about P maps a point B to
-   * P + s(B - P), so to land the ball on the frame centre C at full scale we
-   * solve P = (s·B - C) / (s - 1). The ball then pans to the middle as it grows,
-   * which is the camera move we actually want.
+   * Scaling about the ball itself is not what we want: the ball would hold its
+   * position high in the frame and its top would leave. Scaling about P maps a
+   * point B to P + s(B - P), so to land the ball on the frame centre C at full
+   * scale we solve P = (s·B - C)/(s - 1). It then pans to the middle as it
+   * grows, which is the camera move we want.
    */
+  const PITCH = { w: 1792, h: 973, pictureW: 1600, pictureH: 869 };
+  const BALL_FRAC = { x: 0.656, y: 0.253 };
+
   const BALL_ORIGIN = (() => {
-    const [bx, by] = [315, 71];
-    const [cx, cy] = [240, 140];
-    const p = (b: number, c: number) => (PUSH * b - c) / (PUSH - 1);
-    return `${p(bx, cx).toFixed(1)} ${p(by, cy).toFixed(1)}`;
+    // the picture sits centred inside the margined plate
+    const ox = (PITCH.w - PITCH.pictureW) / 2;
+    const oy = (PITCH.h - PITCH.pictureH) / 2;
+    const fx = (ox + BALL_FRAC.x * PITCH.pictureW) / PITCH.w;
+    const fy = (oy + BALL_FRAC.y * PITCH.pictureH) / PITCH.h;
+    // the plate is wider than the 480x280 stage, so it fits by width
+    const drawnH = 480 / (PITCH.w / PITCH.h);
+    const b = { x: fx * 480, y: (280 - drawnH) / 2 + fy * drawnH };
+    // Not the frame centre: the cow-sphere's HORNS and ears stand well above
+    // the ball's circle, so landing the circle dead centre clips them off the
+    // top. Sitting it lower leaves room for what is drawn above it.
+    const c = { x: 240, y: 162 };
+    const p = (bv: number, cv: number) => (PUSH * bv - cv) / (PUSH - 1);
+    return `${p(b.x, c.x).toFixed(1)} ${p(b.y, c.y).toFixed(1)}`;
   })();
 
   let plates: SVGImageElement[] = [];

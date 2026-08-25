@@ -30,6 +30,9 @@ INK='#28251f'     # --ink, mirrors src/app.css
 WIDTH=1600        # ~2x the widest stage render; keeps the hatching crisp
 QUALITY=82
 PAD=24            # breathing room around the union box, in source pixels
+MARGIN=12         # extra % of canvas added around every finished plate, so the
+                  # cast is not crowded against the frame edge (owner: "zoom out
+                  # a bit"). Applied to the pitch too, so both keep one scale.
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -83,9 +86,14 @@ printf '  union box %dx%d+%d+%d  (aspect %.3f)\n' "$cw" "$ch" "$cx" "$cy" \
   "$(awk "BEGIN{print $cw/$ch}")"
 
 echo "Pass 3: cropping and encoding"
+# Crop/framing args come in; the margin is added last, as transparent canvas,
+# so every plate keeps the same content scale and simply sits smaller inside the
+# stage box.
 emit() {
   local name="$1"; shift
   magick "$TMP/${name}.png" "$@" \
+    -background none -gravity center \
+    -extent "%[fx:int(w*(1+$MARGIN/100))]x%[fx:int(h*(1+$MARGIN/100))]" \
     -define webp:method=6 -quality "$QUALITY" "${OUT}/${name}.webp"
   printf '  %-24s %8s  %s\n' "${name}.webp" \
     "$(du -h "${OUT}/${name}.webp" | cut -f1)" \

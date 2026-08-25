@@ -1,0 +1,292 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 450" width="900" height="450">
+  <defs>
+    <!-- Common styling and gradients if needed -->
+    <style>
+      .bg { fill: #f7f4ec; }
+      .ink { stroke: #3c352b; stroke-linecap: round; stroke-linejoin: round; }
+      .skin { fill: #efdcc0; stroke: #3c352b; }
+      .hair { fill: #f6ead2; stroke: #3c352b; }
+      .jacket { fill: #52473b; stroke: #3c352b; }
+      .vest { fill: #e5d5ae; stroke: #3c352b; }
+      .shirt { fill: #fdf8ec; stroke: #3c352b; }
+      .tie { fill: #c48b71; stroke: #3c352b; }
+      .trousers { fill: #3c352b; stroke: #3c352b; }
+      .shoe { fill: #2c2825; stroke: #3c352b; }
+      .shadow { fill: #3c352b; fill-opacity: 0.12; }
+      .pipe-wood { fill: #8b5e34; stroke: #3c352b; }
+      .glass-lens { fill: #fdf8ec; fill-opacity: 0.85; stroke: #3c352b; stroke-width: 2.5; }
+      .cow-hide { fill: #f6ead2; stroke: #3c352b; }
+      .cow-jaw { fill: #efdcc0; stroke: #3c352b; }
+      .cow-bone { fill: #e5d5ae; stroke: #3c352b; }
+      .label { font-family: system-ui, -apple-system, sans-serif; font-size: 14px; fill: #7a6e5f; font-weight: 500; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <!-- Canvas Background -->
+  <rect class="bg" width="900" height="450" />
+
+  <!-- ========================================================================= -->
+  <!-- POSE 1: THE THINKER (Pacing / Contemplating with pipe) -->
+  <!-- ========================================================================= -->
+  <g id="pose-1-thinking" transform="translate(150, 40)">
+    <text class="label" x="0" y="375">1. Contemplating (Pacing)</text>
+    <ellipse class="shadow" cx="0" cy="340" rx="48" ry="7" />
+
+    <!-- Legs & Shoes -->
+    <g class="ink">
+      <!-- Left leg -->
+      <path d="M -16 260 L -16 324" stroke-width="4.5" />
+      <path d="M -30 330 C -30 320 -10 320 -10 330 Z" class="shoe" stroke-width="2" />
+      <!-- Right leg (crossed slightly in walking step) -->
+      <path d="M 16 260 L 20 322" stroke-width="4.5" />
+      <path d="M 8 328 C 8 318 28 318 28 328 Z" class="shoe" stroke-width="2" />
+    </g>
+
+    <!-- Torso & Clothing -->
+    <g class="ink">
+      <!-- White shirt base -->
+      <path d="M -26 180 C -26 160 26 160 26 180 L 28 265 C 28 270 -28 270 -28 265 Z" class="shirt" stroke-width="3.5" />
+
+      <!-- Cozy tweed cardigan / vest -->
+      <path d="M -28 178 C -42 200 -40 245 -26 266 C -20 268 -15 250 -18 230 C -12 200 -20 185 -28 178 Z" class="vest" stroke-width="3" />
+      <path d="M 28 178 C 42 200 40 245 26 266 C 20 268 15 250 18 230 C 12 200 20 185 28 178 Z" class="vest" stroke-width="3" />
+
+      <!-- Vest Center V-neck & buttons -->
+      <path d="M -16 176 L 0 215 L 16 176" fill="none" stroke-width="2.5" />
+      <circle cx="0" cy="228" r="2.2" fill="#3c352b" />
+      <circle cx="0" cy="244" r="2.2" fill="#3c352b" />
+      <circle cx="0" cy="258" r="2.2" fill="#3c352b" />
+
+      <!-- Bow Tie -->
+      <path d="M -8 172 L 0 176 L -8 180 Z" class="tie" stroke-width="2" />
+      <path d="M 8 172 L 0 176 L 8 180 Z" class="tie" stroke-width="2" />
+      <circle cx="0" cy="176" r="2.4" fill="#3c352b" />
+    </g>
+
+    <!-- Left Arm: hands behind back -->
+    <g class="ink">
+      <path d="M -26 185 C -46 200 -44 235 -24 246" fill="none" stroke-width="4.5" />
+    </g>
+
+    <!-- Right Arm: holding pipe up to chest -->
+    <g class="ink">
+      <path d="M 28 185 C 48 205 42 230 22 232" fill="none" stroke-width="4.5" />
+      <!-- Hand -->
+      <circle cx="20" cy="232" r="5.5" class="skin" stroke-width="2" />
+      <!-- Wooden Pipe -->
+      <g transform="translate(14, 218)">
+        <path d="M 8 16 C 3 16 0 10 0 4 C 4 4 4 10 4 10" fill="none" stroke-width="2.2" />
+        <path d="M -2 4 L 7 4 L 5 12 L -1 12 Z" class="pipe-wood" stroke-width="2" />
+        <!-- Smoke curls -->
+        <path d="M 2 -4 C -2 -10 6 -16 2 -22" fill="none" stroke="#7a6e5f" stroke-width="1.8" stroke-dasharray="4 2" opacity="0.6" />
+      </g>
+    </g>
+
+    <!-- Head & Hair (Hand-drawn flowing organic waves) -->
+    <g class="ink">
+      <!-- Wild Frizzy Hair Silhouette (Soft organic clouds) -->
+      <path d="M -30 110 
+               C -55 105 -65 85 -55 65 
+               C -70 50 -60 25 -40 20 
+               C -45 -5 -15 -15 0 -10 
+               C 15 -15 45 -5 40 20 
+               C 60 25 70 50 55 65 
+               C 65 85 55 105 30 110 
+               C 35 125 25 145 15 148 
+               C -15 155 -35 125 -30 110 Z" class="hair" stroke-width="3.5" />
+
+      <!-- Head / Face Contour -->
+      <path d="M -26 80 C -34 105 -25 145 0 148 C 25 145 34 105 26 80 C 20 60 -20 60 -26 80 Z" class="skin" stroke-width="4" />
+
+      <!-- Wrinkles -->
+      <path d="M -10 82 C 0 78 10 82 10 82" fill="none" stroke-width="1.8" />
+      <path d="M -8 88 C 0 84 8 88 8 88" fill="none" stroke-width="1.8" />
+
+      <!-- Eyebrows (Inquisitive / Raised) -->
+      <path d="M -20 95 C -14 90 -8 94 -8 94" fill="none" stroke-width="2.6" />
+      <path d="M 8 92 C 14 88 20 92 20 92" fill="none" stroke-width="2.6" />
+
+      <!-- Round Spectacles -->
+      <g>
+        <circle cx="-13" cy="106" r="9.5" class="glass-lens" />
+        <circle cx="13" cy="106" r="9.5" class="glass-lens" />
+        <path d="M -3.5 105 C 0 102 3.5 105 3.5 105" fill="none" stroke-width="2.5" />
+        <!-- Eyes looking up in thought -->
+        <circle cx="-13" cy="104" r="2.6" fill="#3c352b" stroke="none" />
+        <circle cx="13" cy="104" r="2.6" fill="#3c352b" stroke="none" />
+      </g>
+
+      <!-- Round Nose -->
+      <path d="M 0 104 C 4 114 4 120 0 121 C -4 120 -3 114 0 104 Z" class="skin" stroke-width="2" />
+
+      <!-- Iconic Droopy Mustache -->
+      <path d="M -20 126 C -12 120 -2 120 0 126 C 2 120 12 120 20 126 C 18 138 6 138 0 134 C -6 138 -18 138 -20 126 Z" class="hair" stroke-width="2.5" />
+
+      <!-- Hair texture lines (organic curls) -->
+      <path d="M -35 55 C -45 50 -40 38 -30 45" fill="none" stroke-width="2" />
+      <path d="M 35 55 C 45 50 40 38 30 45" fill="none" stroke-width="2" />
+      <path d="M -15 15 C -20 -2 -5 -5 0 8" fill="none" stroke-width="2" />
+      <path d="M 15 15 C 20 -2 5 -5 0 8" fill="none" stroke-width="2" />
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- POSE 2: EUREKA! ("I have solved the mathematical model of a cow!") -->
+  <!-- ========================================================================= -->
+  <g id="pose-2-eureka" transform="translate(450, 40)">
+    <text class="label" x="0" y="375">2. "Eureka! Solved!" (Pointing Up)</text>
+    <ellipse class="shadow" cx="0" cy="340" rx="50" ry="7" />
+
+    <!-- Legs & Shoes (Firm, confident stance) -->
+    <g class="ink">
+      <path d="M -18 260 L -22 324" stroke-width="4.5" />
+      <path d="M -36 330 C -36 320 -16 320 -16 330 Z" class="shoe" stroke-width="2" />
+      <path d="M 18 260 L 22 324" stroke-width="4.5" />
+      <path d="M 12 330 C 12 320 32 320 32 330 Z" class="shoe" stroke-width="2" />
+    </g>
+
+    <!-- Torso -->
+    <g class="ink">
+      <path d="M -26 180 C -26 160 26 160 26 180 L 28 265 C 28 270 -28 270 -28 265 Z" class="shirt" stroke-width="3.5" />
+      <path d="M -28 178 C -42 200 -40 245 -26 266 C -20 268 -15 250 -18 230 C -12 200 -20 185 -28 178 Z" class="vest" stroke-width="3" />
+      <path d="M 28 178 C 42 200 40 245 26 266 C 20 268 15 250 18 230 C 12 200 20 185 28 178 Z" class="vest" stroke-width="3" />
+      <path d="M -16 176 L 0 215 L 16 176" fill="none" stroke-width="2.5" />
+      <circle cx="0" cy="228" r="2.2" fill="#3c352b" />
+      <circle cx="0" cy="244" r="2.2" fill="#3c352b" />
+      <circle cx="0" cy="258" r="2.2" fill="#3c352b" />
+      <path d="M -8 172 L 0 176 L -8 180 Z" class="tie" stroke-width="2" />
+      <path d="M 8 172 L 0 176 L 8 180 Z" class="tie" stroke-width="2" />
+      <circle cx="0" cy="176" r="2.4" fill="#3c352b" />
+    </g>
+
+    <!-- Left Arm: relaxed at side with open hand -->
+    <g class="ink">
+      <path d="M -28 185 C -46 205 -44 235 -34 250" fill="none" stroke-width="4.5" />
+      <circle cx="-34" cy="252" r="5" class="skin" stroke-width="2" />
+    </g>
+
+    <!-- Head & Hair -->
+    <g class="ink">
+      <!-- Wild Frizzy Hair -->
+      <path d="M -30 110 
+               C -55 105 -65 85 -55 65 
+               C -70 50 -60 25 -40 20 
+               C -45 -5 -15 -15 0 -10 
+               C 15 -15 45 -5 40 20 
+               C 60 25 70 50 55 65 
+               C 65 85 55 105 30 110 
+               C 35 125 25 145 15 148 
+               C -15 155 -35 125 -30 110 Z" class="hair" stroke-width="3.5" />
+
+      <!-- Head / Face Contour -->
+      <path d="M -26 80 C -34 105 -25 145 0 148 C 25 145 34 105 26 80 C 20 60 -20 60 -26 80 Z" class="skin" stroke-width="4" />
+
+      <!-- Eyebrows (High, excited arches) -->
+      <path d="M -20 90 C -14 84 -8 88 -8 88" fill="none" stroke-width="2.8" />
+      <path d="M 8 88 C 14 84 20 90 20 90" fill="none" stroke-width="2.8" />
+
+      <!-- Round Spectacles (Glinting) -->
+      <g>
+        <circle cx="-13" cy="104" r="9.5" class="glass-lens" />
+        <circle cx="13" cy="104" r="9.5" class="glass-lens" />
+        <path d="M -3.5 103 C 0 100 3.5 103 3.5 103" fill="none" stroke-width="2.5" />
+        <!-- Wide enthusiastic eyes -->
+        <circle cx="-13" cy="104" r="2.8" fill="#3c352b" stroke="none" />
+        <circle cx="13" cy="104" r="2.8" fill="#3c352b" stroke="none" />
+        <circle cx="-14.5" cy="102.5" r="0.9" fill="#ffffff" stroke="none" />
+        <circle cx="11.5" cy="102.5" r="0.9" fill="#ffffff" stroke="none" />
+      </g>
+
+      <path d="M 0 102 C 4 112 4 118 0 119 C -4 118 -3 112 0 102 Z" class="skin" stroke-width="2" />
+
+      <!-- Mustache with joyful smile underneath -->
+      <path d="M -20 122 C -12 116 -2 116 0 122 C 2 116 12 116 20 122 C 18 134 6 134 0 130 C -6 134 -18 134 -20 122 Z" class="hair" stroke-width="2.5" />
+      <!-- Open cheerful mouth arc -->
+      <path d="M -6 132 Q 0 138 6 132" fill="none" stroke-width="2.2" />
+    </g>
+
+    <!-- Right Arm: Triumphant Pointing Finger High Up (In Foreground) -->
+    <g class="ink">
+      <path d="M 28 180 C 50 185 62 150 56 100" fill="none" stroke-width="4.5" />
+      <!-- Hand with extended index finger -->
+      <g transform="translate(56, 96)">
+        <circle cx="0" cy="0" r="5.5" class="skin" stroke-width="2.2" />
+        <!-- Index finger pointing directly up -->
+        <path d="M -2.5 -2 L -2.5 -22 C -2.5 -26 2.5 -26 2.5 -22 L 2.5 -2 Z" class="skin" stroke-width="2" />
+        <!-- Small eureka spark -->
+        <path d="M 0 -32 L 0 -38 M -6 -30 L -11 -33 M 6 -30 L 11 -33" fill="none" stroke="#7a6e5f" stroke-width="2" />
+      </g>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- POSE 3: STANDING BY THE COW (Scale & Interaction Test) -->
+  <!-- ========================================================================= -->
+  <g id="pose-3-with-cow" transform="translate(730, 40)">
+    <text class="label" x="-20" y="375">3. Scene Scale with Cow</text>
+
+    <!-- The Cow (Scaled reference from art/cow) -->
+    <g id="reference-cow" transform="translate(-105, 140) scale(0.65)">
+      <ellipse class="shadow" cx="150" cy="232" rx="60" ry="7" />
+      <!-- Cow body -->
+      <ellipse cx="150" cy="111" rx="60" ry="90" class="cow-hide ink" stroke-width="4.5" />
+      <ellipse cx="118" cy="150" rx="14" ry="19" fill="#3c352b" transform="rotate(-18 118 150)" />
+      <!-- Cow face -->
+      <path d="m 150 30 a 120 120 0 0 0 -43.7 8.2 a 450 450 0 0 0 18.2 71.5 a 65 65 0 0 0 25.5 5.2 a 65 65 0 0 0 25.5 -5.2 a 450 450 0 0 0 18.2 -71.5 a 120 120 0 0 0 -43.7 -8.2 z" class="cow-hide ink" stroke-width="4.5" />
+      <path d="m 150 90 a 60 60 0 0 0 -37.6 13.3 a 40 40 0 0 0 37.6 26.6 a 40 40 0 0 0 37.6 -26.6 a 60 60 0 0 0 -37.6 -13.3 z" class="cow-jaw ink" stroke-width="3" />
+      <ellipse cx="165" cy="65" rx="20" ry="25" fill="#3c352b" />
+      <!-- Horns -->
+      <path d="M 150 63 A 120 120 0 0 1 58 20 A 200 200 0 0 0 150 43 A 200 200 0 0 0 241 20 A 120 120 0 0 1 150 63 Z" class="cow-bone ink" stroke-width="3" />
+      <!-- Sleepy eyes & sad mouth -->
+      <circle cx="131" cy="72" r="10" fill="#fdf8ec" stroke="#3c352b" stroke-width="2" />
+      <circle cx="132" cy="77" r="5" fill="#5a4632" />
+      <circle cx="132" cy="77" r="2.5" fill="#3c352b" />
+      <path d="M 125 79 A 10 10 0 0 1 132 68 A 10 10 0 0 1 141 75" class="cow-hide ink" stroke-width="2" />
+      <path d="M 130 115 A 40 40 0 0 1 170 115" fill="none" stroke="#3c352b" stroke-width="2.5" stroke-linecap="round" />
+      <!-- Hooves -->
+      <circle cx="138" cy="226" r="6" fill="#3c352b" />
+      <circle cx="162" cy="226" r="6" fill="#3c352b" />
+    </g>
+
+    <!-- Einstein standing beside, gesturing toward the cow -->
+    <g id="einstein-by-cow" transform="translate(45, 0)">
+      <ellipse class="shadow" cx="0" cy="340" rx="46" ry="7" />
+      <g class="ink">
+        <path d="M -16 260 L -16 324" stroke-width="4.5" />
+        <path d="M -30 330 C -30 320 -10 320 -10 330 Z" class="shoe" stroke-width="2" />
+        <path d="M 16 260 L 16 324" stroke-width="4.5" />
+        <path d="M 4 330 C 4 320 24 320 24 330 Z" class="shoe" stroke-width="2" />
+      </g>
+      <g class="ink">
+        <path d="M -26 180 C -26 160 26 160 26 180 L 28 265 C 28 270 -28 270 -28 265 Z" class="shirt" stroke-width="3.5" />
+        <path d="M -28 178 C -42 200 -40 245 -26 266 C -20 268 -15 250 -18 230 C -12 200 -20 185 -28 178 Z" class="vest" stroke-width="3" />
+        <path d="M 28 178 C 42 200 40 245 26 266 C 20 268 15 250 18 230 C 12 200 20 185 28 178 Z" class="vest" stroke-width="3" />
+        <path d="M -16 176 L 0 215 L 16 176" fill="none" stroke-width="2.5" />
+        <circle cx="0" cy="228" r="2.2" fill="#3c352b" />
+        <circle cx="0" cy="244" r="2.2" fill="#3c352b" />
+        <path d="M -8 172 L 0 176 L -8 180 Z" class="tie" stroke-width="2" />
+        <path d="M 8 172 L 0 176 L 8 180 Z" class="tie" stroke-width="2" />
+        <circle cx="0" cy="176" r="2.4" fill="#3c352b" />
+      </g>
+      <!-- Arm presenting / gesturing at cow -->
+      <g class="ink">
+        <path d="M -28 185 C -55 200 -70 215 -80 205" fill="none" stroke-width="4.5" />
+        <circle cx="-82" cy="205" r="5" class="skin" stroke-width="2" />
+        <path d="M 28 185 C 44 205 40 235 24 246" fill="none" stroke-width="4.5" />
+      </g>
+      <!-- Head facing cow slightly -->
+      <g class="ink">
+        <path d="M -30 110 C -55 105 -65 85 -55 65 C -70 50 -60 25 -40 20 C -45 -5 -15 -15 0 -10 C 15 -15 45 -5 40 20 C 60 25 70 50 55 65 C 65 85 55 105 30 110 C 35 125 25 145 15 148 C -15 155 -35 125 -30 110 Z" class="hair" stroke-width="3.5" />
+        <path d="M -26 80 C -34 105 -25 145 0 148 C 25 145 34 105 26 80 C 20 60 -20 60 -26 80 Z" class="skin" stroke-width="4" />
+        <circle cx="-13" cy="106" r="9.5" class="glass-lens" />
+        <circle cx="13" cy="106" r="9.5" class="glass-lens" />
+        <path d="M -3.5 105 C 0 102 3.5 105 3.5 105" fill="none" stroke-width="2.5" />
+        <!-- Looking left toward cow -->
+        <circle cx="-15" cy="106" r="2.6" fill="#3c352b" stroke="none" />
+        <circle cx="11" cy="106" r="2.6" fill="#3c352b" stroke="none" />
+        <path d="M 0 104 C 4 114 4 120 0 121 C -4 120 -3 114 0 104 Z" class="skin" stroke-width="2" />
+        <path d="M -20 126 C -12 120 -2 120 0 126 C 2 120 12 120 20 126 C 18 138 6 138 0 134 C -6 138 -18 138 -20 126 Z" class="hair" stroke-width="2.5" />
+      </g>
+    </g>
+  </g>
+</svg>
