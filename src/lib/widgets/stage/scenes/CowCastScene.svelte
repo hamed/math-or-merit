@@ -68,6 +68,29 @@
    */
   const SWITCH = 0.05;
 
+  /** How far the closing push drives into the pitch. */
+  const PUSH = 2.4;
+
+  /**
+   * Origin for the closing push, in viewBox user units.
+   *
+   * The pitch plate is 1600x869 fitted into the 480x280 viewBox by width, so it
+   * renders 480 wide, 260.7 tall, inset 9.6 from the top; the ball sits at about
+   * (0.656, 0.253) of the picture, i.e. (315, 71).
+   *
+   * Scaling about the ball itself is not what we want: the ball would stay at
+   * y=71 and its top would leave the frame. Scaling about P maps a point B to
+   * P + s(B - P), so to land the ball on the frame centre C at full scale we
+   * solve P = (s·B - C) / (s - 1). The ball then pans to the middle as it grows,
+   * which is the camera move we actually want.
+   */
+  const BALL_ORIGIN = (() => {
+    const [bx, by] = [315, 71];
+    const [cx, cy] = [240, 140];
+    const p = (b: number, c: number) => (PUSH * b - c) / (PUSH - 1);
+    return `${p(bx, cx).toFixed(1)} ${p(by, cy).toFixed(1)}`;
+  })();
+
   let plates: SVGImageElement[] = [];
 
   onMount(() => {
@@ -97,18 +120,25 @@
         }
       });
 
-      // The moral gets a slow push toward the ball rather than new art: the
-      // frame keeps arguing while the words land. The origin is the ball's
-      // place in the letterboxed plate, not the plate's centre. transformOrigin
-      // is set explicitly because gsap's matrix path does not reliably honour
-      // CSS transform-box on SVG.
-      const BALL = '64% 24%';
+      // The moral pushes hard into the ball rather than cutting to new art: the
+      // frame keeps arguing while the words land, and by the end the cow-sphere
+      // is most of the stage — which is also the circle the next scene opens on.
+      // The svg viewport clips, so the cast simply leaves the frame.
+      //
+      // The origin is the ball's place in the letterboxed plate, not the plate's
+      // centre, and it is given in viewBox user units via svgOrigin. Percentage
+      // transformOrigin drifts here — the ball crawled out of frame as it grew —
+      // because the percentages resolve against the <image> rect rather than the
+      // letterboxed picture inside it. svgOrigin is the same escape hatch
+      // CowScene uses for the flask arm. Safe to combine with scale alone; do
+      // not add a translation to this tween (gsap recomputes x/y when svgOrigin
+      // scaling and translation share an element, and the plate teleports).
       const pitch = plates[FRAMES.length - 1];
       if (pitch) {
         tl.fromTo(
           pitch,
-          { scale: 1, transformOrigin: BALL },
-          { scale: 1.16, transformOrigin: BALL, duration: 1.2, ease: 'power1.inOut' },
+          { scale: 1, svgOrigin: BALL_ORIGIN },
+          { scale: PUSH, svgOrigin: BALL_ORIGIN, duration: 1.2, ease: 'power1.in' },
           'moral',
         );
       }

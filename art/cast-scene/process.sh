@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Promotes the inbox cast illustrations into scene assets.
+# Rebuilds the cow-story cast plates from their sources.
+#
+# Sources live in art/cast-scene/source/ (promoted out of inbox/ once accepted,
+# the same way art/cow/ holds the cow's). They are large and untracked; the
+# committed artefacts are the WebP plates this writes.
 #
 # Two things happen here.
 #
@@ -10,17 +14,17 @@
 #    the drawings sit directly on the page like every other mark in the essay.
 #
 # 2. A SHARED crop. The six studio frames (00-05) are one continuous shot of
-#    the same cast, and the scene cross-fades between them — so they must be
-#    cropped identically or the cast jumps between beats. We measure every
-#    frame's content box, take the union, and cut all six to that one box.
-#    Never switch this to a per-image -trim. 06 is a different location
-#    (full-bleed pitch) reached by a cut, so it is trimmed on its own.
+#    the same cast, and the scene cuts between them — so they must be cropped
+#    identically or the cast jumps between beats. We measure every frame's
+#    content box, take the union, and cut all six to that one box. Never switch
+#    this to a per-image -trim. 06 is a different location (full-bleed pitch),
+#    so it is trimmed on its own and then matched to the studio ASPECT.
 #
 # Run from anywhere: art/cast-scene/process.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IN="${1:-$ROOT/inbox}"
+IN="${1:-$ROOT/art/cast-scene/source}"
 OUT="${2:-$ROOT/src/lib/widgets/stage/scenes/cast}"
 INK='#28251f'     # --ink, mirrors src/app.css
 WIDTH=1600        # ~2x the widest stage render; keeps the hatching crisp
