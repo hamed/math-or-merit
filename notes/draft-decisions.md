@@ -324,3 +324,31 @@ commits R9 `aca07ca` … R11e `8fbe360`):
   subject-aware satire; 'on click' picks the mini-game (tax vs 📸 photo).
 - **Open from these rounds**: parametric progressivity; map default style;
   migrating earlier beats to Sandbox presets.
+
+## D15 — The illustrated cast, and one circle (2026-08-25)
+
+The authored SVG morphs for the joke and the reduction were replaced by the
+owner's illustrations (R13 `89e9e4e` … R15a `76f8faa`; ADR-015):
+
+- **The hill became a pitch.** The uphill push and the football beat argued the
+  same a fortiori point — an obstacle present in the ideal case survives into
+  messier ones — and the essay cannot close on both. Football was chosen because
+  the whole essay is a fair game with a lopsided outcome, so the metaphor family
+  matches the subject; the hill's Sisyphus framing did not. The moral is
+  unchanged and was already in the prose: sphericity removes the shape but not
+  the mass, and the mass decides the outcome.
+- **The experts now fail in order of increasing abstraction** — biologist,
+  chemist, physicist. That ladder is the spine of the joke: each answers in his
+  own model and none of them produces milk.
+- **The reduction and the first trade are ONE scene with ONE circle element**
+  (ADR-015). Trader A is not a redraw of the person's circle; it is that circle.
+- **R12e's minimal-character verdict is reversed**, owner-approved. The rejection
+  then was of SVG personas we would draw; these are his own finished
+  illustrations.
+- **Prose moved with the beats.** Every existing sentence survives; three lines
+  are new and NOT his — the biologist caption, "Keep going. Take the face too.",
+  and the football line's tightening. Flagged for the language pass.
+- **Deployed** as an unlisted GitHub Pages site with a reviewer-footer seam
+  (`VITE_REVIEW_ISSUES_URL`) that a public build simply leaves unset.
+- **Still open from this round**: the language pass; two `PlotFrame` a11y
+  warnings; the crowd entrance's corner-scaling (cosmetic, rests correct).
