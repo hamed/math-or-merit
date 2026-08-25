@@ -183,18 +183,21 @@
 </div>
 
 <style>
+  /* The colorbar is positioned OUT of flow on purpose. As a flex sibling it ate
+     horizontal space, so this plot rendered narrower than the other five and
+     its axes, fonts and title no longer lined up with them. Now the svg fills
+     the cell exactly like every sibling and the bar sits in the gutter beside
+     it. */
   .map-box {
-    display: flex;
-    align-items: stretch;
-    gap: 0.1rem;
+    position: relative;
     inline-size: 100%;
     block-size: 100%;
     min-block-size: 0;
   }
 
   .map-box > :global(svg) {
-    flex: 1;
-    min-inline-size: 0;
+    inline-size: 100%;
+    block-size: 100%;
   }
 
   .cell,
@@ -250,15 +253,35 @@
   }
 
   .colorbar {
+    position: absolute;
+    /* Sits in the plot's own right margin by default. Only where there is room
+       does it move out into the grid gutter — a negative offset at phone widths
+       pushed the page into horizontal overflow. */
+    inset-inline-end: 0;
+    inset-block-start: 50%;
+    translate: 0 -50%;
     display: flex;
     align-items: stretch;
     gap: 0.1rem;
-    align-self: center;
     block-size: 52%;
     padding: 0;
     border: none;
     background: none;
     cursor: pointer;
+  }
+
+  @media (min-width: 60rem) {
+    .colorbar {
+      inset-inline-end: -1.15rem;
+    }
+  }
+
+  /* No room for the numbers beside the bar on a phone; the button keeps its
+     aria-label, so the scale is still described. */
+  @media (max-width: 60rem) {
+    .bar-ticks {
+      display: none;
+    }
   }
 
   .colorbar:focus-visible {
