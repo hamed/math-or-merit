@@ -2,7 +2,6 @@
   import PinScene from '$lib/widgets/stage/PinScene.svelte';
   import Caption from '$lib/widgets/stage/Caption.svelte';
   import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
-  import BeliefCloudScene from '$lib/widgets/stage/scenes/BeliefCloudScene.svelte';
   import CowCastScene from '$lib/widgets/stage/scenes/CowCastScene.svelte';
   import PersonTradeScene from '$lib/widgets/stage/scenes/PersonTradeScene.svelte';
   import ClosingScene from '$lib/widgets/stage/scenes/ClosingScene.svelte';
@@ -45,14 +44,16 @@
 -->
 <h1 class="visually-hidden">Merit or Math?</h1>
 
+<!--
+  BUILD NOTE (2026-08-25, R17 per owner): the belief word cloud is GONE. Its
+  scene and its two captions ("It is too complex, isn't it?", "So let me tell
+  you a story.") were cut, not moved: the third line of the title is now a slot
+  machine that cycles the same folk explanations and settles on "Math", so the
+  reader meets the question once, in the title's own space, instead of twice.
+  The old scene is kept at archive/scenes-pre-r17/BeliefCloudScene.svelte.
+-->
 <PinScene driver="time">
   <OpeningScene />
-</PinScene>
-
-<PinScene pace={1}>
-  <BeliefCloudScene />
-  <Caption beat={2} display>It is too complex, isn't it?</Caption>
-  <Caption beat={3} display>So let me tell you a story.</Caption>
 </PinScene>
 
 <!--

@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateBeats, type BeatSpec } from './contract';
 import { BEATS as CAST_BEATS, FRAMES as CAST_FRAMES } from './scenes/CowCastScene.svelte';
-import { BEATS as OPENING_BEATS } from './scenes/OpeningScene.svelte';
-import { BEATS as BELIEF_BEATS } from './scenes/BeliefCloudScene.svelte';
+import { BEATS as OPENING_BEATS, SLOTS as REEL_SLOTS, LAND as REEL_LAND } from './scenes/OpeningScene.svelte';
 import { BEATS as ROOM_BEATS, PLATES as ROOM_PLATES } from './scenes/PersonTradeScene.svelte';
 import { BEATS as CLOSING_BEATS } from './scenes/ClosingScene.svelte';
 
@@ -10,7 +9,6 @@ import { BEATS as CLOSING_BEATS } from './scenes/ClosingScene.svelte';
 const SCENES: Record<string, readonly BeatSpec[]> = {
   CowCastScene: CAST_BEATS,
   OpeningScene: OPENING_BEATS,
-  BeliefCloudScene: BELIEF_BEATS,
   PersonTradeScene: ROOM_BEATS,
   ClosingScene: CLOSING_BEATS,
 };
@@ -46,6 +44,24 @@ describe('CowCastScene frames', () => {
   it('leaves the last beat plateless so the moral holds the pitch', () => {
     const covered = new Set(CAST_FRAMES.map((f) => f.beat));
     expect(covered.has(CAST_BEATS[CAST_BEATS.length - 1].label)).toBe(false);
+  });
+});
+
+describe('OpeningScene reel', () => {
+  it('lands on Math', () => {
+    expect(REEL_SLOTS[REEL_LAND]).toBe('Math');
+  });
+
+  it('keeps a symbol behind Math so the overshoot never shows empty page', () => {
+    expect(REEL_LAND).toBeLessThan(REEL_SLOTS.length - 1);
+  });
+
+  it('never spins Merit — it is already on the line above', () => {
+    expect(REEL_SLOTS).not.toContain('Merit');
+  });
+
+  it('has room to blur: the spin passes many symbols before it lands', () => {
+    expect(REEL_LAND).toBeGreaterThan(12);
   });
 });
 

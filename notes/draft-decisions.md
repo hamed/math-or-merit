@@ -352,3 +352,36 @@ owner's illustrations (R13 `89e9e4e` … R15a `76f8faa`; ADR-015):
   (`VITE_REVIEW_ISSUES_URL`) that a public build simply leaves unset.
 - **Still open from this round**: the language pass; two `PlotFrame` a11y
   warnings; the crowd entrance's corner-scaling (cosmetic, rests correct).
+
+## D16 — The title is the slot machine, and the word cloud is gone (2026-08-25)
+
+Owner call (R17), from `inbox/minor visual fixes.md`: after "Merit" and "or",
+the third line of the title spins like a slot reel — folk explanations for
+wealth come and go, slowly, then too fast to read, then slowly — and settles on
+"Math". The "?" then arrives on its own beat, as before.
+
+- **`BeliefCloudScene` was DELETED, not reworked.** It said the same thing the
+  reel now says, in a scene of its own, ten seconds later. The reader should
+  meet the question once. Archived at `archive/scenes-pre-r17/`.
+- **Its two captions were CUT, owner-approved**: "It is too complex, isn't it?"
+  and "So let me tell you a story." The spin itself carries the first; the essay
+  now goes straight from the title to the cow, and the cast's opening plate is
+  the bridge the second caption used to be. Do not reintroduce them without
+  re-cutting the reel — the beat they narrated no longer exists.
+- **Only the third line moves.** "Merit" and "or" still just fade. This is the
+  single exception to the opening's no-motion rule, and it is deliberate: the
+  reel IS the argument (the explanations are interchangeable and none of them
+  is the mechanism), so it is the one thing worth animating.
+- **It lands like a machine**: the reel overshoots the detent by a third of a
+  slot and is pulled back onto it. A symbol rides behind "Math" so the
+  overshoot uncovers an edge, never blank page.
+- **"Merit" is not on the reel** — it is on the line above, and two of it at
+  once reads as a bug rather than an echo. The other seventeen beliefs from the
+  old cloud spin, once each.
+- **The fast stretch stays READABLE** (owner, same round). Two passes at 5.2s
+  turned the middle into a smear, which loses the argument: the reader has to
+  see the explanations go by to feel that they are interchangeable. One pass
+  over a longer spin buys that — about three words a second at the fastest.
+- **Cadence is one number** (`SPIN`, 8.5s) split 25/40/26/9 across accelerate,
+  blur, decelerate, snap — alongside the opening's existing `PAUSE` and `FADE`.
+- **Still open**: nothing from this round; the D15 language pass still stands.

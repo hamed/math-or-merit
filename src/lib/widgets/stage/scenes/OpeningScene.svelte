@@ -17,13 +17,15 @@
   const TYPE_SRC = 0.9;
   const PAUSE = 1;
   const FADE = 2;
+  /** How long the reel spins before "Math" is at rest (overshoot included). */
+  const SPIN = 8.5;
 
   export const BEATS: readonly BeatSpec[] = [
     // blink, type the headline, pause, type the source, pause
     { label: 'headline', length: BLINK_HOLD + TYPE_HEAD + PAUSE + TYPE_SRC + PAUSE },
     { label: 'merit', length: FADE + PAUSE },
     { label: 'or', length: FADE + PAUSE },
-    { label: 'math', length: FADE + PAUSE },
+    { label: 'math', length: SPIN + PAUSE },
     { label: 'qmark', length: FADE + PAUSE },
     { label: 'hint', length: FADE },
   ];
@@ -48,6 +50,58 @@
   const SOURCE = '(Reuters)';
   const SOURCE_URL =
     'https://www.investing.com/news/stock-market-news/spacex-ipo-makes-elon-musk-worlds-first-trillionaire-4741087';
+
+  /**
+   * The reel. Third line of the title is a slot machine: the folk explanations
+   * for wealth come and go — slowly, then too fast to read, then slowly — and
+   * it settles on "Math". These are the beliefs that used to be a word cloud
+   * in its own scene (archive/scenes-pre-r17/BeliefCloudScene.svelte); the
+   * spin says the same thing in the title's own space, so the reader meets the
+   * question once instead of twice.
+   *
+   * "Merit" is not on the reel: it is already sitting on the first line, and
+   * two of it on screen at once reads as a bug rather than an echo.
+   */
+  const REEL: readonly string[] = [
+    'Hard work',
+    'Luck',
+    'Talent',
+    'Family money',
+    'Connections',
+    'IQ',
+    'Education',
+    'Grit',
+    'Timing',
+    'Class',
+    'Hustle',
+    'Race',
+    'Charisma',
+    'DNA',
+    'Country',
+    "God's will",
+    'Blue eyes',
+  ];
+
+  /**
+   * One pass, then the answer. It was two, and the middle of the spin was
+   * unreadable — the point of the reel is that you SEE the explanations go by,
+   * so the fast stretch has to stay legible. Fewer symbols over a longer spin
+   * is what buys that.
+   *
+   * One more word rides behind "Math" purely so the overshoot at the end of
+   * the spin uncovers the edge of a next symbol, the way a real reel does,
+   * instead of a strip of empty page.
+   */
+  export const SLOTS: readonly string[] = [...REEL, 'Math', REEL[0]];
+  export const LAND = SLOTS.length - 2;
+
+  /**
+   * Every slot is one title line box wide at most. "Math" and "Merit" set the
+   * reference (~5 characters); anything longer is set down proportionally so
+   * the reel never widens the title column or spills off the viewport.
+   */
+  const REF_CHARS = 5;
+  const slotScale = (word: string) => Math.min(1, REF_CHARS / word.length);
 </script>
 
 <script lang="ts">
@@ -67,7 +121,8 @@
   let cursor: HTMLElement;
   let merit: HTMLElement;
   let orWord: HTMLElement;
-  let math: HTMLElement;
+  let reel: HTMLElement;
+  let strip: HTMLElement;
   let qmark: HTMLElement;
   let hint: HTMLElement;
 
@@ -117,9 +172,34 @@
       // scale. The cursor keeps blinking through it: the CRT stays on.
       // '?' is its own arrival but shares Math's line box, so it holds its
       // space from the start and nothing shifts when it appears.
-      for (const [el, at] of [[merit, 'merit'], [orWord, 'or'], [math, 'math'], [qmark, 'qmark']] as const) {
+      for (const [el, at] of [[merit, 'merit'], [orWord, 'or'], [qmark, 'qmark']] as const) {
         tl.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: FADE, ease: 'none' }, at);
       }
+
+      // The reel. Position is an index into SLOTS, tweened rather than the
+      // transform itself, so the strip is always parked on a whole-slot
+      // multiple of its own measured height — no fractional-pixel drift
+      // between one slot and the next, at any font size.
+      const reelPos = { i: 0 };
+      const parkReel = () => {
+        strip.style.transform = `translateY(${-reelPos.i * reel.clientHeight}px)`;
+      };
+      parkReel();
+
+      // the window is empty until its turn: a word sitting under "or" through
+      // the earlier beats would give the ending away
+      tl.fromTo(reel, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25, ease: 'none' }, 'math');
+
+      // slow enough to read, then too fast to, then slow again — and it lands
+      // like a real reel: a hair past the detent, then pulled back onto it
+      const spin = (to: number, duration: number, ease: string) =>
+        tl.to(reelPos, { i: to, duration, ease, onUpdate: parkReel }, '>');
+
+      tl.addLabel('spin', 'math');
+      tl.to(reelPos, { i: 3, duration: SPIN * 0.25, ease: 'power2.in', onUpdate: parkReel }, 'spin');
+      spin(LAND - 4, SPIN * 0.4, 'none');
+      spin(LAND + 0.32, SPIN * 0.26, 'power2.out');
+      spin(LAND, SPIN * 0.09, 'power2.inOut');
 
       // scroll hint arrives last and stays — the page is done talking, your move
       tl.fromTo(hint, { autoAlpha: 0 }, { autoAlpha: 1, duration: FADE, ease: 'none' }, 'hint');
@@ -139,7 +219,18 @@
   <div class="title" aria-hidden="true">
     <p bind:this={merit} class="word merit">Merit</p>
     <p bind:this={orWord} class="word or">or</p>
-    <p class="word math"><span bind:this={math}>Math</span><span bind:this={qmark}>?</span></p>
+    <p class="word math">
+      <span bind:this={reel} class="reel"
+        ><span class="reel-sizer" aria-hidden="true">Math</span
+        ><span bind:this={strip} class="reel-strip">
+          {#each SLOTS as word}
+            <span class="reel-slot"
+              ><span style={`font-size:${slotScale(word).toFixed(3)}em;`}>{word}</span></span
+            >
+          {/each}
+        </span></span
+      ><span bind:this={qmark} class="qmark">?</span>
+    </p>
   </div>
 
   <div bind:this={hint} class="hint" aria-hidden="true">
@@ -245,9 +336,63 @@
   }
 
   /* '?' shares Math's line box and holds its width from the start, so its
-     arrival moves nothing. */
-  .math span {
-    visibility: inherit;
+     arrival moves nothing. The row is a flex line so the clipped reel window
+     and the '?' are the same height and start on the same edge — an
+     overflow-hidden inline box baselines on its bottom margin edge, which
+     would drop the '?' below the word it belongs to. */
+  .math {
+    display: flex;
+    align-items: stretch;
+  }
+
+  /* One slot tall, and it clips — this is the machine's window. It clips only
+     top and bottom (clip-path, not overflow): the window is exactly as wide as
+     "Math" so the '?' sits against the word it belongs to, and the longer
+     beliefs are free to run past that width while they spin. */
+  .reel {
+    position: relative;
+    display: block;
+    clip-path: inset(0 -100vw);
+    /* One slot, in TITLE ems — the slots themselves are set at their own
+       reduced sizes, so they must not measure their height in their own em or
+       a long word would make a short slot and the travel would go ragged. */
+    --slot-h: 1.2em;
+    block-size: var(--slot-h);
+  }
+
+  /* holds the window's width — "Math" and nothing else */
+  .reel-sizer {
+    display: block;
+    block-size: var(--slot-h);
+    visibility: hidden;
+  }
+
+  .reel-strip {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    display: block;
+    /* transform driven by the timeline; will-change keeps the fast middle of
+       the spin on its own layer instead of repainting the title each frame */
+    will-change: transform;
+  }
+
+  /* Every slot is one window tall REGARDLESS of how small its word is set, so
+     the strip's travel is a constant multiple of the window height and long
+     words do not shift the cadence. The slot itself therefore stays at the
+     title's size and only the word inside it is scaled down — a custom
+     property is substituted where it is USED, so `1.2em` on a shrunken slot
+     would have measured a shrunken slot. */
+  .reel-slot {
+    display: flex;
+    align-items: center;
+    block-size: var(--slot-h);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .qmark {
+    display: block;
   }
 
   .layout-stack .title,
