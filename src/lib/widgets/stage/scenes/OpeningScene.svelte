@@ -1,17 +1,43 @@
 <script lang="ts" module>
   import type { BeatSpec } from '../contract';
 
-  /** Time-driven (PinScene driver="time"): lengths are seconds. */
+  /**
+   * Time-driven (PinScene driver="time"): lengths are seconds.
+   *
+   * The whole opening is paced by two numbers, so it can be tuned without
+   * touching the choreography: PAUSE between arrivals, FADE for each arrival.
+   * BLINK_HOLD lets the cursor sit and blink before anything types, and TYPING
+   * is how long the headline takes to come out.
+   *
+   * Nothing here pins, so a reader who scrolls immediately just leaves it
+   * behind — the length is safe to be generous with.
+   */
+  const BLINK_HOLD = 2;
+  const TYPE_HEAD = 3.2;
+  const TYPE_SRC = 0.9;
+  const PAUSE = 1;
+  const FADE = 2;
+
   export const BEATS: readonly BeatSpec[] = [
-    { label: 'headline', length: 2.6 },
-    { label: 'isit', length: 0.55 },
-    { label: 'merit', length: 0.75 },
-    { label: 'or', length: 0.45 },
-    { label: 'math', length: 0.9 },
-    { label: 'hint', length: 0.9 },
+    // blink, type the headline, pause, type the source, pause
+    { label: 'headline', length: BLINK_HOLD + TYPE_HEAD + PAUSE + TYPE_SRC + PAUSE },
+    { label: 'merit', length: FADE + PAUSE },
+    { label: 'or', length: FADE + PAUSE },
+    { label: 'math', length: FADE + PAUSE },
+    { label: 'qmark', length: FADE + PAUSE },
+    { label: 'hint', length: FADE },
   ];
 
-  export type OpeningLayout = 'poles' | 'stack' | 'center';
+  /**
+   * Title arrangements, kept for the owner's pick.
+   * - stack  — one left-aligned column, the two M's on the same edge
+   * - center — a centred column
+   * - mono   — stack, set in the teletype's face: "Merit" and "Math?" are both
+   *            five characters, so in a monospace font they are exactly the
+   *            same width and the column edges line up on both sides
+   * - poles  — the original opposing thirds
+   */
+  export type OpeningLayout = 'stack' | 'center' | 'mono' | 'poles';
 
   /**
    * The dated hook (research/narrative-sources.md "Elon Musk trillionaire
@@ -33,73 +59,70 @@
     layout?: OpeningLayout;
   }
 
-  let { layout = 'poles' }: Props = $props();
+  let { layout = 'stack' }: Props = $props();
 
   const stage = getContext<StageContext | undefined>(STAGE_CONTEXT);
 
   let root: HTMLElement;
   let cursor: HTMLElement;
-  let isIt: HTMLElement;
   let merit: HTMLElement;
   let orWord: HTMLElement;
   let math: HTMLElement;
+  let qmark: HTMLElement;
   let hint: HTMLElement;
 
   const headlineChars = HEADLINE.split('');
   const sourceChars = SOURCE.split('');
-  const totalChars = headlineChars.length + 2 + sourceChars.length;
 
   onMount(() => {
     stage?.attach(BEATS, (tl) => {
       const chars = root.querySelectorAll<HTMLElement>('.tt-char');
 
-      // teletype: characters appear stepwise; the block cursor walks with them
-      // (position read live from the last revealed char, so line wraps are safe)
-      const typing = 2.1;
-      tl.fromTo(
-        chars,
-        { visibility: 'hidden' },
-        { visibility: 'visible', duration: 0.001, stagger: typing / totalChars },
-        'headline+=0.15',
-      );
-      const pos = { i: 0 };
-      tl.to(
-        pos,
-        {
-          i: totalChars - 1,
-          duration: typing,
-          ease: `steps(${totalChars - 1})`,
-          onUpdate: () => {
-            const c = chars[Math.min(Math.round(pos.i), chars.length - 1)];
-            if (c) cursor.style.transform = `translate(${c.offsetLeft + c.offsetWidth}px, ${c.offsetTop}px)`;
-          },
-        },
-        'headline+=0.15',
-      );
+      // teletype: the cursor blinks alone for BLINK_HOLD, then the headline
+      // types, then it sits blinking at the end of that line for a beat before
+      // the source types on the next line. The cursor position is read live
+      // from the last revealed character, so the line break needs no special
+      // casing.
+      const headChars = root.querySelectorAll<HTMLElement>('.tt-line .tt-char');
+      const srcChars = root.querySelectorAll<HTMLElement>('.tt-source .tt-char');
 
-      // the title arrives one word at a time; the cursor keeps blinking (CRT stays on)
-      tl.fromTo(
-        isIt,
-        { autoAlpha: 0, y: 18 },
-        { autoAlpha: 1, y: 0, duration: 0.5, ease: 'power2.out' },
-        'isit',
-      );
-      tl.fromTo(
-        merit,
-        { autoAlpha: 0, y: 26, scale: 0.97 },
-        { autoAlpha: 1, y: 0, scale: 1, duration: 0.65, ease: 'power2.out', transformOrigin: '0% 100%' },
-        'merit',
-      );
-      tl.fromTo(orWord, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, 'or');
-      tl.fromTo(
-        math,
-        { autoAlpha: 0, y: 26, scale: 0.97 },
-        { autoAlpha: 1, y: 0, scale: 1, duration: 0.7, ease: 'power2.out', transformOrigin: '0% 100%' },
-        'math',
-      );
+      const park = (c: HTMLElement | undefined) => {
+        if (c) cursor.style.transform = `translate(${c.offsetLeft + c.offsetWidth}px, ${c.offsetTop}px)`;
+      };
+
+      const type = (group: NodeListOf<HTMLElement>, span: number, at: number) => {
+        tl.fromTo(
+          group,
+          { visibility: 'hidden' },
+          { visibility: 'visible', duration: 0.001, stagger: span / group.length },
+          at,
+        );
+        const pos = { i: 0 };
+        tl.to(
+          pos,
+          {
+            i: group.length - 1,
+            duration: span,
+            ease: `steps(${Math.max(group.length - 1, 1)})`,
+            onUpdate: () => park(group[Math.min(Math.round(pos.i), group.length - 1)]),
+          },
+          at,
+        );
+      };
+
+      type(headChars, TYPE_HEAD, BLINK_HOLD);
+      type(srcChars, TYPE_SRC, BLINK_HOLD + TYPE_HEAD + PAUSE);
+
+      // The title arrives one word at a time, and ONLY fades — no rise, no
+      // scale. The cursor keeps blinking through it: the CRT stays on.
+      // '?' is its own arrival but shares Math's line box, so it holds its
+      // space from the start and nothing shifts when it appears.
+      for (const [el, at] of [[merit, 'merit'], [orWord, 'or'], [math, 'math'], [qmark, 'qmark']] as const) {
+        tl.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: FADE, ease: 'none' }, at);
+      }
 
       // scroll hint arrives last and stays — the page is done talking, your move
-      tl.fromTo(hint, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 'hint+=0.2');
+      tl.fromTo(hint, { autoAlpha: 0 }, { autoAlpha: 1, duration: FADE, ease: 'none' }, 'hint');
     });
   });
 </script>
@@ -107,17 +130,17 @@
 <div bind:this={root} class={`scene-art opening layout-${layout}`} aria-label="Opening title">
   <p class="teletype" aria-label={`${HEADLINE} ${SOURCE}`}>
     <span class="tt-line" aria-hidden="true">
-      {#each headlineChars as ch}<span class="tt-char">{ch}</span>{/each}<span class="tt-char">&nbsp;</span><span
-        class="tt-char">&nbsp;</span></span
+      {#each headlineChars as ch}<span class="tt-char">{ch}</span>{/each}</span
     ><a class="tt-source" href={SOURCE_URL} aria-label="Source: Reuters"
       >{#each sourceChars as ch}<span class="tt-char" aria-hidden="true">{ch}</span>{/each}</a
     ><span bind:this={cursor} class="tt-cursor" aria-hidden="true"></span>
   </p>
 
-  <p bind:this={isIt} class="word is-it" aria-hidden="true">Is it</p>
-  <p bind:this={merit} class="word merit" aria-hidden="true">Merit</p>
-  <p bind:this={orWord} class="word or" aria-hidden="true">or</p>
-  <p bind:this={math} class="word math" aria-hidden="true">Math?</p>
+  <div class="title" aria-hidden="true">
+    <p bind:this={merit} class="word merit">Merit</p>
+    <p bind:this={orWord} class="word or">or</p>
+    <p class="word math"><span bind:this={math}>Math</span><span bind:this={qmark}>?</span></p>
+  </div>
 
   <div bind:this={hint} class="hint" aria-hidden="true">
     <svg viewBox="0 0 24 24" width="26" height="26">
@@ -137,10 +160,24 @@
     inset-block-start: 7%;
     inset-inline-start: clamp(1rem, 8%, 6rem);
     margin: 0;
-    max-inline-size: 38rem;
+    /* fit-content so the block is exactly as wide as the headline line; the
+       source then aligns to the headline's far edge rather than to some
+       arbitrary column. text-align: end keeps that correct under RTL. */
+    inline-size: fit-content;
+    max-inline-size: min(38rem, 84vw);
     font-family: var(--font-mono);
-    font-size: clamp(0.85rem, 1.9vw, 1.15rem);
+    font-size: clamp(0.95rem, 2.2vw, 1.35rem);
     color: var(--ink);
+  }
+
+  /* headline on its line, source on the next, pushed to the opposite edge */
+  .tt-line {
+    display: block;
+  }
+
+  .tt-source {
+    display: block;
+    text-align: end;
   }
 
   /* chars hidden by the timeline at build, not by CSS — no-JS keeps the text */
@@ -170,102 +207,70 @@
     }
   }
 
-  /* words hidden by fromTo tweens at build, not CSS — no-JS keeps the title */
+  /* words hidden by fromTo tweens at build, not CSS — no-JS keeps the title.
+     NOT absolutely positioned: .title is the flex column that places them, and
+     an absolute child would drop out of it and stack them all at one point. */
   .word {
-    position: absolute;
     margin: 0;
     font-weight: 750;
     color: var(--ink-strong);
     letter-spacing: -0.045em;
-    line-height: 0.95;
+    /* Must not go below 1. A line-height under 1 makes the line box SHORTER
+       than the glyphs, so ascenders and descenders spill out and neighbouring
+       words collide — and box measurements still report a positive gap, which
+       hides it. This face's glyphs measure ~1.14em tall, so the line box has to
+       clear that before any gap is added. */
+    line-height: 1.2;
   }
 
-  .is-it,
-  .or {
-    font-size: clamp(1.35rem, 3.1vw, 2.2rem);
-    font-weight: 400;
-    font-style: italic;
-    letter-spacing: 0;
-    color: var(--ink-mid);
+  /* All three words are one size and one weight, so the O sits on the same
+     axis as the two M's and the column reads M-O-M. */
+  .merit,
+  .or,
+  .math {
+    font-size: clamp(4rem, 13vw, 10rem);
   }
 
   .or {
     color: var(--accent);
   }
 
-  .merit,
-  .math {
-    font-size: clamp(3.4rem, 10.5vw, 8rem);
+  /* One column: a shared inline edge and an even gap between all three, at any
+     size. Percentage tops per word could not hold both. */
+  .title {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 0.04em;
   }
 
-  /* ---- variant: poles — the two nouns anchor opposing thirds ---- */
-
-  .layout-poles .is-it {
-    inset-block-start: 29%;
-    inset-inline-start: 15%;
+  /* '?' shares Math's line box and holds its width from the start, so its
+     arrival moves nothing. */
+  .math span {
+    visibility: inherit;
   }
 
-  .layout-poles .merit {
-    inset-block-start: 33%;
-    inset-inline-start: 15%;
+  .layout-stack .title,
+  .layout-mono .title,
+  .layout-poles .title {
+    inset-block-start: 16%;
+    inset-inline-start: 12%;
+    align-items: start;
   }
 
-  /* "or" sits on Math?'s left edge exactly as "Is it" sits on Merit's —
-     both anchored inline-start so the pattern holds at every width. */
-  .layout-poles .or {
-    inset-block-start: 56%;
-    inset-inline-start: 46%;
+  .layout-center .title {
+    inset-block-start: 16%;
+    inset-inline: 0;
+    align-items: center;
   }
 
-  .layout-poles .math {
-    inset-block-start: 60%;
-    inset-inline-start: 46%;
-  }
-
-  /* ---- variant: stack — one left-aligned poster column ---- */
-
-  .layout-stack .is-it {
-    inset-block-start: 27%;
-    inset-inline-start: 15%;
-  }
-
-  .layout-stack .merit {
-    inset-block-start: 31%;
-    inset-inline-start: 15%;
-  }
-
-  .layout-stack .or {
-    inset-block-start: 53%;
-    inset-inline-start: 16%;
-  }
-
-  .layout-stack .math {
-    inset-block-start: 58%;
-    inset-inline-start: 15%;
-  }
+  /* ---- variant: mono — five characters each, so the column is flush both
+     sides and the title shares the teletype's face ---- */
 
   /* ---- variant: center — a centered column ---- */
 
-  .layout-center .word {
-    inset-inline: 0;
-    text-align: center;
-  }
 
-  .layout-center .is-it {
-    inset-block-start: 26%;
-  }
 
-  .layout-center .merit {
-    inset-block-start: 31%;
-  }
-
-  .layout-center .or {
-    inset-block-start: 54%;
-  }
-
-  .layout-center .math {
-    inset-block-start: 59%;
-  }
 
   .hint {
     position: absolute;
