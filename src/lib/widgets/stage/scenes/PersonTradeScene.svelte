@@ -230,6 +230,20 @@
         tl.to(plates[i - 1], { autoAlpha: 0, duration: SWITCH, ease: 'steps(1)' }, at);
       });
 
+      // gsap owns the transform origin for the two traders, set once here
+      // rather than left to CSS. `transform-box: fill-box` is not reliably
+      // honoured by gsap's matrix path (the lesson the stage notes already
+      // record), and the symptom was specific: they scaled about their bounding
+      // box corner, so they drifted up and left as they shrank through the ante
+      // and the flips instead of staying put.
+      //
+      // Only these two. The crowd's shapes must NOT be given a percentage
+      // origin: '50% 50%' is the bounding box centre, which for a triangle or a
+      // pentagon is not the centroid the path is drawn around, so it displaces
+      // them off their ring slots. They only ever scale on their entrance and
+      // finish at 1, so the origin never shows.
+      tl.set([agentA, agentB], { transformOrigin: '50% 50%' }, 0);
+
       // The circle spends the whole reduction parked at HOME, wearing the size
       // it will have as the leftover. It only takes its seat at 'slide'.
       tl.set(groupA, { x: HOME.x, y: HOME.y }, 0);
@@ -472,11 +486,12 @@
     max-block-size: calc(68svh * 300 / 280);
   }
 
+  /* No transform-box/transform-origin here: gsap sets the origin explicitly in
+     the timeline, and leaving a CSS one in place is what made the agents scale
+     about their corner. */
   .agent {
     stroke-width: 1.8;
     fill-opacity: 0.75;
-    transform-box: fill-box;
-    transform-origin: center;
   }
 
   .ante {
