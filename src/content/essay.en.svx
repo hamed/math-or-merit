@@ -4,8 +4,7 @@
   import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
   import BeliefCloudScene from '$lib/widgets/stage/scenes/BeliefCloudScene.svelte';
   import CowCastScene from '$lib/widgets/stage/scenes/CowCastScene.svelte';
-  import PersonCastScene from '$lib/widgets/stage/scenes/PersonCastScene.svelte';
-  import TradeScene from '$lib/widgets/stage/scenes/TradeScene.svelte';
+  import PersonTradeScene from '$lib/widgets/stage/scenes/PersonTradeScene.svelte';
   import ClosingScene from '$lib/widgets/stage/scenes/ClosingScene.svelte';
   import Prediction from '$lib/widgets/predict/Prediction.svelte';
   import RevealRun from '$lib/widgets/reveal/RevealRun.svelte';
@@ -105,35 +104,41 @@ Same trick. New subject.
   not going to explain how he got it"); brief §4. Logged in notes/draft-decisions.md (D5).
 -->
 <!--
+  BUILD NOTE (2026-08-25, R15 per owner): the reduction and the first trade are ONE
+  pinned scene (PersonTradeScene), not two. As two sections the first unpinned and
+  scrolled off the top while the second scrolled up from the bottom, so the circle left
+  the screen and an identical one arrived — a swap the reader notices and learns nothing
+  from. Merged, there is one timeline and one circle ELEMENT: the person reduces onto it,
+  it becomes money and back, then it slides aside and a second circle walks in from the
+  right. Trader A is not a redraw of the person's circle, it IS that circle. Beat indices
+  refer to PersonTradeScene.BEATS; beat 6 ('slide') carries no caption on purpose.
+
+  M4 note, still true: OneTrade + ScriptedRounds are one scrub-reversible teaching
+  sequence. Numbers come from the real trade rule with authored outcomes only (presets.ts
+  honesty note). The two-sided coin wears the traders' fill colors: no heads/tails to
+  remember, the color that lands wins (storyboard p5–6).
+-->
+<!--
   REMARK(reduction line): authored, crude, UNATTRIBUTED; "money" not "net worth" (jargon).
   See notes/draft-decisions.md D6. The area-honesty lesson rides the 'coins' beat caption.
   TEST(Study A, reader-study.md): can readers rank circles and judge rough ratios from
   area alone? Revisit if area is misread as radius.
 -->
 <PinScene>
-  <PersonCastScene />
+  <PersonTradeScene />
   <Caption beat={0}>Take the most-photographed fortune on earth. We won't explain how he got it — we'll do to him exactly what the physicist did to the cow.</Caption>
   <Caption beat={1}>Throw away the companies, the timing, the inheritance, the talent, the luck — every argument about whether any of it was earned.</Caption>
   <Caption beat={2}>Keep going. Take the face too.</Caption>
   <Caption beat={3}>What is left is almost offensively small.</Caption>
   <Caption beat={4}><strong>You are your money.</strong> The area is the fortune: twice as wide, four times as rich.</Caption>
   <Caption beat={5}>I want that to feel wrong. The wrongness is the point. We are building the smallest possible room — a person is a number, nothing else.</Caption>
+  <Caption beat={7}>Someone new walks in — noticeably poorer.</Caption>
+  <Caption beat={8}>The rule: both stake the <em>same</em> amount. Say, half of whatever the <em>poorer</em> one owns. One coin each, on the table.</Caption>
+  <Caption beat={9}>Then a two-sided coin, one side each. Whichever color lands takes both coins. Nothing else decides — not size, not who "deserves" it.</Caption>
+  <Caption beat={10}>A win, a loss — and everyone is roughly where they started. The winner took exactly what the loser lost. No money made, none destroyed. That is the whole game, and it is fair.</Caption>
+  <Caption beat={11}>Hold on to that feeling. It is about to betray you.</Caption>
 </PinScene>
 
-<!--
-  BUILD NOTE (2026-07-06, M4): OneTrade + ScriptedRounds merged into TradeScene — one
-  scrub-reversible teaching sequence. Numbers still come from the real trade rule with
-  authored outcomes only (presets.ts honesty note). Two-sided coin wears the traders'
-  fill colors: no heads/tails to remember, the color that lands wins (storyboard p5–6).
--->
-<PinScene>
-  <TradeScene />
-  <Caption beat={0}>Someone new walks in — noticeably poorer.</Caption>
-  <Caption beat={1}>The rule: both stake the <em>same</em> amount. Say, half of whatever the <em>poorer</em> one owns. One coin each, on the table.</Caption>
-  <Caption beat={2}>Then a two-sided coin, one side each. Whichever color lands takes both coins. Nothing else decides — not size, not who "deserves" it.</Caption>
-  <Caption beat={3}>A win, a loss — and everyone is roughly where they started. The winner took exactly what the loser lost. No money made, none destroyed. That is the whole game, and it is fair.</Caption>
-  <Caption beat={4}>Hold on to that feeling. It is about to betray you.</Caption>
-</PinScene>
 
 ## Your turn to guess
 

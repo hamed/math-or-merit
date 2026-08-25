@@ -3,8 +3,7 @@ import { validateBeats, type BeatSpec } from './contract';
 import { BEATS as CAST_BEATS, FRAMES as CAST_FRAMES } from './scenes/CowCastScene.svelte';
 import { BEATS as OPENING_BEATS } from './scenes/OpeningScene.svelte';
 import { BEATS as BELIEF_BEATS } from './scenes/BeliefCloudScene.svelte';
-import { BEATS as PERSON_CAST_BEATS, PLATES as PERSON_PLATES } from './scenes/PersonCastScene.svelte';
-import { BEATS as TRADE_BEATS } from './scenes/TradeScene.svelte';
+import { BEATS as ROOM_BEATS, PLATES as ROOM_PLATES } from './scenes/PersonTradeScene.svelte';
 import { BEATS as CLOSING_BEATS } from './scenes/ClosingScene.svelte';
 
 /** Every scene's beat table, checked at data level (no DOM mounting). */
@@ -12,8 +11,7 @@ const SCENES: Record<string, readonly BeatSpec[]> = {
   CowCastScene: CAST_BEATS,
   OpeningScene: OPENING_BEATS,
   BeliefCloudScene: BELIEF_BEATS,
-  PersonCastScene: PERSON_CAST_BEATS,
-  TradeScene: TRADE_BEATS,
+  PersonTradeScene: ROOM_BEATS,
   ClosingScene: CLOSING_BEATS,
 };
 
@@ -51,27 +49,27 @@ describe('CowCastScene frames', () => {
   });
 });
 
-describe('PersonCastScene plates', () => {
-  const labels = new Set(PERSON_CAST_BEATS.map((b) => b.label));
+describe('PersonTradeScene plates', () => {
+  const labels = new Set(ROOM_BEATS.map((b) => b.label));
 
   it('every plate lands on a beat that exists', () => {
-    for (const plate of PERSON_PLATES) {
+    for (const plate of ROOM_PLATES) {
       expect(labels.has(plate.beat), `no beat "${plate.beat}"`).toBe(true);
     }
   });
 
   it('plates are in beat order', () => {
-    const order = PERSON_CAST_BEATS.map((b) => b.label);
-    const positions = PERSON_PLATES.map((p) => order.indexOf(p.beat));
+    const order = ROOM_BEATS.map((b) => b.label);
+    const positions = ROOM_PLATES.map((p) => order.indexOf(p.beat));
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
   });
 
   it('every plate has a distinct source', () => {
-    expect(new Set(PERSON_PLATES.map((p) => p.src)).size).toBe(PERSON_PLATES.length);
+    expect(new Set(ROOM_PLATES.map((p) => p.src)).size).toBe(ROOM_PLATES.length);
   });
 
-  it('ends on the circle beat, which hands over to SPHERE', () => {
-    expect(PERSON_PLATES[PERSON_PLATES.length - 1].beat).toBe('circle');
+  it('ends on the circle beat, where the plates hand over to the circle', () => {
+    expect(ROOM_PLATES[ROOM_PLATES.length - 1].beat).toBe('circle');
   });
 });
 
