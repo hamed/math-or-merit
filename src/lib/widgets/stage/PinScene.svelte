@@ -45,9 +45,46 @@
     },
   });
 
+  /**
+   * Put --picture-bottom where the ART actually ends.
+   *
+   * It used to be a fixed 76svh guess, and the caption hung off that. Two
+   * things push the real ink well above it: the plates carry a transparent
+   * margin, and the vector scenes draw sparse art inside a taller viewBox. The
+   * gap that opened up made picture and words read as two separate things.
+   *
+   * So each scene declares how far down its own box the art reaches
+   * (--art-bottom, a fraction, default 1) and this measures the box. One line
+   * of air below that is all the caption gets.
+   */
+  let lastBottom = -1;
+
+  const placeCaptions = () => {
+    const art = root?.querySelector<SVGSVGElement>('.scene-art svg');
+    if (!art) return;
+    // A scene whose art moves between beats can retune this as it goes; most
+    // just declare it once in their CSS.
+    const fraction = Number(getComputedStyle(art).getPropertyValue('--art-bottom')) || 1;
+    const box = art.getBoundingClientRect();
+    const top = box.top - root.getBoundingClientRect().top;
+    const bottom = Math.round(top + box.height * fraction);
+    if (bottom === lastBottom) return;
+    lastBottom = bottom;
+    root.style.setProperty('--picture-bottom', `${bottom}px`);
+  };
+
   onMount(() => {
     if (!build || beats.length === 0) return;
     reduced = !motionOk();
+
+    placeCaptions();
+    const resize = new ResizeObserver(placeCaptions);
+    resize.observe(root);
+    // Layout at mount is not the layout the reader gets: the scene has not been
+    // pinned yet and the display face may still be swapping in. Every refresh
+    // re-measures, which is also what a rotate or a resize goes through.
+    ScrollTrigger.addEventListener('refresh', placeCaptions);
+    document.fonts?.ready.then(placeCaptions);
 
     if (!fontsRefreshHooked) {
       fontsRefreshHooked = true;
@@ -64,7 +101,7 @@
     let observer: IntersectionObserver | undefined;
 
     const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ paused: true });
+      const tl = gsap.timeline({ paused: true, onUpdate: placeCaptions });
       beats.forEach((b, i) => tl.addLabel(b.label, starts[i]));
       build!(tl);
       // Pad so every beat owns its full scroll span even if its tweens end early.
@@ -139,6 +176,8 @@
 
     return () => {
       observer?.disconnect();
+      resize.disconnect();
+      ScrollTrigger.removeEventListener('refresh', placeCaptions);
       ctx.revert();
     };
   });
@@ -161,10 +200,11 @@
     overflow: visible;
   }
 
-  /* Where the illustrated stages put the bottom edge of their picture. The
-     caption hangs off the same number, so the two cannot drift apart. */
+  /* Fallback only: measured at mount from the scene's own art (see
+     placeCaptions). The caption hangs off the same number, so the two cannot
+     drift apart. */
   .pin-scene {
-    --picture-bottom: 76svh;
+    --picture-bottom: 68svh;
   }
 
   /* The scene's art layer fills the pinned viewport; scenes mark their root. */
@@ -220,9 +260,11 @@
      edge IS the picture's bottom edge. The room stage carries sparse vector art
      centred in its viewBox — anchoring that frame would strand a small circle
      high above the words. */
-  .pin-scene :global(.cast-stage) ~ :global(.stage-caption) {
+  /* One empty line between the picture and the words. Not a gap made of
+     leftover space — the picture's own bottom edge plus one line. */
+  .pin-scene :global(.scene-art) ~ :global(.stage-caption) {
     inset-block-end: auto;
-    inset-block-start: calc(var(--picture-bottom) + 1.1rem);
+    inset-block-start: calc(var(--picture-bottom) + 1lh);
   }
 
   /* Picture and words have to be readable as one thing. Centring the picture in
@@ -232,7 +274,7 @@
      fixed slice of the viewport, so it holds at every size. */
   .pin-scene :global(.cast-stage) {
     align-items: end;
-    padding-block-end: calc(100svh - var(--picture-bottom));
+    padding-block-end: 22svh;
   }
 
   /* Display captions: title-sized, mid-stage — for lines that ARE the beat. */

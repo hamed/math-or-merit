@@ -185,6 +185,7 @@
   let groupB: SVGGElement;
   let coinA: SVGGElement;
   let coinB: SVGGElement;
+  let svgEl: SVGSVGElement;
   let flipG: SVGGElement;
   /** The squashing group; the two sides live inside it. */
   let flipFace: SVGGElement;
@@ -399,6 +400,11 @@
       tl.to(flipG, { autoAlpha: 0, y: FLIP.y - 10, duration: 0.25 }, 'fair');
       tl.to([agentA, agentB], { scale: 1, duration: 0.35 }, 'fair+=0.1');
 
+      // The ring reaches far lower in the frame than the two traders did, so
+      // the caption's anchor moves with it instead of being overrun.
+      tl.set(svgEl, { '--art-bottom': 0.95 }, 'crowd');
+      tl.set(svgEl, { '--art-bottom': 0.72 }, 'fair');
+
       // crowd — the pair joins the ring; the room fills with styled agents
       tl.to(agentA, { scale: CROWD_R / R_A, duration: 0.5, ease: 'power2.inOut' }, 'crowd');
       tl.to(agentB, { scale: CROWD_R / R_B, duration: 0.5, ease: 'power2.inOut' }, 'crowd');
@@ -419,7 +425,7 @@
   class="scene-art room-stage"
   aria-label="A person simplified step by step to a circle, which becomes money, then takes a seat as a second circle joins it to trade; finally the room fills"
 >
-  <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} role="img">
+  <svg bind:this={svgEl} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} role="img">
     {#each PLATES as plate, i}
       <image
         bind:this={plates[i]}
@@ -505,6 +511,12 @@
 
      Doubled-up selector for the specificity reason documented in CowCastScene. */
   .scene-art.room-stage svg {
+    /* Sparse vector art inside a 480x300 box: nothing is drawn in the bottom
+       tenth, so the caption would sit a whole empty band away. */
+    /* Where the drawing actually ends, as a fraction of this box. The trade
+       beats use the middle of the frame; the ring at the end reaches much
+       lower, so the timeline retunes this for that beat (below). */
+    --art-bottom: 0.72;
     inline-size: min(94vw, 62rem);
     max-block-size: calc(68svh * 300 / 280);
   }

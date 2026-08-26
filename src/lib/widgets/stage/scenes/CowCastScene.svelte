@@ -245,6 +245,10 @@
      decides, so the override silently did nothing. Naming both classes wins. */
   .scene-art.cast-stage svg {
     inline-size: min(94vw, 62rem);
+
+    /* The plates carry a transparent margin (art/cast-scene/process.sh MARGIN),
+       so the ink stops short of the box. The caption hangs off the INK. */
+    --art-bottom: 0.81;
   }
 
   /* The lines sit exactly where the picture was, stacked in reading order and
