@@ -46,10 +46,12 @@ Education · Grit · Class · Timing · Race · Charisma · God's will · Genes 
 > a physicist, then the cow as a sphere, then in a vacuum, then a football
 > pitch.
 
-[cow.bridge] So let me tell you a story.
+[cow.bridge] Math.
+[cow.bridge2] Let me show you what I mean by that.
 
-> PLACEHOLDER — the sentence (or few) that carries the reader from the title
-> into the fable. Big, alone, empty stage. Replace the words; the beat stays.
+> the reel has just stopped on Math. Long pause, then the answer lands a second
+> time — big, alone, empty stage — and the second line, quieter, buys the joke
+> that follows.
 
 [cow.once] Once upon a time, a farmer's cow stopped giving milk.
 

@@ -57,10 +57,20 @@
    * words ARE the picture — the pause after three useless answers, and the
    * sentence about models, which is not about anything that can be drawn.
    */
-  export const STAGE_TEXT: readonly { text: string; beat: string; until: string }[] = [
-    // PLACEHOLDER (owner, 2026-08-26): the sentence that carries the reader
-    // from the title into the fable. Replace the words; the beat stays.
-    { text: 'So let me tell you a story.', beat: 'bridge', until: 'once-upon' },
+  export const STAGE_TEXT: readonly {
+    text: string;
+    beat: string;
+    until: string;
+    /** Set the line at title scale — for a line that IS the answer, not prose. */
+    big?: boolean;
+  }[] = [
+    // The bridge from the title (owner's pick, 2026-08-26). The reel has just
+    // stopped on "Math" and the reader is holding a question with no reason yet
+    // to believe it. So the answer lands a second time, alone, and then the
+    // essay says plainly that it is about to explain itself — which buys the
+    // next ninety seconds, which are a joke about a cow.
+    { text: 'Math.', beat: 'bridge', until: 'once-upon', big: true },
+    { text: 'Let me show you what I mean by that.', beat: 'bridge', until: 'once-upon' },
     { text: 'Then silence,', beat: 'silence-1', until: 'physicist' },
     { text: 'More silence,', beat: 'silence-2', until: 'physicist' },
     { text: 'Even more silence.', beat: 'silence-3', until: 'physicist' },
@@ -208,11 +218,12 @@
         if (!el) return;
         // Lines sharing a beat come in one after another, a breath apart.
         const nth = STAGE_TEXT.slice(0, i).filter((t) => t.beat === line.beat).length;
+        // a beat that opens on one big word gives it room before the next line
         tl.fromTo(
           el,
           { autoAlpha: 0, y: 12 },
           { autoAlpha: 1, y: 0, duration: 0.3, ease: 'none' },
-          `${line.beat}+=${(0.05 + nth * 0.35).toFixed(2)}`,
+          `${line.beat}+=${(0.05 + nth * (line.big ? 0.35 : 0.5)).toFixed(2)}`,
         );
         tl.to(el, { autoAlpha: 0, duration: 0.25, ease: 'none' }, `${line.until}-=0.25`);
       });
@@ -265,7 +276,15 @@
     <div class="stage-text" aria-hidden="true">
       {#each card.lines as text}
         {@const i = STAGE_TEXT.findIndex((t) => t.text === text)}
-        <p bind:this={lines[i]} class:long={text.length > 48}>{text}</p>
+        {@const line = STAGE_TEXT[i]}
+        <p
+          bind:this={lines[i]}
+          class:long={text.length > 48}
+          class:big={line.big}
+          class:sub={!line.big && card.lines.some((t) => STAGE_TEXT.find((x) => x.text === t)?.big)}
+        >
+          {text}
+        </p>
       {/each}
     </div>
   {/each}
@@ -313,6 +332,25 @@
     letter-spacing: -0.02em;
     line-height: 1.2;
     color: var(--ink-strong);
+  }
+
+  /* The title's own scale, for a line that is an answer rather than a
+     sentence. It should read as the same voice the reel landed in. */
+  .stage-text p.big {
+    font-size: clamp(3rem, 9vw, 6.5rem);
+    letter-spacing: -0.045em;
+    margin-block-end: 0.25em;
+  }
+
+  /* The line that follows a big one is the aside, not the answer: it steps
+     down, lightens, and stays on one line. */
+  .stage-text p.sub {
+    max-inline-size: 30ch;
+    font-size: clamp(1.15rem, 2.6vw, 1.6rem);
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.5;
+    color: var(--ink-mid);
   }
 
   /* A whole sentence cannot be set at title size and still be read in one
