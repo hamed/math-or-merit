@@ -245,19 +245,20 @@ a:hover {
 /* ---------- shared widget chrome ---------- */
 
 /* Frameless yield sections: content on bare paper.
-   Short of a full viewport ON PURPOSE — the heading and lead-in that introduce
-   a widget sit above it in normal flow, and at 100svh they were pushed off the
-   screen, leaving a dead gap between the words and the thing they describe. */
+   A widget is as tall as what it draws, and no taller. It used to reserve most
+   of a viewport whether it needed it or not, which centred a 200px control
+   panel inside a 700px box — so the words that introduce it were a screen away
+   from the thing they describe. The lead-in and the widget belong to each
+   other; they should be readable in one look. */
 .widget {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   max-inline-size: 52rem;
-  min-block-size: 78svh;
   scroll-snap-align: center;
-  margin-block: 0.25rem;
+  margin-block: clamp(0.75rem, 2vw, 1.5rem);
   margin-inline: auto;
-  padding-block: clamp(1rem, 3vw, 1.5rem);
+  padding-block: clamp(0.5rem, 1.5vw, 1rem);
   font-family: var(--font-sans);
 }
 

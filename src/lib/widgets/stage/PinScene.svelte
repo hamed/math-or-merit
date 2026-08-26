@@ -252,8 +252,11 @@
     padding-block-end: 16svh;
   }
 
+  /* Never wider than the column it sits in: the pinned scene clips its own
+     overflow, so a stage that asks for more than the essay's width simply
+     loses its edges — which is exactly how the ring lost its outer shapes. */
   .pin-scene :global(.scene-art svg) {
-    inline-size: min(92vw, 54rem);
+    inline-size: min(100%, 54rem);
     max-block-size: 68svh;
   }
 
@@ -310,6 +313,17 @@
   .pin-scene :global(.cast-stage) {
     align-items: end;
     padding-block-end: 22svh;
+  }
+
+  /* A line that has to land like a verdict but still belongs to the picture
+     above it: bigger and heavier, in the same slot under the art. */
+  .pin-scene :global(.stage-caption--big) {
+    max-inline-size: 44rem;
+    font-size: clamp(1.7rem, 4vw, 2.8rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    color: var(--ink-strong);
   }
 
   /* Display captions: title-sized, mid-stage — for lines that ARE the beat. */

@@ -34,9 +34,9 @@
     { label: 'person', length: 1.1, artBottom: 0.97 },
     { label: 'face', length: 0.9, artBottom: 0.97 },
     { label: 'strip', length: 1.6, artBottom: 0.97 },
-    { label: 'circle', length: 0.9, artBottom: 0.97 },
-    { label: 'coins', length: 1.2, artBottom: 0.8 },
-    { label: 'one', length: 1, artBottom: 0.8 },
+    { label: 'circle', length: 0.9, artBottom: 0.78 },
+    { label: 'coins', length: 1.2, artBottom: 0.75 },
+    { label: 'one', length: 1, artBottom: 0.75 },
     { label: 'slide', length: 0.9, artBottom: 0.78 },
     { label: 'meet', length: 1, artBottom: 0.78 },
     { label: 'ante-1', length: 1.0 },
@@ -198,9 +198,6 @@
     ({ slot }) => slot !== A_SLOT && slot !== B_SLOT,
   );
 
-  /** Panel switch width. See CowCastScene for why this is a cut, not a fade. */
-  const SWITCH = 0.05;
-
   /** The leftover circle's colour before it becomes an agent. */
   const NEUTRAL = { fill: '#f6ead2', stroke: '#3c352b' };
 
@@ -270,18 +267,21 @@
         return (stripSeen * stripSpan) / stripCount;
       };
 
+      // One plate visible at a time, forward or backward, at any scrub speed:
+      // a SHOW and a HIDE at absolute positions rather than a pair of
+      // overlapping fades. The last plate is left alone — it does not cut out,
+      // it shrinks onto the circle below and hands over.
+      const showAt: number[] = [];
+      PLATES.forEach((plate, i) => {
+        showAt[i] = startOf.get(plate.beat)! + offsetFor(plate.beat);
+      });
+
       PLATES.forEach((plate, i) => {
         const el = plates[i];
         if (!el) return;
-
-        if (i === 0) {
-          tl.fromTo(el, { autoAlpha: 1 }, { autoAlpha: 1, duration: 0.01 }, startOf.get('person'));
-          return;
-        }
-
-        const at = startOf.get(plate.beat)! + offsetFor(plate.beat) - SWITCH * 0.5;
-        tl.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: SWITCH, ease: 'steps(1)' }, at);
-        tl.to(plates[i - 1], { autoAlpha: 0, duration: SWITCH, ease: 'steps(1)' }, at);
+        tl.set(el, { autoAlpha: 0 }, 0);
+        tl.set(el, { autoAlpha: 1 }, showAt[i]);
+        if (i + 1 < PLATES.length) tl.set(el, { autoAlpha: 0 }, showAt[i + 1]);
       });
 
       // gsap owns the transform origin for the two traders, set once here
@@ -592,7 +592,7 @@
        beats use the middle of the frame; the ring at the end reaches much
        lower, so the timeline retunes this for that beat (below). */
     --art-bottom: 0.72;
-    inline-size: min(94vw, 62rem);
+    inline-size: min(100%, 62rem);
     max-block-size: calc(68svh * 300 / 280);
   }
 

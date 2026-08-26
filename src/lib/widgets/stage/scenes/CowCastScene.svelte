@@ -124,19 +124,6 @@
 
   const stage = getContext<StageContext | undefined>(STAGE_CONTEXT);
 
-  /**
-   * Panel switch width, in beat-length units.
-   *
-   * These plates are keyed to transparent ink, so a real cross-dissolve cannot
-   * work: with no opaque backdrop to hide behind, both casts show at once and
-   * the overlap reads as a double exposure — two Darwins, two cows — while the
-   * ink washes out to half strength. The cast also rearranges between panels,
-   * so there is no continuous motion for a dissolve to smooth. They are comic
-   * panels, and the native grammar for those is a cut. This is kept just wide
-   * enough that a scrub does not flicker.
-   */
-  const SWITCH = 0.05;
-
   /** How far the closing push drives into the pitch. */
   const PUSH = 2.1;
 
@@ -181,32 +168,40 @@
 
   onMount(() => {
     stage?.attach(BEATS, (tl) => {
+      // Exactly one plate is visible at any moment, forward or backward, at any
+      // scrub speed. Each plate gets a SHOW and a HIDE at absolute positions —
+      // zero-duration sets, not a pair of overlapping fades — because a cut is
+      // the native grammar for comic panels and because anything with a window
+      // can be parked inside, which is what a scrubbed timeline invites. (These
+      // plates are keyed to transparent ink, so a cross-dissolve would show two
+      // casts at once and wash both to half strength; that is not a style
+      // choice we are giving up, it is one that never worked.)
+      const startOf = new Map<string, number>();
+      {
+        let t = 0;
+        for (const beat of BEATS) {
+          startOf.set(beat.label, t);
+          t += beat.length;
+        }
+      }
+
       FRAMES.forEach((frame, i) => {
         const el = plates[i];
         if (!el) return;
 
-        // steps(1) is doing real work here: it holds each plate's alpha at 0 or
-        // 1 and flips it at the end of the window, so no scroll position can
-        // land mid-blend. A linear fade this short still ghosts if the reader
-        // parks inside it, which is exactly what a scrubbed timeline lets them
-        // do. Both tweens share a position, so the panels swap on one frame.
-        const at = `${frame.beat}-=${SWITCH * 0.5}`;
-        tl.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: SWITCH, ease: 'steps(1)' }, at);
+        const show = startOf.get(frame.beat)!;
+        // it leaves when it says so, else when the next plate arrives, else at
+        // the end of the scene
+        const next = FRAMES[i + 1];
+        const hide = frame.until
+          ? startOf.get(frame.until)!
+          : next
+            ? startOf.get(next.beat)!
+            : Number.POSITIVE_INFINITY;
 
-        const previous = plates[i - 1];
-        if (previous) {
-          tl.to(previous, { autoAlpha: 0, duration: SWITCH, ease: 'steps(1)' }, at);
-        }
-
-        // A plate that has to leave BEFORE the next one arrives says so itself;
-        // otherwise every plate simply holds until it is cut over.
-        if (frame.until) {
-          tl.to(
-            el,
-            { autoAlpha: 0, duration: SWITCH, ease: 'steps(1)' },
-            `${frame.until}-=${SWITCH * 0.5}`,
-          );
-        }
+        tl.set(el, { autoAlpha: 0 }, 0);
+        tl.set(el, { autoAlpha: 1 }, show);
+        if (Number.isFinite(hide)) tl.set(el, { autoAlpha: 0 }, hide);
       });
 
       // Each line arrives on its own beat and STAYS, so lines sharing a card
@@ -303,7 +298,7 @@
      `.pin-scene :global(.scene-art svg)` on specificity — and source order then
      decides, so the override silently did nothing. Naming both classes wins. */
   .scene-art.cast-stage svg {
-    inline-size: min(94vw, 62rem);
+    inline-size: min(100%, 62rem);
 
     /* The plates carry a transparent margin (art/cast-scene/process.sh MARGIN),
        so the ink stops short of the box. The caption hangs off the INK. */

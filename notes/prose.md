@@ -122,6 +122,9 @@ same.
 
 [human.5] You are your money and nothing else.
 
+> big, but still under the circle — a verdict about the picture, not a card
+> replacing it.
+
 [human.7] Someone new walks in, with exactly as much.
 
 > they start EQUAL. The game is what makes one of them poorer, and the rule is

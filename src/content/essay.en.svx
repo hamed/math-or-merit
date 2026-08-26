@@ -134,7 +134,7 @@ Same trick. New subject.
   <Caption beat={2}>We throw away all the details.</Caption>
   <Caption beat={3}>Until we are left with nothing but a circle.</Caption>
   <Caption beat={4}>The area is his wealth.</Caption>
-  <Caption beat={5}>You are your money and nothing else.</Caption>
+  <Caption beat={5} big>You are your money and nothing else.</Caption>
   <Caption beat={7}>Someone new walks in, with exactly as much.</Caption>
   <Caption beat={8}>Both put up half of what they have.</Caption>
   <Caption beat={9}>They toss the coin — one color on each side.</Caption>
