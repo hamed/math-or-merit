@@ -30,8 +30,10 @@
     // The picture leaves again for the lesson itself — the sentence about
     // models is not about anything you can draw.
     { label: 'model', length: 1.4 },
-    { label: 'football', length: 1.4 },
-    { label: 'moral', length: 1.4 },
+    // The pitch is full-bleed and then pushed into, so its ink runs to the
+    // edge of the frame — the studio plates' transparent margin is not there.
+    { label: 'football', length: 1.4, artBottom: 1 },
+    { label: 'moral', length: 1.4, artBottom: 1 },
   ];
 
   export interface CastFrame {

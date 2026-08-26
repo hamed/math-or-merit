@@ -24,6 +24,9 @@
   let { pace = 0.85, driver = 'scroll', children }: Props = $props();
 
   let root: HTMLElement;
+
+  /** How much of the scene's height is kept below the caption, always. */
+  const CAPTION_FLOOR = 0.18;
   let beats: readonly BeatSpec[] = [];
   let build: ((tl: StageTimeline) => void) | null = null;
   const captions: { el: HTMLElement; beat: number }[] = [];
@@ -67,9 +70,27 @@
     // Per-beat if the scene said so, otherwise the one number in its CSS.
     const declared = Number(getComputedStyle(art).getPropertyValue('--art-bottom')) || 1;
     const fraction = beatArtBottom ?? declared;
+    const rootBox = root.getBoundingClientRect();
     const box = art.getBoundingClientRect();
-    const top = box.top - root.getBoundingClientRect().top;
-    const bottom = Math.round(top + box.height * fraction);
+    const top = box.top - rootBox.top;
+
+    // The caption follows the picture, but it may not follow it off the screen:
+    // a scene that pushes into its own art (the football zoom) grows the
+    // picture past the bottom of the viewport, and the words still have to be
+    // somewhere a reader can see them.
+    const floor = rootBox.height - CAPTION_FLOOR * rootBox.height;
+    const bottom = Math.round(Math.min(top + box.height * fraction, floor));
+
+    // Whether the picture is UNDER the words at that point. When it is, the
+    // caption is over ink rather than over paper and needs to hold its own.
+    let ink = -Infinity;
+    for (const el of art.querySelectorAll<SVGGraphicsElement>('image')) {
+      const style = getComputedStyle(el);
+      if (style.visibility === 'hidden' || Number(style.opacity) < 0.05) continue;
+      ink = Math.max(ink, el.getBoundingClientRect().bottom - rootBox.top);
+    }
+    root.classList.toggle('over-art', ink > bottom);
+
     if (bottom === lastBottom) return;
     lastBottom = bottom;
     root.style.setProperty('--picture-bottom', `${bottom}px`);
@@ -309,6 +330,17 @@
      class than .stage-caption--display, so it has to be beaten by name. */
   .pin-scene :global(.cast-stage) ~ :global(.stage-caption--display) {
     inset-block-start: 34%;
+  }
+
+  /* Over a picture rather than over paper: the words carry their own paper
+     with them, so a caption that has to sit on the art is still readable
+     without a box drawn around it. */
+  .pin-scene.over-art :global(.stage-caption) {
+    text-shadow:
+      0 0 0.5em var(--paper),
+      0 0 0.5em var(--paper),
+      0 0 1em var(--paper),
+      0 0 1.6em var(--paper);
   }
 
   .pin-scene.reduced :global(.stage-caption) {

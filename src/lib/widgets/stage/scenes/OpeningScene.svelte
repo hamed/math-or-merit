@@ -193,18 +193,20 @@
       tl.fromTo(reel, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25, ease: 'none' }, 'math');
 
       // TWO tweens, and no more. One eased curve carries the whole spin — slow
-      // enough to read, faster in the middle, slow again — and runs half a slot
-      // PAST "Math", so the word behind it is showing when the reel stops. Then
-      // it falls back onto the detent like a pendulum coming to rest.
+      // enough to read, faster in the middle, slow again — and runs most of a
+      // slot PAST "Math", so the word behind it is showing at the top of the
+      // swing. Then the reel settles the way a real one does: back past the
+      // detent, out again by less, and again by less, until it stops on it.
       //
-      // Do not break this into a chain of constant-speed segments: each handover
-      // between two eases is a visible kink, and four of them read as jitter.
+      // That second move is one elastic ease, not a hand-built chain of
+      // segments: a damped oscillation is exactly what elastic.out describes,
+      // and every handover between two hand-timed eases is a visible kink.
       tl.addLabel('spin', 'math');
       tl.to(
         reelPos,
         {
           i: LAND + OVERSHOOT,
-          duration: SPIN * 0.82,
+          duration: SPIN * 0.7,
           ease: 'power2.inOut',
           onUpdate: parkReel,
         },
@@ -212,7 +214,13 @@
       );
       tl.to(
         reelPos,
-        { i: LAND, duration: SPIN * 0.18, ease: 'sine.inOut', onUpdate: parkReel },
+        {
+          i: LAND,
+          duration: SPIN * 0.3,
+          // amplitude and period tuned by eye: three swings you can actually see
+          ease: 'elastic.out(1.8, 0.42)',
+          onUpdate: parkReel,
+        },
         '>',
       );
 
