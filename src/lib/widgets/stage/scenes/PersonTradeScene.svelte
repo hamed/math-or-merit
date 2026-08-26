@@ -100,6 +100,10 @@
   const TABLE = { x: 240, y: 176 };
   const FLIP = { x: 240, y: 64 };
 
+  /** The decider is drawn bigger than the antes: it is the thing being watched,
+   *  not a token of wealth, so the one-size law for money does not apply. */
+  const FLIP_R = 24;
+
   /** Ring layout shared with the crowd beat (13 agents incl. the pair). */
   const RING_N = 13;
   const RING = Array.from({ length: RING_N }, (_, i) => {
@@ -182,7 +186,10 @@
   let coinA: SVGGElement;
   let coinB: SVGGElement;
   let flipG: SVGGElement;
-  let flipFace: SVGCircleElement;
+  /** The squashing group; the two sides live inside it. */
+  let flipFace: SVGGElement;
+  let flipA: SVGGElement;
+  let flipB: SVGGElement;
   let crowd: SVGGElement;
   let lattice: SVGGElement;
 
@@ -326,6 +333,12 @@
       // lands; BOTH coins go to the winner, whose area grows by exactly both
       tl.fromTo(flipG, { autoAlpha: 0, y: FLIP.y - 14 }, { autoAlpha: 1, y: FLIP.y, duration: 0.2 }, 'flip');
       tl.set(flipFace, { transformOrigin: '50% 50%' }, 0);
+      // A's side starts face up; each squash midpoint shows the other one
+      tl.set(flipB, { autoAlpha: 0 }, 0);
+      const showSide = (up: SVGGElement, down: SVGGElement, at: string) => {
+        tl.set(up, { autoAlpha: 1 }, at);
+        tl.set(down, { autoAlpha: 0 }, at);
+      };
       tl.to(flipFace, {
         keyframes: [
           { scaleX: 0.08, duration: 0.09 }, { scaleX: 1, duration: 0.09 },
@@ -334,10 +347,10 @@
         ],
         ease: 'none',
       }, 'flip+=0.2');
-      // face color swaps at each squash midpoint; ends on B's fill
-      tl.set(flipFace, { fill: styleB.fill, stroke: styleB.stroke }, 'flip+=0.29');
-      tl.set(flipFace, { fill: styleA.fill, stroke: styleA.stroke }, 'flip+=0.47');
-      tl.set(flipFace, { fill: styleB.fill, stroke: styleB.stroke }, 'flip+=0.65');
+      // sides swap at each squash midpoint; ends on B's — B wins this one
+      showSide(flipB, flipA, 'flip+=0.29');
+      showSide(flipA, flipB, 'flip+=0.47');
+      showSide(flipB, flipA, 'flip+=0.65');
       tl.to(coins, {
         x: B_POS.x - TABLE.x,
         y: B_POS.y - TABLE.y,
@@ -371,7 +384,7 @@
         ],
         ease: 'none',
       }, 'flip+=1.3');
-      tl.set(flipFace, { fill: styleA.fill, stroke: styleA.stroke }, 'flip+=1.38');
+      showSide(flipA, flipB, 'flip+=1.38');
       tl.to(coins, {
         x: A_POS.x - TABLE.x,
         y: A_POS.y - TABLE.y,
@@ -456,7 +469,16 @@
     </g>
 
     <g bind:this={flipG} class="flip" transform={`translate(${FLIP.x} ${FLIP.y})`}>
-      <circle bind:this={flipFace} class="flip-face" r="24" style={`fill:${styleA.fill}; stroke:${styleA.stroke};`} />
+      <!--
+        The decider is the same coin as the money — the one we already have —
+        with each side painted in a trader's colour. So there is no second kind
+        of coin to explain, and no heads-or-tails to remember: the colour that
+        lands wins.
+      -->
+      <g bind:this={flipFace} class="flip-face">
+        <g bind:this={flipA}><Coin r={FLIP_R} face="front" tint={styleA.fill} /></g>
+        <g bind:this={flipB}><Coin r={FLIP_R} face="back" tint={styleB.fill} /></g>
+      </g>
     </g>
 
     <g bind:this={crowd} class="crowd">
@@ -505,9 +527,9 @@
 
   /* No CSS transform-box here: gsap owns the origin, or the spin pivots off
      the coin's edge instead of its central vertical axis. */
-  .flip-face {
-    stroke-width: 2.4;
-    fill-opacity: 0.9;
+  /* both sides sit in the same place; the timeline shows one at a time */
+  .flip-face > :global(g) {
+    transform-box: fill-box;
   }
 
   .crowd .agent {

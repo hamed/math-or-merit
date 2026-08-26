@@ -97,16 +97,20 @@ same.
 
 [human.3] Until we are left with nothing but a circle. 
 
-[human.4] The area of circle shows his wealth.
+[human.4] The area is his wealth.
 
-[human.5] You are your money and nothing else, shape and colors are only cosmetics.  
+[human.5] You are your money and nothing else.
 
 [human.7] Someone new walks in, poorer.
 
 [human.8] The rule: both stake the *same* amount. Say, half of whatever the *poorer* one owns. One gold coin each, on the table.
 
-[human.9] Then we toss a coin. Whichever color lands takes both coins.
-(there is blob or something says yah i win, damn i lost or simmilar, with the matching color of the person.)
+[human.9] Then we toss the coin — one color on each side. Whichever color lands takes both.
+
+> it is the SAME coin: the gold one, with each side painted in a trader's
+> color. No second kind of coin, no heads-or-tails to remember.
+> open: a small "Mine." / "Damn." from the winner and loser, in their colors —
+> only here, never in the crowded room.
 
 [human.10] One wins, other loses. The winner took exactly what the loser lost. No money made, none destroyed.
 
@@ -127,11 +131,11 @@ any real fortune.
 [guess.body]
 Here is the setup, clean:
 
-0. Everyone starts with the same money;
-1. every turn we picks a random pair;
-2. they both put a fraction of poorer people wealth on the table;
-3. we toss a coin, one win, one loose, fifty fity. 
-4. start over from 1. 
+1. Everyone starts with the same money.
+2. Pick two people at random.
+3. Both put up half of whatever the poorer one has.
+4. Toss for it. One wins, one loses. Fifty-fifty.
+5. Go back to 2.
 
 Now let it run for a hundred thousand trades.
 

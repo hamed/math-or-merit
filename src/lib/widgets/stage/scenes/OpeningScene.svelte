@@ -92,8 +92,10 @@
   /** Where it comes to rest. What follows "Math" is what the overshoot shows. */
   export const LAND = SLOTS.indexOf('Math');
 
-  /** How far past the detent the reel runs before it falls back, in slots. */
-  const OVERSHOOT = 0.5;
+  /** How far past the detent the reel runs before it falls back, in slots.
+   *  Most of the next word shows at the top of the swing — the reel visibly
+   *  goes too far, then comes back. */
+  const OVERSHOOT = 0.8;
 
   /**
    * Every slot is one title line box wide at most. "Math" and "Merit" set the

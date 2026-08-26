@@ -133,11 +133,11 @@ Same trick. New subject.
   <Caption beat={1}>We'll do to him exactly what the physicist did to the cow.</Caption>
   <Caption beat={2}>We through away all the details.</Caption>
   <Caption beat={3}>Until we are left with nothing but a circle.</Caption>
-  <Caption beat={4}>That shows his wealth.</Caption>
+  <Caption beat={4}>The area is his wealth.</Caption>
   <Caption beat={5}>You are your money and nothing else.</Caption>
   <Caption beat={7}>Someone new walks in, poorer.</Caption>
-  <Caption beat={8}>The rule: both stake the <em>same</em> amount. Say, half of whatever the <em>poorer</em> one owns. One coin each, on the table.</Caption>
-  <Caption beat={9}>Then a two-sided coin, one side each. Whichever color lands takes both coins.</Caption>
+  <Caption beat={8}>The rule: both stake the <em>same</em> amount. Say, half of whatever the <em>poorer</em> one owns. One gold coin each, on the table.</Caption>
+  <Caption beat={9}>Then we toss the coin — one color on each side. Whichever color lands takes both.</Caption>
   <Caption beat={10}>One wins, other loses. The winner took exactly what the loser lost. No money made, none destroyed.</Caption>
   <Caption beat={11}>That is the whole game, and it is fair.</Caption>
 </PinScene>
@@ -147,9 +147,11 @@ Same trick. New subject.
 
 Here is the setup, clean:
 
-- everyone starts with the same circle;
-- every trade picks a random pair;
-- every coin is fair, fifty-fifty.
+1. Everyone starts with the same money.
+2. Pick two people at random.
+3. Both put up half of whatever the poorer one has.
+4. Toss for it. One wins, one loses. Fifty-fifty.
+5. Go back to 2.
 
 Now let it run for a hundred thousand trades.
 

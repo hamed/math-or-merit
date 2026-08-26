@@ -28,9 +28,16 @@
     r?: number;
     /** Which side is up. Two coins on a table show two different faces. */
     face?: CoinFace;
+    /**
+     * Paint the metal in one colour, keeping the relief. Used where the coin is
+     * the DECIDER rather than the money: each side wears a trader's colour, so
+     * the reader reads the outcome off the colour that lands and never has to
+     * remember which face belongs to whom.
+     */
+    tint?: string;
   }
 
-  let { cx = 0, cy = 0, r = 16.6, face = 'front' }: Props = $props();
+  let { cx = 0, cy = 0, r = 16.6, face = 'front', tint }: Props = $props();
 </script>
 
 <g class="coin-token" transform={`translate(${cx} ${cy})`}>
@@ -43,14 +50,31 @@
     height={r * 2}
     preserveAspectRatio="xMidYMid meet"
   />
+  {#if tint}
+    <!-- 'color' blending takes hue and saturation from this rect and keeps the
+         photograph's luminosity, so the strike, the lettering and the rim
+         survive being painted. -->
+    <rect class="tint" x={-r} y={-r} width={r * 2} height={r * 2} fill={tint} />
+  {/if}
   <circle r={r * 0.985} class="rim" />
 </g>
 
 <style>
+  /* the tint must blend with the coin and NOTHING else, so the token is its own
+     stacking context */
+  .coin-token {
+    isolation: isolate;
+  }
+
   /* the photograph carries its own alpha outside the disc; the clip is belt
      and braces, so a source squared a pixel off never shows a corner */
   .face {
     clip-path: circle(50%);
+  }
+
+  .tint {
+    clip-path: circle(50%);
+    mix-blend-mode: color;
   }
 
   .rim {
