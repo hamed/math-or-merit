@@ -53,16 +53,24 @@
 
   /**
    * The reel. Third line of the title is a slot machine: the folk explanations
-   * for wealth come and go — slowly, then too fast to read, then slowly — and
-   * it settles on "Math". These are the beliefs that used to be a word cloud
-   * in its own scene (archive/scenes-pre-r17/BeliefCloudScene.svelte); the
-   * spin says the same thing in the title's own space, so the reader meets the
-   * question once instead of twice.
+   * for wealth come and go — slowly, then fast, then slowly — and it settles on
+   * "Math". These are the beliefs that used to be a word cloud in its own scene
+   * (archive/scenes-pre-r17/BeliefCloudScene.svelte); the spin says the same
+   * thing in the title's own space, so the reader meets the question once
+   * instead of twice.
    *
-   * "Merit" is not on the reel: it is already sitting on the first line, and
-   * two of it on screen at once reads as a bug rather than an echo.
+   * The order is the argument. It starts where the reader already stands (hard
+   * work), drifts outward, and ends on the absurd — and there is no line on the
+   * way down where a reasonable answer becomes a ridiculous one. The strongest
+   * answers a serious person would give (family money, class) are ON the reel
+   * on purpose: spinning past those and still landing on "Math" is the point,
+   * and a list of only silly beliefs would be a strawman.
+   *
+   * "Merit" is not here: it is already sitting on the first line, and two of it
+   * on screen at once reads as a bug rather than an echo. "Math" IS here — the
+   * reel passes it, shows half of the word behind it, and falls back onto it.
    */
-  const REEL: readonly string[] = [
+  export const SLOTS: readonly string[] = [
     'Hard work',
     'Luck',
     'Talent',
@@ -71,29 +79,21 @@
     'IQ',
     'Education',
     'Grit',
-    'Timing',
     'Class',
-    'Hustle',
+    'Timing',
     'Race',
     'Charisma',
-    'DNA',
-    'Country',
     "God's will",
+    'Genes',
+    'Math',
     'Blue eyes',
   ];
 
-  /**
-   * One pass, then the answer. It was two, and the middle of the spin was
-   * unreadable — the point of the reel is that you SEE the explanations go by,
-   * so the fast stretch has to stay legible. Fewer symbols over a longer spin
-   * is what buys that.
-   *
-   * One more word rides behind "Math" purely so the overshoot at the end of
-   * the spin uncovers the edge of a next symbol, the way a real reel does,
-   * instead of a strip of empty page.
-   */
-  export const SLOTS: readonly string[] = [...REEL, 'Math', REEL[0]];
-  export const LAND = SLOTS.length - 2;
+  /** Where it comes to rest. What follows "Math" is what the overshoot shows. */
+  export const LAND = SLOTS.indexOf('Math');
+
+  /** How far past the detent the reel runs before it falls back, in slots. */
+  const OVERSHOOT = 0.5;
 
   /**
    * Every slot is one title line box wide at most. "Math" and "Merit" set the
@@ -190,16 +190,29 @@
       // the earlier beats would give the ending away
       tl.fromTo(reel, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25, ease: 'none' }, 'math');
 
-      // slow enough to read, then too fast to, then slow again — and it lands
-      // like a real reel: a hair past the detent, then pulled back onto it
-      const spin = (to: number, duration: number, ease: string) =>
-        tl.to(reelPos, { i: to, duration, ease, onUpdate: parkReel }, '>');
-
+      // TWO tweens, and no more. One eased curve carries the whole spin — slow
+      // enough to read, faster in the middle, slow again — and runs half a slot
+      // PAST "Math", so the word behind it is showing when the reel stops. Then
+      // it falls back onto the detent like a pendulum coming to rest.
+      //
+      // Do not break this into a chain of constant-speed segments: each handover
+      // between two eases is a visible kink, and four of them read as jitter.
       tl.addLabel('spin', 'math');
-      tl.to(reelPos, { i: 3, duration: SPIN * 0.25, ease: 'power2.in', onUpdate: parkReel }, 'spin');
-      spin(LAND - 4, SPIN * 0.4, 'none');
-      spin(LAND + 0.32, SPIN * 0.26, 'power2.out');
-      spin(LAND, SPIN * 0.09, 'power2.inOut');
+      tl.to(
+        reelPos,
+        {
+          i: LAND + OVERSHOOT,
+          duration: SPIN * 0.82,
+          ease: 'power2.inOut',
+          onUpdate: parkReel,
+        },
+        'spin',
+      );
+      tl.to(
+        reelPos,
+        { i: LAND, duration: SPIN * 0.18, ease: 'sine.inOut', onUpdate: parkReel },
+        '>',
+      );
 
       // scroll hint arrives last and stays — the page is done talking, your move
       tl.fromTo(hint, { autoAlpha: 0 }, { autoAlpha: 1, duration: FADE, ease: 'none' }, 'hint');
