@@ -40,6 +40,19 @@ Enterprise Cloud, and Pages on the Free plan requires a public repo. Discovery i
 all we control: `public/robots.txt` disallows everything and `index.html` carries
 `noindex`. Do not remove either while the draft is under review.
 
+**Analytics: GA4 (`G-C1RKMJZHLE`), tag in `index.html`.** It measures the
+unlisted review copy too — `noindex` stops crawlers, not measurement — so filter
+your own traffic before reading any of it as an audience.
+
+**Before the site goes public, swap GA4 for a cookieless counter** (Plausible,
+Umami, GoatCounter, Cloudflare). Reason: GA4 sets cookies and ships data to
+Google, which in the EU needs a consent banner, and a modal landing on top of a
+timed teletype opening is the worst possible first impression for this essay —
+owner's call, 2026-08-26. A cookieless counter needs no banner and still answers
+the only questions worth asking here: did they reach the sandbox, and where did
+they leave. Add two or three scroll-depth events at the same time. Ten-minute
+change; do NOT do it while the copy is still unlisted, GA is fine until then.
+
 Pushing needs a workaround: the owner's ssh agent refuses to sign
 (`agent refused operation`). Use the key directly —
 `GIT_SSH_COMMAND='ssh -i ~/.ssh/hamed -o IdentitiesOnly=yes' git push`. The `gh`
@@ -286,6 +299,9 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 11. Deferred seams unchanged: Rust/WASM core, Persian/RTL, audio.
 12. Title layout variants (`stack`/`center`) still one word away in
     `essay.en.svx`.
+13. Analytics: swap GA4 for a cookieless counter before the site is public, and
+    add scroll-depth events — no consent banner in front of the opening. See the
+    deploy section above.
 
 ## Untracked local files that are NOT yours
 

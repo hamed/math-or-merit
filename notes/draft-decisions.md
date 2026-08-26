@@ -406,3 +406,20 @@ faces — Mongol Bank, 1000 tögrög, half a gram of gold, Karl Marx, 2019.
   The coin design is fine to depict; the photographs are uncredited product
   shots, and this is the first exception to that file's "project-authored
   visuals only" rule. Settle it before the site is listed publicly.
+
+## D18 — No consent banner in front of the opening (2026-08-26)
+
+GA4 (`G-C1RKMJZHLE`) is in `index.html` and stays there while the site is
+unlisted. It does not stay for the public launch.
+
+- **Why it goes:** GA4 sets cookies and sends data to Google, which for EU
+  readers needs a consent banner. The essay opens on a timed teletype that has
+  to own the first screen; a modal on top of that is the worst first impression
+  this piece could make, and it costs readers before they have read a word.
+- **What replaces it:** a cookieless counter (Plausible, Umami, GoatCounter,
+  Cloudflare Web Analytics). No banner required.
+- **What we actually want to know** is not demographic: did the reader reach the
+  sandbox, and where did they leave. Two or three scroll-depth events answer
+  that as well as GA does.
+- **Not now.** While the copy is unlisted GA is fine, and it is already counting
+  our own visits — filter those before reading anything into the numbers.
