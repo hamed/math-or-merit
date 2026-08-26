@@ -386,8 +386,12 @@ a:hover {
    point, so the widgets settle at a sensible place and everything else scrolls
    normally. Snap points are on the yield widgets only — never on .pin-spacer. */
 html {
+  /* Breathing room above a snapped widget, so it never lands flush against the
+     top edge. Full-screen widgets cancel it — see Sandbox. */
+  --snap-pad: 6svh;
+
   scroll-snap-type: y proximity;
-  scroll-padding-block: 6svh;
+  scroll-padding-block: var(--snap-pad);
 }
 
 @media (prefers-reduced-motion: reduce) {

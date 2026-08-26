@@ -652,8 +652,17 @@
     max-inline-size: none;
     margin-block: 0;
     margin-inline: calc((100% - 100vw) / 2);
-    block-size: 100dvh;
-    min-block-size: 100dvh;
+    /* svh, not dvh: the smallest viewport is the one that is always visible, so
+       the finale fits whether or not a mobile browser's toolbars are showing. */
+    block-size: 100svh;
+    min-block-size: 100svh;
+
+    /* This one is exactly a screen tall, so it snaps to the TOP of the screen
+       and cancels the scroll padding that every other snap point wants — with
+       the padding left in, the sandbox rests a strip too low and loses its own
+       bottom row of plots. */
+    scroll-snap-align: start;
+    scroll-margin-block: calc(-1 * var(--snap-pad)) 0;
     padding-block: clamp(0.6rem, 1.6vh, 1.1rem);
     padding-inline: clamp(0.9rem, 2.5vw, 2.2rem);
     justify-content: stretch;
