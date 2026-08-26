@@ -85,14 +85,14 @@
 -->
 <PinScene pace={0.75}>
   <CowCastScene />
-  <Caption beat={0}>Once upon a time, a farmer's cow stopped giving milk. So he called in the experts.</Caption>
-  <Caption beat={1}>A biologist came first. The farmer learned where cows come from. He did not learn where milk comes from.</Caption>
-  <Caption beat={2}>Then a chemist. She held up the molecule the cow was failing to produce. The cow was unimpressed.</Caption>
-  <Caption beat={3}>Then a physicist. He took much, much longer.</Caption>
-  <Caption beat={4}>"I have solved it — for a spherical cow."</Caption>
-  <Caption beat={5}>"In a vacuum."</Caption>
-  <Caption beat={6}>Ridiculous — and honest. Watch what the simplification buys: it is a perfect sphere now. Take it out and kick it.</Caption>
-  <Caption beat={7}>You cannot play football with a spherical cow. The problem was never the shape. It was the weight.</Caption>
+  <Caption beat={0}>Once upon a time, a farmer's cow stopped giving milk. So he called in three scientists, a physicist, a chemist, and a biologist, a chemists and physicist.</Caption>
+  <Caption beat={1}>The biologist told where the cows come from.</Caption>
+  <Caption beat={2}>Then the chemist spoke of the molecule the cow was failing to produce.</Caption>
+  <Caption beat={3}>Then the physicist shouted "I have solved it!"</Caption>
+  <Caption beat={4}>"Assume a spherical cow."</Caption>
+  <Caption beat={5}>"In a vacuum and no gravity!"</Caption>
+  <Caption beat={6}>The spherical cow is a model, all models are wrong, but some of them are useful.</Caption>
+  <Caption beat={7}>If you can not play football with a spherical cow, then you cannot play with the real thing either.</Caption>
 </PinScene>
 
 ## Now, the spherical human
@@ -127,17 +127,17 @@ Same trick. New subject.
 -->
 <PinScene>
   <PersonTradeScene />
-  <Caption beat={0}>Take the most-photographed fortune on earth. We won't explain how he got it — we'll do to him exactly what the physicist did to the cow.</Caption>
-  <Caption beat={1}>Throw away the companies, the timing, the inheritance, the talent, the luck — every argument about whether any of it was earned.</Caption>
-  <Caption beat={2}>Keep going. Take the face too.</Caption>
-  <Caption beat={3}>What is left is almost offensively small.</Caption>
-  <Caption beat={4}><strong>You are your money.</strong> The area is the fortune: twice as wide, four times as rich.</Caption>
-  <Caption beat={5}>I want that to feel wrong. The wrongness is the point. We are building the smallest possible room — a person is a number, nothing else.</Caption>
-  <Caption beat={7}>Someone new walks in — noticeably poorer.</Caption>
+  <Caption beat={0}>Take the richest man in the world.</Caption>
+  <Caption beat={1}>We'll do to him exactly what the physicist did to the cow.</Caption>
+  <Caption beat={2}>We through away all the details.</Caption>
+  <Caption beat={3}>Until we are left with nothing but a circle.</Caption>
+  <Caption beat={4}>That shows his wealth.</Caption>
+  <Caption beat={5}>You are your money and nothing else.</Caption>
+  <Caption beat={7}>Someone new walks in, poorer.</Caption>
   <Caption beat={8}>The rule: both stake the <em>same</em> amount. Say, half of whatever the <em>poorer</em> one owns. One coin each, on the table.</Caption>
-  <Caption beat={9}>Then a two-sided coin, one side each. Whichever color lands takes both coins. Nothing else decides — not size, not who "deserves" it.</Caption>
-  <Caption beat={10}>A win, a loss — and everyone is roughly where they started. The winner took exactly what the loser lost. No money made, none destroyed. That is the whole game, and it is fair.</Caption>
-  <Caption beat={11}>Hold on to that feeling. It is about to betray you.</Caption>
+  <Caption beat={9}>Then a two-sided coin, one side each. Whichever color lands takes both coins.</Caption>
+  <Caption beat={10}>One wins, other loses. The winner took exactly what the loser lost. No money made, none destroyed.</Caption>
+  <Caption beat={11}>That is the whole game, and it is fair.</Caption>
 </PinScene>
 
 
@@ -149,11 +149,10 @@ Here is the setup, clean:
 - every trade picks a random pair;
 - every coin is fair, fifty-fifty.
 
-Now let it run. Not five trades. A hundred thousand.
+Now let it run for a hundred thousand trades.
 
 What does the room look like after a hundred thousand fair trades? Pick one before you
 scroll.
-
 <!--
   WIDGET: Prediction — the reader commits to an outcome before the reveal; the choice is
   quoted back by the reveal widget. Stored locally only.
@@ -161,6 +160,8 @@ scroll.
 <Prediction />
 
 ## Now run it
+
+A room full of shapes, the area shows the money, the shapes are just cosmetic. 
 
 <!--
   WIDGET: RevealRun (R4, owner review 2026-07-08) — the real Yard-Sale rule, UNSEEDED
@@ -177,23 +178,20 @@ scroll.
 -->
 <RevealRun />
 
-In most runs, one circle now holds more than half of everything — often three quarters.
-If yours held less, run it again. Time only sharpens it.
+One shape holds more than half of everything.
 
-Every trade was fair — I just showed you. No coin was loaded. Nobody cheated. Nobody was
-smarter. The dice are new every run, and the crown lands on someone different every time.
-But it always lands.
+Every trade was fair. No coin was loaded. Nobody cheated. 
+Nobody was smarter.
 
-The winner is random. The winner-take-all is not. The trade was fair; the result is not —
+The winner is random. The winner-take-all is not. The trade was fair; the result is not.
 those are two different things, and the whole essay lives in the gap between them.
 
 ## So why did they win?
 
-The room has its winner — and the morning paper already knew why. Look at the headline it
+The morning paper already knew why. Look at the headline it
 printed. Sharper. Rounder. Built to win. The story writes itself.
 
-And it is a lie. The colors, the corners, the edges were dealt out before the first trade,
-by position, and never touched the game — not the coin, not the stake, not who got picked.
+And it is a lie. The colors, the corners and the edges never touched the game. 
 Run the room again: a new winner, a new trait, a new headline written with exactly the
 same confidence.
 
