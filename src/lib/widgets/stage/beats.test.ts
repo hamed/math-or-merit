@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateBeats, type BeatSpec } from './contract';
-import { BEATS as CAST_BEATS, FRAMES as CAST_FRAMES } from './scenes/CowCastScene.svelte';
+import { BEATS as CAST_BEATS, FRAMES as CAST_FRAMES, SILENCE } from './scenes/CowCastScene.svelte';
 import { BEATS as OPENING_BEATS, SLOTS as REEL_SLOTS, LAND as REEL_LAND } from './scenes/OpeningScene.svelte';
 import { BEATS as ROOM_BEATS, PLATES as ROOM_PLATES } from './scenes/PersonTradeScene.svelte';
 import { BEATS as CLOSING_BEATS } from './scenes/ClosingScene.svelte';
@@ -39,6 +39,20 @@ describe('CowCastScene frames', () => {
 
   it('every plate has a distinct source', () => {
     expect(new Set(CAST_FRAMES.map((f) => f.src)).size).toBe(CAST_FRAMES.length);
+  });
+
+  it('every plate that leaves early leaves on a beat that exists', () => {
+    for (const frame of CAST_FRAMES) {
+      if (frame.until) expect(labels.has(frame.until), `no beat "${frame.until}"`).toBe(true);
+    }
+  });
+
+  it('the silence lines land on beats that exist, and carry no plate', () => {
+    const plated = new Set(CAST_FRAMES.map((f) => f.beat));
+    for (const line of SILENCE) {
+      expect(labels.has(line.beat), `no beat "${line.beat}"`).toBe(true);
+      expect(plated.has(line.beat), `"${line.beat}" must stay empty`).toBe(false);
+    }
   });
 
   it('leaves the last beat plateless so the moral holds the pitch', () => {

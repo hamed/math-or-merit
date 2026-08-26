@@ -45,17 +45,23 @@ Education · Grit · Class · Timing · Race · Charisma · God's will · Genes 
 > picture: your illustrated cast. A farmer's cow, then a biologist, a chemist,
 > a physicist, then the cow as a sphere, then in a vacuum, then a football
 > pitch.
-Once upon a time, 
-there was a farmer that his cow who stopped giving milk. 
-[cow.0] He called in three scientists, a biologist, a chemist and physicist. 
 
-[cow.1] The biologist taught him about genetic and evolution.
+[cow.once] Once upon a time,
+
+> big, alone, no picture yet — the words are the stage.
+
+[cow.0] a farmer's cow stopped giving milk.
+
+[cow.0b] So he called in three scientists — a biologist, a chemist, and a physicist.
+
+[cow.1] The biologist explained where cows come from.
 
 [cow.2] Then the chemist spoke of the molecule the cow was failing to produce.
 
-then there was scielnce, 
-and more scilence, 
-and even more silence. 
+[cow.silence] Then silence, / More silence, / Even more silence.
+
+> the picture LEAVES and these three take its place, one per scroll, piling up
+> on an empty stage. They all go when the physicist breaks it.
 
 [cow.3] Then the physicist shouted "I have solved it!"
 
@@ -65,7 +71,7 @@ and even more silence.
 
 [cow.6] The spherical cow is a model, all models are wrong, but some of them are useful.
 
-[cow.7] If you can not play football with a spherical model of a cow, then you cannot play with the real thing either.
+[cow.7] If you cannot play football with a spherical cow, you cannot play with the real one either.
 
 ! keep true: cow.7 is load-bearing. It only claims that a problem present in the
 simplest version survives into richer ones — not that richer models behave the

@@ -10,9 +10,19 @@
   import football from './cast/06-football.webp';
 
   export const BEATS: readonly BeatSpec[] = [
+    // The fable opens on words alone — no picture yet, just "Once upon a time,"
+    // in the middle of an empty stage. The cast arrives on the next beat.
+    { label: 'once-upon', length: 0.9 },
     { label: 'once', length: 1.0 },
+    { label: 'call', length: 1.0 },
     { label: 'darwin', length: 1.1 },
     { label: 'chemist', length: 1.1 },
+    // Then the picture LEAVES and three lines take its place, one per scroll.
+    // Three experts have answered and the farmer still has no milk; the empty
+    // stage is the joke, so nothing is drawn here on purpose.
+    { label: 'silence-1', length: 0.7 },
+    { label: 'silence-2', length: 0.7 },
+    { label: 'silence-3', length: 0.9 },
     { label: 'physicist', length: 1.2 },
     { label: 'sphere', length: 1.2 },
     { label: 'vacuum', length: 1.0 },
@@ -24,7 +34,21 @@
     readonly src: string;
     /** Beat label this plate cuts in on; must exist in BEATS. */
     readonly beat: string;
+    /**
+     * Beat label this plate cuts OUT on, when it must leave before the next
+     * plate arrives. Normally a plate simply holds until the next one cuts in;
+     * this is for the gap where the stage goes empty.
+     */
+    readonly until?: string;
   }
+
+  /** The three lines that stand in for the picture. One per beat, and they
+   *  accumulate: each arrives under the last and they all leave together. */
+  export const SILENCE: readonly { text: string; beat: string }[] = [
+    { text: 'Then silence,', beat: 'silence-1' },
+    { text: 'More silence,', beat: 'silence-2' },
+    { text: 'Even more silence.', beat: 'silence-3' },
+  ];
 
   /**
    * One plate per beat, in scene order. The scene is a panel sequence, so this
@@ -41,7 +65,7 @@
   export const FRAMES: readonly CastFrame[] = [
     { src: introduction, beat: 'once' },
     { src: darwin, beat: 'darwin' },
-    { src: chemist, beat: 'chemist' },
+    { src: chemist, beat: 'chemist', until: 'silence-1' },
     { src: physicist, beat: 'physicist' },
     { src: spherical, beat: 'sphere' },
     { src: vacuum, beat: 'vacuum' },
@@ -108,19 +132,13 @@
   })();
 
   let plates: SVGImageElement[] = [];
+  let lines: HTMLElement[] = [];
 
   onMount(() => {
     stage?.attach(BEATS, (tl) => {
       FRAMES.forEach((frame, i) => {
         const el = plates[i];
         if (!el) return;
-
-        if (i === 0) {
-          // The opening plate is already on screen; fading it up from zero
-          // would leave a blank first frame for no-JS and reduced motion.
-          tl.fromTo(el, { autoAlpha: 1 }, { autoAlpha: 1, duration: 0.01 }, 'once');
-          return;
-        }
 
         // steps(1) is doing real work here: it holds each plate's alpha at 0 or
         // 1 and flips it at the end of the window, so no scroll position can
@@ -134,6 +152,32 @@
         if (previous) {
           tl.to(previous, { autoAlpha: 0, duration: SWITCH, ease: 'steps(1)' }, at);
         }
+
+        // A plate that has to leave BEFORE the next one arrives says so itself;
+        // otherwise every plate simply holds until it is cut over.
+        if (frame.until) {
+          tl.to(
+            el,
+            { autoAlpha: 0, duration: SWITCH, ease: 'steps(1)' },
+            `${frame.until}-=${SWITCH * 0.5}`,
+          );
+        }
+      });
+
+      // The silence. Each line arrives on its own beat and STAYS — they pile up
+      // on the empty stage — and they all leave together when the physicist
+      // breaks it. Handled here rather than as captions because on these beats
+      // the words ARE the picture, and the scene owns its own art.
+      SILENCE.forEach((line, i) => {
+        const el = lines[i];
+        if (!el) return;
+        tl.fromTo(
+          el,
+          { autoAlpha: 0, y: 12 },
+          { autoAlpha: 1, y: 0, duration: 0.3, ease: 'none' },
+          `${line.beat}+=0.05`,
+        );
+        tl.to(el, { autoAlpha: 0, duration: 0.25, ease: 'none' }, 'physicist-=0.25');
       });
 
       // The moral pushes hard into the ball rather than cutting to new art: the
@@ -179,6 +223,12 @@
       />
     {/each}
   </svg>
+
+  <div class="silence" aria-hidden="true">
+    {#each SILENCE as line, i}
+      <p bind:this={lines[i]}>{line.text}</p>
+    {/each}
+  </div>
 </figure>
 
 <style>
@@ -195,5 +245,29 @@
      decides, so the override silently did nothing. Naming both classes wins. */
   .scene-art.cast-stage svg {
     inline-size: min(94vw, 62rem);
+  }
+
+  /* The lines sit exactly where the picture was, stacked in reading order and
+     set like the display captions — this is the stage's own voice, not a
+     caption under a picture that is not there. */
+  .silence {
+    position: absolute;
+    inset-block-start: 34%;
+    inset-inline: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15em;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .silence p {
+    margin: 0;
+    font-size: clamp(1.9rem, 5vw, 3.4rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--ink-strong);
   }
 </style>

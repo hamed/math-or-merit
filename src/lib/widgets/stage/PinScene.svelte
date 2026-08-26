@@ -247,6 +247,14 @@
     color: var(--ink-strong);
   }
 
+  /* A display line on the cast stage is standing IN for the picture, so it sits
+     where the picture sits — not under the rule above, which anchors captions to
+     the bottom edge of a plate that is not there. That rule carries one more
+     class than .stage-caption--display, so it has to be beaten by name. */
+  .pin-scene :global(.cast-stage) ~ :global(.stage-caption--display) {
+    inset-block-start: 34%;
+  }
+
   .pin-scene.reduced :global(.stage-caption) {
     position: static;
     margin-block: 55vh 0;

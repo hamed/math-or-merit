@@ -85,14 +85,16 @@
 -->
 <PinScene pace={0.75}>
   <CowCastScene />
-  <Caption beat={0}>Once upon a time, a farmer's cow stopped giving milk. So he called in three scientists, a physicist, a chemist, and a biologist, a chemists and physicist.</Caption>
-  <Caption beat={1}>The biologist told where the cows come from.</Caption>
-  <Caption beat={2}>Then the chemist spoke of the molecule the cow was failing to produce.</Caption>
-  <Caption beat={3}>Then the physicist shouted "I have solved it!"</Caption>
-  <Caption beat={4}>"Assume a spherical cow."</Caption>
-  <Caption beat={5}>"In a vacuum and no gravity!"</Caption>
-  <Caption beat={6}>The spherical cow is a model, all models are wrong, but some of them are useful.</Caption>
-  <Caption beat={7}>If you can not play football with a spherical cow, then you cannot play with the real thing either.</Caption>
+  <Caption beat={0} display>Once upon a time,</Caption>
+  <Caption beat={1}>a farmer's cow stopped giving milk.</Caption>
+  <Caption beat={2}>So he called in three scientists — a biologist, a chemist, and a physicist.</Caption>
+  <Caption beat={3}>The biologist explained where cows come from.</Caption>
+  <Caption beat={4}>Then the chemist spoke of the molecule the cow was failing to produce.</Caption>
+  <Caption beat={8}>Then the physicist shouted "I have solved it!"</Caption>
+  <Caption beat={9}>"Assume a spherical cow."</Caption>
+  <Caption beat={10}>"In a vacuum and no gravity!"</Caption>
+  <Caption beat={11}>The spherical cow is a model, all models are wrong, but some of them are useful.</Caption>
+  <Caption beat={12}>If you cannot play football with a spherical cow, you cannot play with the real one either.</Caption>
 </PinScene>
 
 ## Now, the spherical human
