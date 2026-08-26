@@ -3,7 +3,8 @@
 Read `AGENTS.md` first (architecture law) and `MEMORY.md` (durable lessons and
 owner preferences). This file is the *state* snapshot: what is built, what was
 decided, how to verify, what remains. Written 2026-07-06 after the scrollytelling
-rebuild; last updated 2026-08-25 after the illustrated-cast rounds (R13–R15a).
+rebuild; last updated 2026-08-26 after the prose pass and the opening/trade
+rounds (R16–R28).
 
 ## Where things stand
 
@@ -19,8 +20,12 @@ On `main`, deployed. Passes shipped:
 - **R13–R15a** (`89e9e4e`…`76f8faa`, 2026-08-25): the illustrated cast — see
   "The illustrated scenes" below. This SUPERSEDES the drawn-SVG cow and person
   scenes, and reverses R12e's minimal-character verdict.
+- **R16–R28** (`…`…`8da4b39`, 2026-08-25/26): the opening, the fable and the
+  trade were rewritten with the owner line by line — see "The prose pass" below.
+  The belief word cloud is GONE, the money is a photographed coin, and the two
+  traders now start EQUAL.
 
-163 vitest tests green, `npm run build` clean apart from two known a11y warnings
+178 vitest tests green, `npm run build` clean apart from two known a11y warnings
 in `PlotFrame.svelte` (axis-toggle `<rect>` with no key handler), headless QA
 sweeps (desktop / mobile 390px / reduced-motion, forward AND reverse scroll)
 show zero console errors.
@@ -118,6 +123,53 @@ the owner's disk and in history, not in the tree): `CowScene.svelte`,
 - **R8**: sandbox choices-row + slider-grid, circles/shapes look toggle, Gini moved
   to the plot's empty top-left, horizontal bracket rows; tax game "tax the big five"
   buttons = keyboard/SR path for the pointer-only canvas.
+
+## The prose pass (R16–R28, 2026-08-25/26)
+
+**`notes/prose.md` is where prose is edited now.** It holds every word the reader
+sees, in order, each line tagged (`[cow.3]`, `[human.8]`), with a `> picture:`
+note saying what is on screen while that line is read and a `! keep true:` line
+wherever a claim is load-bearing. The owner edits ONLY that file; carrying it
+back into `essay.en.svx`, the scenes and the widget labels is the agent's job.
+Do not ask him to edit the essay directly — that was tried and he called it
+inefficient.
+
+What changed in the essay itself:
+
+- **The opening title is a slot machine.** The third line spins seventeen folk
+  explanations, passes "Math", shows most of the word behind it, and settles
+  back with a damped oscillation (`elastic.out`). `BeliefCloudScene` was DELETED
+  for it (archived under `archive/scenes-pre-r17/`) along with its two captions:
+  the reader meets the question once. Family money and class are ON the reel on
+  purpose — spinning past the strongest answers is the point.
+- **Empty stages carry the words.** `CowCastScene.STAGE_TEXT` is a table of
+  lines that stand in where a picture would be: the bridge from the title
+  ("Math." / "Let me show you what I mean by that."), the three silences after
+  the experts fail, and the sentence about models. Lines sharing an `until` are
+  one card and pile up; a line can be `big`. `CastFrame.until` lets a plate leave
+  before the next one arrives, which is what opens those gaps.
+- **The money is a real coin, both faces** (`Coin.svelte`, plates in
+  `scenes/coin/`, pipeline `art/coin/process.sh`): Mongol Bank 1000 tögrög,
+  Karl Marx, 2019. Sixteen coins make a whole person. The decider is the SAME
+  coin with each side painted in a trader's colour (`tint`, `mix-blend-mode:
+  color`) — one object, and the colour that lands still wins. **Rights are open**
+  — see `notes/research/narrative-sources.md`; the owner has asked the mint for
+  permission and sponsorship.
+- **The traders start EQUAL.** Three scripted rounds in coins — 8-8, 4-12, 6-10,
+  9-7 — so the first toss is what makes one of them poorer and the "half of the
+  POORER one" rule is taught at the moment it starts to matter. They finish
+  looking level, which is the illusion the room then takes away. `ROUNDS` and
+  `HOLDINGS` are data; six tests assert conservation and the stake rule.
+- **Captions are placed off the art, per beat.** `BeatSpec.artBottom` says how
+  far down its box a beat's ink reaches; `PinScene` measures the box and puts the
+  caption one line under that, re-measuring on refresh and whenever the value
+  changes. Two guards: a floor so a scene that zooms cannot push the words off
+  screen, and a paper halo (`.over-art`) when art ends up behind them.
+- **Plate switching is deterministic**: one SHOW and one HIDE per plate at
+  absolute positions, so exactly one is visible in either direction at any scrub
+  speed.
+- **Widgets are content-height** and the sandbox snaps flush to the top (it is
+  exactly one screen tall and cancels `--snap-pad` for itself).
 
 ## Decisions Hamed made (do NOT reopen)
 
@@ -262,8 +314,19 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
   cumulative beat lengths (the same sums PinScene labels with).
 - Cross-fading TRANSPARENT plates is impossible: with no opaque backdrop both
   images show at once and the ink washes out. A short fade still ghosts, because
-  a scrubbed timeline lets the reader park inside it. Use `ease: 'steps(1)'` so
-  alpha is only ever 0 or 1.
+  a scrubbed timeline lets the reader park inside it. Both illustrated scenes now
+  use one `tl.set(el, {autoAlpha: 1})` at the plate's beat and one
+  `tl.set(el, {autoAlpha: 0})` where it leaves — no window at all to park inside.
+- gsap silently DROPS CSS custom properties on SVG elements: `tl.set(svg,
+  {'--art-bottom': 0.9})` sets nothing. Per-beat values belong in the beat table
+  (`BeatSpec.artBottom`), read by PinScene on update.
+- A pinned scene clips its own overflow, and it is only as wide as the essay
+  column (`.essay-shell` 64rem minus padding). A stage asking for `min(94vw,
+  62rem)` silently loses its edges — that is what truncated the ring. Cap stage
+  art with `min(100%, …)`.
+- `scroll-padding-block` on `html` shifts every snap point. A widget that is
+  exactly one viewport tall must cancel it (`scroll-margin-block: calc(-1 *
+  var(--snap-pad)) 0`) or it rests low and loses its own bottom edge.
 - A scene's own `.foo svg` rule only TIES `PinScene`'s
   `.pin-scene :global(.scene-art svg)` on specificity — Svelte scopes it as
   `.foo svg.svelte-xxx` — and source order then decides, silently. Name two
@@ -302,6 +365,14 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 13. Analytics: swap GA4 for a cookieless counter before the site is public, and
     add scroll-depth events — no consent banner in front of the opening. See the
     deploy section above.
+14. `notes/prose.md` §4–16 have never been edited by the owner — he worked
+    through §3 and stopped. The ending is untouched.
+15. Coin photograph rights: asked the mint for permission and sponsorship,
+    awaiting reply. Settle before the site is listed publicly.
+16. Owner reported cow plates overlapping on scroll-back once; NOT reproducible
+    (forward, reverse, fast fling, reload-parked all show exactly one plate).
+    Switching is now deterministic by construction. If it recurs, get the
+    browser and the position.
 
 ## Untracked local files that are NOT yours
 
