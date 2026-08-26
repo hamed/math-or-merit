@@ -28,14 +28,17 @@
    * circle, it IS the person's circle.
    */
   export const BEATS: readonly BeatSpec[] = [
-    { label: 'person', length: 1.1 },
-    { label: 'face', length: 0.9 },
-    { label: 'strip', length: 1.6 },
-    { label: 'circle', length: 0.9 },
-    { label: 'coins', length: 1.2 },
-    { label: 'one', length: 1 },
-    { label: 'slide', length: 0.9 },
-    { label: 'meet', length: 1 },
+    // artBottom: where the ink ends in this beat, so the caption sits one line
+    // under it. The plates fill the frame; the circle, the coins and the trade
+    // live in the middle of it; the ring at the end reaches low and wide again.
+    { label: 'person', length: 1.1, artBottom: 0.97 },
+    { label: 'face', length: 0.9, artBottom: 0.97 },
+    { label: 'strip', length: 1.6, artBottom: 0.97 },
+    { label: 'circle', length: 0.9, artBottom: 0.97 },
+    { label: 'coins', length: 1.2, artBottom: 0.8 },
+    { label: 'one', length: 1, artBottom: 0.8 },
+    { label: 'slide', length: 0.9, artBottom: 0.78 },
+    { label: 'meet', length: 1, artBottom: 0.78 },
     { label: 'ante-1', length: 1.0 },
     { label: 'toss-1', length: 1.1 },
     { label: 'take-1', length: 0.9 },
@@ -47,7 +50,7 @@
     { label: 'toss-3', length: 1.0 },
     { label: 'take-3', length: 0.9 },
     { label: 'fair', length: 1.0 },
-    { label: 'crowd', length: 1.3 },
+    { label: 'crowd', length: 1.3, artBottom: 0.95 },
   ];
 
   export const PLATES: readonly { src: string; beat: string }[] = [

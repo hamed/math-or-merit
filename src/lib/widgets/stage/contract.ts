@@ -12,6 +12,14 @@ export interface BeatSpec {
   readonly label: string;
   /** Relative scroll length of the beat; 1 ≈ one viewport-height of scroll. */
   readonly length: number;
+  /**
+   * How far down its own box this beat's art reaches, as a fraction. The
+   * caption is placed one line under that, so a scene whose picture changes
+   * size between beats — a full-frame plate, then a small circle, then a wide
+   * ring — says so here instead of leaving a band of empty paper. Falls back to
+   * the scene's CSS --art-bottom, then to 1.
+   */
+  readonly artBottom?: number;
 }
 
 export interface StageContext {

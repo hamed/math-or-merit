@@ -46,6 +46,11 @@ Education · Grit · Class · Timing · Race · Charisma · God's will · Genes 
 > a physicist, then the cow as a sphere, then in a vacuum, then a football
 > pitch.
 
+[cow.bridge] So let me tell you a story.
+
+> PLACEHOLDER — the sentence (or few) that carries the reader from the title
+> into the fable. Big, alone, empty stage. Replace the words; the beat stays.
+
 [cow.once] Once upon a time, a farmer's cow stopped giving milk.
 
 > big, alone, no picture yet — the words are the stage.
@@ -72,7 +77,11 @@ Education · Grit · Class · Timing · Race · Charisma · God's will · Genes 
 
 [cow.5] "In a vacuum and no gravity!"
 
-[cow.6] The spherical cow is a model. All models are wrong, but some of them are useful.
+[cow.6] The spherical cow is a model.
+[cow.6b] All models are wrong,
+[cow.6c] but some of them are useful.
+
+> three lines on the empty stage, arriving one after another.
 
 > the picture leaves again for this one — it is not about anything you can draw.
 

@@ -85,16 +85,16 @@
 -->
 <PinScene pace={0.75}>
   <CowCastScene />
-  <Caption beat={0} display>Once upon a time, a farmer's cow stopped giving milk.</Caption>
-  <Caption beat={1}>He called in three scientists.</Caption>
-  <Caption beat={2}>A biologist, a chemist, and a physicist.</Caption>
-  <Caption beat={3}>The biologist explained where cows come from.</Caption>
-  <Caption beat={4}>Then the chemist spoke of the molecule the cow was failing to produce.</Caption>
-  <Caption beat={8}>Then the physicist shouted "I have solved it!"</Caption>
-  <Caption beat={9}>"Assume a spherical cow."</Caption>
-  <Caption beat={10}>"In a vacuum and no gravity!"</Caption>
-  <Caption beat={12}>If you cannot play football with a spherical cow,</Caption>
-  <Caption beat={13}>you cannot play with the real one either.</Caption>
+  <Caption beat={1} display>Once upon a time, a farmer's cow stopped giving milk.</Caption>
+  <Caption beat={2}>He called in three scientists.</Caption>
+  <Caption beat={3}>A biologist, a chemist, and a physicist.</Caption>
+  <Caption beat={4}>The biologist explained where cows come from.</Caption>
+  <Caption beat={5}>Then the chemist spoke of the molecule the cow was failing to produce.</Caption>
+  <Caption beat={9}>Then the physicist shouted "I have solved it!"</Caption>
+  <Caption beat={10}>"Assume a spherical cow."</Caption>
+  <Caption beat={11}>"In a vacuum and no gravity!"</Caption>
+  <Caption beat={13}>If you cannot play football with a spherical cow,</Caption>
+  <Caption beat={14}>you cannot play with the real one either.</Caption>
 </PinScene>
 
 ## Now, the spherical human

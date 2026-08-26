@@ -58,13 +58,15 @@
    * of air below that is all the caption gets.
    */
   let lastBottom = -1;
+  /** Set by the timeline as it plays; see BeatSpec.artBottom. */
+  let beatArtBottom: number | undefined;
 
   const placeCaptions = () => {
     const art = root?.querySelector<SVGSVGElement>('.scene-art svg');
     if (!art) return;
-    // A scene whose art moves between beats can retune this as it goes; most
-    // just declare it once in their CSS.
-    const fraction = Number(getComputedStyle(art).getPropertyValue('--art-bottom')) || 1;
+    // Per-beat if the scene said so, otherwise the one number in its CSS.
+    const declared = Number(getComputedStyle(art).getPropertyValue('--art-bottom')) || 1;
+    const fraction = beatArtBottom ?? declared;
     const box = art.getBoundingClientRect();
     const top = box.top - root.getBoundingClientRect().top;
     const bottom = Math.round(top + box.height * fraction);
@@ -101,7 +103,19 @@
     let observer: IntersectionObserver | undefined;
 
     const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ paused: true, onUpdate: placeCaptions });
+      // The beat the playhead is in decides the caption's anchor, so a scene
+      // whose art changes size mid-scene keeps its words attached to it.
+      const artBottoms = beats.map((b) => b.artBottom);
+      const syncBeat = () => {
+        if (!artBottoms.some((v) => v !== undefined)) return placeCaptions();
+        const t = tl.time();
+        let i = 0;
+        while (i + 1 < starts.length && starts[i + 1] <= t) i += 1;
+        beatArtBottom = artBottoms[i];
+        placeCaptions();
+      };
+
+      const tl = gsap.timeline({ paused: true, onUpdate: syncBeat });
       beats.forEach((b, i) => tl.addLabel(b.label, starts[i]));
       build!(tl);
       // Pad so every beat owns its full scroll span even if its tweens end early.

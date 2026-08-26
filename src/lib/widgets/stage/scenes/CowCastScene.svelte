@@ -10,7 +10,9 @@
   import football from './cast/06-football.webp';
 
   export const BEATS: readonly BeatSpec[] = [
-    // The fable opens on words alone — no picture yet. The cast arrives after.
+    // The bridge from the title, then the fable opens on words alone — no
+    // picture yet. The cast arrives after.
+    { label: 'bridge', length: 1.1 },
     { label: 'once-upon', length: 1.1 },
     { label: 'once', length: 1.0 },
     { label: 'call', length: 1.0 },
@@ -54,14 +56,17 @@
    * sentence about models, which is not about anything that can be drawn.
    */
   export const STAGE_TEXT: readonly { text: string; beat: string; until: string }[] = [
+    // PLACEHOLDER (owner, 2026-08-26): the sentence that carries the reader
+    // from the title into the fable. Replace the words; the beat stays.
+    { text: 'So let me tell you a story.', beat: 'bridge', until: 'once-upon' },
     { text: 'Then silence,', beat: 'silence-1', until: 'physicist' },
     { text: 'More silence,', beat: 'silence-2', until: 'physicist' },
     { text: 'Even more silence.', beat: 'silence-3', until: 'physicist' },
-    {
-      text: 'The spherical cow is a model. All models are wrong, but some of them are useful.',
-      beat: 'model',
-      until: 'football',
-    },
+    // Three lines, one card: they arrive in order inside the one beat rather
+    // than costing three scroll steps, because it is one sentence of thought.
+    { text: 'The spherical cow is a model.', beat: 'model', until: 'football' },
+    { text: 'All models are wrong,', beat: 'model', until: 'football' },
+    { text: 'but some of them are useful.', beat: 'model', until: 'football' },
   ];
 
   /** One card per `until`, in first-appearance order. */
@@ -199,11 +204,13 @@
       STAGE_TEXT.forEach((line, i) => {
         const el = lines[i];
         if (!el) return;
+        // Lines sharing a beat come in one after another, a breath apart.
+        const nth = STAGE_TEXT.slice(0, i).filter((t) => t.beat === line.beat).length;
         tl.fromTo(
           el,
           { autoAlpha: 0, y: 12 },
           { autoAlpha: 1, y: 0, duration: 0.3, ease: 'none' },
-          `${line.beat}+=0.05`,
+          `${line.beat}+=${(0.05 + nth * 0.35).toFixed(2)}`,
         );
         tl.to(el, { autoAlpha: 0, duration: 0.25, ease: 'none' }, `${line.until}-=0.25`);
       });
