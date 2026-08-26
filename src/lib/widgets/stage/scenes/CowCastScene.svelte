@@ -10,9 +10,8 @@
   import football from './cast/06-football.webp';
 
   export const BEATS: readonly BeatSpec[] = [
-    // The fable opens on words alone — no picture yet, just "Once upon a time,"
-    // in the middle of an empty stage. The cast arrives on the next beat.
-    { label: 'once-upon', length: 0.9 },
+    // The fable opens on words alone — no picture yet. The cast arrives after.
+    { label: 'once-upon', length: 1.1 },
     { label: 'once', length: 1.0 },
     { label: 'call', length: 1.0 },
     { label: 'darwin', length: 1.1 },
@@ -26,8 +25,11 @@
     { label: 'physicist', length: 1.2 },
     { label: 'sphere', length: 1.2 },
     { label: 'vacuum', length: 1.0 },
+    // The picture leaves again for the lesson itself — the sentence about
+    // models is not about anything you can draw.
+    { label: 'model', length: 1.4 },
     { label: 'football', length: 1.4 },
-    { label: 'moral', length: 1.2 },
+    { label: 'moral', length: 1.4 },
   ];
 
   export interface CastFrame {
@@ -42,13 +44,39 @@
     readonly until?: string;
   }
 
-  /** The three lines that stand in for the picture. One per beat, and they
-   *  accumulate: each arrives under the last and they all leave together. */
-  export const SILENCE: readonly { text: string; beat: string }[] = [
-    { text: 'Then silence,', beat: 'silence-1' },
-    { text: 'More silence,', beat: 'silence-2' },
-    { text: 'Even more silence.', beat: 'silence-3' },
+  /**
+   * Lines that stand in for the picture.
+   *
+   * Each arrives on its own beat and leaves on `until`. Lines that share an
+   * `until` are one card: they stack in reading order, pile up as the reader
+   * scrolls, and go together. This is the scene's own art on beats where the
+   * words ARE the picture — the pause after three useless answers, and the
+   * sentence about models, which is not about anything that can be drawn.
+   */
+  export const STAGE_TEXT: readonly { text: string; beat: string; until: string }[] = [
+    { text: 'Then silence,', beat: 'silence-1', until: 'physicist' },
+    { text: 'More silence,', beat: 'silence-2', until: 'physicist' },
+    { text: 'Even more silence.', beat: 'silence-3', until: 'physicist' },
+    {
+      text: 'The spherical cow is a model. All models are wrong, but some of them are useful.',
+      beat: 'model',
+      until: 'football',
+    },
   ];
+
+  /** One card per `until`, in first-appearance order. */
+  export const TEXT_CARDS: readonly { until: string; lines: readonly string[] }[] = (() => {
+    const order: string[] = [];
+    const byUntil = new Map<string, string[]>();
+    for (const t of STAGE_TEXT) {
+      if (!byUntil.has(t.until)) {
+        byUntil.set(t.until, []);
+        order.push(t.until);
+      }
+      byUntil.get(t.until)!.push(t.text);
+    }
+    return order.map((until) => ({ until, lines: byUntil.get(until)! }));
+  })();
 
   /**
    * One plate per beat, in scene order. The scene is a panel sequence, so this
@@ -68,7 +96,7 @@
     { src: chemist, beat: 'chemist', until: 'silence-1' },
     { src: physicist, beat: 'physicist' },
     { src: spherical, beat: 'sphere' },
-    { src: vacuum, beat: 'vacuum' },
+    { src: vacuum, beat: 'vacuum', until: 'model' },
     { src: football, beat: 'football' },
   ];
 </script>
@@ -164,11 +192,11 @@
         }
       });
 
-      // The silence. Each line arrives on its own beat and STAYS — they pile up
-      // on the empty stage — and they all leave together when the physicist
-      // breaks it. Handled here rather than as captions because on these beats
-      // the words ARE the picture, and the scene owns its own art.
-      SILENCE.forEach((line, i) => {
+      // Each line arrives on its own beat and STAYS, so lines sharing a card
+      // pile up on the empty stage; the whole card leaves on its `until`.
+      // Handled here rather than as captions because on these beats the words
+      // ARE the picture, and the scene owns its own art.
+      STAGE_TEXT.forEach((line, i) => {
         const el = lines[i];
         if (!el) return;
         tl.fromTo(
@@ -177,7 +205,7 @@
           { autoAlpha: 1, y: 0, duration: 0.3, ease: 'none' },
           `${line.beat}+=0.05`,
         );
-        tl.to(el, { autoAlpha: 0, duration: 0.25, ease: 'none' }, 'physicist-=0.25');
+        tl.to(el, { autoAlpha: 0, duration: 0.25, ease: 'none' }, `${line.until}-=0.25`);
       });
 
       // The moral pushes hard into the ball rather than cutting to new art: the
@@ -224,11 +252,14 @@
     {/each}
   </svg>
 
-  <div class="silence" aria-hidden="true">
-    {#each SILENCE as line, i}
-      <p bind:this={lines[i]}>{line.text}</p>
-    {/each}
-  </div>
+  {#each TEXT_CARDS as card}
+    <div class="stage-text" aria-hidden="true">
+      {#each card.lines as text}
+        {@const i = STAGE_TEXT.findIndex((t) => t.text === text)}
+        <p bind:this={lines[i]} class:long={text.length > 48}>{text}</p>
+      {/each}
+    </div>
+  {/each}
 </figure>
 
 <style>
@@ -254,7 +285,7 @@
   /* The lines sit exactly where the picture was, stacked in reading order and
      set like the display captions — this is the stage's own voice, not a
      caption under a picture that is not there. */
-  .silence {
+  .stage-text {
     position: absolute;
     inset-block-start: 34%;
     inset-inline: 0;
@@ -266,12 +297,20 @@
     pointer-events: none;
   }
 
-  .silence p {
+  .stage-text p {
     margin: 0;
     font-size: clamp(1.9rem, 5vw, 3.4rem);
     font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.2;
     color: var(--ink-strong);
+  }
+
+  /* A whole sentence cannot be set at title size and still be read in one
+     glance; it steps down and takes a measure. */
+  .stage-text p.long {
+    max-inline-size: 22ch;
+    font-size: clamp(1.5rem, 3.4vw, 2.4rem);
+    line-height: 1.3;
   }
 </style>

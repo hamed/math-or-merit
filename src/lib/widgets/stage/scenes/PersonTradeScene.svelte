@@ -36,9 +36,17 @@
     { label: 'one', length: 1 },
     { label: 'slide', length: 0.9 },
     { label: 'meet', length: 1 },
-    { label: 'ante', length: 1.1 },
-    { label: 'flip', length: 1.8 },
-    { label: 'fair', length: 0.8 },
+    { label: 'ante-1', length: 1.0 },
+    { label: 'toss-1', length: 1.1 },
+    { label: 'take-1', length: 0.9 },
+    { label: 'again', length: 0.9 },
+    { label: 'ante-2', length: 0.9 },
+    { label: 'toss-2', length: 1.0 },
+    { label: 'take-2', length: 0.9 },
+    { label: 'ante-3', length: 0.9 },
+    { label: 'toss-3', length: 1.0 },
+    { label: 'take-3', length: 0.9 },
+    { label: 'fair', length: 1.0 },
     { label: 'crowd', length: 1.3 },
   ];
 
@@ -70,34 +78,65 @@
   const HOME = { x: 240, y: 150 + PLATE_Y, r: 62 };
 
   /**
-   * Scripted two-flip sequence, numbers from the REAL trade rule (only the
-   * outcomes are authored, presets.ts honesty note). The demo stake is HALF
-   * of the poorer trader's wealth (owner review 2026-07-08: big enough that
-   * the area change is meaningful; later rooms use gentler stakes).
+   * The game, in coins.
    *
-   *   start: A .62, B .38 — B meaningfully smaller
-   *   t1: stake .5·min = .19  → B wins both coins → A .43,  B .57
-   *   t2: stake .5·min = .215 → A wins both coins → A .645, B .355
+   * Everything is counted in COINS, not in decimals, because that is what the
+   * reader sees: sixteen of them make one whole person, so half a fortune is
+   * eight and there is never a coin cut in half on the table.
    *
-   * Ends within ~2% of the start — "win some, lose some" stays honest.
+   * They start EQUAL — that is the point of the opening. The first toss is what
+   * makes one of them poorer, and only then does the rule need to say WHOSE
+   * half is on the table. So the rule is taught at the moment it starts to
+   * matter, on a room the reader has already watched become unequal.
+   *
+   *   start        A 8   B 8
+   *   round 1  stake 4 each (half of what they have) → B wins → A 4,  B 12
+   *   round 2  stake 2 each (half of the poorer)     → A wins → A 6,  B 10
+   *   round 3  stake 3 each (half of the poorer)     → A wins → A 9,  B 7
+   *
+   * The poorer one claws most of it back and they finish looking about level —
+   * which is the illusion this scene is here to hand the reader before the room
+   * takes it away. Nothing is rigged in the RULE; these outcomes are authored
+   * (presets.ts honesty note), and any sequence of tosses is possible.
    */
-  const W_A = 0.62;
-  const W_B = 0.38;
-  const STAKE_1 = 0.19;
-  const STAKE_2 = 0.215;
+  export const UNITS = 16;
+  export const ROUNDS: readonly { stake: number; winner: 'A' | 'B' }[] = [
+    { stake: 4, winner: 'B' },
+    { stake: 2, winner: 'A' },
+    { stake: 3, winner: 'A' },
+  ];
+
+  /** Coins held after each stage of the game, A and B. Index 0 is the start. */
+  export const HOLDINGS = (() => {
+    const out: { a: number; b: number }[] = [{ a: UNITS / 2, b: UNITS / 2 }];
+    for (const r of ROUNDS) {
+      const last = out[out.length - 1];
+      const pot = r.stake * 2;
+      out.push({
+        a: last.a - r.stake + (r.winner === 'A' ? pot : 0),
+        b: last.b - r.stake + (r.winner === 'B' ? pot : 0),
+      });
+    }
+    return out;
+  })();
+
+  /** The largest ante, which is how many coin slots each side needs. */
+  const ANTE_MAX = Math.max(...ROUNDS.map((r) => r.stake));
+
+  const W_A = HOLDINGS[0].a / UNITS;
+  const W_B = HOLDINGS[0].b / UNITS;
 
   /** radius = K·√wealth so area = wealth (the essay's honest encoding). */
   const K = 60;
   const R_A = K * Math.sqrt(W_A);
   const R_B = K * Math.sqrt(W_B);
 
-  /** The canonical coin: fixed size, a token of the ante — the agents' areas
-   * carry the truth. Two coins sit side by side; no merged pot. */
-  const COIN_R = 16.6;
-
   const A_POS = { x: 150, y: 158 };
   const B_POS = { x: 330, y: 158 };
-  const TABLE = { x: 240, y: 176 };
+  /** The table sits BELOW the two of them: the stake is money leaving their
+   *  bodies and landing in front of them, and neither pile should touch a
+   *  circle. */
+  const TABLE = { x: 240, y: 214 };
   const FLIP = { x: 240, y: 64 };
 
   /** The decider is drawn bigger than the antes: it is the thing being watched,
@@ -115,16 +154,21 @@
   const CROWD_R = 23;
 
   /**
-   * Honeycomb lattice of 14 identical coins whose total area equals the r=62
-   * circle (r = 62/√14). Wealth is coin COUNT at a fixed coin size — the
-   * canonical coin never changes size (owner review 2026-07-08).
+   * Honeycomb lattice of UNITS identical coins whose total area equals the r=62
+   * circle (r = 62/√UNITS). Wealth is coin COUNT at a fixed coin size — the
+   * canonical coin never changes size (owner review 2026-07-08) — and the same
+   * count is what the antes are cut from, so half a fortune is eight of these.
    */
-  const LATTICE_R = HOME.r / Math.sqrt(14);
+  const LATTICE_R = HOME.r / Math.sqrt(UNITS);
+  /** The ante is made of the SAME coins the fortune was made of — one size for
+   *  money everywhere in this scene. */
+  const COIN_R = LATTICE_R;
+
   const COIN_GRID: { cx: number; cy: number }[] = [];
   {
     const dx = LATTICE_R * 2;
     const dy = LATTICE_R * Math.sqrt(3);
-    const rows = [3, 4, 4, 3];
+    const rows = [3, 4, 5, 4];
     rows.forEach((count, ri) => {
       const y = HOME.y + (ri - 1.5) * dy;
       for (let ci = 0; ci < count; ci++) {
@@ -183,8 +227,8 @@
   let agentB: SVGPathElement;
   let groupA: SVGGElement;
   let groupB: SVGGElement;
-  let coinA: SVGGElement;
-  let coinB: SVGGElement;
+  /** Ante coin wrappers, per side, indexed by slot. */
+  const anteCoins: { A: SVGGElement[]; B: SVGGElement[] } = { A: [], B: [] };
   let svgEl: SVGSVGElement;
   let flipG: SVGGElement;
   /** The squashing group; the two sides live inside it. */
@@ -198,7 +242,6 @@
     stage?.attach(BEATS, (tl) => {
       const sA = (w: number) => Math.sqrt(w / W_A);
       const sB = (w: number) => Math.sqrt(w / W_B);
-      const coins = [coinA, coinB];
       const coinEls = lattice.querySelectorAll<SVGGElement>('.lattice-coin');
 
       // Absolute timeline positions, not label arithmetic: 'label+=-0.025' is
@@ -304,7 +347,8 @@
       tl.to(groupA, { x: A_POS.x, y: A_POS.y, duration: 0.55, ease: 'power1.inOut' }, 'slide+=0.1');
       tl.to(agentA, { scale: 1, duration: 0.55, ease: 'power1.inOut' }, 'slide+=0.1');
 
-      // meet — the second trader walks in from the right, noticeably poorer
+      // meet — the second trader walks in from the right, exactly as big:
+      // they start EQUAL, and the game is what makes one of them poorer
       // (gsap reads the g's translate attr, so x/y are absolute coordinates)
       tl.fromTo(
         groupB,
@@ -313,97 +357,117 @@
         'meet+=0.2',
       );
 
-      // ante — one coin each slides out; the agents shrink by what they staked.
-      // The coin wrappers carry no transform attr, so x/y tween relative.
-      tl.fromTo(
-        coinA,
-        { autoAlpha: 0, x: A_POS.x - TABLE.x + 20, y: A_POS.y - TABLE.y },
-        { autoAlpha: 1, x: -COIN_R - 2, y: 0, duration: 0.3 },
-        'ante+=0.05',
-      );
-      tl.to(agentA, { scale: sA(W_A - STAKE_1), duration: 0.3 }, 'ante+=0.05');
-      tl.fromTo(
-        coinB,
-        { autoAlpha: 0, x: B_POS.x - TABLE.x - 20, y: B_POS.y - TABLE.y },
-        { autoAlpha: 1, x: COIN_R + 2, y: 0, duration: 0.3 },
-        'ante+=0.25',
-      );
-      tl.to(agentB, { scale: sB(W_B - STAKE_1), duration: 0.3 }, 'ante+=0.25');
+      // ---- three rounds ---------------------------------------------------
+      //
+      // One loop, driven by ROUNDS. Every round is the same four moves: the
+      // stake comes out of both fortunes and onto the table as coins, the coin
+      // spins, one colour lands, and everything on the table goes to whoever
+      // that colour belongs to. Nothing here knows which round it is — the only
+      // difference between them is the stake and who wins, and both are data.
+      const agentOf = { A: agentA, B: agentB };
+      const scaleOf = { A: sA, B: sB };
+      const posOf = { A: A_POS, B: B_POS };
+      const sideOf = { A: flipA, B: flipB };
 
-      // flip 1 — the coin spins about its central VERTICAL axis; B's color
-      // lands; BOTH coins go to the winner, whose area grows by exactly both
-      tl.fromTo(flipG, { autoAlpha: 0, y: FLIP.y - 14 }, { autoAlpha: 1, y: FLIP.y, duration: 0.2 }, 'flip');
-      tl.set(flipFace, { transformOrigin: '50% 50%' }, 0);
-      // A's side starts face up; each squash midpoint shows the other one
+      // A's side of the coin starts face up
       tl.set(flipB, { autoAlpha: 0 }, 0);
-      const showSide = (up: SVGGElement, down: SVGGElement, at: string) => {
-        tl.set(up, { autoAlpha: 1 }, at);
-        tl.set(down, { autoAlpha: 0 }, at);
-      };
-      tl.to(flipFace, {
-        keyframes: [
-          { scaleX: 0.08, duration: 0.09 }, { scaleX: 1, duration: 0.09 },
-          { scaleX: 0.08, duration: 0.09 }, { scaleX: 1, duration: 0.09 },
-          { scaleX: 0.08, duration: 0.09 }, { scaleX: 1, duration: 0.09 },
-        ],
-        ease: 'none',
-      }, 'flip+=0.2');
-      // sides swap at each squash midpoint; ends on B's — B wins this one
-      showSide(flipB, flipA, 'flip+=0.29');
-      showSide(flipA, flipB, 'flip+=0.47');
-      showSide(flipB, flipA, 'flip+=0.65');
-      tl.to(coins, {
-        x: B_POS.x - TABLE.x,
-        y: B_POS.y - TABLE.y,
-        autoAlpha: 0,
-        duration: 0.3,
-        ease: 'power2.in',
-        stagger: 0.05,
-      }, 'flip+=0.8');
-      tl.to(agentB, { scale: sB(W_B + STAKE_1), duration: 0.25 }, 'flip+=1.0');
+      tl.set(flipFace, { transformOrigin: '50% 50%' }, 0);
 
-      // flip 2 — ante again (the poorer one is now A's side of the rule);
-      // A's color lands; both coins come back; both stand near the start
+      // the decider arrives once, before the first round, and leaves at the end
       tl.fromTo(
-        coinA,
-        { autoAlpha: 0, x: A_POS.x - TABLE.x + 20, y: A_POS.y - TABLE.y },
-        { autoAlpha: 1, x: -COIN_R - 2, y: 0, duration: 0.15 },
-        'flip+=1.15',
+        flipG,
+        { autoAlpha: 0, y: FLIP.y - 14 },
+        { autoAlpha: 1, y: FLIP.y, duration: 0.25 },
+        'ante-1',
       );
-      tl.fromTo(
-        coinB,
-        { autoAlpha: 0, x: B_POS.x - TABLE.x - 20, y: B_POS.y - TABLE.y },
-        { autoAlpha: 1, x: COIN_R + 2, y: 0, duration: 0.15 },
-        'flip+=1.15',
-      );
-      tl.to(agentA, { scale: sA(W_A - STAKE_1 - STAKE_2), duration: 0.15 }, 'flip+=1.15');
-      tl.to(agentB, { scale: sB(W_B + STAKE_1 - STAKE_2), duration: 0.15 }, 'flip+=1.15');
-      tl.to(flipFace, {
-        keyframes: [
-          { scaleX: 0.08, duration: 0.08 }, { scaleX: 1, duration: 0.08 },
-          { scaleX: 0.08, duration: 0.08 }, { scaleX: 1, duration: 0.08 },
-        ],
-        ease: 'none',
-      }, 'flip+=1.3');
-      showSide(flipA, flipB, 'flip+=1.38');
-      tl.to(coins, {
-        x: A_POS.x - TABLE.x,
-        y: A_POS.y - TABLE.y,
-        autoAlpha: 0,
-        duration: 0.25,
-        ease: 'power2.in',
-        stagger: 0.05,
-      }, 'flip+=1.5');
-      tl.to(agentA, { scale: sA(W_A + STAKE_2 - STAKE_1), duration: 0.2 }, 'flip+=1.65');
 
-      // fair — the coin bows out; both stand where they started
+      ROUNDS.forEach((round, r) => {
+        const before = HOLDINGS[r];
+        const after = HOLDINGS[r + 1];
+        const ante = `ante-${r + 1}`;
+        const toss = `toss-${r + 1}`;
+        const take = `take-${r + 1}`;
+        const loser = round.winner === 'A' ? 'B' : 'A';
+
+        // The stake leaves both fortunes and lands on the table, one coin at a
+        // time, from each side. The circles shrink by exactly what they staked
+        // — the area is the money, so this is the same subtraction twice.
+        (['A', 'B'] as const).forEach((who) => {
+          const from = posOf[who];
+          const dir = who === 'A' ? -1 : 1;
+          for (let i = 0; i < round.stake; i++) {
+            const el = anteCoins[who][i];
+            if (!el) continue;
+            // Laid out from the middle of the table outwards, each coin
+            // half-covering the one before it — a stack seen from above, not a
+            // row of tokens. Four of them then fit inside the gap between the
+            // two traders.
+            const slot = dir * (COIN_R + 1 + i * COIN_R);
+            tl.fromTo(
+              el,
+              { autoAlpha: 0, x: from.x - TABLE.x, y: from.y - TABLE.y },
+              { autoAlpha: 1, x: slot, y: 0, duration: 0.3, ease: 'power2.out' },
+              `${ante}+=${(0.15 + i * 0.06).toFixed(2)}`,
+            );
+          }
+          tl.to(
+            agentOf[who],
+            { scale: scaleOf[who]((before[who === 'A' ? 'a' : 'b'] - round.stake) / UNITS), duration: 0.3 },
+            `${ante}+=0.2`,
+          );
+        });
+
+        // The toss. The coin squashes about its own vertical axis and the two
+        // sides trade places at each squash — which is the whole trick: there
+        // is no third state to draw, so the flip is two pictures and timing.
+        const squashes = 3;
+        tl.to(
+          flipFace,
+          {
+            keyframes: Array.from({ length: squashes * 2 }, (_, i) =>
+              i % 2 === 0 ? { scaleX: 0.08, duration: 0.09 } : { scaleX: 1, duration: 0.09 },
+            ),
+            ease: 'none',
+          },
+          `${toss}+=0.15`,
+        );
+        for (let i = 0; i < squashes; i++) {
+          // each squash midpoint shows the other side; the last one has to land
+          // on the winner, so the sequence is read backwards from there
+          const up = (squashes - 1 - i) % 2 === 0 ? round.winner : loser;
+          const down = up === 'A' ? 'B' : 'A';
+          const at = `${toss}+=${(0.15 + 0.09 + i * 0.18).toFixed(2)}`;
+          tl.set(sideOf[up], { autoAlpha: 1 }, at);
+          tl.set(sideOf[down], { autoAlpha: 0 }, at);
+        }
+
+        // Everything on the table goes to the winner, and the winner grows by
+        // the whole pot. The loser does not shrink here — they already paid.
+        const table = [...anteCoins.A.slice(0, round.stake), ...anteCoins.B.slice(0, round.stake)];
+        tl.to(
+          table,
+          {
+            x: posOf[round.winner].x - TABLE.x,
+            y: posOf[round.winner].y - TABLE.y,
+            autoAlpha: 0,
+            duration: 0.35,
+            ease: 'power2.in',
+            stagger: 0.04,
+          },
+          `${take}+=0.1`,
+        );
+        tl.to(
+          agentOf[round.winner],
+          {
+            scale: scaleOf[round.winner](after[round.winner === 'A' ? 'a' : 'b'] / UNITS),
+            duration: 0.3,
+          },
+          `${take}+=0.35`,
+        );
+      });
+
+      // fair — the coin bows out; they stand almost exactly where they began
       tl.to(flipG, { autoAlpha: 0, y: FLIP.y - 10, duration: 0.25 }, 'fair');
-      tl.to([agentA, agentB], { scale: 1, duration: 0.35 }, 'fair+=0.1');
-
-      // The ring reaches far lower in the frame than the two traders did, so
-      // the caption's anchor moves with it instead of being overrun.
-      tl.set(svgEl, { '--art-bottom': 0.95 }, 'crowd');
-      tl.set(svgEl, { '--art-bottom': 0.72 }, 'fair');
 
       // crowd — the pair joins the ring; the room fills with styled agents
       tl.to(agentA, { scale: CROWD_R / R_A, duration: 0.5, ease: 'power2.inOut' }, 'crowd');
@@ -466,12 +530,20 @@
       {/each}
     </g>
 
-    <!-- the two antes: side by side on the table, never merged -->
-    <g bind:this={coinA} class="ante">
-      <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} face="front" />
-    </g>
-    <g bind:this={coinB} class="ante">
-      <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} face="back" />
+    <!--
+      The antes. Each side has as many coin slots as the biggest stake needs;
+      a round shows the ones it uses and sends them to the winner. They are
+      never merged into a pot — the pile on the table stays two piles until it
+      belongs to somebody.
+    -->
+    <g class="antes">
+      {#each ['A', 'B'] as const as who}
+        {#each { length: ANTE_MAX } as _, i}
+          <g bind:this={anteCoins[who][i]} class="ante">
+            <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} face={i % 2 === 0 ? 'front' : 'back'} />
+          </g>
+        {/each}
+      {/each}
     </g>
 
     <g bind:this={flipG} class="flip" transform={`translate(${FLIP.x} ${FLIP.y})`}>

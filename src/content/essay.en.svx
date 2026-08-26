@@ -85,16 +85,16 @@
 -->
 <PinScene pace={0.75}>
   <CowCastScene />
-  <Caption beat={0} display>Once upon a time,</Caption>
-  <Caption beat={1}>a farmer's cow stopped giving milk.</Caption>
-  <Caption beat={2}>So he called in three scientists — a biologist, a chemist, and a physicist.</Caption>
+  <Caption beat={0} display>Once upon a time, a farmer's cow stopped giving milk.</Caption>
+  <Caption beat={1}>He called in three scientists.</Caption>
+  <Caption beat={2}>A biologist, a chemist, and a physicist.</Caption>
   <Caption beat={3}>The biologist explained where cows come from.</Caption>
   <Caption beat={4}>Then the chemist spoke of the molecule the cow was failing to produce.</Caption>
   <Caption beat={8}>Then the physicist shouted "I have solved it!"</Caption>
   <Caption beat={9}>"Assume a spherical cow."</Caption>
   <Caption beat={10}>"In a vacuum and no gravity!"</Caption>
-  <Caption beat={11}>The spherical cow is a model, all models are wrong, but some of them are useful.</Caption>
-  <Caption beat={12}>If you cannot play football with a spherical cow, you cannot play with the real one either.</Caption>
+  <Caption beat={12}>If you cannot play football with a spherical cow,</Caption>
+  <Caption beat={13}>you cannot play with the real one either.</Caption>
 </PinScene>
 
 ## Now, the spherical human
@@ -131,15 +131,22 @@ Same trick. New subject.
   <PersonTradeScene />
   <Caption beat={0}>Take the richest man in the world.</Caption>
   <Caption beat={1}>We'll do to him exactly what the physicist did to the cow.</Caption>
-  <Caption beat={2}>We through away all the details.</Caption>
+  <Caption beat={2}>We throw away all the details.</Caption>
   <Caption beat={3}>Until we are left with nothing but a circle.</Caption>
   <Caption beat={4}>The area is his wealth.</Caption>
   <Caption beat={5}>You are your money and nothing else.</Caption>
-  <Caption beat={7}>Someone new walks in, poorer.</Caption>
-  <Caption beat={8}>The rule: both stake the <em>same</em> amount. Say, half of whatever the <em>poorer</em> one owns. One gold coin each, on the table.</Caption>
-  <Caption beat={9}>Then we toss the coin — one color on each side. Whichever color lands takes both.</Caption>
-  <Caption beat={10}>One wins, other loses. The winner took exactly what the loser lost. No money made, none destroyed.</Caption>
-  <Caption beat={11}>That is the whole game, and it is fair.</Caption>
+  <Caption beat={7}>Someone new walks in, with exactly as much.</Caption>
+  <Caption beat={8}>Both put up half of what they have.</Caption>
+  <Caption beat={9}>They toss the coin — one color on each side.</Caption>
+  <Caption beat={10}>Whichever color lands takes it all.</Caption>
+  <Caption beat={11}>They play again. Now one of them is poorer.</Caption>
+  <Caption beat={12}>So the rule says it plainly: both put up half of what the <em>poorer</em> one has.</Caption>
+  <Caption beat={13}>Toss.</Caption>
+  <Caption beat={14}>This time the poorer one takes it.</Caption>
+  <Caption beat={15}>Again. Half of what the poorer one has.</Caption>
+  <Caption beat={16}>Toss.</Caption>
+  <Caption beat={17}>And again it comes back.</Caption>
+  <Caption beat={18}>They finish almost exactly where they began. No money was made, and none destroyed. That is the whole game, and it is fair.</Caption>
 </PinScene>
 
 

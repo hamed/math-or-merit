@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { validateBeats, type BeatSpec } from './contract';
-import { BEATS as CAST_BEATS, FRAMES as CAST_FRAMES, SILENCE } from './scenes/CowCastScene.svelte';
+import { BEATS as CAST_BEATS, FRAMES as CAST_FRAMES, STAGE_TEXT } from './scenes/CowCastScene.svelte';
 import { BEATS as OPENING_BEATS, SLOTS as REEL_SLOTS, LAND as REEL_LAND } from './scenes/OpeningScene.svelte';
-import { BEATS as ROOM_BEATS, PLATES as ROOM_PLATES } from './scenes/PersonTradeScene.svelte';
+import {
+  BEATS as ROOM_BEATS,
+  PLATES as ROOM_PLATES,
+  ROUNDS,
+  HOLDINGS,
+  UNITS,
+} from './scenes/PersonTradeScene.svelte';
 import { BEATS as CLOSING_BEATS } from './scenes/ClosingScene.svelte';
 
 /** Every scene's beat table, checked at data level (no DOM mounting). */
@@ -47,11 +53,14 @@ describe('CowCastScene frames', () => {
     }
   });
 
-  it('the silence lines land on beats that exist, and carry no plate', () => {
+  it('stage text lands on beats that exist, carries no plate, and leaves later', () => {
     const plated = new Set(CAST_FRAMES.map((f) => f.beat));
-    for (const line of SILENCE) {
+    const order = CAST_BEATS.map((b) => b.label);
+    for (const line of STAGE_TEXT) {
       expect(labels.has(line.beat), `no beat "${line.beat}"`).toBe(true);
+      expect(labels.has(line.until), `no beat "${line.until}"`).toBe(true);
       expect(plated.has(line.beat), `"${line.beat}" must stay empty`).toBe(false);
+      expect(order.indexOf(line.until)).toBeGreaterThan(order.indexOf(line.beat));
     }
   });
 
@@ -100,6 +109,44 @@ describe('PersonTradeScene plates', () => {
 
   it('ends on the circle beat, where the plates hand over to the circle', () => {
     expect(ROOM_PLATES[ROOM_PLATES.length - 1].beat).toBe('circle');
+  });
+});
+
+describe('PersonTradeScene game', () => {
+  it('starts the two of them equal', () => {
+    expect(HOLDINGS[0].a).toBe(UNITS / 2);
+    expect(HOLDINGS[0].b).toBe(UNITS / 2);
+  });
+
+  it('makes and destroys no money', () => {
+    for (const h of HOLDINGS) expect(h.a + h.b).toBe(UNITS);
+  });
+
+  it('stakes half of what the poorer one has, in whole coins', () => {
+    ROUNDS.forEach((round, r) => {
+      const { a, b } = HOLDINGS[r];
+      expect(round.stake).toBe(Math.floor(Math.min(a, b) / 2));
+      expect(round.stake).toBeGreaterThan(0);
+    });
+  });
+
+  it('has a beat trio for every round', () => {
+    const labels = new Set(ROOM_BEATS.map((b) => b.label));
+    ROUNDS.forEach((_, r) => {
+      for (const stage of ['ante', 'toss', 'take']) {
+        expect(labels.has(`${stage}-${r + 1}`), `no beat "${stage}-${r + 1}"`).toBe(true);
+      }
+    });
+  });
+
+  it('ends close enough to level to sell the illusion', () => {
+    const last = HOLDINGS[HOLDINGS.length - 1];
+    expect(Math.abs(last.a - last.b)).toBeLessThanOrEqual(UNITS / 4);
+  });
+
+  it('gives the first round to one of them and the rest to the other', () => {
+    expect(ROUNDS[0].winner).not.toBe(ROUNDS[1].winner);
+    expect(ROUNDS[1].winner).toBe(ROUNDS[2].winner);
   });
 });
 

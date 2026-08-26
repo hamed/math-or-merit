@@ -46,13 +46,16 @@ Education · Grit · Class · Timing · Race · Charisma · God's will · Genes 
 > a physicist, then the cow as a sphere, then in a vacuum, then a football
 > pitch.
 
-[cow.once] Once upon a time,
+[cow.once] Once upon a time, a farmer's cow stopped giving milk.
 
 > big, alone, no picture yet — the words are the stage.
 
-[cow.0] a farmer's cow stopped giving milk.
+[cow.0] He called in three scientists.
 
-[cow.0b] So he called in three scientists — a biologist, a chemist, and a physicist.
+[cow.0b] A biologist, a chemist, and a physicist.
+
+> open: the picture shows Darwin, Curie and Einstein. Name them instead, if
+> you want the reader to know who they are looking at.
 
 [cow.1] The biologist explained where cows come from.
 
@@ -69,9 +72,16 @@ Education · Grit · Class · Timing · Race · Charisma · God's will · Genes 
 
 [cow.5] "In a vacuum and no gravity!"
 
-[cow.6] The spherical cow is a model, all models are wrong, but some of them are useful.
+[cow.6] The spherical cow is a model. All models are wrong, but some of them are useful.
 
-[cow.7] If you cannot play football with a spherical cow, you cannot play with the real one either.
+> the picture leaves again for this one — it is not about anything you can draw.
+
+[cow.7] If you cannot play football with a spherical cow,
+
+[cow.7b] you cannot play with the real one either.
+
+> the football picture arrives under cow.7, then pushes into the ball as cow.7b
+> lands.
 
 ! keep true: cow.7 is load-bearing. It only claims that a problem present in the
 simplest version survives into richer ones — not that richer models behave the
@@ -101,20 +111,39 @@ same.
 
 [human.5] You are your money and nothing else.
 
-[human.7] Someone new walks in, poorer.
+[human.7] Someone new walks in, with exactly as much.
 
-[human.8] The rule: both stake the *same* amount. Say, half of whatever the *poorer* one owns. One gold coin each, on the table.
+> they start EQUAL. The game is what makes one of them poorer, and the rule is
+> taught at the moment that starts to matter.
 
-[human.9] Then we toss the coin — one color on each side. Whichever color lands takes both.
+[human.8] Both put up half of what they have.
 
-> it is the SAME coin: the gold one, with each side painted in a trader's
-> color. No second kind of coin, no heads-or-tails to remember.
-> open: a small "Mine." / "Damn." from the winner and loser, in their colors —
-> only here, never in the crowded room.
+> four gold coins out of each of them, stacked on the table below. Sixteen
+> coins make a whole person, so half a fortune is eight.
 
-[human.10] One wins, other loses. The winner took exactly what the loser lost. No money made, none destroyed.
+[human.9] They toss the coin — one color on each side.
 
-[human.11] That is the whole game, and it is fair.
+[human.10] Whichever color lands takes it all.
+
+[human.11] They play again. Now one of them is poorer.
+
+[human.12] So the rule says it plainly: both put up half of what the *poorer* one has.
+
+[human.13] Toss.
+
+[human.14] This time the poorer one takes it.
+
+[human.15] Again. Half of what the poorer one has.
+
+[human.16] Toss.
+
+[human.17] And again it comes back.
+
+[human.18] They finish almost exactly where they began. No money was made, and none destroyed. That is the whole game, and it is fair.
+
+> the numbers, in coins: 8-8, then 4-12, then 6-10, then 9-7. The poorer one
+> claws it back and they end up looking level — which is the illusion this
+> scene hands you before the room takes it away.
 
 ! keep true: we never say how he actually got rich. The essay does not explain
 any real fortune.
