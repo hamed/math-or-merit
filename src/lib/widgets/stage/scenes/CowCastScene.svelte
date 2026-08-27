@@ -4,10 +4,14 @@
   import introduction from './cast/00-introduction.webp';
   import darwin from './cast/01-darwin.webp';
   import chemist from './cast/02-chemist.webp';
-  import physicist from './cast/03-physicist.webp';
-  import spherical from './cast/04-spherical.webp';
-  import vacuum from './cast/05-vacuum.webp';
-  import football from './cast/06-football.webp';
+  import silence from './cast/03-silence.webp';
+  import cowLooks from './cast/04-cow-looks.webp';
+  import cowMoos from './cast/05-cow-moos.webp';
+  import scratch from './cast/06-scratch.webp';
+  import physicist from './cast/07-physicist.webp';
+  import spherical from './cast/08-spherical.webp';
+  import vacuum from './cast/09-vacuum.webp';
+  import football from './cast/10-football.webp';
 
   const BEAT_LENGTHS: readonly BeatSpec[] = [
     // The bridge from the title, then the fable opens on words alone — no
@@ -25,12 +29,16 @@
     { label: 'call', length: 1.0 },
     { label: 'darwin', length: 1.1 },
     { label: 'chemist', length: 1.1 },
-    // Then the picture LEAVES and three lines take its place, one per scroll.
-    // Three experts have answered and the farmer still has no milk; the empty
-    // stage is the joke, so nothing is drawn here on purpose.
-    { label: 'silence-1', length: 0.7 },
-    { label: 'silence-2', length: 0.7 },
-    { label: 'silence-3', length: 0.9 },
+    // The silence, in four panels (owner's plates, 2026-08-27). It used to be
+    // an empty stage on purpose; it is now the same shot held while nothing
+    // happens, which is the same joke with a straight face — everyone waits,
+    // the cow turns and looks at US, the cow answers, and only then does
+    // Albert start to think. `scratch` carries no words: the picture is the
+    // beat.
+    { label: 'silence-1', length: 0.9 },
+    { label: 'silence-2', length: 0.9 },
+    { label: 'silence-3', length: 1.0 },
+    { label: 'scratch', length: 1.0 },
     { label: 'physicist', length: 1.2 },
     { label: 'sphere', length: 1.2 },
     { label: 'vacuum', length: 1.0 },
@@ -88,9 +96,6 @@
     { text: 'is it fair or not?', beat: 'question', until: 'show' },
     { text: 'Is it helpful or harmful?', beat: 'question', until: 'show' },
     { text: 'Let me show you what I mean by that.', beat: 'show', until: 'once-upon' },
-    { text: 'Then silence,', beat: 'silence-1', until: 'physicist' },
-    { text: 'More silence,', beat: 'silence-2', until: 'physicist' },
-    { text: 'Even more silence.', beat: 'silence-3', until: 'physicist' },
     // Three lines, one card: they arrive in order inside the one beat rather
     // than costing three scroll steps, because it is one sentence of thought.
     { text: 'The spherical cow is a model.', beat: 'model', until: 'football' },
@@ -151,7 +156,7 @@
    * an individual frame. Adding a plate means adding a row here and a row in
    * BEATS, nothing else.
    *
-   * 00-05 share a single crop and 06 is cut to the same aspect (see
+   * 00-09 share a single crop and the pitch is cut to the same aspect (see
    * art/cast-scene/process.sh), so the cast holds its size across every switch.
    *
    * The final beat ('moral') deliberately has no plate of its own: it holds the
@@ -160,7 +165,11 @@
   export const FRAMES: readonly CastFrame[] = [
     { src: introduction, beat: 'once' },
     { src: darwin, beat: 'darwin' },
-    { src: chemist, beat: 'chemist', until: 'silence-1' },
+    { src: chemist, beat: 'chemist' },
+    { src: silence, beat: 'silence-1' },
+    { src: cowLooks, beat: 'silence-2' },
+    { src: cowMoos, beat: 'silence-3' },
+    { src: scratch, beat: 'scratch' },
     { src: physicist, beat: 'physicist' },
     { src: spherical, beat: 'sphere' },
     { src: vacuum, beat: 'vacuum', until: 'model' },

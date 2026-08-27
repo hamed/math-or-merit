@@ -16,9 +16,10 @@
 # 2. A SHARED crop. The six studio frames (00-05) are one continuous shot of
 #    the same cast, and the scene cuts between them — so they must be cropped
 #    identically or the cast jumps between beats. We measure every frame's
-#    content box, take the union, and cut all six to that one box. Never switch
-#    this to a per-image -trim. 06 is a different location (full-bleed pitch),
-#    so it is trimmed on its own and then matched to the studio ASPECT.
+#    content box, take the union, and cut them all to that one box. Never
+#    switch this to a per-image -trim. The pitch is a different location
+#    (full-bleed), so it is trimmed on its own and then matched to the studio
+#    ASPECT.
 #
 # Run from anywhere: art/cast-scene/process.sh
 set -euo pipefail
@@ -38,14 +39,24 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$OUT"
 
-# The studio frames, in scene order. 06 is handled separately.
+# The studio frames, in SCENE order — this array is the order, not the source
+# filenames (the owner names his files for himself, and he should). The output
+# numbers are what the scene reads.
+#
+# 03-06 are the silence: three answers have been given, the cow still has no
+# milk, and for four panels nothing happens. Same shot as the rest, so the cut
+# is a panel switch and the cast never moves.
 STUDIO=(
   "00-cow-introduction.png:00-introduction"
   "01-darwin.png:01-darwin"
   "02-couri.png:02-chemist"
-  "03-cow-physics.png:03-physicist"
-  "04-cow-physics-spherical.png:04-spherical"
-  "05-cow-physics-spherical-no-gravity.png:05-vacuum"
+  "cow-silence.png:03-silence"
+  "cow-look-at-us.png:04-cow-looks"
+  "cow-moos.png:05-cow-moos"
+  "albert-scratches.png:06-scratch"
+  "03-cow-physics.png:07-physicist"
+  "04-cow-physics-spherical.png:08-spherical"
+  "05-cow-physics-spherical-no-gravity.png:09-vacuum"
 )
 
 # Build the tinted plate for one source into $TMP.
@@ -67,7 +78,7 @@ echo "Pass 1: keying ink"
 for entry in "${STUDIO[@]}"; do
   plate "${IN}/${entry%%:*}" "${entry##*:}"
 done
-plate "${IN}/06-football.jpeg" "06-football"
+plate "${IN}/06-football.jpeg" "10-football"
 
 echo "Pass 2: measuring the shared content box"
 minx=999999; miny=999999; maxx=0; maxy=0
@@ -109,9 +120,9 @@ done
 # into one stage box, so a squarer frame renders smaller. We trim it to its own
 # content, then cut it to the studio aspect from the TOP, which keeps the ball
 # and the faces and spends the foreground grass, which carries nothing.
-fw=$(magick "$TMP/06-football.png" -trim -format '%w' info:)
+fw=$(magick "$TMP/10-football.png" -trim -format '%w' info:)
 fh=$(awk "BEGIN{printf \"%d\", $fw / ($cw/$ch)}")
 printf '  pitch cut to %dx%d to match the studio aspect\n' "$fw" "$fh"
-emit "06-football" -trim +repage -gravity north -crop "${fw}x${fh}+0+0" +repage
+emit "10-football" -trim +repage -gravity north -crop "${fw}x${fh}+0+0" +repage
 
 echo "Total: $(du -sh "$OUT" | cut -f1)"

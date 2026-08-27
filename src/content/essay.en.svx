@@ -95,11 +95,14 @@ import Chapter from '$lib/nav/Chapter.svelte';
   <Caption beat={6}>A biologist, a chemist, and a physicist.</Caption>
   <Caption beat={7}>The biologist explained where cows come from.</Caption>
   <Caption beat={8}>Then the chemist spoke of the molecule<br />the cow was failing to produce.</Caption>
-  <Caption beat={12}>Then the physicist shouted "I have solved it!"</Caption>
-  <Caption beat={13}>"Assume a spherical cow."</Caption>
-  <Caption beat={14}>"In a vacuum and no gravity!"</Caption>
-  <Caption beat={16}>If you cannot play football with a spherical cow,</Caption>
-  <Caption beat={17}>you cannot play with the real one either.</Caption>
+  <Caption beat={9}>Then silence,</Caption>
+  <Caption beat={10}>More silence,</Caption>
+  <Caption beat={11}>Even more silence.</Caption>
+  <Caption beat={13}>Then the physicist shouted "I have solved it!"</Caption>
+  <Caption beat={14}>"Assume a spherical cow."</Caption>
+  <Caption beat={15}>"In a vacuum and no gravity!"</Caption>
+  <Caption beat={17}>If you cannot play football with a spherical cow,</Caption>
+  <Caption beat={18}>you cannot play with the real one either.</Caption>
 </PinScene>
 
 <Chapter id="spherical-human" label="Now, the spherical human" />
