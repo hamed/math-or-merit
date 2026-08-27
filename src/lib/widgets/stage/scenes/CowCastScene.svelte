@@ -17,13 +17,14 @@
     // The bridge from the title, then the fable opens on words alone — no
     // picture yet. The cast arrives after.
     //
-    // 'tool' and 'question' are the owner's two slides after the title
-    // (2026-08-27): the promise, then the hard question the promise is for.
-    // They are beats of their own so one press of space is one slide.
-    { label: 'bridge', length: 1.1 },
-    { label: 'tool', length: 1.7 },
+    // The three slides after the title (owner's copy, 2026-08-27): the promise,
+    // the hard question it is for, and the handover to the fable. One beat
+    // each, so one press of space is one slide. The lone "Math." that used to
+    // open this scene is GONE at the owner's call — the reel already landed on
+    // it, and saying it twice spent the moment rather than doubling it.
+    { label: 'tool', length: 2.2 },
     { label: 'question', length: 1.7 },
-    { label: 'show', length: 1.1 },
+    { label: 'story', length: 1.1 },
     { label: 'once-upon', length: 1.1 },
     { label: 'once', length: 1.0 },
     { label: 'call', length: 1.0 },
@@ -80,22 +81,25 @@
     until: string;
     /** Set the line at title scale — for a line that IS the answer, not prose. */
     big?: boolean;
+    /** Range the card's lines on a shared left edge instead of centring each. */
+    left?: boolean;
   }[] = [
     // The bridge from the title (owner's pick, 2026-08-26). The reel has just
     // stopped on "Math" and the reader is holding a question with no reason yet
     // to believe it. So the answer lands a second time, alone, and then the
     // essay says plainly that it is about to explain itself — which buys the
     // next ninety seconds, which are a joke about a cow.
-    { text: 'Math.', beat: 'bridge', until: 'tool', big: true },
-    // The promise (owner's copy, 2026-08-27), then the question it is for.
-    // Naming the subject this early is deliberate: it is asked, not answered.
-    { text: 'I want to give you a simple tool,', beat: 'tool', until: 'question' },
-    { text: 'to find the answer to hard questions,', beat: 'tool', until: 'question' },
-    { text: 'easily by yourself.', beat: 'tool', until: 'question' },
-    { text: 'Wealth tax,', beat: 'question', until: 'show', big: true },
-    { text: 'is it fair or not?', beat: 'question', until: 'show' },
-    { text: 'Is it helpful or harmful?', beat: 'question', until: 'show' },
-    { text: 'Let me show you what I mean by that.', beat: 'show', until: 'once-upon' },
+    // The promise, then the question it is for, then the handover. Naming the
+    // subject this early is deliberate: it is asked, not answered. Left-ranged
+    // and all one size — the slides are a voice speaking, not a title card.
+    { text: 'I give you a simple tool,', beat: 'tool', until: 'question', left: true },
+    { text: 'to answer hard questions,', beat: 'tool', until: 'question', left: true },
+    { text: 'easily by yourself.', beat: 'tool', until: 'question', left: true },
+    { text: 'like…', beat: 'tool', until: 'question', left: true },
+    { text: 'Wealth tax,', beat: 'question', until: 'story', left: true },
+    { text: 'Is it fair or unfair?', beat: 'question', until: 'story', left: true },
+    { text: 'is it helpful or harmful?', beat: 'question', until: 'story', left: true },
+    { text: 'let me tell you a story first…', beat: 'story', until: 'once-upon', left: true },
     // Three lines, one card: they arrive in order inside the one beat rather
     // than costing three scroll steps, because it is one sentence of thought.
     { text: 'The spherical cow is a model.', beat: 'model', until: 'football' },
@@ -137,17 +141,27 @@
   });
 
   /** One card per `until`, in first-appearance order. */
-  export const TEXT_CARDS: readonly { until: string; lines: readonly string[] }[] = (() => {
+  export const TEXT_CARDS: readonly {
+    until: string;
+    lines: readonly string[];
+    left: boolean;
+  }[] = (() => {
     const order: string[] = [];
     const byUntil = new Map<string, string[]>();
+    const leftOf = new Map<string, boolean>();
     for (const t of STAGE_TEXT) {
       if (!byUntil.has(t.until)) {
         byUntil.set(t.until, []);
         order.push(t.until);
       }
       byUntil.get(t.until)!.push(t.text);
+      if (t.left) leftOf.set(t.until, true);
     }
-    return order.map((until) => ({ until, lines: byUntil.get(until)! }));
+    return order.map((until) => ({
+      until,
+      lines: byUntil.get(until)!,
+      left: leftOf.get(until) ?? false,
+    }));
   })();
 
   /**
@@ -331,7 +345,7 @@
          one line. Those step down together; a short card (the models card) and
          a card led by a big word keep the treatment they had. -->
     {@const verse = !hasBig && Math.max(...card.lines.map((t) => t.length)) > 32}
-    <div class="stage-text" aria-hidden="true">
+    <div class="stage-text" class:left={card.left} aria-hidden="true">
       {#each card.lines as text}
         {@const i = STAGE_TEXT.findIndex((t) => t.text === text)}
         {@const line = STAGE_TEXT[i]}
@@ -382,6 +396,28 @@
     gap: 0.15em;
     text-align: center;
     pointer-events: none;
+  }
+
+  /* A voice speaking, not a title card: the lines share a left edge and run
+     ragged right. The block itself still sits in the middle of the stage —
+     shrink-wrapped and auto-margined — so it is a left-ranged column rather
+     than text shoved against the viewport. */
+  .stage-text.left {
+    align-items: flex-start;
+    /* fit-content, and NO ch cap: `ch` on this container resolves against the
+       container's own font size, not the lines', so a 34ch cap came out ~270px
+       and wrapped every line. The stage is already width-limited. */
+    inline-size: fit-content;
+    max-inline-size: 100%;
+    margin-inline: auto;
+    text-align: start;
+  }
+
+  /* The authored line break IS the line. The shared clamp floors at 1.9rem,
+     which on a 390px screen re-wrapped "is it helpful or harmful?" into two —
+     so these cards scale with the viewport further down before they stop. */
+  .stage-text.left p {
+    font-size: clamp(1.35rem, 6.4vw, 3.4rem);
   }
 
   .stage-text p {
