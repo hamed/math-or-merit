@@ -24,10 +24,32 @@
    * markup, and a second prop saying so could disagree with it.
    */
   let broken = $state(false);
+  /**
+   * More than one line on screen, however it got there — an authored break or
+   * plain wrapping. Those are ranged left (owner, 2026-08-27: "do them left
+   * align, it is prettier"); a single line keeps the centring it had, and
+   * since the box shrink-wraps and auto-margins, it looks identical.
+   * Measured, not guessed: whether a caption wraps depends on the viewport.
+   */
+  let ranged = $state(false);
+
+  function measure(): void {
+    broken = el.querySelector('br') !== null;
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0) return;
+    ranged = el.getBoundingClientRect().height / lineHeight > 1.5;
+  }
 
   onMount(() => {
-    broken = el.querySelector('br') !== null;
-    return stage?.registerCaption(el, beat);
+    measure();
+    // wrapping changes with the viewport, so this cannot be decided once
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(el);
+    const unregister = stage?.registerCaption(el, beat);
+    return () => {
+      observer.disconnect();
+      unregister?.();
+    };
   });
 </script>
 
@@ -37,6 +59,7 @@
   class:stage-caption--display={display}
   class:stage-caption--big={big}
   class:stage-caption--broken={broken}
+  class:stage-caption--ranged={ranged}
   data-beat={beat}
 >
   {@render children()}

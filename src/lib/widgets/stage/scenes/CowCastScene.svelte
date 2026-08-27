@@ -81,8 +81,6 @@
     until: string;
     /** Set the line at title scale — for a line that IS the answer, not prose. */
     big?: boolean;
-    /** Range the card's lines on a shared left edge instead of centring each. */
-    left?: boolean;
   }[] = [
     // The bridge from the title (owner's pick, 2026-08-26). The reel has just
     // stopped on "Math" and the reader is holding a question with no reason yet
@@ -90,16 +88,16 @@
     // essay says plainly that it is about to explain itself — which buys the
     // next ninety seconds, which are a joke about a cow.
     // The promise, then the question it is for, then the handover. Naming the
-    // subject this early is deliberate: it is asked, not answered. Left-ranged
-    // and all one size — the slides are a voice speaking, not a title card.
-    { text: 'I give you a simple tool,', beat: 'tool', until: 'question', left: true },
-    { text: 'to answer hard questions,', beat: 'tool', until: 'question', left: true },
-    { text: 'easily by yourself.', beat: 'tool', until: 'question', left: true },
-    { text: 'like…', beat: 'tool', until: 'question', left: true },
-    { text: 'Wealth tax,', beat: 'question', until: 'story', left: true },
-    { text: 'Is it fair or unfair?', beat: 'question', until: 'story', left: true },
-    { text: 'is it helpful or harmful?', beat: 'question', until: 'story', left: true },
-    { text: 'let me tell you a story first…', beat: 'story', until: 'once-upon', left: true },
+    // subject this early is deliberate: it is asked, not answered. All one
+    // size — the slides are a voice speaking, not a title card.
+    { text: 'I give you a simple tool,', beat: 'tool', until: 'question' },
+    { text: 'to answer hard questions,', beat: 'tool', until: 'question' },
+    { text: 'easily by yourself.', beat: 'tool', until: 'question' },
+    { text: 'like…', beat: 'tool', until: 'question' },
+    { text: 'Wealth tax,', beat: 'question', until: 'story' },
+    { text: 'Is it fair or unfair?', beat: 'question', until: 'story' },
+    { text: 'is it helpful or harmful?', beat: 'question', until: 'story' },
+    { text: 'let me tell you a story first…', beat: 'story', until: 'once-upon' },
     // Three lines, one card: they arrive in order inside the one beat rather
     // than costing three scroll steps, because it is one sentence of thought.
     { text: 'The spherical cow is a model.', beat: 'model', until: 'football' },
@@ -141,27 +139,17 @@
   });
 
   /** One card per `until`, in first-appearance order. */
-  export const TEXT_CARDS: readonly {
-    until: string;
-    lines: readonly string[];
-    left: boolean;
-  }[] = (() => {
+  export const TEXT_CARDS: readonly { until: string; lines: readonly string[] }[] = (() => {
     const order: string[] = [];
     const byUntil = new Map<string, string[]>();
-    const leftOf = new Map<string, boolean>();
     for (const t of STAGE_TEXT) {
       if (!byUntil.has(t.until)) {
         byUntil.set(t.until, []);
         order.push(t.until);
       }
       byUntil.get(t.until)!.push(t.text);
-      if (t.left) leftOf.set(t.until, true);
     }
-    return order.map((until) => ({
-      until,
-      lines: byUntil.get(until)!,
-      left: leftOf.get(until) ?? false,
-    }));
+    return order.map((until) => ({ until, lines: byUntil.get(until)! }));
   })();
 
   /**
@@ -345,7 +333,7 @@
          one line. Those step down together; a short card (the models card) and
          a card led by a big word keep the treatment they had. -->
     {@const verse = !hasBig && Math.max(...card.lines.map((t) => t.length)) > 32}
-    <div class="stage-text" class:left={card.left} aria-hidden="true">
+    <div class="stage-text" aria-hidden="true">
       {#each card.lines as text}
         {@const i = STAGE_TEXT.findIndex((t) => t.text === text)}
         {@const line = STAGE_TEXT[i]}
@@ -386,43 +374,35 @@
   /* The lines sit exactly where the picture was, stacked in reading order and
      set like the display captions — this is the stage's own voice, not a
      caption under a picture that is not there. */
+  /* A voice speaking, not a title card: the lines share a left edge and run
+     ragged right (owner, 2026-08-27: "do them left align, it is prettier").
+     The block itself still sits in the middle of the stage — shrink-wrapped
+     and auto-margined — so a one-line card looks exactly as it did, and only
+     a card with several lines gains the shared edge.
+     fit-content with NO ch cap: `ch` here resolves against the CONTAINER's
+     font size, not the lines', so a 34ch cap came out ~270px and wrapped
+     everything. The stage is already width-limited. */
   .stage-text {
     position: absolute;
     inset-block-start: 34%;
     inset-inline: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 0.15em;
-    text-align: center;
-    pointer-events: none;
-  }
-
-  /* A voice speaking, not a title card: the lines share a left edge and run
-     ragged right. The block itself still sits in the middle of the stage —
-     shrink-wrapped and auto-margined — so it is a left-ranged column rather
-     than text shoved against the viewport. */
-  .stage-text.left {
     align-items: flex-start;
-    /* fit-content, and NO ch cap: `ch` on this container resolves against the
-       container's own font size, not the lines', so a 34ch cap came out ~270px
-       and wrapped every line. The stage is already width-limited. */
     inline-size: fit-content;
     max-inline-size: 100%;
     margin-inline: auto;
+    gap: 0.15em;
     text-align: start;
+    pointer-events: none;
   }
 
-  /* The authored line break IS the line. The shared clamp floors at 1.9rem,
-     which on a 390px screen re-wrapped "is it helpful or harmful?" into two —
-     so these cards scale with the viewport further down before they stop. */
-  .stage-text.left p {
-    font-size: clamp(1.35rem, 6.4vw, 3.4rem);
-  }
-
+  /* The authored line break IS the line, so the type has to keep it. The old
+     floor of 1.9rem re-wrapped "is it helpful or harmful?" into two lines on a
+     390px screen; this scales with the viewport further down before it stops. */
   .stage-text p {
     margin: 0;
-    font-size: clamp(1.9rem, 5vw, 3.4rem);
+    font-size: clamp(1.35rem, 6.4vw, 3.4rem);
     font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.2;

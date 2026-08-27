@@ -435,6 +435,16 @@
     text-wrap: initial;
   }
 
+  /* More than one line, so it is ranged left rather than centred: centred rag
+     on both sides is hard to read and, per the owner, plainly less pretty. The
+     box still shrink-wraps and auto-margins, so the block sits where it did —
+     only the lines' left edges line up now. */
+  .pin-scene :global(.stage-caption--ranged) {
+    inline-size: fit-content;
+    text-align: start;
+    text-wrap: pretty;
+  }
+
   .pin-scene :global(.stage-caption--display.stage-caption--broken) {
     font-size: clamp(1.5rem, 3.6vw, 2.6rem);
     line-height: 1.3;
