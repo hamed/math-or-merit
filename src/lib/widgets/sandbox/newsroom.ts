@@ -11,6 +11,32 @@
 import type { WinnerHeadline } from '../shared/agentStyle';
 import type { SandboxWorld } from './SandboxWorld';
 
+/**
+ * What the newsroom needs to know about a room. Kept structural so the papers
+ * are not tied to one world class: the reveal beat runs a plain `SimEngine`
+ * and still gets a front page.
+ */
+export interface StatsSource {
+  n: number;
+  startDollars: number;
+  /** The structural levy in force, 0 where there is none yet. */
+  taxRate: number;
+  dollarsOf: (index: number) => number;
+  /** Dollars won per round; empty where nobody records it. */
+  volume: readonly number[];
+}
+
+/** The sandbox's world, seen as the newsroom sees it. */
+export function roomStatsSource(world: SandboxWorld): StatsSource {
+  return {
+    n: world.config.n,
+    startDollars: world.config.startDollars,
+    taxRate: world.taxRate,
+    dollarsOf: (i) => world.dollarsOf(i),
+    volume: world.volumeSeries.values,
+  };
+}
+
 export interface RoomStats {
   gini: number;
   topShare: number;
@@ -24,26 +50,26 @@ export interface RoomStats {
   volumeVsPeak: number;
 }
 
-export function collectStats(world: SandboxWorld, gini: number, topShare: number): RoomStats {
-  const { n, startDollars } = world.config;
+export function collectStats(room: StatsSource, gini: number, topShare: number): RoomStats {
+  const { n, startDollars } = room;
   const povertyLine = 0.1 * startDollars;
   let povertyCount = 0;
   let minPos = Infinity;
   let max = -Infinity;
   for (let i = 0; i < n; i++) {
-    const d = world.dollarsOf(i);
+    const d = room.dollarsOf(i);
     if (d < povertyLine) povertyCount++;
     if (d > 0 && d < minPos) minPos = d;
     if (d > max) max = d;
   }
-  const volume = world.volumeSeries.values;
+  const volume = room.volume;
   let peak = 0;
   for (const v of volume) if (Number.isFinite(v) && v > peak) peak = v;
   const last = volume.length > 0 ? volume[volume.length - 1] : 0;
   return {
     gini,
     topShare,
-    taxRate: world.taxRate,
+    taxRate: room.taxRate,
     n,
     povertyCount,
     ratioTopBottom: Number.isFinite(minPos) && minPos > 0 && max > 0 ? max / minPos : Infinity,

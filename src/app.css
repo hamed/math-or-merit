@@ -201,20 +201,10 @@ a:hover {
   }
 }
 
-/* ---------- the manufactured-headline card (the morning paper) ---------- */
-
-.headline-card {
-  max-inline-size: 30rem;
-  margin-inline: auto;
-  padding-block: 1.4rem 1.1rem;
-  padding-inline: 1.6rem;
-  border: 1px solid #c9bca5;
-  border-radius: 0.7rem;
-  background: #fffdf8;
-  box-shadow: 0 0.8rem 2rem rgb(65 50 29 / 10%);
-  transform: rotate(-0.6deg);
-  text-align: start;
-}
+/* ---------- the manufactured-headline type (the morning papers) ----------
+   `NewsFlash` prints these. The framed `.headline-card` that used to sit
+   under the reveal is gone: the paper lands ON the room now, so the frameless
+   mandate has one fewer exception. */
 
 .headline-text {
   margin-block: 0;
@@ -223,14 +213,6 @@ a:hover {
   font-weight: 650;
   line-height: 1.25;
   color: #211e19;
-}
-
-.headline-qualifier {
-  margin-block: 0.5rem 0;
-  font-size: 0.88rem;
-  font-style: italic;
-  line-height: 1.45;
-  color: #6e6659;
 }
 
 .headline-source {
@@ -369,21 +351,6 @@ a:hover {
   font-weight: 700;
   color: #3c352b;
   white-space: nowrap;
-}
-
-.widget .headline-card {
-  margin-block-end: 1.2rem;
-  transform: rotate(-0.4deg);
-}
-
-.widget .headline-card .headline-text {
-  font-size: clamp(1.25rem, 3vw, 1.55rem);
-}
-
-.widget .headline-card .headline-source {
-  text-transform: none;
-  letter-spacing: 0.02em;
-  font-size: 0.84rem;
 }
 
 /* ---------- review-copy footer ---------- */

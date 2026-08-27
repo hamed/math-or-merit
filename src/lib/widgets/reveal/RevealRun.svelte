@@ -1,14 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { fly } from 'svelte/transition';
   import { createEngine, type SimEngine } from '$lib/sim';
+  import { measureWealth } from '$lib/research';
   import RoomCanvas from '../shared/RoomCanvas.svelte';
+  import NewsFlash from '../sandbox/NewsFlash.svelte';
+  import { collectStats } from '../sandbox/newsroom';
   import { createTicker } from '../shared/ticker';
   import { countTrades, percent } from '../shared/format';
+  import { radiusScale, roomPositions } from '../shared/layout';
   import { logRun, predictionLabel, session } from '../shared/runLog.svelte';
-  import { REVEAL_BETA, REVEAL_TRADES, ROOM_N } from '../shared/presets';
-  import { assignStyles, headlineForStyle, styleNoun } from '../shared/agentStyle';
-  import { svgShapePath } from '../shared/shapePath';
+  import { REVEAL_BETA, REVEAL_TRADES, ROOM_N, START_DOLLARS } from '../shared/presets';
+  import { assignStyles, styleNoun } from '../shared/agentStyle';
 
   // Display-only styles, dealt before any run (agentStyle.ts GUARD: the sim
   // has no import path to them — the morning paper below is the only consumer).
@@ -18,6 +20,8 @@
   // dice — no seed, no seed concept (owner review 2026-07-08).
   const FIRST_MS = 9000;
   const RERUN_MS = 4200;
+  const ROOM_H = 320;
+  const TOTAL_DOLLARS = ROOM_N * START_DOLLARS;
 
   const freshSeed = () => Math.floor(Math.random() * 0xffff_ffff);
 
@@ -30,13 +34,68 @@
   let winner = $state<number | null>(null);
   let history = $state<{ seed: number; winner: number; topShare: number }[]>([]);
 
+  // The morning paper is the sandbox's: it prints ON the room, over whoever
+  // the camera caught, instead of arriving as a card underneath it.
+  let roomW = $state(0);
+  let newsOpen = $state(false);
+  let newsSubject = $state(-1);
+  let newsRun = $state(0);
+
   const guess = $derived(predictionLabel(session.prediction));
   const step = $derived.by(() => {
     void revision;
     return engine.state.step;
   });
-  const winnerStyle = $derived(winner !== null ? styles[winner] : null);
-  const headline = $derived(winnerStyle ? headlineForStyle(winnerStyle, history.length - 1) : null);
+
+  const newsPos = $derived.by(() => {
+    void revision;
+    if (newsSubject < 0 || roomW === 0) return { x: 0, y: 0, r: 10 };
+    const p = roomPositions(ROOM_N, roomW, ROOM_H)[newsSubject];
+    const r = radiusScale(ROOM_N, roomW, ROOM_H) * Math.sqrt(Math.max(0, engine.state.wealth[newsSubject]));
+    return { x: p.x, y: p.y, r: Math.max(6, r) };
+  });
+
+  /** Where the photographed one stands, in dollars and in the pecking order. */
+  const newsStanding = $derived.by(() => {
+    void revision;
+    if (newsSubject < 0) return { dollars: 0, percentile: 0 };
+    const w = engine.state.wealth;
+    let poorer = 0;
+    for (let i = 0; i < w.length; i++) if (w[i] < w[newsSubject]) poorer++;
+    return { dollars: w[newsSubject] * TOTAL_DOLLARS, percentile: poorer / ROOM_N };
+  });
+
+  const newsStats = $derived.by(() => {
+    void revision;
+    const w = engine.state.wealth;
+    const m = measureWealth(w);
+    // No levy exists yet in the essay, and this beat keeps no volume series.
+    return collectStats(
+      { n: ROOM_N, startDollars: START_DOLLARS, taxRate: 0, dollarsOf: (i) => w[i] * TOTAL_DOLLARS, volume: [] },
+      m.gini,
+      m.topShare,
+    );
+  });
+
+  function photograph(index: number): void {
+    if (running) return;
+    newsSubject = index;
+    newsRun++;
+    newsOpen = true;
+  }
+
+  /** The canvas is pointer-only; this is the keyboard path to the same page. */
+  function photographPoorest(): void {
+    const w = engine.state.wealth;
+    let pick = 0;
+    for (let i = 1; i < w.length; i++) if (w[i] < w[pick]) pick = i;
+    photograph(pick);
+  }
+
+  function closeNews(): void {
+    newsOpen = false;
+    newsSubject = -1;
+  }
 
   function measureTop(): void {
     const w = engine.state.wealth;
@@ -79,6 +138,9 @@
         topShare,
       });
       history.push({ seed: engine.config.seed ?? -1, winner: winner ?? 0, topShare });
+      newsSubject = winner ?? 0;
+      newsRun = history.length - 1; // same headline rotation as before
+      newsOpen = true;
     } else {
       measureTop();
     }
@@ -94,6 +156,7 @@
     finished = false;
     winner = null;
     topShare = 0;
+    closeNews();
     revision++;
     running = true;
     ticker.start();
@@ -107,14 +170,31 @@
 <div class="widget" aria-label="The main run: a hundred thousand fair trades, fresh dice every run">
   <p class="kicker">The room, for real this time</p>
 
-  <RoomCanvas
-    wealth={engine.state.wealth}
-    {revision}
-    {styles}
-    {winner}
-    height={320}
-    label="One hundred shapes trading; one grows enormous while the rest shrink"
-  />
+  <div class="room-frame" bind:clientWidth={roomW}>
+    <RoomCanvas
+      wealth={engine.state.wealth}
+      {revision}
+      {styles}
+      {winner}
+      height={ROOM_H}
+      onTap={finished && !newsOpen ? photograph : null}
+      label={finished
+        ? 'One hundred shapes after the trading; tap any one of them to put them on the front page'
+        : 'One hundred shapes trading; one grows enormous while the rest shrink'}
+    />
+    {#if newsOpen && newsSubject >= 0}
+      <NewsFlash
+        paper="ledger"
+        style={styles[newsSubject]}
+        pos={newsPos}
+        run={newsRun}
+        dollars={newsStanding.dollars}
+        percentile={newsStanding.percentile}
+        stats={newsStats}
+        onClose={closeNews}
+      />
+    {/if}
+  </div>
 
   <div class="readout">
     <output aria-live="off">{countTrades(step)} trades</output>
@@ -123,24 +203,6 @@
       <span class="meter-label">biggest circle: {percent(topShare)}</span>
     </div>
   </div>
-
-  {#if finished && winnerStyle && headline}
-    <aside class="headline-card newspaper" in:fly={{ y: 10, duration: 350 }} aria-live="polite">
-      <p class="masthead">The Morning Ledger <span class="edition">· markets</span></p>
-      <div class="paper-body">
-        <div class="portrait" aria-hidden="true">
-          <svg viewBox="-30 -30 60 60" width="64" height="64">
-            <path d={svgShapePath(winnerStyle.shape, 22)} fill={winnerStyle.fill} stroke={winnerStyle.stroke} stroke-width="2.4" fill-opacity="0.85" />
-          </svg>
-          <p class="cutline">the winner, this morning</p>
-        </div>
-        <div>
-          <p class="headline-text">{headline.text}</p>
-          <p class="headline-source">{headline.source}</p>
-        </div>
-      </div>
-    </aside>
-  {/if}
 
   <p class="caption" aria-live="polite">
     {#if !finished && !running}
@@ -166,6 +228,9 @@
         {finished ? 'Run it again — new dice' : `Run ${countTrades(REVEAL_TRADES)} trades`}
       {/if}
     </button>
+    {#if finished}
+      <button type="button" onclick={photographPoorest} disabled={newsOpen}>Photograph the last-placed</button>
+    {/if}
     {#if history.length > 1}
       <ul class="history" aria-label="Winners so far">
         {#each history.slice(-4) as h (h.seed)}
@@ -177,6 +242,11 @@
 </div>
 
 <style>
+  /* the news prints inside the room, anchored on its subject */
+  .room-frame {
+    position: relative;
+  }
+
   .readout {
     display: flex;
     align-items: center;
@@ -190,57 +260,6 @@
     font-size: 0.85rem;
     font-weight: 700;
     color: #3c352b;
-  }
-
-  /* the morning paper: the one deliberate framed exception (news is content) */
-  .newspaper {
-    margin-block-start: 1.1rem;
-  }
-
-  .masthead {
-    margin-block: 0 0.6rem;
-    padding-block-end: 0.35rem;
-    border-block-end: 2px solid #3c352b;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #3c352b;
-  }
-
-  .masthead .edition {
-    float: inline-end;
-    font-weight: 400;
-    letter-spacing: 0.06em;
-    color: #7a7061;
-  }
-
-  .paper-body {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .portrait {
-    flex: none;
-    text-align: center;
-  }
-
-  .portrait svg {
-    display: block;
-    margin-inline: auto;
-    border: 1px solid #d8cdb9;
-    background: #f8f3e7;
-  }
-
-  .cutline {
-    margin-block: 0.3rem 0;
-    max-inline-size: 5.5rem;
-    font-size: 0.62rem;
-    font-style: italic;
-    color: #7a7061;
-    line-height: 1.3;
   }
 
   .history {

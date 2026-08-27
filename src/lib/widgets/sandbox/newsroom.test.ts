@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { collectStats, frontPageFor, gazettePage, ledgerPage, subjectKind, type RoomStats } from './newsroom';
+import {
+  collectStats,
+  frontPageFor,
+  gazettePage,
+  ledgerPage,
+  roomStatsSource,
+  subjectKind,
+  type RoomStats,
+} from './newsroom';
 import { SandboxWorld } from './SandboxWorld';
 
 const base: RoomStats = {
@@ -76,12 +84,32 @@ describe('collectStats', () => {
     world.beta = 0.3;
     world.taxEvery = 10;
     world.step(5000);
-    const stats = collectStats(world, 0.7, 0.5);
+    const stats = collectStats(roomStatsSource(world), 0.7, 0.5);
     expect(stats.n).toBe(10);
     expect(stats.povertyCount).toBeGreaterThan(0);
     expect(stats.ratioTopBottom).toBeGreaterThan(1);
     expect(stats.volumeVsPeak).toBeGreaterThan(0);
     expect(stats.volumeVsPeak).toBeLessThanOrEqual(1);
+  });
+
+  it('reads a room that keeps no volume series — the reveal beat', () => {
+    // The reveal runs a plain SimEngine: shares and a total, nothing else.
+    const shares = [0.6, 0.2, 0.15, 0.04, 0.01];
+    const stats = collectStats(
+      {
+        n: 5,
+        startDollars: 100,
+        taxRate: 0,
+        dollarsOf: (i) => shares[i] * 500,
+        volume: [],
+      },
+      0.62,
+      0.6,
+    );
+    expect(stats.n).toBe(5);
+    expect(stats.povertyCount).toBe(1); // $5, under the $10 line
+    expect(stats.ratioTopBottom).toBeCloseTo(60, 6); // $300 over $5
+    expect(stats.volumeVsPeak).toBe(1); // no series: treat the room as healthy
   });
 });
 

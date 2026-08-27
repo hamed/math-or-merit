@@ -1,22 +1,32 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { createEngine, type SimEngine } from '$lib/sim';
   import RoomCanvas from '../shared/RoomCanvas.svelte';
+  import TimeSeries from '../sandbox/TimeSeries.svelte';
+  import { SandboxWorld } from '../sandbox/SandboxWorld';
   import { createTicker } from '../shared/ticker';
   import { countTrades, percent } from '../shared/format';
   import { DUST_DOLLARS, REVEAL_SEED, REVEAL_TRADES, ROOM_BETA, ROOM_N, START_DOLLARS } from '../shared/presets';
 
+  /**
+   * A bookkeeping round is 1,000 trades here, not the usual 100: this beat
+   * accelerates to 400,000 trades a frame, and a round costs a Gini over the
+   * whole room. At 100 it added 15 ms to a 39 ms frame; at 1,000 it adds 2.
+   */
+  const ROUND_TRADES = 1000;
+
   // Continue the room the reveal left off: same seed, pre-run to the same point.
-  function preRunEngine(seed: number): SimEngine {
-    const engine = createEngine({ n: ROOM_N, beta: ROOM_BETA, seed });
-    engine.step(REVEAL_TRADES);
-    return engine;
+  function preRunWorld(seed: number): SandboxWorld {
+    const world = new SandboxWorld({ n: ROOM_N, startDollars: START_DOLLARS, seed });
+    world.beta = ROOM_BETA;
+    world.taxEvery = ROUND_TRADES;
+    world.step(REVEAL_TRADES);
+    return world;
   }
 
   const MAX_TRADES = 40_000_000;
   const STOP_SHARE = 0.9995;
 
-  let engine = $state(preRunEngine(REVEAL_SEED));
+  let world = $state(preRunWorld(REVEAL_SEED));
   let revision = $state(0);
   let running = $state(false);
   let finished = $state(false);
@@ -26,7 +36,7 @@
   let perFrame = 400;
 
   function measure(): void {
-    const w = engine.state.wealth;
+    const w = world.wealth;
     let total = 0;
     let max = 0;
     let argmax = 0;
@@ -47,10 +57,10 @@
 
   const ticker = createTicker(() => {
     perFrame = Math.min(400_000, perFrame * 1.06);
-    engine.step(Math.round(perFrame));
+    world.step(Math.round(perFrame));
     revision++;
     measure();
-    if (topShare >= STOP_SHARE || engine.state.step >= MAX_TRADES) {
+    if (topShare >= STOP_SHARE || world.trades >= MAX_TRADES) {
       ticker.stop();
       running = false;
       finished = true;
@@ -59,7 +69,7 @@
 
   const step = $derived.by(() => {
     void revision;
-    return engine.state.step;
+    return world.trades;
   });
 
   function run(): void {
@@ -75,7 +85,7 @@
     running = false;
     finished = false;
     perFrame = 400;
-    engine = preRunEngine(Math.floor(Math.random() * 0xffff_ffff));
+    world = preRunWorld(Math.floor(Math.random() * 0xffff_ffff));
     revision++;
     measure();
   }
@@ -88,13 +98,19 @@
 <div class="widget" aria-label="Time accelerates until a single circle holds everything">
   <p class="kicker">Time, accelerated</p>
 
-  <RoomCanvas
-    wealth={engine.state.wealth}
-    {revision}
-    {winner}
-    height={320}
-    label="The room under accelerating time; the tail thins until one circle holds everything"
-  />
+  <div class="duo">
+    <RoomCanvas
+      wealth={world.wealth}
+      {revision}
+      {winner}
+      height={320}
+      label="The room under accelerating time; the tail thins until one circle holds everything"
+    />
+    <!-- the room shows the ending; the curve shows that it never turns back -->
+    <div class="plot">
+      <TimeSeries {world} {revision} />
+    </div>
+  </div>
 
   <div class="stats">
     <output>{countTrades(step)} trades</output>
@@ -121,6 +137,28 @@
 </div>
 
 <style>
+  .duo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 11rem);
+    gap: 1rem;
+    align-items: center;
+  }
+
+  @media (max-width: 40rem) {
+    .duo {
+      grid-template-columns: 1fr;
+      justify-items: center;
+    }
+  }
+
+  /* the finale's plot frame is square and drawn for a small tile — cap it so
+     it stays a margin note beside the room, on mobile as well */
+  .plot {
+    inline-size: 100%;
+    max-inline-size: 12rem;
+    aspect-ratio: 1;
+  }
+
   .stats {
     display: flex;
     flex-wrap: wrap;

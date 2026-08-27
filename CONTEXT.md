@@ -25,8 +25,8 @@ On `main`, deployed. Passes shipped:
   The belief word cloud is GONE, the money is a photographed coin, and the two
   traders now start EQUAL.
 
-173 vitest tests green (R29 retired two duplicate world classes and their
-tests), `npm run build` clean apart from two known a11y warnings
+174 vitest tests green (R29 retired two duplicate world classes and their
+tests; R30 added one), `npm run build` clean apart from two known a11y warnings
 in `PlotFrame.svelte` (axis-toggle `<rect>` with no key handler), headless QA
 sweeps (desktop / mobile 390px / reduced-motion, forward AND reverse scroll)
 show zero console errors.
@@ -281,6 +281,59 @@ Backlog item 3 opened, at the layer where it costs nothing on screen.
   `Sandbox` presets), mini charts → `PlotFrame` plots, `PhaseDiagram` writing
   into the shared `phaseGrid` record, and one shared newspaper card for
   `RevealRun` + `NewsFlash`. Each of those changes the picture.
+
+## R30 — sandbox parts in the earlier beats, where they read better (2026-08-27)
+
+The owner's rule for this round: **change the picture if the change is an
+improvement.** Four candidates were tried; three shipped, one was reverted on
+the evidence.
+
+- **The reveal's newspaper is the sandbox's** (`NewsFlash`). It prints ON the
+  room — camera flash on the winner, the photo flies into the polaroid slot,
+  the headline sets — instead of arriving as a card underneath. The winner's
+  headline is unchanged: `frontPageFor` routes a 99th-percentile subject to
+  `ledgerPage`, and with `taxRate` 0 that returns `headlineForStyle`, the same
+  shape pun as before. The reader can also photograph anyone else: tapping the
+  canvas, or **"Photograph the last-placed"** for the keyboard path — the
+  Ledger on a poor subject prints "A cautionary tale of poor choices", which
+  is the chapter's argument in one line.
+- `collectStats` no longer takes a `SandboxWorld`. It takes a structural
+  `StatsSource` (`n`, `startDollars`, `taxRate`, `dollarsOf`, `volume`), so the
+  reveal's plain `SimEngine` gets a front page too; `roomStatsSource(world)`
+  adapts the sandbox. The old inline `.headline-card` and its dead app.css
+  rules are gone — the frameless mandate has one fewer exception.
+- **TimeLapse runs a `SandboxWorld` and shows a `TimeSeries`.** Gini solid,
+  top share dashed: the crown visibly changes hands (top share dips to 50%
+  and recovers) while Gini stays pinned near 1. A round here is **1,000**
+  trades, not the usual 100 — this beat accelerates to 400k trades a frame,
+  and a round costs a Gini over the whole room (measured: +15 ms a frame at
+  100, +2 ms at 1,000).
+- **PhaseDiagram's two sliders are `StopSlider`s**, stopped on the map's own
+  BETAS and TAXES. Same snapping as before, the finale's vocabulary, and the
+  widget is 55 px shorter on desktop and 86 px on mobile.
+- **CrowdRun keeps its bespoke canvas histogram. REVERTED, do not retry
+  without changing `Histogram` first.** The sandbox chart looks strictly more
+  capable and is not: `StickyRange` deliberately follows the minimum DOWN
+  ("nothing goes off scale"), so after two million trades the poorest agent at
+  1e-49 drags the x-axis to 1e-49…0.1, the tick labels collide, and the 809
+  below a cent plus the $2.4M winner — the whole point of the beat — vanish.
+  The bespoke chart floors at `DUST_DOLLARS` with a dashed dust wall and
+  prints per-decade counts. Screenshots of both are in the R30 session notes.
+  Reopening this needs a floor/dust option on `Histogram`, and then the two
+  charts share little but the frame.
+- **The square-frame rule for reuse outside the sandbox**: `PlotFrame` is a
+  fixed 170-unit square with 8–9.5 px type, drawn for a ~250 px tile. Past
+  ~14 rem it reads oversized and clumsy. Cap any prose-side plot
+  (`max-inline-size`) instead of letting it fill the column — that is why
+  TimeLapse's is 12 rem.
+- Verified: 174 tests green, build carries the same three pre-existing
+  warnings, zero console errors. Pixel diff main vs branch at 1280 px and
+  390 px: eight of eleven widgets byte-identical; the three that differ are
+  TimeLapse, PhaseDiagram and the sandbox (which differs against itself).
+  Driven: reveal winner page + last-placed page, TimeLapse to 3.3M trades and
+  100%, phase cell painted at stake 40% / tax 2% → Gini 0.66, no horizontal
+  overflow at 390 px after the whole flow.
+
 
 ## Visual system
 

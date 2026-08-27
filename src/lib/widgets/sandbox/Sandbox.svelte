@@ -40,7 +40,7 @@
   import LorenzPlot from './LorenzPlot.svelte';
   import NewsFlash from './NewsFlash.svelte';
   import StopSlider, { MONEY_STOPS, PEOPLE_STOPS, RATE_STOPS } from './StopSlider.svelte';
-  import { collectStats } from './newsroom';
+  import { collectStats, roomStatsSource } from './newsroom';
   import { addMeasurement, clearPhaseData, exportCsv, importCsv, loadPhaseData } from './phaseGrid.svelte';
   import { createTicker } from '../shared/ticker';
   import { FILLS, STROKES, randomStyles } from '../shared/agentStyle';
@@ -499,7 +499,7 @@
         zone={newsZone}
         dollars={newsStanding.dollars}
         percentile={newsStanding.percentile}
-        stats={collectStats(world, gini, topShare)}
+        stats={collectStats(roomStatsSource(world), gini, topShare)}
         onClose={closeNews}
       />
     {/if}

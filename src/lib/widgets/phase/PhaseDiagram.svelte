@@ -26,6 +26,7 @@
   import { createTicker } from '../shared/ticker';
   import { assignStyles } from '../shared/agentStyle';
   import { countTrades, percent } from '../shared/format';
+  import StopSlider from '../sandbox/StopSlider.svelte';
   import { SandboxWorld } from '../sandbox/SandboxWorld';
   import { START_DOLLARS } from '../shared/presets';
 
@@ -40,10 +41,12 @@
   const cellW = PLOT.w / BETAS.length;
   const cellH = PLOT.h / TAXES.length;
 
-  let stakeIdx = $state(3); // 20%
-  let taxIdx = $state(2); // 2%
-  const beta = $derived(BETAS[stakeIdx]);
-  const taxRate = $derived(TAXES[taxIdx]);
+  // The dials are the finale's dials, stopped on this map's own grid: the
+  // reader meets the control here that they will hold in the sandbox.
+  let beta = $state(BETAS[3]); // 20%
+  let taxRate = $state(TAXES[2]); // 2%
+  const stakeIdx = $derived(BETAS.indexOf(beta));
+  const taxIdx = $derived(TAXES.indexOf(taxRate));
 
   let grid = $state<number[][]>(cachedGrid ?? TAXES.map(() => BETAS.map(() => NaN)));
   let plays = $state<{ ix: number; iy: number }[]>(cachedPlays ?? []);
@@ -269,14 +272,8 @@
   </div>
 
   <div class="dials">
-    <label>
-      stake: <strong>{percent(beta)}</strong>
-      <input type="range" min="0" max={BETAS.length - 1} step="1" bind:value={stakeIdx} disabled={playing} aria-label="Stake per trade" />
-    </label>
-    <label>
-      tax: <strong>{percent(taxRate, 1)}</strong> per round
-      <input type="range" min="0" max={TAXES.length - 1} step="1" bind:value={taxIdx} disabled={playing} aria-label="Flat levy per round" />
-    </label>
+    <StopSlider label="stake" bind:value={beta} stops={BETAS} format={(v) => percent(v)} disabled={playing} />
+    <StopSlider label="tax /round" bind:value={taxRate} stops={TAXES} format={(v) => percent(v, 1)} disabled={playing} />
   </div>
 
   <p class="caption" aria-live="polite">
@@ -381,16 +378,6 @@
     margin-block-start: 0.9rem;
     font-size: 0.85rem;
     color: #3c352b;
-  }
-
-  .dials label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-
-  .dials input {
-    accent-color: #8b3f2b;
   }
 
   @media (max-width: 40rem) {
