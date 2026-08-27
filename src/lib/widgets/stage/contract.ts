@@ -20,6 +20,16 @@ export interface BeatSpec {
    * the scene's CSS --art-bottom, then to 1.
    */
   readonly artBottom?: number;
+  /**
+   * Offset from this beat's start at which everything on it has ARRIVED —
+   * the resting place keyboard paging aims for.
+   *
+   * The sequencer can time the captions it owns, but a scene that draws its
+   * own words (a card of three lines that stack) knows better, and without
+   * this the space key landed on a card whose last line had not shown yet.
+   * Left out, the caption arithmetic is used.
+   */
+  readonly restAt?: number;
 }
 
 export interface StageContext {

@@ -237,7 +237,6 @@ a:hover {
   flex-direction: column;
   justify-content: flex-start;
   max-inline-size: 52rem;
-  scroll-snap-align: center;
   margin-block: clamp(0.75rem, 2vw, 1.5rem);
   margin-inline: auto;
   padding-block: clamp(0.5rem, 1.5vw, 1rem);
@@ -378,26 +377,26 @@ a:hover {
   text-underline-offset: 0.18em;
 }
 
-/* ---------- scroll snap ---------- */
+/* ---------- scroll settling ---------- */
 
-/* 'proximity', never 'mandatory': the essay's authored beats are scroll-scrubbed
-   pinned timelines, and a mandatory snap fights the scrub and breaks reverse
-   scrolling. Proximity only engages when the reader comes to rest near a snap
-   point, so the widgets settle at a sensible place and everything else scrolls
-   normally. Snap points are on the yield widgets only — never on .pin-spacer. */
+/* CSS scroll snap is GONE (2026-08-27). It was `y proximity` with
+   `scroll-snap-align: center` on every `.widget`, and it trapped the reader:
+   a widget shorter than the viewport makes a snap area that a normal wheel
+   step cannot leave, so Chrome re-centres it forever. Measured at 1280x900
+   with 120px wheel steps: the page died at y=29792 (the first widget after
+   the person scene) and 162 consecutive steps moved it zero pixels. With the
+   align removed the same run passes every widget with no stall longer than
+   one step.
+   The one place settling actually helps is the full-screen sandbox, and that
+   one does it in JS, where it can tell an arriving reader from a leaving one.
+   Do not reintroduce snap here without re-running that wheel test. */
 html {
-  /* Breathing room above a snapped widget, so it never lands flush against the
-     top edge. Full-screen widgets cancel it — see Sandbox. */
+  /* Breathing room above a widget scrolled to by script or by anchor, so it
+     never lands flush against the top edge. The sandbox cancels it — it is
+     exactly one screen tall. */
   --snap-pad: 6svh;
 
-  scroll-snap-type: y proximity;
   scroll-padding-block: var(--snap-pad);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-snap-type: none;
-  }
 }
 
 /* ---------- motion ---------- */

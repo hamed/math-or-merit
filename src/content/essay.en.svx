@@ -85,16 +85,16 @@
 -->
 <PinScene pace={0.75}>
   <CowCastScene />
-  <Caption beat={1} display>Once upon a time, a farmer's cow stopped giving milk.</Caption>
-  <Caption beat={2}>He called in three scientists.</Caption>
-  <Caption beat={3}>A biologist, a chemist, and a physicist.</Caption>
-  <Caption beat={4}>The biologist explained where cows come from.</Caption>
-  <Caption beat={5}>Then the chemist spoke of the molecule the cow was failing to produce.</Caption>
-  <Caption beat={9}>Then the physicist shouted "I have solved it!"</Caption>
-  <Caption beat={10}>"Assume a spherical cow."</Caption>
-  <Caption beat={11}>"In a vacuum and no gravity!"</Caption>
-  <Caption beat={13}>If you cannot play football with a spherical cow,</Caption>
-  <Caption beat={14}>you cannot play with the real one either.</Caption>
+  <Caption beat={4} display>Once upon a time,<br />a farmer's cow stopped giving milk.</Caption>
+  <Caption beat={5}>He called in three scientists.</Caption>
+  <Caption beat={6}>A biologist, a chemist, and a physicist.</Caption>
+  <Caption beat={7}>The biologist explained where cows come from.</Caption>
+  <Caption beat={8}>Then the chemist spoke of the molecule<br />the cow was failing to produce.</Caption>
+  <Caption beat={12}>Then the physicist shouted "I have solved it!"</Caption>
+  <Caption beat={13}>"Assume a spherical cow."</Caption>
+  <Caption beat={14}>"In a vacuum and no gravity!"</Caption>
+  <Caption beat={16}>If you cannot play football with a spherical cow,</Caption>
+  <Caption beat={17}>you cannot play with the real one either.</Caption>
 </PinScene>
 
 ## Now, the spherical human
@@ -139,14 +139,14 @@ Same trick. New subject.
   <Caption beat={8}>Both put up half of what they have.</Caption>
   <Caption beat={9}>They toss the coin — one color on each side.</Caption>
   <Caption beat={10}>Whichever color lands takes it all.</Caption>
-  <Caption beat={11}>They play again. Now one of them is poorer.</Caption>
-  <Caption beat={12}>So the rule says it plainly: both put up half of what the <em>poorer</em> one has.</Caption>
+  <Caption beat={11}>They play again.<br />Now one of them is poorer.</Caption>
+  <Caption beat={12}>So the rule says it plainly:<br />both put up half of what the <em>poorer</em> one has.</Caption>
   <Caption beat={13}>Toss.</Caption>
   <Caption beat={14}>This time the poorer one takes it.</Caption>
-  <Caption beat={15}>Again. Half of what the poorer one has.</Caption>
+  <Caption beat={15}>Again.<br />Half of what the poorer one has.</Caption>
   <Caption beat={16}>Toss.</Caption>
   <Caption beat={17}>And again it comes back.</Caption>
-  <Caption beat={18}>They finish almost exactly where they began. No money was made, and none destroyed. That is the whole game, and it is fair.</Caption>
+  <Caption beat={18}>They finish almost exactly where they began.<br />No money was made, and none destroyed.<br />That is the whole game, and it is fair.</Caption>
 </PinScene>
 
 
@@ -456,7 +456,7 @@ tap anyone to tax them on the spot. Break it. Save it. See what it takes.
 -->
 <PinScene>
   <ClosingScene />
-  <Caption beat={0}>This is where every fair room ends, given time. Before the last word — the honesty bill.</Caption>
+  <Caption beat={0}>This is where every fair room ends, given time.<br />Before the last word — the honesty bill.</Caption>
   <Caption beat={1}>To build this room I threw away work, wages, debt, inheritance, skill, effort, luck, power, law — and never handed them back. That list is the fence around the claim: a model this bare cannot explain real inequality, and it never tried to.</Caption>
   <Caption beat={2}>I still cannot tell you how he got there — this little room does not know his name. But it shows something smaller and harder: a process can be fair in every single step and still end with everything in one place. So when the stories arrive — the talent, the grind, the vision — maybe they're real. Or maybe you are reading a winning trait off a fair coin.</Caption>
   <Caption beat={3}><strong>Nothing was unfair. That was the unfairness.</strong></Caption>

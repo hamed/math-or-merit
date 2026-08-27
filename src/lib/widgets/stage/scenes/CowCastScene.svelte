@@ -9,10 +9,17 @@
   import vacuum from './cast/05-vacuum.webp';
   import football from './cast/06-football.webp';
 
-  export const BEATS: readonly BeatSpec[] = [
+  const BEAT_LENGTHS: readonly BeatSpec[] = [
     // The bridge from the title, then the fable opens on words alone — no
     // picture yet. The cast arrives after.
+    //
+    // 'tool' and 'question' are the owner's two slides after the title
+    // (2026-08-27): the promise, then the hard question the promise is for.
+    // They are beats of their own so one press of space is one slide.
     { label: 'bridge', length: 1.1 },
+    { label: 'tool', length: 1.7 },
+    { label: 'question', length: 1.7 },
+    { label: 'show', length: 1.1 },
     { label: 'once-upon', length: 1.1 },
     { label: 'once', length: 1.0 },
     { label: 'call', length: 1.0 },
@@ -28,8 +35,10 @@
     { label: 'sphere', length: 1.2 },
     { label: 'vacuum', length: 1.0 },
     // The picture leaves again for the lesson itself — the sentence about
-    // models is not about anything you can draw.
-    { label: 'model', length: 1.4 },
+    // models is not about anything you can draw. 1.7, not 1.4: a three-line
+    // card needs TEXT_LEAD + 2 gaps + TEXT_FADE + TEXT_EXIT of room, and at
+    // 1.4 the third line started leaving before it had finished arriving.
+    { label: 'model', length: 1.7 },
     // The pitch is full-bleed and then pushed into, so its ink runs to the
     // edge of the frame — the studio plates' transparent margin is not there.
     { label: 'football', length: 1.4, artBottom: 1 },
@@ -69,8 +78,16 @@
     // to believe it. So the answer lands a second time, alone, and then the
     // essay says plainly that it is about to explain itself — which buys the
     // next ninety seconds, which are a joke about a cow.
-    { text: 'Math.', beat: 'bridge', until: 'once-upon', big: true },
-    { text: 'Let me show you what I mean by that.', beat: 'bridge', until: 'once-upon' },
+    { text: 'Math.', beat: 'bridge', until: 'tool', big: true },
+    // The promise (owner's copy, 2026-08-27), then the question it is for.
+    // Naming the subject this early is deliberate: it is asked, not answered.
+    { text: 'I want to give you a simple tool,', beat: 'tool', until: 'question' },
+    { text: 'to find the answer to hard questions,', beat: 'tool', until: 'question' },
+    { text: 'easily by yourself.', beat: 'tool', until: 'question' },
+    { text: 'Wealth tax,', beat: 'question', until: 'show', big: true },
+    { text: 'is it fair or not?', beat: 'question', until: 'show' },
+    { text: 'Is it helpful or harmful?', beat: 'question', until: 'show' },
+    { text: 'Let me show you what I mean by that.', beat: 'show', until: 'once-upon' },
     { text: 'Then silence,', beat: 'silence-1', until: 'physicist' },
     { text: 'More silence,', beat: 'silence-2', until: 'physicist' },
     { text: 'Even more silence.', beat: 'silence-3', until: 'physicist' },
@@ -80,6 +97,39 @@
     { text: 'All models are wrong,', beat: 'model', until: 'football' },
     { text: 'but some of them are useful.', beat: 'model', until: 'football' },
   ];
+
+  /**
+   * Stage-text timing, exported so `beats.test.ts` can prove every card fits
+   * its beat. Lines arrive one after another inside their beat and the whole
+   * card leaves TEXT_EXIT before its `until`.
+   */
+  export const TEXT_LEAD = 0.05;
+  export const TEXT_GAP = 0.5;
+  /** A line set at title scale gets less room after it, not more. */
+  export const TEXT_GAP_BIG = 0.35;
+  export const TEXT_FADE = 0.3;
+  export const TEXT_EXIT = 0.25;
+
+  /** Offset from its own beat's start at which STAGE_TEXT[i] starts arriving. */
+  export function textLineOffset(i: number): number {
+    const line = STAGE_TEXT[i];
+    const nth = STAGE_TEXT.slice(0, i).filter((t) => t.beat === line.beat).length;
+    return TEXT_LEAD + nth * (line.big ? TEXT_GAP_BIG : TEXT_GAP);
+  }
+
+  /**
+   * The beat table, with a resting point on every beat that carries a card:
+   * the moment its LAST line has finished arriving. Keyboard paging aims
+   * there, so a press of space can never stop on a half-built card.
+   * Computed, not typed in, so adding a line cannot leave it stale.
+   */
+  export const BEATS: readonly BeatSpec[] = BEAT_LENGTHS.map((beat) => {
+    let arrived = 0;
+    STAGE_TEXT.forEach((line, i) => {
+      if (line.beat === beat.label) arrived = Math.max(arrived, textLineOffset(i) + TEXT_FADE);
+    });
+    return arrived > 0 ? { ...beat, restAt: Math.min(arrived, beat.length) } : beat;
+  });
 
   /** One card per `until`, in first-appearance order. */
   export const TEXT_CARDS: readonly { until: string; lines: readonly string[] }[] = (() => {
@@ -212,15 +262,13 @@
         const el = lines[i];
         if (!el) return;
         // Lines sharing a beat come in one after another, a breath apart.
-        const nth = STAGE_TEXT.slice(0, i).filter((t) => t.beat === line.beat).length;
-        // a beat that opens on one big word gives it room before the next line
         tl.fromTo(
           el,
           { autoAlpha: 0, y: 12 },
-          { autoAlpha: 1, y: 0, duration: 0.3, ease: 'none' },
-          `${line.beat}+=${(0.05 + nth * (line.big ? 0.35 : 0.5)).toFixed(2)}`,
+          { autoAlpha: 1, y: 0, duration: TEXT_FADE, ease: 'none' },
+          `${line.beat}+=${textLineOffset(i).toFixed(2)}`,
         );
-        tl.to(el, { autoAlpha: 0, duration: 0.25, ease: 'none' }, `${line.until}-=0.25`);
+        tl.to(el, { autoAlpha: 0, duration: TEXT_EXIT, ease: 'none' }, `${line.until}-=${TEXT_EXIT}`);
       });
 
       // The moral pushes hard into the ball rather than cutting to new art: the
@@ -268,15 +316,22 @@
   </svg>
 
   {#each TEXT_CARDS as card}
+    {@const hasBig = card.lines.some((t) => STAGE_TEXT.find((x) => x.text === t)?.big)}
+    <!-- A card of plain lines whose longest one is past ~32 characters cannot
+         be set at stage size without wrapping, and a wrapped line stops being
+         one line. Those step down together; a short card (the models card) and
+         a card led by a big word keep the treatment they had. -->
+    {@const verse = !hasBig && Math.max(...card.lines.map((t) => t.length)) > 32}
     <div class="stage-text" aria-hidden="true">
       {#each card.lines as text}
         {@const i = STAGE_TEXT.findIndex((t) => t.text === text)}
         {@const line = STAGE_TEXT[i]}
         <p
           bind:this={lines[i]}
-          class:long={text.length > 48}
+          class:long={!verse && text.length > 48}
           class:big={line.big}
-          class:sub={!line.big && card.lines.some((t) => STAGE_TEXT.find((x) => x.text === t)?.big)}
+          class:verse
+          class:sub={!line.big && hasBig}
         >
           {text}
         </p>
@@ -346,6 +401,16 @@
     letter-spacing: 0;
     line-height: 1.5;
     color: var(--ink-mid);
+  }
+
+  /* Authored lines that are one thought, each on its own line. Unlike .long
+     there is no narrow measure: a measure is what would wrap them. */
+  .stage-text p.verse {
+    max-inline-size: 40ch;
+    font-size: clamp(1.35rem, 3.1vw, 2.15rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
   }
 
   /* A whole sentence cannot be set at title size and still be read in one

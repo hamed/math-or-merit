@@ -366,20 +366,50 @@
   onMount(() => {
     loadPhaseData(); // a returning reader keeps their measured map
 
-    // gentle snap: CSS proximity snap trapped fast scrolls (owner review
-    // 2026-07-13) — instead, once scrolling STOPS with the sandbox nearly
-    // aligned, ease it into place. Never acts mid-scroll, never blocks passing.
+    /**
+     * Gentle snap: once scrolling STOPS with the sandbox nearly aligned, ease
+     * it into place.
+     *
+     * It must know an ARRIVING reader from a LEAVING one. The first version
+     * did not, and it was a trap: any rest inside a quarter-viewport of the
+     * top got pulled back to the top, so a 120px wheel step could never get
+     * out and the ending was unreachable by ordinary scrolling (measured
+     * 2026-08-27: the scroll position oscillated +4/-4px forever).
+     *
+     * So: snap only in the direction the reader is already travelling — down
+     * onto a sandbox that is still below them, or up onto one still above —
+     * and never twice in a row without leaving the zone in between.
+     */
     let snapTimer: ReturnType<typeof setTimeout> | undefined;
+    let lastY = window.scrollY;
+    let direction = 0;
+    let armed = true;
+    const ZONE = 0.25;
+
     const maybeSnap = () => {
       if (!rootEl || newsOpen) return;
       const top = rootEl.getBoundingClientRect().top;
       const vh = window.innerHeight;
-      if (Math.abs(top) > 2 && Math.abs(top) < vh * 0.25) {
-        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        rootEl.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      const zone = vh * ZONE;
+      if (Math.abs(top) >= zone) {
+        armed = true; // left the zone: the next arrival may snap again
+        return;
       }
+      if (!armed || Math.abs(top) <= 2) return;
+      // approaching from above (top > 0) only counts while scrolling DOWN;
+      // approaching from below (top < 0) only while scrolling UP
+      if (!((direction > 0 && top > 0) || (direction < 0 && top < 0))) return;
+      armed = false;
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      rootEl.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    };
+    const trackDirection = () => {
+      const y = window.scrollY;
+      if (y !== lastY) direction = y > lastY ? 1 : -1;
+      lastY = y;
     };
     const onScroll = () => {
+      trackDirection();
       clearTimeout(snapTimer);
       snapTimer = setTimeout(maybeSnap, 160);
     };
@@ -392,6 +422,9 @@
 
     const useScrollEnd = 'onscrollend' in window;
     if (layout === 'full') {
+      // direction has to be sampled DURING the scroll either way; scrollend
+      // only says that it finished.
+      window.addEventListener('scroll', trackDirection, { passive: true });
       if (useScrollEnd) window.addEventListener('scrollend', maybeSnap);
       else window.addEventListener('scroll', onScroll, { passive: true });
     }
@@ -401,6 +434,7 @@
       ticker.stop();
       clearTimeout(snapTimer);
       if (layout === 'full') {
+        window.removeEventListener('scroll', trackDirection);
         if (useScrollEnd) window.removeEventListener('scrollend', maybeSnap);
         else window.removeEventListener('scroll', onScroll);
       }
@@ -661,7 +695,9 @@
        and cancels the scroll padding that every other snap point wants — with
        the padding left in, the sandbox rests a strip too low and loses its own
        bottom row of plots. */
-    scroll-snap-align: start;
+    /* Scrolled to by `maybeSnap` below, not by CSS snap. The negative margin
+       cancels the page's scroll padding: this one is exactly a screen tall, so
+       with the padding left in it rests a strip low and loses its bottom row. */
     scroll-margin-block: calc(-1 * var(--snap-pad)) 0;
     padding-block: clamp(0.6rem, 1.6vh, 1.1rem);
     padding-inline: clamp(0.9rem, 2.5vw, 2.2rem);

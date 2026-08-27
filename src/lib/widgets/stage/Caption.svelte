@@ -16,8 +16,19 @@
 
   const stage = getContext<StageContext | undefined>(STAGE_CONTEXT);
   let el: HTMLElement;
+  /**
+   * A caption written as one logical unit per line has to KEEP those lines.
+   * At display size a 35-character line overruns the measure and wraps, which
+   * turns two authored lines into three read ones — so a broken caption steps
+   * its type down. Detected rather than declared: the break is already in the
+   * markup, and a second prop saying so could disagree with it.
+   */
+  let broken = $state(false);
 
-  onMount(() => stage?.registerCaption(el, beat));
+  onMount(() => {
+    broken = el.querySelector('br') !== null;
+    return stage?.registerCaption(el, beat);
+  });
 </script>
 
 <p
@@ -25,6 +36,7 @@
   class="stage-caption"
   class:stage-caption--display={display}
   class:stage-caption--big={big}
+  class:stage-caption--broken={broken}
   data-beat={beat}
 >
   {@render children()}

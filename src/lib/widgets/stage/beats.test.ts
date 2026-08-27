@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { validateBeats, type BeatSpec } from './contract';
-import { BEATS as CAST_BEATS, FRAMES as CAST_FRAMES, STAGE_TEXT } from './scenes/CowCastScene.svelte';
+import {
+  BEATS as CAST_BEATS,
+  FRAMES as CAST_FRAMES,
+  STAGE_TEXT,
+  TEXT_EXIT,
+  TEXT_FADE,
+  textLineOffset,
+} from './scenes/CowCastScene.svelte';
 import { BEATS as OPENING_BEATS, SLOTS as REEL_SLOTS, LAND as REEL_LAND } from './scenes/OpeningScene.svelte';
 import {
   BEATS as ROOM_BEATS,
@@ -62,6 +69,23 @@ describe('CowCastScene frames', () => {
       expect(plated.has(line.beat), `"${line.beat}" must stay empty`).toBe(false);
       expect(order.indexOf(line.until)).toBeGreaterThan(order.indexOf(line.beat));
     }
+  });
+
+  it('every stage-text line finishes arriving before its card leaves', () => {
+    // The bug this pins: a three-line card in a 1.4-long beat put the third
+    // line's fade-in at +1.05 and the card's exit at +1.15, so the last line
+    // began leaving before it had arrived and simply never showed.
+    const startOf = new Map<string, number>();
+    let t = 0;
+    for (const beat of CAST_BEATS) {
+      startOf.set(beat.label, t);
+      t += beat.length;
+    }
+    STAGE_TEXT.forEach((line, i) => {
+      const arrived = startOf.get(line.beat)! + textLineOffset(i) + TEXT_FADE;
+      const leaves = startOf.get(line.until)! - TEXT_EXIT;
+      expect(arrived, `"${line.text}" is still arriving when its card leaves`).toBeLessThanOrEqual(leaves);
+    });
   });
 
   it('leaves the last beat plateless so the moral holds the pitch', () => {

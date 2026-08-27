@@ -1,5 +1,72 @@
 <script lang="ts" module>
   let fontsRefreshHooked = false;
+
+  /**
+   * Keyboard paging over BEATS, not over viewports.
+   *
+   * The reader had no beat-aware key at all — space was the browser's own
+   * page-down, ~0.9 of a viewport, against beats that are 0.6–1.2 viewports
+   * long. It could not help but land mid-fade, and it drifted further out of
+   * phase with every press.
+   *
+   * Every scroll-driven scene registers its stops here: one scroll position
+   * per beat, at the point where that beat's caption is FULLY in and has not
+   * started leaving. Space goes to the next stop, Shift+Space to the previous,
+   * and past the last stop the key is handed back to the browser so the reader
+   * pages out of the scene normally.
+   */
+  interface SceneNav {
+    /** Pixel span the scene owns (the ScrollTrigger's start and end). */
+    from(): number;
+    to(): number;
+    /** One resting scroll position per beat, ascending. */
+    stops(): number[];
+  }
+
+  const navs = new Set<SceneNav>();
+  let keyNavHooked = false;
+
+  /** Space belongs to the focused control, not to the page. */
+  function keyIsClaimed(el: Element | null): boolean {
+    if (!el || el === document.body) return false;
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A') return true;
+    return (el as HTMLElement).isContentEditable === true;
+  }
+
+  function onBeatKey(e: KeyboardEvent): void {
+    if (e.key !== ' ' && e.key !== 'Spacebar') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (keyIsClaimed(document.activeElement)) return;
+
+    const y = window.scrollY;
+    for (const nav of navs) {
+      const from = nav.from();
+      const to = nav.to();
+      if (y < from - 4 || y > to + 4) continue;
+
+      const stops = nav.stops();
+      let target: number | undefined;
+      if (e.shiftKey) {
+        for (let i = stops.length - 1; i >= 0; i--) {
+          if (stops[i] < y - 4) {
+            target = stops[i];
+            break;
+          }
+        }
+        target ??= from;
+      } else {
+        target = stops.find((stop) => stop > y + 4);
+        // past the last beat: leave the scene rather than sit on its end
+        target ??= to + 4;
+      }
+      e.preventDefault();
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: Math.round(target), behavior: reduce ? 'auto' : 'smooth' });
+      return;
+    }
+    // no scene owns this position — let the browser page as usual
+  }
 </script>
 
 <script lang="ts">
@@ -114,6 +181,30 @@
       document.fonts?.ready.then(() => ScrollTrigger.refresh());
     }
 
+    /**
+     * Images were not waited for; only fonts were.
+     *
+     * An SVG `<image>` paints nothing until its bitmap has decoded, so a plate
+     * could be told to show while it was still in flight and the stage looked
+     * empty — the scenes carry ~2.8 MB of plates and they all start fetching
+     * at once. Decode them off to the side, then refresh, so the pin's
+     * measurements and the plate's first paint agree.
+     */
+    const plateSources = new Set<string>();
+    for (const image of root.querySelectorAll('image')) {
+      const href = image.getAttribute('href') ?? image.getAttribute('xlink:href');
+      if (href) plateSources.add(href);
+    }
+    if (plateSources.size > 0) {
+      Promise.allSettled(
+        [...plateSources].map((src) => {
+          const img = new Image();
+          img.src = src;
+          return img.decode();
+        }),
+      ).then(() => ScrollTrigger.refresh());
+    }
+
     const starts: number[] = [];
     let total = 0;
     for (const b of beats) {
@@ -122,6 +213,7 @@
     }
 
     let observer: IntersectionObserver | undefined;
+    let nav: SceneNav | undefined;
 
     const ctx = gsap.context(() => {
       // The beat the playhead is in decides the caption's anchor, so a scene
@@ -198,20 +290,52 @@
         return;
       }
 
-      ScrollTrigger.create({
+      // 0.3, not 0.6: the tween used to trail the scroll by six tenths of a
+      // second, so the reader stopped at the end of a beat with the words
+      // still arriving and it read as "one more scroll finishes the text".
+      const st = ScrollTrigger.create({
         trigger: root,
         animation: tl,
         pin: true,
-        scrub: 0.6,
+        scrub: 0.3,
         start: 'top top',
         end: () => '+=' + Math.round(total * window.innerHeight * pace),
         anticipatePin: 1,
       });
+
+      /**
+       * Where each beat RESTS: after its caption is fully in and before it
+       * starts leaving. Same arithmetic as the caption tweens above, so the
+       * two cannot drift apart.
+       */
+      const restTimes = beats.map((b, i) => {
+        const len = b.length;
+        const fadeIn = Math.min(0.3, len * 0.3);
+        // a scene that draws its own words says when they have all landed
+        const inAt = starts[i] + (b.restAt ?? len * 0.04 + fadeIn);
+        const nextStart = i + 1 < beats.length ? starts[i + 1] : total;
+        const fadeOut = i + 1 < beats.length ? Math.min(0.25, len * 0.25) : 0;
+        const outAt = nextStart - fadeOut;
+        return outAt > inAt ? (inAt + outAt) / 2 : inAt;
+      });
+
+      nav = {
+        from: () => st.start,
+        to: () => st.end,
+        stops: () =>
+          restTimes.map((t) => st.start + (t / total) * (st.end - st.start)),
+      };
+      navs.add(nav);
+      if (!keyNavHooked) {
+        keyNavHooked = true;
+        window.addEventListener('keydown', onBeatKey);
+      }
     }, root);
 
     return () => {
       observer?.disconnect();
       resize.disconnect();
+      if (nav) navs.delete(nav);
       ScrollTrigger.removeEventListener('refresh', placeCaptions);
       ctx.revert();
     };
@@ -303,6 +427,21 @@
   .pin-scene :global(.scene-art) ~ :global(.stage-caption) {
     inset-block-end: auto;
     inset-block-start: calc(var(--picture-bottom) + 1lh);
+  }
+
+  /* A caption carrying its own line breaks: each authored line must stay one
+     line, so the type steps down enough to fit the measure. */
+  .pin-scene :global(.stage-caption--broken) {
+    text-wrap: initial;
+  }
+
+  .pin-scene :global(.stage-caption--display.stage-caption--broken) {
+    font-size: clamp(1.5rem, 3.6vw, 2.6rem);
+    line-height: 1.3;
+  }
+
+  .pin-scene :global(.stage-caption--big.stage-caption--broken) {
+    font-size: clamp(1.45rem, 3.2vw, 2.2rem);
   }
 
   /* Picture and words have to be readable as one thing. Centring the picture in
