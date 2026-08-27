@@ -24,10 +24,16 @@ On `main`, deployed. Passes shipped:
   trade were rewritten with the owner line by line — see "The prose pass" below.
   The belief word cloud is GONE, the money is a photographed coin, and the two
   traders now start EQUAL.
+- **R29–R30** (`3165202`…`81b74fa`, 2026-08-27, branch `sandbox-modules`): the
+  earlier widgets were moved onto the sandbox's own parts — see the two
+  sections below. R29 is invisible (one world class instead of three, one
+  meter pill instead of five); R30 changes three pictures on purpose, under
+  the owner's rule "change it if the change is an improvement".
 
 174 vitest tests green (R29 retired two duplicate world classes and their
-tests; R30 added one), `npm run build` clean apart from two known a11y warnings
-in `PlotFrame.svelte` (axis-toggle `<rect>` with no key handler), headless QA
+tests; R30 added one), `npm run build` clean apart from three known warnings — two a11y
+in `PlotFrame.svelte` (axis-toggle `<rect>` with no key handler) and one
+unused CSS selector in `PinScene.svelte` — headless QA
 sweeps (desktop / mobile 390px / reduced-motion, forward AND reverse scroll)
 show zero console errors.
 
@@ -438,6 +444,22 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 2. Phase map default display style: cells / dots / shade all live (map body
    click cycles) — owner hasn't picked; also consider stamping the reader's own
    run-dots onto any future backdrop.
+2b. **PhaseDiagram onto the shared `phaseGrid` record** (the R30 item that was
+   priced and deferred). The prize is continuity: the rooms the reader plays at
+   beat 9 are still on the finale's map, persisted and CSV-exportable. The
+   blocker is that `phaseGrid` keys points by n, and `PEOPLE_STOPS` has no 100.
+   Fixing it means N 100→128, `LEVY_EVERY` 100→128, and re-running
+   `phase-calibrate.ts` + `phase-stability.ts` — which MOVES the printed fitted
+   c ≈ 0.37. A calibration job under claim discipline, not a refactor.
+2c. **CrowdRun's histogram**, if `Histogram` ever grows a floor/dust option.
+   See R30 for why the plain swap fails. Even then it is a judgement call: the
+   bespoke chart also prints per-decade counts.
+2d. `LorenzPlot`, `CcdfChart`, `GiniCurve` and `PhaseMap` still have no
+   importer outside `sandbox/`. Checked in R30, and that is the right answer
+   for now: `GiniStage` is an explainer rather than a plot, the 10rem sidebars
+   are too small for a 170-unit square, no beat shows a CCDF, and `GiniCurve`
+   measures a different quantity from StakeDial's observations list. Do not
+   force these in for tidiness.
 3. Turn earlier beats into `Sandbox` presets (`layout="column"` +
    `panels`/`controls`) — the seam exists. R29 did the invisible half (they all
    run on `SandboxWorld` now); the visible half is still unbuilt and needs the
