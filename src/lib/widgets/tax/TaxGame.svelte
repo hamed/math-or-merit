@@ -5,7 +5,8 @@
   import { countTrades, dollars, percent } from '../shared/format';
   import { measureWealth } from '$lib/research';
   import { assignStyles } from '../shared/agentStyle';
-  import { TaxWorld, judgeGame } from './TaxWorld';
+  import { SandboxWorld } from '../sandbox/SandboxWorld';
+  import { judgeGame } from './judge';
   import { ROOM_BETA, ROOM_N, START_DOLLARS } from '../shared/presets';
 
   const TRADES_PER_FRAME = 26; // ≈ 1,500 trades per second at 60 fps
@@ -26,12 +27,19 @@
 
   let difficulty = $state(1);
 
-  const newWorld = () =>
-    new TaxWorld({
+  // The sandbox's world with the structural levy off: here the READER is the
+  // only levy, one tap at a time.
+  const newWorld = () => {
+    const w = new SandboxWorld({
       n: ROOM_N,
-      beta: DIFFICULTIES[difficulty].beta,
+      startDollars: START_DOLLARS,
       seed: Math.floor(Math.random() * 0xffff_ffff),
     });
+    w.beta = DIFFICULTIES[difficulty].beta;
+    w.taxRate = 0;
+    w.taxEvery = ROOM_N;
+    return w;
+  };
 
   let world = $state(newWorld());
   let room: RoomCanvas | undefined = $state();
@@ -79,7 +87,7 @@
 
   function tap(index: number): void {
     if (!running) return;
-    const revenue = world.levy(index, LEVY_RATE);
+    const revenue = world.levyAgent(index, LEVY_RATE); // dollars, not a share
     levied += revenue;
     taps++;
     room?.pulse(index);
@@ -162,7 +170,7 @@
   <div class="stats">
     <output>{seconds}s</output>
     <output>{countTrades(trades)} trades</output>
-    <output>{taps} taps · {dollars(levied * ROOM_N * START_DOLLARS)} shared back</output>
+    <output>{taps} taps · {dollars(levied)} shared back</output>
   </div>
 
   <div class="stats">
@@ -231,21 +239,9 @@
     color: #3c352b;
   }
 
+  /* the pill itself lives in app.css; the game's is never narrow */
   .meter {
-    position: relative;
-    flex: 1;
     min-inline-size: 10rem;
-    block-size: 1.5rem;
-    border: 1px solid #cbbfa8;
-    border-radius: 999px;
-    background: #fffdf8;
-    overflow: hidden;
-  }
-
-  .meter-fill {
-    block-size: 100%;
-    background: linear-gradient(90deg, rgb(189 98 69 / 35%), rgb(139 63 43 / 75%));
-    transition: inline-size 0.2s linear;
   }
 
   .meter-fill.alarming {
@@ -254,17 +250,6 @@
 
   .meter-fill.stake {
     background: linear-gradient(90deg, rgb(233 201 106 / 55%), rgb(138 106 42 / 80%));
-  }
-
-  .meter-label {
-    position: absolute;
-    inset-block-start: 50%;
-    inset-inline-start: 0.8rem;
-    transform: translateY(-50%);
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #3c352b;
-    white-space: nowrap;
   }
 
   .difficulty {

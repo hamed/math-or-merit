@@ -338,6 +338,39 @@ a:hover {
   font-weight: 700;
 }
 
+/* ---------- the readout meter ----------
+   A pill with a fill and a label on top of it, used by five widgets to show
+   one share of the room (biggest circle, richest holds, live Gini). It was
+   copied into each of them; three custom properties carry the only
+   differences the widgets ever wanted. */
+
+.meter {
+  position: relative;
+  flex: 1;
+  block-size: var(--meter-size, 1.5rem);
+  border: 1px solid #cbbfa8;
+  border-radius: 999px;
+  background: var(--meter-bg, #fffdf8);
+  overflow: hidden;
+}
+
+.meter-fill {
+  block-size: 100%;
+  background: linear-gradient(90deg, rgb(189 98 69 / 35%), rgb(139 63 43 / 75%));
+  transition: inline-size 0.2s linear;
+}
+
+.meter-label {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0.8rem;
+  transform: translateY(-50%);
+  font-size: var(--meter-label-size, 0.72rem);
+  font-weight: 700;
+  color: #3c352b;
+  white-space: nowrap;
+}
+
 .widget .headline-card {
   margin-block-end: 1.2rem;
   transform: rotate(-0.4deg);

@@ -6,8 +6,8 @@
   import { latestRun } from '../shared/runLog.svelte';
   import { assignStyles } from '../shared/agentStyle';
   import { percent } from '../shared/format';
-  import { LeviedWorld } from './LeviedWorld';
-  import { REVEAL_SEED, REVEAL_TRADES, ROOM_N } from '../shared/presets';
+  import { SandboxWorld } from '../sandbox/SandboxWorld';
+  import { REVEAL_SEED, REVEAL_TRADES, ROOM_N, START_DOLLARS } from '../shared/presets';
 
   const LEVY_RATE = 0.1;
   const LEVY_INTERVAL_MS = 320;
@@ -20,9 +20,16 @@
   // Start from a condensed room — the one the reader just fought, if any.
   const snapshot = () => (latestRun() ?? completedRoomRun(REVEAL_SEED, REVEAL_TRADES)).wealth;
 
-  let world = $state(
-    new LeviedWorld({ n: ROOM_N, beta: 0, taxRate: LEVY_RATE, levyEvery: 1, initialWealth: snapshot() }),
-  );
+  // The sandbox's world, with trading switched off: one tick = one flat levy.
+  function newWorld(): SandboxWorld {
+    const w = new SandboxWorld({ n: ROOM_N, startDollars: START_DOLLARS, initialWealth: snapshot() });
+    w.beta = 0;
+    w.taxRate = LEVY_RATE;
+    w.taxEvery = 1;
+    return w;
+  }
+
+  let world = $state(newWorld());
   let revision = $state(0);
   let running = $state(false);
   let levies = $state(0);
@@ -53,7 +60,7 @@
 
   function reset(): void {
     stop();
-    world = new LeviedWorld({ n: ROOM_N, beta: 0, taxRate: LEVY_RATE, levyEvery: 1, initialWealth: snapshot() });
+    world = newWorld();
     levies = 0;
     revision++;
     measure();

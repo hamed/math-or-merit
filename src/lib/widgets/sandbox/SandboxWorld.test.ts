@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { giniCoefficient } from '$lib/research';
 import { RoundSeries, SandboxWorld, TRACKED_AGENTS } from './SandboxWorld';
 
 const total = (w: Float64Array) => w.reduce((a, b) => a + b, 0);
@@ -135,5 +136,88 @@ describe('SandboxWorld', () => {
     expect(world.giniSeries.values.length).toBe(0);
     expect(world.volumeSeries.values.length).toBe(0);
     expect(Array.from(world.wealth)).toEqual(new Array(8).fill(1 / 8));
+  });
+});
+
+/**
+ * Absorbed from the retired LeviedWorld and TaxWorld (2026-08-27): those two
+ * classes were the same machine as this one, and their guarantees have to
+ * keep holding here — the phase map, the tax game and the tax-only demo all
+ * run on SandboxWorld now.
+ */
+describe('SandboxWorld as the one world', () => {
+  it('replays identically from the same seed, before and after a reset', () => {
+    const make = () => {
+      const w = new SandboxWorld({ n: 20, seed: 42, startDollars: 100 });
+      w.beta = 0.3;
+      w.taxRate = 0.02;
+      w.taxEvery = 20;
+      return w;
+    };
+    const a = make();
+    const b = make();
+    a.step(5000);
+    b.step(5000);
+    expect(Array.from(a.wealth)).toEqual(Array.from(b.wealth));
+    a.reset();
+    a.step(5000);
+    expect(Array.from(a.wealth)).toEqual(Array.from(b.wealth));
+  });
+
+  it('keeps trading fair: no trait, index, or size enters the coin', () => {
+    // The pair loop and coin come from the seeded RNG alone; a levy must not
+    // change how future pairs are drawn (state advances only via next()).
+    const make = () => {
+      const w = new SandboxWorld({ n: 10, seed: 7, startDollars: 100 });
+      w.beta = 0.2;
+      w.taxEvery = 10;
+      return w;
+    };
+    const a = make();
+    const b = make();
+    a.step(100);
+    b.step(100);
+    a.levyAgent(0, 0.5);
+    a.step(100);
+    b.levyAgent(5, 0.1);
+    b.step(100);
+    // Same trades happened in both worlds; only the levy differed.
+    expect(total(a.wealth) / total(b.wealth)).toBeCloseTo(1, 9);
+  });
+
+  it('equalizes geometrically from an unequal start when trading is off', () => {
+    const world = new SandboxWorld({
+      n: 5,
+      startDollars: 100,
+      initialWealth: [0.7, 0.1, 0.1, 0.05, 0.05],
+    });
+    world.beta = 0;
+    world.taxRate = 0.1;
+    world.taxEvery = 1;
+    const g0 = giniCoefficient(world.wealth);
+    world.step(1);
+    // one flat levy shrinks every deviation from the mean by exactly (1 - rate)
+    expect(giniCoefficient(world.wealth)).toBeCloseTo(g0 * 0.9, 9);
+    world.step(60);
+    expect(giniCoefficient(world.wealth)).toBeLessThan(0.005);
+    expect(total(world.wealth)).toBeCloseTo(1, 9);
+  });
+
+  it('normalizes an unequal start and resets back to it', () => {
+    const world = new SandboxWorld({ n: 3, startDollars: 100, initialWealth: [2, 1, 1] });
+    expect(total(world.wealth)).toBeCloseTo(1, 12);
+    expect(world.wealth[0]).toBeCloseTo(0.5, 12);
+    world.beta = 0;
+    world.taxRate = 0.5;
+    world.taxEvery = 1;
+    world.step(5);
+    world.reset();
+    expect(world.wealth[0]).toBeCloseTo(0.5, 12);
+    expect(world.trades).toBe(0);
+  });
+
+  it('rejects an initial room of the wrong length or with no wealth in it', () => {
+    expect(() => new SandboxWorld({ n: 3, startDollars: 100, initialWealth: [1, 1] })).toThrow(RangeError);
+    expect(() => new SandboxWorld({ n: 3, startDollars: 100, initialWealth: [0, 0, 0] })).toThrow(RangeError);
   });
 });

@@ -192,33 +192,6 @@
     color: #3c352b;
   }
 
-  .meter {
-    position: relative;
-    flex: 1;
-    block-size: 1.5rem;
-    border: 1px solid #cbbfa8;
-    border-radius: 999px;
-    background: #fffdf8;
-    overflow: hidden;
-  }
-
-  .meter-fill {
-    block-size: 100%;
-    background: linear-gradient(90deg, rgb(189 98 69 / 35%), rgb(139 63 43 / 75%));
-    transition: inline-size 0.2s linear;
-  }
-
-  .meter-label {
-    position: absolute;
-    inset-block-start: 50%;
-    inset-inline-start: 0.8rem;
-    transform: translateY(-50%);
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #3c352b;
-    white-space: nowrap;
-  }
-
   /* the morning paper: the one deliberate framed exception (news is content) */
   .newspaper {
     margin-block-start: 1.1rem;

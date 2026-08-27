@@ -26,7 +26,8 @@
   import { createTicker } from '../shared/ticker';
   import { assignStyles } from '../shared/agentStyle';
   import { countTrades, percent } from '../shared/format';
-  import { LeviedWorld } from '../tax/LeviedWorld';
+  import { SandboxWorld } from '../sandbox/SandboxWorld';
+  import { START_DOLLARS } from '../shared/presets';
 
   // Owner review 2026-07-08: the reader plays rooms with the two dials; each
   // finished room paints ITS cell of the map. "Fill in the rest" completes
@@ -50,7 +51,20 @@
   let filling = $state(false);
   let fillProgress = $state(0);
 
-  let world = $state(new LeviedWorld({ n: N, beta: BETAS[3], taxRate: TAXES[2], levyEvery: LEVY_EVERY }));
+  // The sandbox's world, dialed to one cell of the map. `taxEvery` is the
+  // room's round, so one levy lands per N trades. Fresh dice every time —
+  // this widget has never been seeded.
+  const freshSeed = () => Math.floor(Math.random() * 0xffff_ffff);
+
+  function newWorld(b: number, tax: number, seed: number): SandboxWorld {
+    const w = new SandboxWorld({ n: N, startDollars: START_DOLLARS, seed });
+    w.beta = b;
+    w.taxRate = tax;
+    w.taxEvery = LEVY_EVERY;
+    return w;
+  }
+
+  let world = $state(newWorld(BETAS[3], TAXES[2], freshSeed()));
   let revision = $state(0);
   let playing = $state(false);
   let liveGini = $state(0);
@@ -62,14 +76,14 @@
 
   const ticker = createTicker(() => {
     world.step(TRADES_PER_FRAME);
-    liveTrades = world.ticks;
+    liveTrades = world.trades;
     revision++;
     liveGini = measureWealth(world.wealth).gini;
-    if (world.ticks >= BURN_IN) {
+    if (world.trades >= BURN_IN) {
       tailSum += liveGini;
       tailCount++;
     }
-    if (world.ticks >= TRADES) {
+    if (world.trades >= TRADES) {
       ticker.stop();
       playing = false;
       const g = tailCount > 0 ? tailSum / tailCount : liveGini;
@@ -85,13 +99,7 @@
 
   function playRoom(): void {
     if (playing || filling) return;
-    world = new LeviedWorld({
-      n: N,
-      beta,
-      taxRate,
-      levyEvery: LEVY_EVERY,
-      seed: Math.floor(Math.random() * 0xffff_ffff), // fresh dice, as always
-    });
+    world = newWorld(beta, taxRate, freshSeed());
     tailSum = 0;
     tailCount = 0;
     liveTrades = 0;
@@ -407,30 +415,11 @@
     color: #3c352b;
   }
 
+  /* the pill itself lives in app.css; the map's is a touch shorter */
   .meter {
-    position: relative;
-    flex: 1;
-    block-size: 1.4rem;
-    border: 1px solid #cbbfa8;
-    border-radius: 999px;
-    background: var(--paper-bright);
-    overflow: hidden;
+    --meter-bg: var(--paper-bright);
+    --meter-size: 1.4rem;
+    --meter-label-size: 0.7rem;
   }
 
-  .meter-fill {
-    block-size: 100%;
-    background: linear-gradient(90deg, rgb(189 98 69 / 35%), rgb(139 63 43 / 75%));
-    transition: inline-size 0.2s linear;
-  }
-
-  .meter-label {
-    position: absolute;
-    inset-block-start: 50%;
-    inset-inline-start: 0.8rem;
-    transform: translateY(-50%);
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: #3c352b;
-    white-space: nowrap;
-  }
 </style>

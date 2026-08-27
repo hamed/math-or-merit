@@ -30,6 +30,12 @@ export interface SandboxConfig {
   readonly seed?: number;
   /** Dollars per head at the start; the room's total is n × this. */
   readonly startDollars: number;
+  /**
+   * Optional unequal start (shares; copied and normalized to sum 1). The
+   * tax-only demo hands the room the reader just condensed; everything else
+   * starts flat.
+   */
+  readonly initialWealth?: ArrayLike<number>;
 }
 
 /** Agents whose personal trajectories the world records (the spaghetti plot). */
@@ -108,6 +114,8 @@ export class RoundSeries {
 export class SandboxWorld {
   readonly config: SandboxConfig;
   private readonly _wealth: Float64Array;
+  /** The start state, kept so `reset` returns to the same room. */
+  private readonly _initial: Float64Array;
   private readonly random: RandomSource;
   private _totalDollars: number;
   private _trades = 0;
@@ -140,7 +148,18 @@ export class SandboxWorld {
     if (!Number.isSafeInteger(n) || n < 2) throw new RangeError('n must be at least 2');
     if (!Number.isFinite(startDollars) || startDollars <= 0) throw new RangeError('startDollars must be positive');
     this.config = config;
-    this._wealth = new Float64Array(n).fill(1 / n);
+    if (config.initialWealth) {
+      if (config.initialWealth.length !== n) throw new RangeError('initialWealth must have length n');
+      const copy = Float64Array.from(config.initialWealth as ArrayLike<number>);
+      let sum = 0;
+      for (let i = 0; i < n; i++) sum += copy[i];
+      if (!(sum > 0)) throw new RangeError('initialWealth must have positive total');
+      for (let i = 0; i < n; i++) copy[i] /= sum;
+      this._initial = copy;
+    } else {
+      this._initial = new Float64Array(n).fill(1 / n);
+    }
+    this._wealth = Float64Array.from(this._initial);
     this._totalDollars = n * startDollars;
     this.random = createRandomSource(config.seed);
     const k = Math.min(TRACKED_AGENTS, n);
@@ -242,7 +261,7 @@ export class SandboxWorld {
 
   reset(): void {
     this.random.reset();
-    this._wealth.fill(1 / this.config.n);
+    this._wealth.set(this._initial);
     this._totalDollars = this.config.n * this.config.startDollars;
     this._trades = 0;
     this._rounds = 0;
