@@ -24,14 +24,18 @@ On `main`, deployed. Passes shipped:
   trade were rewritten with the owner line by line — see "The prose pass" below.
   The belief word cloud is GONE, the money is a photographed coin, and the two
   traders now start EQUAL.
+- **R31** (`3569a60`…`03b3db3`, 2026-08-27, branch `scroll-and-opening`): the
+  reading machine — two scroll traps killed, space pages by beat, a chapter
+  index with a shareable `#sandbox`, the owner's four silence plates, his three
+  slides after the title, and every multi-line block ranged left. See below.
 - **R29–R30** (`3165202`…`81b74fa`, 2026-08-27, branch `sandbox-modules`): the
   earlier widgets were moved onto the sandbox's own parts — see the two
   sections below. R29 is invisible (one world class instead of three, one
   meter pill instead of five); R30 changes three pictures on purpose, under
   the owner's rule "change it if the change is an improvement".
 
-174 vitest tests green (R29 retired two duplicate world classes and their
-tests; R30 added one), `npm run build` clean apart from three known warnings — two a11y
+175 vitest tests green (R29 retired two duplicate world classes and their
+tests; R30 and R31 each added one), `npm run build` clean apart from three known warnings — two a11y
 in `PlotFrame.svelte` (axis-toggle `<rect>` with no key handler) and one
 unused CSS selector in `PinScene.svelte` — headless QA
 sweeps (desktop / mobile 390px / reduced-motion, forward AND reverse scroll)
@@ -341,6 +345,124 @@ the evidence.
   overflow at 390 px after the whole flow.
 
 
+## R31 — the reading machine: scroll, keys, an index, and the silence (2026-08-27)
+
+The owner read the whole thing on his own screen and the complaints were about
+the READING, not the argument. Every one of them was a real bug, and two were
+severe enough that the essay could not be finished by ordinary scrolling.
+
+### The scroll stick was two traps, both measured
+
+At 1280x900 with 120px wheel steps, on the shipped build:
+
+1. `scroll-snap-type: y proximity` on `html` with `scroll-snap-align: center`
+   on every `.widget`. A widget shorter than the viewport makes a snap area a
+   wheel step cannot leave, so Chrome re-centres it forever. The page **died at
+   y=29792 and 162 consecutive steps moved zero pixels.** Both rules are gone.
+   `scroll-padding-block` stays — it still governs `scrollIntoView`.
+2. The sandbox's own `maybeSnap` pulled any rest within a quarter viewport of
+   its top back to the top, in BOTH directions, so the closing was unreachable
+   (the position oscillated +4/-4px forever). It now snaps only in the
+   direction the reader is already travelling and re-arms only after they leave
+   the zone.
+
+After: the same run reaches the end with ZERO stalls. **Do not reintroduce CSS
+snap without re-running that wheel test** (`scrolldiag`-style: wheel 120px,
+count steps with delta <= 2).
+
+### Space pages by beat
+
+There was no handler at all — space was the browser's ~0.9-viewport page-down
+against beats 0.6-1.2 viewports long, so it always landed mid-fade and drifted
+further out of phase with every press. Scroll-driven `PinScene`s now register
+their resting positions in a module-level `navs` set; space goes to the next,
+Shift+Space to the previous, and past the last beat the key is handed back to
+the browser. It never fires while a control has focus. Verified: sixteen
+presses, every caption at opacity 1.00.
+
+`BeatSpec.restAt` is the seam that makes it honest — a scene that draws its own
+words says when they have all landed, because the sequencer can only time the
+captions it owns. `CowCastScene` computes it from its own text table.
+
+`scrub` 0.6 -> 0.3: the tween trailed the scroll by six tenths of a second,
+which is what "one more scroll finishes the text" was.
+
+### A card-timing bug that had been shipping
+
+A three-line stage-text card in a 1.4-long beat put the last line's fade-in at
++1.05 and the card's exit at +1.15, so **"but some of them are useful." had
+never been visible.** The timing constants are exported now (`TEXT_LEAD`,
+`TEXT_GAP`, `TEXT_FADE`, `TEXT_EXIT`, `textLineOffset`), the lengths are 1.7,
+and `beats.test.ts` proves every line finishes arriving before its card leaves.
+
+### The chapter index (`src/lib/nav/`)
+
+NOT a progress bar — that was proposed and rejected, correctly: the two fables
+are 63% of the essay's scroll and a small part of its argument, so a filling
+bar reads "nearly done" through the whole middle. Instead a line of type in the
+top-right names the section you are in; press it and the list opens; press an
+entry and it scrolls there.
+
+`Chapter` is a marker written into the prose (id, label, no ink) and
+`chapters.svelte.ts` is only the register they sign — the engine never names a
+chapter. Sixteen of them, every label the section's own heading. Every chapter
+has a stable fragment, so **`#sandbox` is a shareable link** and a cold load on
+it lands flush on the machine (`flush` cancels the page's scroll padding for
+the one section that is exactly a screen tall). Furthest chapter is remembered
+in `localStorage` and offered as one line at the foot of the list — never a
+modal. Hidden over the opening.
+
+Two collisions: `--index-gutter` keeps the sandbox's stats row clear of the
+corner (it is the only full-bleed section that reaches it), and on a phone,
+where the essay column runs edge to edge and a text halo was not enough, the
+label becomes a small paper pill.
+
+### The silence is acted now, in four panels
+
+The owner drew the pause: everyone waits on Albert, the cow turns and looks at
+US, the cow answers ("Moo!", inked into the plate), and only then does Albert
+scratch his head. `scratch` is a beat with NO words — the picture is the beat.
+
+This SUPERSEDES "the empty stage is the joke". The three lines moved from
+`STAGE_TEXT` (which is for beats carrying no picture) to ordinary captions, and
+`beats.test.ts` already enforced that split, so the move was not optional.
+Plates renumbered so filename order is story order: the new four are 03-06 and
+physicist/sphere/vacuum/pitch moved to 07-10. The pipeline recomputes its
+shared crop across all ten studio frames, so old and new are cut to one box.
+
+**The cast is now 3.4MB of WebP, up from 2.3MB**; the whole build is ~4.3MB of
+assets. Flagged to the owner, not acted on. If the missing-figure report
+recurs, this is the first thing to look at.
+
+### The three slides after the title, and left ranging
+
+"Math." is GONE at the owner's call — the reel already lands on it, and saying
+it again alone spent the moment. In its place: the promise, the question it is
+for, and the handover ("let me tell you a story first…"), one beat each.
+
+Then, everywhere: **multi-line blocks are ranged left**, stage text and
+captions both. Captions decide by MEASUREMENT (taller than one line, however
+it got there), re-measured on resize. A single line is untouched — the box
+shrink-wraps and auto-margins, so it sits where a centred one did. The biggest
+gain is the closing, where the honesty bill is five lines and the one after it
+is eight.
+
+### Gotchas this round cost
+
+- `max-inline-size: 34ch` on a flex CONTAINER resolves `ch` against the
+  container's font size, not its children's — a 34ch cap came out ~270px and
+  wrapped every line of a 3.4rem card.
+- A shared type clamp with a floor (1.9rem) re-wraps authored lines on a 390px
+  screen. An authored line that becomes two read lines defeats the whole point;
+  scale further down before the floor.
+- Two `.stage-text p` blocks in one stylesheet: the second silently won and
+  undid the mobile scale. Check for duplicate selectors after a CSS edit.
+- Preloading: only fonts were waited for. An SVG `<image>` paints nothing until
+  its bitmap decodes, so `PinScene` now decodes every plate in its subtree and
+  then refreshes. This is a HARDENING, not a confirmed fix — the missing-figure
+  report could not be reproduced in six controlled runs including heavy
+  throttling.
+
 ## Visual system
 
 `src/lib/widgets/shared/agentStyle.ts`: pastel fill + independent stroke + shape
@@ -454,6 +576,18 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 2c. **CrowdRun's histogram**, if `Histogram` ever grows a floor/dust option.
    See R30 for why the plain swap fails. Even then it is a judgement call: the
    bespoke chart also prints per-decade counts.
+2e. **"Looks like an embedded image until it gets to stage, then snapped."**
+   The owner asked for this and I could not tell what he is seeing — the pinned
+   sections already scroll up in normal flow and pin at top-top. Ask him what
+   is on screen when it looks wrong (blank paper, or art in the wrong place)
+   before building anything.
+2f. **The figure that sometimes does not appear** (`person/00-figure.webp`).
+   NOT reproduced in six controlled runs including heavy throttling; the plate
+   show/hide fired correctly every time. `PinScene` now decodes plates before
+   refreshing, which is the best remaining candidate. R31 also added 1.1MB of
+   cast plates, which makes the suspected cause MORE likely, not less. If it
+   recurs, get the browser and the position, and consider loading each scene's
+   plates only as the reader approaches it.
 2d. `LorenzPlot`, `CcdfChart`, `GiniCurve` and `PhaseMap` still have no
    importer outside `sandbox/`. Checked in R30, and that is the right answer
    for now: `GiniStage` is an explainer rather than a plot, the 10rem sidebars
@@ -470,8 +604,9 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 7. Full language pass (owner-deferred; rounds added prose — all flagged). R13–R15
    added three lines that are NOT his: the biologist caption, "Keep going. Take
    the face too.", and the football line's tightening.
-8. Two a11y build warnings in `PlotFrame.svelte` (axis-toggle `<rect>`, no key
-   handler) — shipping in the live build.
+8. Three build warnings, all shipping in the live build: two a11y in
+   `PlotFrame.svelte` (axis-toggle `<rect>`, no key handler) and one unused CSS
+   selector in `PinScene.svelte`.
 9. CI logs a Node 20 deprecation for `actions/checkout@v4` and friends.
 10. Trader entrance/exit shapes scale about their bbox corner in the crowd
     entrance (pre-existing, cosmetic, ends at scale 1 so it never rests wrong).
