@@ -216,8 +216,13 @@ describe('SandboxWorld as the one world', () => {
     expect(world.trades).toBe(0);
   });
 
-  it('rejects an initial room of the wrong length or with no wealth in it', () => {
+  it('rejects a corrupt initial room instead of letting it poison the world', () => {
+    const bad = (initialWealth: number[]) =>
+      () => new SandboxWorld({ n: initialWealth.length, startDollars: 100, initialWealth });
     expect(() => new SandboxWorld({ n: 3, startDollars: 100, initialWealth: [1, 1] })).toThrow(RangeError);
-    expect(() => new SandboxWorld({ n: 3, startDollars: 100, initialWealth: [0, 0, 0] })).toThrow(RangeError);
+    expect(bad([0, 0, 0])).toThrow(RangeError); // nothing to normalize against
+    expect(bad([2, -1, 1])).toThrow(RangeError); // used to survive as a negative share
+    expect(bad([Infinity, 1, 1])).toThrow(RangeError); // used to normalize to [NaN, 0, 0]
+    expect(bad([Number.NaN, 1, 1])).toThrow(RangeError);
   });
 });

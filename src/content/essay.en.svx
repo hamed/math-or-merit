@@ -415,7 +415,7 @@ stake against tax. You fill it in.
 <!--
   WIDGET: PhaseDiagram (R7, owner review 2026-07-08: "let the user play with the two params,
   and use that to populate phase diagram… teach them what phase diagram is") — the reader
-  runs live rooms (LeviedWorld, fresh dice, ~2.3 s each) with snap-to-grid stake/tax dials;
+  runs live rooms (SandboxWorld, fresh dice, ~2.3 s each) with snap-to-grid stake/tax dials;
   each finished room paints its own cell with its measured tail-mean Gini. After three
   plays, "fill in the rest" completes the 10×13 grid live in-page (two fixed seeds per
   remaining cell, chunked under a frame budget; cached per session). White contour =

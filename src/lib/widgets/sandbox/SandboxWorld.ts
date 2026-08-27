@@ -152,7 +152,15 @@ export class SandboxWorld {
       if (config.initialWealth.length !== n) throw new RangeError('initialWealth must have length n');
       const copy = Float64Array.from(config.initialWealth as ArrayLike<number>);
       let sum = 0;
-      for (let i = 0; i < n; i++) sum += copy[i];
+      for (let i = 0; i < n; i++) {
+        // The START is validated even though the RUN is not: expert dials may
+        // drive wealth negative, but a corrupt snapshot poisons the room before
+        // anyone touches a dial (audit 2026-07-10, finding 10).
+        if (!Number.isFinite(copy[i]) || copy[i] < 0) {
+          throw new RangeError('initialWealth values must be finite and non-negative');
+        }
+        sum += copy[i];
+      }
       if (!(sum > 0)) throw new RangeError('initialWealth must have positive total');
       for (let i = 0; i < n; i++) copy[i] /= sum;
       this._initial = copy;

@@ -25,7 +25,8 @@ On `main`, deployed. Passes shipped:
   The belief word cloud is GONE, the money is a photographed coin, and the two
   traders now start EQUAL.
 
-178 vitest tests green, `npm run build` clean apart from two known a11y warnings
+173 vitest tests green (R29 retired two duplicate world classes and their
+tests), `npm run build` clean apart from two known a11y warnings
 in `PlotFrame.svelte` (axis-toggle `<rect>` with no key handler), headless QA
 sweeps (desktop / mobile 390px / reduced-motion, forward AND reverse scroll)
 show zero console errors.
@@ -118,8 +119,8 @@ the owner's disk and in history, not in the tree): `CowScene.svelte`,
   Lorenz sidebar + reset; tax-only demo uses plain circles.
 - **R7**: phase map is PLAYED into existence — reader runs live rooms with two dials,
   each paints its cell; "fill in the rest" completes the grid; measured contour +
-  fitted curve unchanged. (Fixed: it polled `world.trades`; LeviedWorld exposes
-  `.ticks`.)
+  fitted curve unchanged. (Fixed: it polled `world.trades`; LeviedWorld exposed
+  `.ticks`. R29 retired LeviedWorld, so `.trades` is right again.)
 - **R8**: sandbox choices-row + slider-grid, circles/shapes look toggle, Gini moved
   to the plot's empty top-left, horizontal bracket rows; tax game "tax the big five"
   buttons = keyboard/SR path for the pointer-only canvas.
@@ -248,6 +249,39 @@ through revision-keyed deriveds; single-click actions must be gated
 with width 0 used to make rows=∞ and hang the renderer (guarded + regression
 test).
 
+## R29 — the widgets moved onto the sandbox's parts (2026-08-27, branch `sandbox-modules`)
+
+Backlog item 3 opened, at the layer where it costs nothing on screen.
+
+- **One world, not three.** `LeviedWorld` and `TaxWorld` are DELETED.
+  `SandboxWorld` was already the same machine — same share array, same
+  `RandomSource`, same `applyYardSaleTrade` in the same order, same
+  equal-dividend levy — so `PhaseDiagram`, `TaxGame` and `TaxOnlyDemo` now
+  build one and set `beta` / `taxRate` / `taxEvery` as fields. `SandboxWorld`
+  gained the one thing it lacked, an optional `initialWealth` (the tax-only
+  demo's condensed snapshot); `reset` returns to it. Its members are validated
+  even though the RUN is not — that closes audit finding 10, which
+  `LeviedWorld` had left open.
+- `judgeGame` moved to `tax/judge.ts`. `TaxWorld.escalationPerLevy` is gone;
+  only its own test used it, and R1 removed escalation from the game.
+- `TaxGame`'s readout lost `* ROOM_N * START_DOLLARS` because `levyAgent`
+  returns dollars where `TaxWorld.levy` returned a share. Same number printed.
+- **The meter pill** (`.meter`/`.meter-fill`/`.meter-label`) was copied into
+  five widgets with three small drifts. It lives in `app.css` now behind
+  `--meter-bg`, `--meter-size`, `--meter-label-size`.
+- Verified: 173 tests green (178 before; the two escalation tests and four
+  duplicates went, six new ones came), build carries only the three
+  pre-existing warnings, and every `.widget` was pixel-diffed main vs branch
+  at 1280 px and 390 px — **ten of eleven byte-identical**. The eleventh is the
+  sandbox, which differs against ITSELF by the same amount (`randomStyles`).
+  Driven flows match main: tax game 4 taps ≈ $600 shared back, tax-only room
+  0.97 → 0.02 in 37 levies (identical, it is deterministic), phase cell 201,000
+  trades and one painted square.
+- NOT done, awaiting the owner: the visible half of backlog item 3 (widgets as
+  `Sandbox` presets), mini charts → `PlotFrame` plots, `PhaseDiagram` writing
+  into the shared `phaseGrid` record, and one shared newspaper card for
+  `RevealRun` + `NewsFlash`. Each of those changes the picture.
+
 ## Visual system
 
 `src/lib/widgets/shared/agentStyle.ts`: pastel fill + independent stroke + shape
@@ -338,6 +372,11 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
   `fromTo` immediateRender so no-JS/static keeps the content.
 - All GSAP creation inside `gsap.context()` in `onMount`, cleanup `ctx.revert()`;
   PinScene owns this — scenes only fill the passed timeline.
+- There is NO `vitePreprocess` in `svelte.config.js` (only mdsvex), so Svelte's
+  own TS stripping is all there is, and it does not accept an optional
+  parameter in a function declaration: `function f(seed?: number)` fails the
+  BUILD with `Expected ',', got '?'` while `npm test` stays green. Write
+  `seed: number | undefined = undefined`, or give the parameter a real value.
 
 ## Open items (the real backlog)
 
@@ -347,7 +386,9 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
    click cycles) — owner hasn't picked; also consider stamping the reader's own
    run-dots onto any future backdrop.
 3. Turn earlier beats into `Sandbox` presets (`layout="column"` +
-   `panels`/`controls`) — the seam exists, nothing migrated yet.
+   `panels`/`controls`) — the seam exists. R29 did the invisible half (they all
+   run on `SandboxWorld` now); the visible half is still unbuilt and needs the
+   owner, because it replaces the mini charts, the sliders and the toolbars.
 4. Ending scene: owner said "not clear about it" — still the old ClosingScene.
 5. Reader studies A–D (`notes/research/reader-study.md`) — widgets exist.
 6. Redistribute-to-poorest fork (beat 19 parenthetical still flags it).
