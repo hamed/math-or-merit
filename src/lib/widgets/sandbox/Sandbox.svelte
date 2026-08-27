@@ -733,6 +733,11 @@
     gap: 0.3rem 1.2rem;
   }
 
+  /* Only the full-bleed layout reaches the corner the chapter index owns. */
+  .sandbox.full .head {
+    padding-inline-end: var(--index-gutter);
+  }
+
   .head .kicker {
     margin-block: 0;
   }

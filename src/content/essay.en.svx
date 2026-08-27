@@ -16,6 +16,7 @@
   import TaxOnlyDemo from '$lib/widgets/tax/TaxOnlyDemo.svelte';
   import PhaseDiagram from '$lib/widgets/phase/PhaseDiagram.svelte';
   import Sandbox from '$lib/widgets/sandbox/Sandbox.svelte';
+import Chapter from '$lib/nav/Chapter.svelte';
 </script>
 
 <!--
@@ -52,6 +53,8 @@
   reader meets the question once, in the title's own space, instead of twice.
   The old scene is kept at archive/scenes-pre-r17/BeliefCloudScene.svelte.
 -->
+<Chapter id="question" label="The question" />
+
 <PinScene driver="time">
   <OpeningScene />
 </PinScene>
@@ -83,6 +86,8 @@
   football/moral captions: sphericity removes the shape but not the mass, and the mass is
   what decides the outcome.
 -->
+<Chapter id="cow" label="The cow" />
+
 <PinScene pace={0.75}>
   <CowCastScene />
   <Caption beat={4} display>Once upon a time,<br />a farmer's cow stopped giving milk.</Caption>
@@ -96,6 +101,8 @@
   <Caption beat={16}>If you cannot play football with a spherical cow,</Caption>
   <Caption beat={17}>you cannot play with the real one either.</Caption>
 </PinScene>
+
+<Chapter id="spherical-human" label="Now, the spherical human" />
 
 ## Now, the spherical human
 
@@ -150,6 +157,8 @@ Same trick. New subject.
 </PinScene>
 
 
+<Chapter id="guess" label="Your turn to guess" />
+
 ## Your turn to guess
 
 Here is the setup, clean:
@@ -169,6 +178,8 @@ scroll.
   quoted back by the reveal widget. Stored locally only.
 -->
 <Prediction />
+
+<Chapter id="run" label="Now run it" />
 
 ## Now run it
 
@@ -197,6 +208,8 @@ Nobody was smarter.
 The winner is random. The winner-take-all is not. The trade was fair; the result is not.
 those are two different things, and the whole essay lives in the gap between them.
 
+<Chapter id="why" label="So why did they win?" />
+
 ## So why did they win?
 
 The morning paper already knew why. Look at the headline it
@@ -207,6 +220,8 @@ Run the room again: a new winner, a new trait, a new headline written with exact
 same confidence.
 
 Remember the headline we started with?
+
+<Chapter id="line-them-up" label="Line them up" />
 
 ## Line them up
 
@@ -248,6 +263,8 @@ no spot on that ruler. The truly empty sit in their own pile, off to the side.)
   check leave readers able to read ratios? A bare label is not enough (Ryan & Evers).
 -->
 
+<Chapter id="gini" label="One number for the whole room" />
+
 ## One number for the whole room
 
 A histogram is a picture. Sometimes you need a single number instead — to compare two
@@ -268,6 +285,8 @@ rooms, or to watch one room drift.
 Zero: everyone holds the same. One: a single owner and everyone else at nothing. The room
 you ran earlier has its own number — and from here on you will see it on every meter.
 
+<Chapter id="crowd" label="More of them" />
+
 ## More of them
 
 You have seen it with a handful. Watch it with a crowd.
@@ -281,6 +300,8 @@ You have seen it with a handful. Watch it with a crowd.
 Same rules. Same fair coin. Many more people. Read it yourself — the wall of the poor, the
 thinning tail, the one circle out past the edge. The crowd does not soften the result. It
 sharpens it.
+
+<Chapter id="where-it-ends" label="Where it ends" />
 
 ## Where it ends
 
@@ -310,6 +331,8 @@ Two cautions, because they carry the honesty of the whole piece:
 <aside class="claim-note">
   <p>The finite-agent convergence result is proved in <a href="https://arxiv.org/abs/2308.01485">Börgers &amp; Greengard (2023)</a>.</p>
 </aside>
+
+<Chapter id="dial" label="Your hand on the dial" />
 
 ## Your hand on the dial
 
@@ -342,6 +365,8 @@ circle. You can change how fast the room falls. You do not get to vote on whethe
 
 (Set the stake to exactly zero and the room freezes — but only because then nobody is
 trading at all. Nothing at stake, nothing happens.)
+
+<Chapter id="stop-it" label="Now you try to stop it" />
 
 ## Now you try to stop it
 
@@ -393,6 +418,8 @@ and they teach different lessons. Hold that thought.)
         theorem is claimed.
 -->
 
+<Chapter id="levy" label="Put the levy in the rules" />
+
 ## Put the levy in the rules
 
 Your hands were always going to tire. So take you out of it: make the levy part of the
@@ -401,6 +428,8 @@ room's physics, not a hero's reflexes.
 First, see the tool alone — freeze the trading.
 
 <TaxOnlyDemo />
+
+<Chapter id="tax-against-trade" label="Tax against trade" />
 
 ## Tax against trade
 
@@ -445,7 +474,11 @@ tap anyone to tax them on the spot. Break it. Save it. See what it takes.
   presets of it. Beat-22 discipline still holds: the levy is a TOY — no empirical claim
   about real tax design (Lima/Vieira/Anteneodo gate still open).
 -->
+<Chapter id="sandbox" label="The sandbox" flush />
+
 <Sandbox />
+
+<Chapter id="verdict" label="So — merit, or math?" />
 
 ## So — merit, or math?
 

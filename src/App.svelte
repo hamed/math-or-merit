@@ -1,5 +1,6 @@
 <script>
   import Essay from './content/essay.en.svx';
+  import ChapterIndex from '$lib/nav/ChapterIndex.svelte';
 
   // Review-copy chrome only. VITE_REVIEW_ISSUES_URL is set by the Pages
   // workflow; a public build leaves it unset and renders no footer at all,
@@ -14,6 +15,8 @@
     content="An interactive explanation of how fair local trades can produce extreme wealth concentration."
   />
 </svelte:head>
+
+<ChapterIndex />
 
 <main class="essay-shell">
   <Essay />

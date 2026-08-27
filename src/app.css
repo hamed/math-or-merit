@@ -395,8 +395,18 @@ html {
      never lands flush against the top edge. The sandbox cancels it — it is
      exactly one screen tall. */
   --snap-pad: 6svh;
+  /* The chapter index sits fixed in the top-right corner. A full-bleed
+     section has to keep that strip clear; everything else is inside the
+     essay column and never reaches it. */
+  --index-gutter: 13rem;
 
   scroll-padding-block: var(--snap-pad);
+}
+
+@media (max-width: 40rem) {
+  html {
+    --index-gutter: 9.5rem;
+  }
 }
 
 /* ---------- motion ---------- */
