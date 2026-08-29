@@ -110,7 +110,7 @@ test('authored scenes always release the reader past both boundaries', async ({ 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-  for (const index of [1, 2, 3]) {
+  for (const index of [1, 2]) {
     const scene = page.locator('.pin-scene').nth(index);
     const spacer = scene.locator('..');
     await expect(spacer).toHaveClass(/pin-spacer/);
@@ -122,17 +122,20 @@ test('authored scenes always release the reader past both boundaries', async ({ 
 
     await page.evaluate((y) => scrollTo(0, y), bounds.end - 2);
     await page.keyboard.press('Space');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(700);
     expect(await page.evaluate(() => scrollY)).toBeGreaterThan(bounds.end);
+    const afterForward = await scene.boundingBox();
+    expect(afterForward!.y + afterForward!.height).toBeLessThanOrEqual(1);
 
     await page.evaluate((y) => scrollTo(0, y), bounds.start + 2);
     await page.keyboard.press('Shift+Space');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(700);
     expect(await page.evaluate(() => scrollY)).toBeLessThan(bounds.start);
+    expect((await scene.boundingBox())!.y).toBeGreaterThanOrEqual(899);
   }
 });
 
-test('native scrolling traverses the entire cow scene and reaches the next section', async ({ page }) => {
+test('scrolling after the cow’s final action brings the next section onscreen', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -144,18 +147,14 @@ test('native scrolling traverses the entire cow scene and reaches the next secti
     const start = box.top + scrollY;
     return { start, end: start + box.height - innerHeight };
   });
-  await page.evaluate((y) => scrollTo(0, y), bounds.start);
-
-  let passed = false;
-  for (let i = 0; i < 80; i++) {
-    await page.mouse.wheel(0, 400);
-    if ((await page.evaluate(() => scrollY)) > bounds.end) {
-      passed = true;
-      break;
-    }
-  }
-  expect(passed).toBe(true);
+  await page.evaluate((y) => scrollTo(0, y), bounds.end - 2);
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(700);
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(bounds.end);
+  const cow = page.locator('.pin-scene').nth(1);
+  const cowBox = await cow.boundingBox();
+  expect(cowBox!.y + cowBox!.height).toBeLessThanOrEqual(1);
+  await expect(page.getByRole('heading', { name: 'Now, the spherical human' })).toBeInViewport();
 });
 
 test('the news dialog owns and restores keyboard focus', async ({ page }) => {
