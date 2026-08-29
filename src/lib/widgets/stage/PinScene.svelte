@@ -4,13 +4,11 @@
   interface SceneNav {
     from(): number;
     to(): number;
-    strict: boolean;
     go(direction: -1 | 1): void;
   }
 
   const navs = new Set<SceneNav>();
   let hooksAttached = false;
-  let touchStartY: number | null = null;
 
   /** Space belongs to the focused control, not to the page. */
   function keyIsClaimed(el: Element | null): boolean {
@@ -20,10 +18,9 @@
     return (el as HTMLElement).isContentEditable === true;
   }
 
-  function activeNav(strictOnly = false): SceneNav | undefined {
+  function activeNav(): SceneNav | undefined {
     const y = window.scrollY;
     for (const nav of navs) {
-      if (strictOnly && !nav.strict) continue;
       if (y >= nav.from() - 4 && y <= nav.to() + 4) return nav;
     }
     return undefined;
@@ -47,56 +44,16 @@
     nav.go(direction);
   }
 
-  function onBeatWheel(e: WheelEvent): void {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-    if (Math.abs(delta) < 2) return;
-    const nav = activeNav(true);
-    if (!nav) return;
-    e.preventDefault();
-    nav.go(delta > 0 ? 1 : -1);
-  }
-
-  function onBeatTouchStart(e: TouchEvent): void {
-    if (!activeNav(true) || e.touches.length !== 1) return;
-    touchStartY = e.touches[0].clientY;
-  }
-
-  function onBeatTouchMove(e: TouchEvent): void {
-    if (touchStartY === null || !activeNav(true)) return;
-    if (e.cancelable) e.preventDefault();
-  }
-
-  function onBeatTouchEnd(e: TouchEvent): void {
-    if (touchStartY === null) return;
-    const start = touchStartY;
-    touchStartY = null;
-    const end = e.changedTouches[0]?.clientY;
-    const nav = activeNav(true);
-    if (end === undefined || !nav || Math.abs(start - end) < 24) return;
-    if (e.cancelable) e.preventDefault();
-    nav.go(start > end ? 1 : -1);
-  }
-
   function attachNavHooks(): void {
     if (hooksAttached) return;
     hooksAttached = true;
     window.addEventListener('keydown', onBeatKey);
-    window.addEventListener('wheel', onBeatWheel, { passive: false });
-    window.addEventListener('touchstart', onBeatTouchStart, { passive: true });
-    window.addEventListener('touchmove', onBeatTouchMove, { passive: false });
-    window.addEventListener('touchend', onBeatTouchEnd, { passive: false });
   }
 
   function detachNavHooksIfIdle(): void {
     if (!hooksAttached || navs.size > 0) return;
     hooksAttached = false;
-    touchStartY = null;
     window.removeEventListener('keydown', onBeatKey);
-    window.removeEventListener('wheel', onBeatWheel);
-    window.removeEventListener('touchstart', onBeatTouchStart);
-    window.removeEventListener('touchmove', onBeatTouchMove);
-    window.removeEventListener('touchend', onBeatTouchEnd);
   }
 </script>
 
@@ -429,7 +386,6 @@
       nav = {
         from: () => st.start,
         to: () => st.end,
-        strict: navigation === 'step',
         go,
       };
       navs.add(nav);

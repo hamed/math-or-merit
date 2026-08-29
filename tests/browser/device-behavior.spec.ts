@@ -132,27 +132,30 @@ test('authored scenes always release the reader past both boundaries', async ({ 
   }
 });
 
-test('continuous scrolling carries through the cow scene’s final caption', async ({ page }) => {
+test('native scrolling traverses the entire cow scene and reaches the next section', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   const spacer = page.locator('.pin-scene').nth(1).locator('..');
   await expect(spacer).toHaveClass(/pin-spacer/);
-  const end = await spacer.evaluate((el) => {
+  const bounds = await spacer.evaluate((el) => {
     const box = el.getBoundingClientRect();
-    return box.top + scrollY + box.height - innerHeight;
+    const start = box.top + scrollY;
+    return { start, end: start + box.height - innerHeight };
   });
-  // Start just before the final resting point. The stream must first settle on
-  // “you cannot play with the real one either”, then continue beyond the pin
-  // without requiring a pause and a new gesture.
-  await page.evaluate((y) => scrollTo(0, y), end - 450);
-  for (let i = 0; i < 24; i++) {
-    await page.mouse.wheel(0, 120);
-    await page.waitForTimeout(50);
+  await page.evaluate((y) => scrollTo(0, y), bounds.start);
+
+  let passed = false;
+  for (let i = 0; i < 80; i++) {
+    await page.mouse.wheel(0, 400);
+    if ((await page.evaluate(() => scrollY)) > bounds.end) {
+      passed = true;
+      break;
+    }
   }
-  await page.waitForTimeout(500);
-  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(end);
+  expect(passed).toBe(true);
+  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(bounds.end);
 });
 
 test('the news dialog owns and restores keyboard focus', async ({ page }) => {
