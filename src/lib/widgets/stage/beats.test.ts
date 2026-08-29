@@ -1,22 +1,47 @@
 import { describe, expect, it } from 'vitest';
 import { validateBeats, type BeatSpec } from './contract';
-import {
-  BEATS as CAST_BEATS,
-  FRAMES as CAST_FRAMES,
+import * as CowCastScene from './scenes/CowCastScene.svelte';
+import * as OpeningScene from './scenes/OpeningScene.svelte';
+import * as PersonTradeScene from './scenes/PersonTradeScene.svelte';
+import * as ClosingScene from './scenes/ClosingScene.svelte';
+
+const {
+  BEATS: CAST_BEATS,
+  FRAMES: CAST_FRAMES,
   STAGE_TEXT,
   TEXT_EXIT,
   TEXT_FADE,
   textLineOffset,
-} from './scenes/CowCastScene.svelte';
-import { BEATS as OPENING_BEATS, SLOTS as REEL_SLOTS, LAND as REEL_LAND } from './scenes/OpeningScene.svelte';
-import {
-  BEATS as ROOM_BEATS,
-  PLATES as ROOM_PLATES,
+} = CowCastScene as unknown as {
+  BEATS: readonly BeatSpec[];
+  FRAMES: readonly { src: string; beat: string; until?: string }[];
+  STAGE_TEXT: readonly { text: string; beat: string; until: string }[];
+  TEXT_EXIT: number;
+  TEXT_FADE: number;
+  textLineOffset: (index: number) => number;
+};
+
+const { BEATS: OPENING_BEATS, SLOTS: REEL_SLOTS, LAND: REEL_LAND } = OpeningScene as unknown as {
+  BEATS: readonly BeatSpec[];
+  SLOTS: readonly string[];
+  LAND: number;
+};
+
+const {
+  BEATS: ROOM_BEATS,
+  PLATES: ROOM_PLATES,
   ROUNDS,
   HOLDINGS,
   UNITS,
-} from './scenes/PersonTradeScene.svelte';
-import { BEATS as CLOSING_BEATS } from './scenes/ClosingScene.svelte';
+} = PersonTradeScene as unknown as {
+  BEATS: readonly BeatSpec[];
+  PLATES: readonly { src: string; beat: string }[];
+  ROUNDS: readonly { winner: 'A' | 'B'; stake: number }[];
+  HOLDINGS: readonly { a: number; b: number }[];
+  UNITS: number;
+};
+
+const { BEATS: CLOSING_BEATS } = ClosingScene as unknown as { BEATS: readonly BeatSpec[] };
 
 /** Every scene's beat table, checked at data level (no DOM mounting). */
 const SCENES: Record<string, readonly BeatSpec[]> = {

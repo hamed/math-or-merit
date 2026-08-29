@@ -1,5 +1,6 @@
 <script lang="ts" module>
   import type { Snippet } from 'svelte';
+  import type { ActivationEvent } from './gatedClick';
 
   /** One axis of a framed plot. The unit lives in `label`, ticks are bare. */
   export interface AxisSpec {
@@ -11,7 +12,7 @@
     format: (v: number) => string;
     label: string;
     /** Site convention: clicking an axis toggles its scale. */
-    onToggle?: () => void;
+    onToggle?: (event: ActivationEvent) => void;
   }
 
   /** Shared geometry — every sandbox plot is this exact frame. */
@@ -30,7 +31,7 @@
     /** %×% plots: one shared "0" in the corner instead of two colliding. */
     sharedZero?: boolean;
     /** Body click (cycle bins / next view). Tooltip says only what applies. */
-    onBody?: (() => void) | null;
+    onBody?: ((event: ActivationEvent) => void) | null;
     bodyTooltip?: string;
     onHoverChange?: ((inside: boolean) => void) | null;
     /** Pointer position over the body in plot fractions [0,1]; null on leave. */
@@ -52,6 +53,13 @@
     ariaLabel,
     children,
   }: Props = $props();
+
+  function activate(event: KeyboardEvent, handler: ((event: ActivationEvent) => void) | undefined | null): void {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    event.stopPropagation();
+    handler?.(event);
+  }
 
   const clipId = `plotclip-${++clipCounter}`;
 
@@ -163,35 +171,52 @@
 
   <!-- interaction zones; each tooltip names only its own action -->
   {#if y.onToggle}
-    <rect class="hit" x="0" y={FRAME.y - 4} width={FRAME.x} height={FRAME.h + 8} onclick={y.onToggle} role="button" tabindex="-1" aria-label={`Toggle the ${y.label} axis between log and linear`}>
+    <rect class="hit" x="0" y={FRAME.y - 4} width={FRAME.x} height={FRAME.h + 8} onclick={y.onToggle} onkeydown={(event) => activate(event, y.onToggle)} role="button" tabindex="0" aria-label={`Toggle the ${y.label} axis between log and linear`}>
       <title>log ↔ linear</title>
     </rect>
   {/if}
   {#if x.onToggle}
-    <rect class="hit" x={FRAME.x} y={baseline} width={FRAME.w} height={FRAME.H - baseline} onclick={x.onToggle} role="button" tabindex="-1" aria-label={`Toggle the ${x.label} axis between log and linear`}>
+    <rect class="hit" x={FRAME.x} y={baseline} width={FRAME.w} height={FRAME.H - baseline} onclick={x.onToggle} onkeydown={(event) => activate(event, x.onToggle)} role="button" tabindex="0" aria-label={`Toggle the ${x.label} axis between log and linear`}>
       <title>log ↔ linear</title>
     </rect>
   {/if}
-  <rect
-    class="hit"
-    class:passive={!onBody}
-    x={FRAME.x}
-    y={FRAME.y}
-    width={FRAME.w}
-    height={FRAME.h}
-    onclick={onBody ?? undefined}
-    onpointerenter={() => onHoverChange?.(true)}
-    onpointerleave={() => {
-      onHoverChange?.(false);
-      onBodyMove?.(null, null);
-    }}
-    onpointermove={moveHandler}
-    role={onBody ? 'button' : 'presentation'}
-    tabindex="-1"
-    aria-label={onBody ? bodyTooltip : undefined}
-  >
-    {#if onBody && bodyTooltip}<title>{bodyTooltip}</title>{/if}
-  </rect>
+  {#if onBody}
+    <rect
+      class="hit"
+      x={FRAME.x}
+      y={FRAME.y}
+      width={FRAME.w}
+      height={FRAME.h}
+      onclick={onBody}
+      onkeydown={(event) => activate(event, onBody)}
+      onpointerenter={() => onHoverChange?.(true)}
+      onpointerleave={() => {
+        onHoverChange?.(false);
+        onBodyMove?.(null, null);
+      }}
+      onpointermove={moveHandler}
+      role="button"
+      tabindex="0"
+      aria-label={bodyTooltip}
+    >
+      {#if bodyTooltip}<title>{bodyTooltip}</title>{/if}
+    </rect>
+  {:else}
+    <rect
+      class="hit passive"
+      x={FRAME.x}
+      y={FRAME.y}
+      width={FRAME.w}
+      height={FRAME.h}
+      onpointerenter={() => onHoverChange?.(true)}
+      onpointerleave={() => {
+        onHoverChange?.(false);
+        onBodyMove?.(null, null);
+      }}
+      onpointermove={moveHandler}
+      role="presentation"
+    />
+  {/if}
 </svg>
 
 <style>
@@ -241,6 +266,11 @@
     fill: transparent;
     cursor: pointer;
     outline: none;
+  }
+
+  .hit:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
 
   .hit.passive {

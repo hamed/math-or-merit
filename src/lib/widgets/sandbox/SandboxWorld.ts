@@ -51,7 +51,8 @@ export class RoundSeries {
   private static readonly CAP = 1024;
   private _values: number[] = [];
   private _stride = 1;
-  private _carry: number | null = null;
+  private _pendingSum = 0;
+  private _pendingCount = 0;
 
   /** Rounds per stored point. */
   get stride(): number {
@@ -68,15 +69,14 @@ export class RoundSeries {
   }
 
   push(value: number): void {
-    if (this._stride === 1) {
-      this._values.push(value);
-    } else if (this._carry === null) {
-      this._carry = value;
-      return;
-    } else {
-      this._values.push((this._carry + value) / 2);
-      this._carry = null;
-    }
+    this._pendingSum += value;
+    this._pendingCount++;
+    if (this._pendingCount < this._stride) return;
+
+    this._values.push(this._pendingSum / this._pendingCount);
+    this._pendingSum = 0;
+    this._pendingCount = 0;
+
     if (this._values.length >= RoundSeries.CAP) {
       const halved: number[] = [];
       for (let i = 0; i + 1 < this._values.length; i += 2) {
@@ -90,7 +90,8 @@ export class RoundSeries {
   reset(): void {
     this._values = [];
     this._stride = 1;
-    this._carry = null;
+    this._pendingSum = 0;
+    this._pendingCount = 0;
   }
 }
 
@@ -144,10 +145,9 @@ export class SandboxWorld {
   taxEvery = 100;
 
   constructor(config: SandboxConfig) {
-    const { n, startDollars } = config;
+    const { n, startDollars, seed } = config;
     if (!Number.isSafeInteger(n) || n < 2) throw new RangeError('n must be at least 2');
-    if (!Number.isFinite(startDollars) || startDollars <= 0) throw new RangeError('startDollars must be positive');
-    this.config = config;
+    if (!Number.isFinite(startDollars)) throw new RangeError('startDollars must be finite');
     if (config.initialWealth) {
       if (config.initialWealth.length !== n) throw new RangeError('initialWealth must have length n');
       const copy = Float64Array.from(config.initialWealth as ArrayLike<number>);
@@ -167,9 +167,15 @@ export class SandboxWorld {
     } else {
       this._initial = new Float64Array(n).fill(1 / n);
     }
+    this.config = Object.freeze({
+      n,
+      startDollars,
+      ...(seed === undefined ? {} : { seed }),
+      ...(config.initialWealth ? { initialWealth: Object.freeze(Array.from(this._initial)) } : {}),
+    });
     this._wealth = Float64Array.from(this._initial);
     this._totalDollars = n * startDollars;
-    this.random = createRandomSource(config.seed);
+    this.random = createRandomSource(seed);
     const k = Math.min(TRACKED_AGENTS, n);
     this.trackedAgents = Array.from({ length: k }, (_, i) => Math.floor((i * n) / k));
     this.agentSeries = this.trackedAgents.map(() => new RoundSeries());

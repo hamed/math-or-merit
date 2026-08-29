@@ -4,7 +4,7 @@
   import RoomCanvas from '../shared/RoomCanvas.svelte';
   import HistoMini from '../shared/HistoMini.svelte';
   import LorenzMini from '../shared/LorenzMini.svelte';
-  import { createTicker } from '../shared/ticker';
+  import { createFixedTicker } from '../shared/ticker';
   import { countTrades, percent } from '../shared/format';
   import { ROOM_N, START_DOLLARS } from '../shared/presets';
 
@@ -15,10 +15,7 @@
   let stakePercent = $state(20);
   const beta = $derived(stakePercent / 100);
 
-  // Deterministic per stake value: dragging back to a stake replays its movie.
-  const seedFor = (percentValue: number) => 9000 + percentValue;
-
-  let engine: SimEngine = $state(createEngine({ n: ROOM_N, beta: 0.2, seed: seedFor(20) }));
+  let engine: SimEngine = $state(createEngine({ n: ROOM_N, beta: 0.2 }));
   let revision = $state(0);
   let running = $state(false);
   let topShare = $state(0);
@@ -36,7 +33,7 @@
     topShare = total === 0 ? 0 : max / total;
   }
 
-  const ticker = createTicker(() => {
+  const ticker = createFixedTicker(() => {
     if (engine.config.beta === 0) {
       // Nothing at stake, nothing happens — draw once and idle.
       revision++;
@@ -61,7 +58,7 @@
   });
 
   function restart(): void {
-    engine = createEngine({ n: ROOM_N, beta, seed: seedFor(stakePercent) });
+    engine = createEngine({ n: ROOM_N, beta });
     halfAt = null;
     revision++;
     measure();
@@ -129,7 +126,7 @@
     {:else if running}
       Watching for the half-the-room moment at {stakePercent}%…
     {:else}
-      Press run, then drag the stake while it trades. Each stake replays the same seeded movie.
+      Press run, then drag the stake while it trades. Each restart draws a fresh room.
     {/if}
   </p>
 

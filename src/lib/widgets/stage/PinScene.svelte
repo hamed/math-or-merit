@@ -1,30 +1,16 @@
 <script lang="ts" module>
   let fontsRefreshHooked = false;
 
-  /**
-   * Keyboard paging over BEATS, not over viewports.
-   *
-   * The reader had no beat-aware key at all — space was the browser's own
-   * page-down, ~0.9 of a viewport, against beats that are 0.6–1.2 viewports
-   * long. It could not help but land mid-fade, and it drifted further out of
-   * phase with every press.
-   *
-   * Every scroll-driven scene registers its stops here: one scroll position
-   * per beat, at the point where that beat's caption is FULLY in and has not
-   * started leaving. Space goes to the next stop, Shift+Space to the previous,
-   * and past the last stop the key is handed back to the browser so the reader
-   * pages out of the scene normally.
-   */
   interface SceneNav {
-    /** Pixel span the scene owns (the ScrollTrigger's start and end). */
     from(): number;
     to(): number;
-    /** One resting scroll position per beat, ascending. */
-    stops(): number[];
+    strict: boolean;
+    go(direction: -1 | 1): void;
   }
 
   const navs = new Set<SceneNav>();
-  let keyNavHooked = false;
+  let hooksAttached = false;
+  let touchStartY: number | null = null;
 
   /** Space belongs to the focused control, not to the page. */
   function keyIsClaimed(el: Element | null): boolean {
@@ -34,43 +20,88 @@
     return (el as HTMLElement).isContentEditable === true;
   }
 
-  function onBeatKey(e: KeyboardEvent): void {
-    if (e.key !== ' ' && e.key !== 'Spacebar') return;
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (keyIsClaimed(document.activeElement)) return;
-
+  function activeNav(strictOnly = false): SceneNav | undefined {
     const y = window.scrollY;
     for (const nav of navs) {
-      const from = nav.from();
-      const to = nav.to();
-      if (y < from - 4 || y > to + 4) continue;
-
-      const stops = nav.stops();
-      let target: number | undefined;
-      if (e.shiftKey) {
-        for (let i = stops.length - 1; i >= 0; i--) {
-          if (stops[i] < y - 4) {
-            target = stops[i];
-            break;
-          }
-        }
-        target ??= from;
-      } else {
-        target = stops.find((stop) => stop > y + 4);
-        // past the last beat: leave the scene rather than sit on its end
-        target ??= to + 4;
-      }
-      e.preventDefault();
-      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      window.scrollTo({ top: Math.round(target), behavior: reduce ? 'auto' : 'smooth' });
-      return;
+      if (strictOnly && !nav.strict) continue;
+      if (y >= nav.from() - 4 && y <= nav.to() + 4) return nav;
     }
-    // no scene owns this position — let the browser page as usual
+    return undefined;
+  }
+
+  function keyDirection(e: KeyboardEvent): -1 | 0 | 1 {
+    if ((e.key === ' ' || e.key === 'Spacebar') && e.shiftKey) return -1;
+    if ([' ', 'Spacebar', 'Enter', 'ArrowRight', 'ArrowDown', 'PageDown'].includes(e.key)) return 1;
+    if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) return -1;
+    return 0;
+  }
+
+  function onBeatKey(e: KeyboardEvent): void {
+    const direction = keyDirection(e);
+    if (direction === 0 || e.repeat) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (keyIsClaimed(document.activeElement)) return;
+    const nav = activeNav();
+    if (!nav) return;
+    e.preventDefault();
+    nav.go(direction);
+  }
+
+  function onBeatWheel(e: WheelEvent): void {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if (Math.abs(delta) < 2) return;
+    const nav = activeNav(true);
+    if (!nav) return;
+    e.preventDefault();
+    nav.go(delta > 0 ? 1 : -1);
+  }
+
+  function onBeatTouchStart(e: TouchEvent): void {
+    if (!activeNav(true) || e.touches.length !== 1) return;
+    touchStartY = e.touches[0].clientY;
+  }
+
+  function onBeatTouchMove(e: TouchEvent): void {
+    if (touchStartY === null || !activeNav(true)) return;
+    if (e.cancelable) e.preventDefault();
+  }
+
+  function onBeatTouchEnd(e: TouchEvent): void {
+    if (touchStartY === null) return;
+    const start = touchStartY;
+    touchStartY = null;
+    const end = e.changedTouches[0]?.clientY;
+    const nav = activeNav(true);
+    if (end === undefined || !nav || Math.abs(start - end) < 24) return;
+    if (e.cancelable) e.preventDefault();
+    nav.go(start > end ? 1 : -1);
+  }
+
+  function attachNavHooks(): void {
+    if (hooksAttached) return;
+    hooksAttached = true;
+    window.addEventListener('keydown', onBeatKey);
+    window.addEventListener('wheel', onBeatWheel, { passive: false });
+    window.addEventListener('touchstart', onBeatTouchStart, { passive: true });
+    window.addEventListener('touchmove', onBeatTouchMove, { passive: false });
+    window.addEventListener('touchend', onBeatTouchEnd, { passive: false });
+  }
+
+  function detachNavHooksIfIdle(): void {
+    if (!hooksAttached || navs.size > 0) return;
+    hooksAttached = false;
+    touchStartY = null;
+    window.removeEventListener('keydown', onBeatKey);
+    window.removeEventListener('wheel', onBeatWheel);
+    window.removeEventListener('touchstart', onBeatTouchStart);
+    window.removeEventListener('touchmove', onBeatTouchMove);
+    window.removeEventListener('touchend', onBeatTouchEnd);
   }
 </script>
 
 <script lang="ts">
-  import { onMount, setContext, type Snippet } from 'svelte';
+  import { onMount, setContext, tick, type Snippet } from 'svelte';
   import { gsap, ScrollTrigger, type StageTimeline } from './gsap';
   import { STAGE_CONTEXT, type BeatSpec, type StageContext } from './contract';
   import { motionOk } from './motion';
@@ -85,10 +116,14 @@
      * section scrolls away in normal flow.
      */
     driver?: 'scroll' | 'time';
+    /** Free scroll-scrub, or one completed authored beat per gesture/key. */
+    navigation?: 'scrub' | 'step';
+    /** Hold illustrated image requests until the scene is one viewport away. */
+    deferAssets?: boolean;
     children: Snippet;
   }
 
-  let { pace = 0.85, driver = 'scroll', children }: Props = $props();
+  let { pace = 0.85, driver = 'scroll', navigation = 'scrub', deferAssets = false, children }: Props = $props();
 
   let root: HTMLElement;
 
@@ -99,12 +134,16 @@
   const captions: { el: HTMLElement; beat: number }[] = [];
 
   let reduced = $state(false);
+  let overArt = $state(false);
+  const initialAssetsReady = () => !deferAssets;
+  let assetsReady = $state(initialAssetsReady());
 
   setContext<StageContext>(STAGE_CONTEXT, {
     attach(sceneBeats, sceneBuild) {
       beats = sceneBeats;
       build = sceneBuild;
     },
+    assetsReady: () => assetsReady,
     registerCaption(el, beat) {
       const entry = { el, beat };
       captions.push(entry);
@@ -156,7 +195,7 @@
       if (style.visibility === 'hidden' || Number(style.opacity) < 0.05) continue;
       ink = Math.max(ink, el.getBoundingClientRect().bottom - rootBox.top);
     }
-    root.classList.toggle('over-art', ink > bottom);
+    overArt = ink > bottom;
 
     if (bottom === lastBottom) return;
     lastBottom = bottom;
@@ -181,21 +220,13 @@
       document.fonts?.ready.then(() => ScrollTrigger.refresh());
     }
 
-    /**
-     * Images were not waited for; only fonts were.
-     *
-     * An SVG `<image>` paints nothing until its bitmap has decoded, so a plate
-     * could be told to show while it was still in flight and the stage looked
-     * empty — the scenes carry ~2.8 MB of plates and they all start fetching
-     * at once. Decode them off to the side, then refresh, so the pin's
-     * measurements and the plate's first paint agree.
-     */
-    const plateSources = new Set<string>();
-    for (const image of root.querySelectorAll('image')) {
-      const href = image.getAttribute('href') ?? image.getAttribute('xlink:href');
-      if (href) plateSources.add(href);
-    }
-    if (plateSources.size > 0) {
+    const decodePlates = async () => {
+      await tick();
+      const plateSources = new Set<string>();
+      for (const image of root.querySelectorAll('image')) {
+        const href = image.getAttribute('href') ?? image.getAttribute('xlink:href');
+        if (href) plateSources.add(href);
+      }
       Promise.allSettled(
         [...plateSources].map((src) => {
           const img = new Image();
@@ -203,6 +234,22 @@
           return img.decode();
         }),
       ).then(() => ScrollTrigger.refresh());
+    };
+
+    let assetObserver: IntersectionObserver | undefined;
+    if (deferAssets) {
+      assetObserver = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          assetsReady = true;
+          assetObserver?.disconnect();
+          void decodePlates();
+        },
+        { rootMargin: '100% 0px' },
+      );
+      assetObserver.observe(root);
+    } else {
+      void decodePlates();
     }
 
     const starts: number[] = [];
@@ -214,6 +261,7 @@
 
     let observer: IntersectionObserver | undefined;
     let nav: SceneNav | undefined;
+    let navTween: ReturnType<typeof gsap.to> | undefined;
 
     const ctx = gsap.context(() => {
       // The beat the playhead is in decides the caption's anchor, so a scene
@@ -297,7 +345,7 @@
         trigger: root,
         animation: tl,
         pin: true,
-        scrub: 0.3,
+        scrub: navigation === 'step' ? true : 0.3,
         start: 'top top',
         end: () => '+=' + Math.round(total * window.innerHeight * pace),
         anticipatePin: 1,
@@ -316,33 +364,105 @@
         const nextStart = i + 1 < beats.length ? starts[i + 1] : total;
         const fadeOut = i + 1 < beats.length ? Math.min(0.25, len * 0.25) : 0;
         const outAt = nextStart - fadeOut;
+        if (b.restAt !== undefined) return inAt;
         return outAt > inAt ? (inAt + outAt) / 2 : inAt;
       });
+
+      let movingDirection: -1 | 0 | 1 = 0;
+      let lastDirection: -1 | 0 | 1 = 0;
+      let lastInputAt = -Infinity;
+
+      const stopPositions = () =>
+        restTimes.map((t) => st.start + (t / total) * (st.end - st.start));
+
+      const go = (direction: -1 | 1) => {
+        const now = performance.now();
+        if (movingDirection === direction) {
+          lastInputAt = now;
+          return;
+        }
+        if (!navTween && direction === lastDirection && now - lastInputAt < 180) {
+          lastInputAt = now;
+          return;
+        }
+
+        const y = window.scrollY;
+        const positions = stopPositions();
+        let target: number;
+        let targetTime: number;
+        if (direction > 0) {
+          const index = positions.findIndex((position) => position > y + 4);
+          if (index < 0) {
+            target = st.end + 4;
+            targetTime = total;
+          } else {
+            target = positions[index];
+            targetTime = restTimes[index];
+          }
+        } else {
+          let index = -1;
+          for (let i = positions.length - 1; i >= 0; i--) {
+            if (positions[i] < y - 4) {
+              index = i;
+              break;
+            }
+          }
+          if (index < 0) {
+            target = st.start - 4;
+            targetTime = 0;
+          } else {
+            target = positions[index];
+            targetTime = restTimes[index];
+          }
+        }
+
+        navTween?.kill();
+        const currentTime = Math.max(0, Math.min(total, ((y - st.start) / (st.end - st.start)) * total));
+        const duration = target < st.start || target > st.end
+          ? 0.35
+          : Math.max(0.18, Math.abs(targetTime - currentTime));
+        const scroll = { y };
+        movingDirection = direction;
+        lastDirection = direction;
+        lastInputAt = now;
+        navTween = gsap.to(scroll, {
+          y: target,
+          duration,
+          ease: 'power2.inOut',
+          overwrite: true,
+          onUpdate: () => window.scrollTo(0, scroll.y),
+          onComplete: () => {
+            window.scrollTo(0, target);
+            navTween = undefined;
+            movingDirection = 0;
+          },
+        });
+      };
 
       nav = {
         from: () => st.start,
         to: () => st.end,
-        stops: () =>
-          restTimes.map((t) => st.start + (t / total) * (st.end - st.start)),
+        strict: navigation === 'step',
+        go,
       };
       navs.add(nav);
-      if (!keyNavHooked) {
-        keyNavHooked = true;
-        window.addEventListener('keydown', onBeatKey);
-      }
+      attachNavHooks();
     }, root);
 
     return () => {
       observer?.disconnect();
+      assetObserver?.disconnect();
       resize.disconnect();
+      navTween?.kill();
       if (nav) navs.delete(nav);
+      detachNavHooksIfIdle();
       ScrollTrigger.removeEventListener('refresh', placeCaptions);
       ctx.revert();
     };
   });
 </script>
 
-<section bind:this={root} class="pin-scene" class:reduced>
+<section bind:this={root} class="pin-scene" class:reduced class:over-art={overArt}>
   {@render children()}
 </section>
 

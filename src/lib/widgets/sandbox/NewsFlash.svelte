@@ -39,35 +39,69 @@
   let flight = $state(''); // FLIP transform: from the subject to the photo slot
   let overlayEl: HTMLDivElement | undefined = $state();
   let photoEl: HTMLDivElement | undefined = $state();
+  let closeEl: HTMLButtonElement | undefined = $state();
 
-  onMount(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      phase = 'headline';
+  function handleDialogKey(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
       return;
     }
-    if (overlayEl && photoEl) {
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      closeEl?.focus();
+    }
+  }
+
+  onMount(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // The dialog mounts during the canvas pointerdown. Focus after that pointer
+    // gesture finishes so its eventual pointerup cannot steal focus back.
+    const focusFrame = requestAnimationFrame(() => closeEl?.focus());
+    let firstFrame: number | undefined;
+    let secondFrame: number | undefined;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      phase = 'headline';
+    } else if (overlayEl && photoEl) {
       const o = overlayEl.getBoundingClientRect();
       const p = photoEl.getBoundingClientRect();
       const dx = pos.x - (p.left - o.left + p.width / 2);
       const dy = pos.y - (p.top - o.top + p.height / 2);
       const scale = Math.max(0.15, Math.min(1.5, (pos.r * 2) / p.width));
       flight = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${scale.toFixed(3)}) rotate(4deg)`;
-    }
-    const timers = [
-      setTimeout(() => {
+      timers.push(setTimeout(() => {
         phase = 'fly';
         // next frame: release the transform so the CSS transition flies it home
-        requestAnimationFrame(() => requestAnimationFrame(() => (flight = '')));
-      }, 480),
-      setTimeout(() => (phase = 'headline'), 1250),
-    ];
-    return () => timers.forEach(clearTimeout);
+        firstFrame = requestAnimationFrame(() => {
+          secondFrame = requestAnimationFrame(() => (flight = ''));
+        });
+      }, 480));
+      timers.push(setTimeout(() => (phase = 'headline'), 1250));
+    }
+
+    return () => {
+      timers.forEach(clearTimeout);
+      cancelAnimationFrame(focusFrame);
+      if (firstFrame !== undefined) cancelAnimationFrame(firstFrame);
+      if (secondFrame !== undefined) cancelAnimationFrame(secondFrame);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
   });
 </script>
 
-<div bind:this={overlayEl} class="overlay" role="dialog" aria-label={`${page.paper}: ${page.text}`}>
+<div
+  bind:this={overlayEl}
+  class="overlay"
+  role="dialog"
+  tabindex="-1"
+  aria-modal="true"
+  aria-label={`${page.paper}: ${page.text}`}
+  onkeydown={handleDialogKey}
+>
   <!-- the backdrop swallows the click so a "close" tap never levies an agent -->
-  <button class="backdrop" type="button" aria-label="Close the news" onclick={onClose}></button>
+  <button class="backdrop" type="button" tabindex="-1" aria-label="Close the news" onclick={onClose}></button>
 
   {#if phase === 'flash'}
     <div class="flash" style={`inset-inline-start: ${pos.x}px; inset-block-start: ${pos.y}px`} aria-hidden="true"></div>
@@ -103,7 +137,7 @@
     </div>
   </article>
 
-  <button class="close" type="button" onclick={onClose}>keep trading</button>
+  <button bind:this={closeEl} class="close" type="button" onclick={onClose}>keep trading</button>
 </div>
 
 <style>
@@ -266,7 +300,7 @@
     position: absolute;
     inset-block-start: 4%;
     inset-inline-end: 3%;
-    min-block-size: 1.9rem;
+    min-block-size: 2.75rem;
     padding-block: 0.2rem;
     padding-inline: 0.85rem;
     border: 1px solid #a99980;

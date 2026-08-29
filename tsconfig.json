@@ -6,7 +6,7 @@
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
-    "types": ["node", "vitest/globals"],
+    "types": ["node", "svelte", "vite/client", "vitest/globals"],
     "paths": {
       "$lib/*": ["./src/lib/*"]
     }

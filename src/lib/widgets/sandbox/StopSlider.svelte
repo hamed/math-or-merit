@@ -90,6 +90,7 @@
 
   .dial input[type='range'] {
     inline-size: 100%;
+    min-block-size: 2.75rem;
     accent-color: var(--accent);
   }
 
@@ -97,7 +98,7 @@
     inline-size: 100%;
     max-inline-size: 8rem;
     min-inline-size: 0;
-    min-block-size: 1.7rem;
+    min-block-size: 2.75rem;
     padding-block: 0.15rem;
     padding-inline: 0.5rem;
     border: 1px solid #a99980;

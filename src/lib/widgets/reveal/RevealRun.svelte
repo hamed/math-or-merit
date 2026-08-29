@@ -132,6 +132,7 @@
       const wealth = Float64Array.from(engine.state.wealth);
       logRun({
         seed: engine.config.seed ?? -1,
+        beta: engine.config.beta,
         trades: engine.state.step,
         wealth,
         winner: winner ?? 0,

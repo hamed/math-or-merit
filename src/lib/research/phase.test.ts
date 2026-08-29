@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contourSegments, fitCriticalCurve, runPhaseCell } from './phase';
+import { contourSegments, fitCriticalCurve, IncrementalPhaseCell, runPhaseCell } from './phase';
 
 describe('runPhaseCell', () => {
   const base = { n: 50, levyEvery: 50, trades: 20_000, burnIn: 10_000, tailSamples: 5, seed: 7 };
@@ -8,6 +8,14 @@ describe('runPhaseCell', () => {
     const a = runPhaseCell({ ...base, beta: 0.2, taxRate: 0.02 });
     const b = runPhaseCell({ ...base, beta: 0.2, taxRate: 0.02 });
     expect(a).toBe(b);
+  });
+
+  it('has the same estimator regardless of incremental batch size', () => {
+    const config = { ...base, beta: 0.2, taxRate: 0.02 };
+    const expected = runPhaseCell(config);
+    const incremental = new IncrementalPhaseCell(config);
+    while (!incremental.done) incremental.step(137);
+    expect(incremental.result()).toBe(expected);
   });
 
   it('concentrates more at higher stakes when untaxed', () => {

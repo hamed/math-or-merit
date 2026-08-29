@@ -88,7 +88,7 @@ import Chapter from '$lib/nav/Chapter.svelte';
 -->
 <Chapter id="cow" label="The cow" />
 
-<PinScene pace={0.75}>
+<PinScene pace={0.75} navigation="step" deferAssets>
   <CowCastScene />
   <Caption beat={3} display>Once upon a time,<br />a farmer's cow stopped giving milk.</Caption>
   <Caption beat={4}>He called in three scientists.</Caption>
@@ -137,7 +137,7 @@ Same trick. New subject.
   TEST(Study A, reader-study.md): can readers rank circles and judge rough ratios from
   area alone? Revisit if area is misread as radius.
 -->
-<PinScene>
+<PinScene navigation="step" deferAssets>
   <PersonTradeScene />
   <Caption beat={0}>Take the richest man in the world.</Caption>
   <Caption beat={1}>We'll do to him exactly what the physicist did to the cow.</Caption>
@@ -490,7 +490,7 @@ tap anyone to tax them on the spot. Break it. Save it. See what it takes.
   winner, the honesty bill (the discarded world drifting back), the headline echoed in the
   teletype mono, then bare paper and the closing line. Beats 24–25.
 -->
-<PinScene>
+<PinScene navigation="step">
   <ClosingScene />
   <Caption beat={0}>This is where every fair room ends, given time.<br />Before the last word — the honesty bill.</Caption>
   <Caption beat={1}>To build this room I threw away work, wages, debt, inheritance, skill, effort, luck, power, law — and never handed them back. That list is the fence around the claim: a model this bare cannot explain real inequality, and it never tried to.</Caption>

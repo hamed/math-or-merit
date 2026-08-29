@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import RoomCanvas from '../shared/RoomCanvas.svelte';
-  import { createTicker } from '../shared/ticker';
+  import { createFixedTicker } from '../shared/ticker';
   import { countTrades, dollars, percent } from '../shared/format';
   import { measureWealth } from '$lib/research';
   import { assignStyles } from '../shared/agentStyle';
@@ -60,7 +60,7 @@
     gini = metrics.gini;
   }
 
-  const ticker = createTicker((dt) => {
+  const ticker = createFixedTicker((dt) => {
     playMs += dt;
     world.step(TRADES_PER_FRAME);
     revision++;
@@ -275,7 +275,7 @@
   }
 
   .quick-tax button {
-    min-block-size: 1.9rem;
+    min-block-size: 2.75rem;
     padding-block: 0.2rem;
     padding-inline: 0.55rem;
     border: 1px solid #a99980;

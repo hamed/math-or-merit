@@ -39,6 +39,8 @@ export interface StageContext {
    * timeline when `build` runs, so tweens anchor with `position: label`.
    */
   attach(beats: readonly BeatSpec[], build: (tl: StageTimeline) => void): void;
+  /** Whether deferred illustrated plates should expose their image URLs. */
+  assetsReady(): boolean;
   /** Called by Caption children; returns an unregister function. */
   registerCaption(el: HTMLElement, beat: number): () => void;
 }

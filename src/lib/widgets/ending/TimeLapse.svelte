@@ -3,9 +3,12 @@
   import RoomCanvas from '../shared/RoomCanvas.svelte';
   import TimeSeries from '../sandbox/TimeSeries.svelte';
   import { SandboxWorld } from '../sandbox/SandboxWorld';
-  import { createTicker } from '../shared/ticker';
+  import { createFixedTicker } from '../shared/ticker';
   import { countTrades, percent } from '../shared/format';
-  import { DUST_DOLLARS, REVEAL_SEED, REVEAL_TRADES, ROOM_BETA, ROOM_N, START_DOLLARS } from '../shared/presets';
+  import { latestRun } from '../shared/runLog.svelte';
+  import { completedRoomRun, type LoggedRun } from '../shared/roomRun';
+  import { DUST_DOLLARS, REVEAL_BETA, REVEAL_TRADES, ROOM_N, START_DOLLARS } from '../shared/presets';
+  import { continuationWorld } from './continuation';
 
   /**
    * A bookkeeping round is 1,000 trades here, not the usual 100: this beat
@@ -14,19 +17,17 @@
    */
   const ROUND_TRADES = 1000;
 
-  // Continue the room the reveal left off: same seed, pre-run to the same point.
-  function preRunWorld(seed: number): SandboxWorld {
-    const world = new SandboxWorld({ n: ROOM_N, startDollars: START_DOLLARS, seed });
-    world.beta = ROOM_BETA;
-    world.taxEvery = ROUND_TRADES;
-    world.step(REVEAL_TRADES);
-    return world;
-  }
+  const freshSeed = () => Math.floor(Math.random() * 0xffff_ffff);
+  const runKey = (run: LoggedRun) => `${run.seed}:${run.beta}:${run.trades}`;
+  const freshRun = () => completedRoomRun(freshSeed(), REVEAL_TRADES, ROOM_N, REVEAL_BETA);
 
   const MAX_TRADES = 40_000_000;
   const STOP_SHARE = 0.9995;
 
-  let world = $state(preRunWorld(REVEAL_SEED));
+  const fallback = freshRun();
+  let world = $state(continuationWorld(fallback, ROUND_TRADES));
+  let loadedRunKey = $state(runKey(fallback));
+  let ignoredLatestKey = $state<string | null>(null);
   let revision = $state(0);
   let running = $state(false);
   let finished = $state(false);
@@ -55,7 +56,7 @@
     winner = topShare >= 0.5 ? argmax : null;
   }
 
-  const ticker = createTicker(() => {
+  const ticker = createFixedTicker(() => {
     perFrame = Math.min(400_000, perFrame * 1.06);
     world.step(Math.round(perFrame));
     revision++;
@@ -65,6 +66,21 @@
       running = false;
       finished = true;
     }
+  });
+
+  $effect(() => {
+    const latest = latestRun();
+    if (!latest || running) return;
+    const key = runKey(latest);
+    if (key === loadedRunKey || key === ignoredLatestKey) return;
+    ticker.stop();
+    world = continuationWorld(latest, ROUND_TRADES);
+    loadedRunKey = key;
+    ignoredLatestKey = null;
+    finished = false;
+    perFrame = 400;
+    revision++;
+    measure();
   });
 
   const step = $derived.by(() => {
@@ -85,7 +101,11 @@
     running = false;
     finished = false;
     perFrame = 400;
-    world = preRunWorld(Math.floor(Math.random() * 0xffff_ffff));
+    const latest = latestRun();
+    ignoredLatestKey = latest ? runKey(latest) : null;
+    const next = freshRun();
+    world = continuationWorld(next, ROUND_TRADES);
+    loadedRunKey = runKey(next);
     revision++;
     measure();
   }
