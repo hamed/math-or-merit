@@ -105,6 +105,50 @@ test('one presentation key advances one authored stage beat and reverse goes bac
   expect(reversed).toBeLessThan(forward);
 });
 
+test('authored scenes always release the reader past both boundaries', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  for (const index of [1, 2, 3]) {
+    const scene = page.locator('.pin-scene').nth(index);
+    const spacer = scene.locator('..');
+    await expect(spacer).toHaveClass(/pin-spacer/);
+    const bounds = await spacer.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const start = box.top + scrollY;
+      return { start, end: start + box.height - innerHeight };
+    });
+
+    await page.evaluate((y) => scrollTo(0, y), bounds.end - 2);
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => scrollY)).toBeGreaterThan(bounds.end);
+
+    await page.evaluate((y) => scrollTo(0, y), bounds.start + 2);
+    await page.keyboard.press('Shift+Space');
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => scrollY)).toBeLessThan(bounds.start);
+  }
+});
+
+test('the cow scene releases a sustained wheel gesture at its final boundary', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  const spacer = page.locator('.pin-scene').nth(1).locator('..');
+  await expect(spacer).toHaveClass(/pin-spacer/);
+  const end = await spacer.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return box.top + scrollY + box.height - innerHeight;
+  });
+  await page.evaluate((y) => scrollTo(0, y), end - 2);
+  for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 120);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(end);
+});
+
 test('the news dialog owns and restores keyboard focus', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });

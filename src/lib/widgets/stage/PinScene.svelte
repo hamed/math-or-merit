@@ -11,6 +11,8 @@
   const navs = new Set<SceneNav>();
   let hooksAttached = false;
   let touchStartY: number | null = null;
+  let wheelDirection: -1 | 0 | 1 = 0;
+  let wheelEndTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Space belongs to the focused control, not to the page. */
   function keyIsClaimed(el: Element | null): boolean {
@@ -54,7 +56,14 @@
     const nav = activeNav(true);
     if (!nav) return;
     e.preventDefault();
-    nav.go(delta > 0 ? 1 : -1);
+    const direction = delta > 0 ? 1 : -1;
+    clearTimeout(wheelEndTimer);
+    wheelEndTimer = setTimeout(() => (wheelDirection = 0), 120);
+    // A wheel/trackpad gesture emits a stream of events. It owns one beat;
+    // reversing that gesture is the one exception and reverses immediately.
+    if (wheelDirection === direction) return;
+    wheelDirection = direction;
+    nav.go(direction);
   }
 
   function onBeatTouchStart(e: TouchEvent): void {
@@ -92,6 +101,8 @@
     if (!hooksAttached || navs.size > 0) return;
     hooksAttached = false;
     touchStartY = null;
+    wheelDirection = 0;
+    clearTimeout(wheelEndTimer);
     window.removeEventListener('keydown', onBeatKey);
     window.removeEventListener('wheel', onBeatWheel);
     window.removeEventListener('touchstart', onBeatTouchStart);
@@ -369,22 +380,11 @@
       });
 
       let movingDirection: -1 | 0 | 1 = 0;
-      let lastDirection: -1 | 0 | 1 = 0;
-      let lastInputAt = -Infinity;
-
       const stopPositions = () =>
         restTimes.map((t) => st.start + (t / total) * (st.end - st.start));
 
       const go = (direction: -1 | 1) => {
-        const now = performance.now();
-        if (movingDirection === direction) {
-          lastInputAt = now;
-          return;
-        }
-        if (!navTween && direction === lastDirection && now - lastInputAt < 180) {
-          lastInputAt = now;
-          return;
-        }
+        if (movingDirection === direction) return;
 
         const y = window.scrollY;
         const positions = stopPositions();
@@ -423,8 +423,6 @@
           : Math.max(0.18, Math.abs(targetTime - currentTime));
         const scroll = { y };
         movingDirection = direction;
-        lastDirection = direction;
-        lastInputAt = now;
         navTween = gsap.to(scroll, {
           y: target,
           duration,
