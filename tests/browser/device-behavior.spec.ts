@@ -59,6 +59,20 @@ test('the sandbox stacks into a readable page on a short landscape phone', async
   expect(undersized).toEqual([]);
 });
 
+test('the desktop sandbox aligns to the scrollbar-safe viewport edges', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.addStyleTag({ content: 'html { overflow-y: scroll !important; }' });
+  const sandbox = page.locator('.sandbox.full');
+  await sandbox.scrollIntoViewIfNeeded();
+  const edges = await sandbox.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    return { left: box.left, right: box.right, viewport: document.documentElement.clientWidth };
+  });
+  expect(edges.left).toBeCloseTo(0, 0);
+  expect(edges.right).toBeCloseTo(edges.viewport, 0);
+});
+
 test('expert start money accepts zero and negative experiments without crashing', async ({ page }) => {
   const errors: Error[] = [];
   page.on('pageerror', (error) => errors.push(error));
@@ -103,6 +117,49 @@ test('one presentation key advances one authored stage beat and reverse goes bac
   await page.waitForTimeout(900);
   const reversed = await page.evaluate(() => scrollY);
   expect(reversed).toBeLessThan(forward);
+});
+
+test('separate wheel gestures complete successive actions and reverse one action', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  const cow = page.locator('.pin-scene').nth(1);
+  await cow.scrollIntoViewIfNeeded();
+  const start = await page.evaluate(() => scrollY);
+  await page.mouse.wheel(0, 240);
+  await page.waitForTimeout(2500);
+  const first = await page.evaluate(() => scrollY);
+  expect(first).toBeGreaterThan(start);
+
+  await page.mouse.wheel(0, 240);
+  await page.waitForTimeout(2200);
+  const second = await page.evaluate(() => scrollY);
+  expect(second).toBeGreaterThan(first);
+
+  await page.mouse.wheel(0, -240);
+  await page.waitForTimeout(2200);
+  const reversed = await page.evaluate(() => scrollY);
+  expect(reversed).toBeLessThan(second);
+});
+
+test('a swipe completes one authored action', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  const cow = page.locator('.pin-scene').nth(1);
+  await cow.scrollIntoViewIfNeeded();
+  const start = await page.evaluate(() => scrollY);
+  await page.evaluate(() => {
+    const target = document.body;
+    const begin = new Touch({ identifier: 1, target, clientX: 195, clientY: 700 });
+    const end = new Touch({ identifier: 1, target, clientX: 195, clientY: 180 });
+    window.dispatchEvent(new TouchEvent('touchstart', { touches: [begin], bubbles: true, cancelable: true }));
+    window.dispatchEvent(new TouchEvent('touchend', { changedTouches: [end], bubbles: true, cancelable: true }));
+  });
+  await page.waitForTimeout(2500);
+  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(start);
 });
 
 test('authored scenes always release the reader past both boundaries', async ({ page }) => {

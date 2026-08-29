@@ -1,7 +1,7 @@
 <script lang="ts" module>
   /**
    * The sandbox is the essay's one machine with every dial exposed — and the
-   * seam for reuse (owner review 2026-07-13): earlier beats can become presets
+   * seam for reuse: earlier beats can become presets
    * of THIS component by hiding panels, disabling controls, and dropping to
    * the `column` layout. Configuration is data; no per-preset branches.
    */
@@ -23,7 +23,6 @@
     stake: boolean;
     tax: boolean;
     clickTax: boolean;
-    progressivity: boolean;
     startWealth: boolean;
     news: boolean;
   }
@@ -43,7 +42,7 @@
   import { collectStats, roomStatsSource } from './newsroom';
   import { addMeasurement, clearPhaseData, exportCsv, importCsv, loadPhaseData } from './phaseGrid.svelte';
   import { createFixedTicker } from '../shared/ticker';
-  import { FILLS, STROKES, randomStyles } from '../shared/agentStyle';
+  import { CLASSIC_AGENT_FILL, CLASSIC_AGENT_STROKE, FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
   import { roomPositions, radiusScale, zoneName } from '../shared/layout';
   import { countTrades, dollarsCompact, percent } from '../shared/format';
@@ -78,7 +77,6 @@
     stake: true,
     tax: true,
     clickTax: true,
-    progressivity: false,
     startWealth: true,
     news: true,
     ...controls,
@@ -86,9 +84,6 @@
 
   const MIN_N = 2;
   const MAX_N = 2048;
-  // mirror of roomRenderer's legacy single-family look (keep in sync)
-  const CLASSIC_FILL = 'rgb(189 98 69 / 26%)';
-  const CLASSIC_STROKE = '#96543c';
   const LOOKS = ['shapes', 'circles', 'classic'] as const;
   type Look = (typeof LOOKS)[number];
 
@@ -179,7 +174,7 @@
     revision++;
     measure();
     // the watchdog: expert dials may blow the math up — freeze the wreck and
-    // say so, instead of a silently dead room (owner review 2026-07-14)
+    // say so, instead of leaving a silently dead room
     for (let i = 0; i < world.wealth.length; i++) {
       if (!Number.isFinite(world.wealth[i])) {
         broke = true;
@@ -333,20 +328,7 @@
   onMount(() => {
     loadPhaseData(); // a returning reader keeps their measured map
 
-    /**
-     * Gentle snap: once scrolling STOPS with the sandbox nearly aligned, ease
-     * it into place.
-     *
-     * It must know an ARRIVING reader from a LEAVING one. The first version
-     * did not, and it was a trap: any rest inside a quarter-viewport of the
-     * top got pulled back to the top, so a 120px wheel step could never get
-     * out and the ending was unreachable by ordinary scrolling (measured
-     * 2026-08-27: the scroll position oscillated +4/-4px forever).
-     *
-     * So: snap only in the direction the reader is already travelling — down
-     * onto a sandbox that is still below them, or up onto one still above —
-     * and never twice in a row without leaving the zone in between.
-     */
+    /** Settle only while approaching the sandbox; never pull a leaving reader back. */
     let snapTimer: ReturnType<typeof setTimeout> | undefined;
     let lastY = window.scrollY;
     let direction = 0;
@@ -514,7 +496,7 @@
   {#if show.gstake}{@render plotBox('gstake')}{/if}
   {#if show.phase}{@render plotBox('phase')}{/if}
 
-  <!-- dials in order of importance (owner review 2026-07-15) -->
+  <!-- dials in order of importance -->
   <div class="controls">
     <div class="sliders" class:expert>
       {#if ctl.stake}
@@ -538,11 +520,6 @@
       {/if}
       {#if ctl.clickTax}
         <StopSlider label="tax per click" bind:value={clickRate} stops={RATE_STOPS} format={rateLabel} {expert} />
-      {/if}
-      {#if ctl.progressivity}
-        <!-- placeholder (owner review 2026-07-13): one dial, rate rising with
-             log wealth, replaces the old bracket table. Dummy until wired. -->
-        <StopSlider label="progressivity" value={0} stops={RATE_STOPS} format={() => 'soon'} {expert} disabled />
       {/if}
     </div>
   </div>
@@ -587,8 +564,8 @@
             <svg viewBox="-11 -11 22 22" aria-hidden="true">
               <path
                 d={svgShapePath(look === 'shapes' ? 'square' : 'circle', 8)}
-                fill={look === 'classic' ? CLASSIC_FILL : lookSwatch.fill}
-                stroke={look === 'classic' ? CLASSIC_STROKE : lookSwatch.stroke}
+                fill={look === 'classic' ? CLASSIC_AGENT_FILL : lookSwatch.fill}
+                stroke={look === 'classic' ? CLASSIC_AGENT_STROKE : lookSwatch.stroke}
                 stroke-width="1.6"
               />
             </svg>
@@ -649,10 +626,10 @@
      (rule of thirds); the phase composite takes the right 2×2; the bottom row
      is controls + four 1:1 plots. */
   .sandbox.full {
-    inline-size: 100vw;
+    inline-size: 100cqi;
     max-inline-size: none;
     margin-block: 0;
-    margin-inline: calc((100% - 100vw) / 2);
+    margin-inline: calc((100% - 100cqi) / 2);
     /* svh, not dvh: the smallest viewport is the one that is always visible, so
        the finale fits whether or not a mobile browser's toolbars are showing. */
     block-size: 100svh;
@@ -926,7 +903,7 @@
   }
 
 
-  /* the run button never resizes underfoot (owner review 2026-07-13) */
+  /* the run button never resizes underfoot */
   button.steady {
     min-inline-size: 4.8rem;
   }

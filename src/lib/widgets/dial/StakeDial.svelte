@@ -37,6 +37,7 @@
     if (engine.config.beta === 0) {
       // Nothing at stake, nothing happens — draw once and idle.
       revision++;
+      running = false;
       ticker.stop();
       return;
     }
@@ -90,7 +91,7 @@
     <span>the stake: <strong>{stakePercent}%</strong> of the poorer trader’s wealth</span>
     <input
       type="range"
-      min="1"
+      min="0"
       max="99"
       step="1"
       bind:value={stakePercent}

@@ -157,8 +157,7 @@
   /**
    * Put --picture-bottom where the ART actually ends.
    *
-   * It used to be a fixed 76svh guess, and the caption hung off that. Two
-   * things push the real ink well above it: the plates carry a transparent
+   * Two things can push the real ink above its box edge: plates carry a transparent
    * margin, and the vector scenes draw sparse art inside a taller viewBox. The
    * gap that opened up made picture and words read as two separate things.
    *
@@ -338,9 +337,8 @@
         return;
       }
 
-      // 0.3, not 0.6: the tween used to trail the scroll by six tenths of a
-      // second, so the reader stopped at the end of a beat with the words
-      // still arriving and it read as "one more scroll finishes the text".
+      // Free-scrub scenes retain a short smoothing tail; stepped scenes seek
+      // exact resting positions without an additional scrub delay.
       const st = ScrollTrigger.create({
         trigger: root,
         animation: tl,

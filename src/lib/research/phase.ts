@@ -6,8 +6,7 @@
  * the per-trade variance ∝ β² scaling heuristic), never a theorem. Keep the
  * word "fitted" attached to it wherever it is shown (GATE, interventions.md).
  */
-import { createRandomSource, type RandomSource } from '$lib/sim';
-import { applyYardSaleTrade } from '$lib/sim/internal/YardSaleTrade';
+import { applyYardSaleTrade, createRandomSource, type RandomSource } from '$lib/sim';
 import { applyFlatWealthLevy } from './interventions';
 import { giniCoefficient } from './metrics';
 

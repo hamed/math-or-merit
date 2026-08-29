@@ -1,6 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { headlineForStyle, headlineForZone, styleNoun, type AgentStyle } from '../shared/agentStyle';
+  import {
+    CLASSIC_AGENT_FILL,
+    CLASSIC_AGENT_STROKE,
+    headlineForStyle,
+    headlineForZone,
+    styleNoun,
+    type AgentStyle,
+  } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
   import { frontPageFor, type RoomStats } from './newsroom';
 
@@ -25,16 +32,12 @@
 
   let { paper, style, zone = null, dollars, percentile, pos, run, stats, onClose }: Props = $props();
 
-  // mirror of roomRenderer's legacy single-family look (keep in sync)
-  const CLASSIC_FILL = 'rgb(189 98 69 / 26%)';
-  const CLASSIC_STROKE = '#96543c';
-
   const winnerLine = $derived(zone ? headlineForZone(zone, run) : headlineForStyle(style, run));
   const noun = $derived(zone ? `the one at the ${zone}` : styleNoun(style));
   const page = $derived(frontPageFor(paper, { noun, dollars, percentile }, stats, winnerLine, run));
 
   // the news beat: flash the camera → the photo flies onto the page → the
-  // headline sets. One paper at a time (owner review 2026-07-15).
+  // headline sets. One paper at a time.
   let phase = $state<'flash' | 'fly' | 'headline'>('flash');
   let flight = $state(''); // FLIP transform: from the subject to the photo slot
   let overlayEl: HTMLDivElement | undefined = $state();
@@ -123,8 +126,8 @@
         <svg viewBox="-14 -14 28 28" aria-label={`Photo of ${noun}`}>
           <path
             d={svgShapePath(zone ? 'circle' : style.shape, 10)}
-            fill={zone ? CLASSIC_FILL : style.fill}
-            stroke={zone ? CLASSIC_STROKE : style.stroke}
+            fill={zone ? CLASSIC_AGENT_FILL : style.fill}
+            stroke={zone ? CLASSIC_AGENT_STROKE : style.stroke}
             stroke-width="1.6"
           />
         </svg>

@@ -33,6 +33,31 @@ export const phaseData = $state<{ cells: Record<string, Cell>; version: number }
 
 const keyOf = (stake: number, tax: number, n: number) => `${stake}|${tax}|${n}`;
 
+function parseKey(key: string): [stake: number, tax: number, n: number] | null {
+  const parts = key.split('|');
+  if (parts.length !== 3) return null;
+  const [stake, tax, n] = parts.map(Number);
+  if (!Number.isFinite(stake) || !Number.isFinite(tax) || !Number.isSafeInteger(n) || n < 2) return null;
+  return [stake, tax, n];
+}
+
+function isCell(value: unknown): value is Cell {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const candidate = value as Partial<Cell>;
+  return Number.isFinite(candidate.sum) && Number.isSafeInteger(candidate.count) && candidate.count! > 0;
+}
+
+/** Keep valid measurements from storage and discard only malformed structure. */
+export function decodePhaseCells(raw: string): Record<string, Cell> {
+  const parsed: unknown = JSON.parse(raw);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  const cells: Record<string, Cell> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (parseKey(key) && isCell(value)) cells[key] = { sum: value.sum, count: value.count };
+  }
+  return cells;
+}
+
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
 function persist(): void {
@@ -50,7 +75,7 @@ export function loadPhaseData(): void {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      phaseData.cells = JSON.parse(raw);
+      phaseData.cells = decodePhaseCells(raw);
       phaseData.version++;
     }
   } catch {
@@ -61,6 +86,7 @@ export function loadPhaseData(): void {
 /** One solidified tail-average from a settled run. */
 export function addMeasurement(stake: number, tax: number, n: number, gini: number): void {
   if (!Number.isFinite(gini) || !Number.isFinite(stake) || !Number.isFinite(tax)) return;
+  if (!Number.isSafeInteger(n) || n < 2) return;
   const key = keyOf(stake, tax, n);
   const cell = phaseData.cells[key] ?? { sum: 0, count: 0 };
   cell.sum += gini;
@@ -80,8 +106,10 @@ export function clearPhaseData(): void {
 export function pointsFor(n: number): PhasePoint[] {
   const out: PhasePoint[] = [];
   for (const [key, cell] of Object.entries(phaseData.cells)) {
-    const [s, t, kn] = key.split('|').map(Number);
-    if (kn !== n || cell.count === 0) continue;
+    const parsed = parseKey(key);
+    if (!parsed || !isCell(cell)) continue;
+    const [s, t, kn] = parsed;
+    if (kn !== n) continue;
     out.push({ stake: s, tax: t, n: kn, gini: cell.sum / cell.count, count: cell.count });
   }
   return out;
@@ -132,7 +160,8 @@ export function importCsv(text: string): number {
   let accepted = 0;
   for (const line of text.split(/\r?\n/).slice(1)) {
     const [s, t, n, gini, count] = line.split(',').map(Number);
-    if (![s, t, n, gini, count].every(Number.isFinite) || count <= 0) continue;
+    if (![s, t, gini].every(Number.isFinite)) continue;
+    if (!Number.isSafeInteger(n) || n < 2 || !Number.isSafeInteger(count) || count <= 0) continue;
     const key = keyOf(s, t, n);
     const cell = phaseData.cells[key] ?? { sum: 0, count: 0 };
     cell.sum += gini * count;

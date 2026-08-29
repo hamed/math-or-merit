@@ -1,5 +1,4 @@
-import { createRandomSource, type RandomSource } from '$lib/sim';
-import { applyYardSaleTrade } from '$lib/sim/internal/YardSaleTrade';
+import { applyYardSaleTrade, createRandomSource, type RandomSource } from '$lib/sim';
 
 /**
  * Chaos-tolerant Gini + top share. The research metrics validate their
@@ -101,12 +100,9 @@ export class RoundSeries {
  *
  * - Levy: one flat per-round rate, 0 = off. Proportional, scale-free —
  *   applied on shares directly, revenue returned as equal dividends.
- *   (Owner review 2026-07-13: progressivity will arrive as a parametric
- *   rate-of-log-wealth function behind ONE dial — keep `applyLevy` the seam;
- *   no bracket tables come back.)
  * - Click levy: `levyAgent` takes a slice of one agent on demand (the
  *   sandbox's mini-game), same equal-dividend redistribution.
- * - Round series (owner review 2026-07-14): Gini, top share, dollars WON
+ * - Round series: Gini, top share, dollars WON
  *   (trade volume, β·min summed), and TRACKED_AGENTS personal trajectories —
  *   all anchored at round 1 via RoundSeries.
  *
@@ -134,7 +130,7 @@ export class SandboxWorld {
 
   /**
    * Live-tunable dials (the sandbox UI writes these directly). DELIBERATELY
-   * unclamped (owner review 2026-07-14): expert mode may set a negative tax
+   * unclamped: expert mode may set a negative tax
    * or a 250% stake — watching the math break is part of the lesson. The
    * sandbox ticker carries the watchdog that catches non-finite wealth.
    */
@@ -155,7 +151,7 @@ export class SandboxWorld {
       for (let i = 0; i < n; i++) {
         // The START is validated even though the RUN is not: expert dials may
         // drive wealth negative, but a corrupt snapshot poisons the room before
-        // anyone touches a dial (audit 2026-07-10, finding 10).
+        // anyone touches a dial.
         if (!Number.isFinite(copy[i]) || copy[i] < 0) {
           throw new RangeError('initialWealth values must be finite and non-negative');
         }

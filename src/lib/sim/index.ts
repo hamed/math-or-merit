@@ -14,3 +14,4 @@ export type {
 
 export { createRandomSource } from './Random';
 export type { RandomSource } from './Random';
+export { applyYardSaleTrade } from './Trade';

@@ -1,4 +1,16 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
+
+const sandboxScreenshotOptions = {
+  animations: 'disabled' as const,
+};
+
+async function hideRandomRoom(sandbox: Locator) {
+  // The room is deliberately unseeded. Keep visual regression coverage on its
+  // dimensions and surrounding UI without snapshotting a different draw each run.
+  await sandbox
+    .locator('.room canvas')
+    .evaluate((canvas) => canvas.setAttribute('style', 'visibility: hidden !important'));
+}
 
 test('@visual opening at 390 × 844', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -17,7 +29,8 @@ test('@visual sandbox at 844 × 390', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const sandbox = page.locator('.sandbox.full');
   await sandbox.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY));
-  await expect(sandbox).toHaveScreenshot('sandbox-844x390.png', { animations: 'disabled' });
+  await hideRandomRoom(sandbox);
+  await expect(sandbox).toHaveScreenshot('sandbox-844x390.png', sandboxScreenshotOptions);
 });
 
 test('@visual sandbox at 1440 × 900', async ({ page }) => {
@@ -25,5 +38,6 @@ test('@visual sandbox at 1440 × 900', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const sandbox = page.locator('.sandbox.full');
   await sandbox.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + scrollY));
-  await expect(sandbox).toHaveScreenshot('sandbox-1440x900.png', { animations: 'disabled' });
+  await hideRandomRoom(sandbox);
+  await expect(sandbox).toHaveScreenshot('sandbox-1440x900.png', sandboxScreenshotOptions);
 });

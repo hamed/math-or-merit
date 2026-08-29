@@ -40,3 +40,12 @@ describe('gsap enters through the quarantine module only', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('simulation implementation paths remain private', () => {
+  it('research and widgets import only the public simulation module', () => {
+    const offenders = ['research', 'widgets'].flatMap((layer) =>
+      sourceFiles(join(__dirname, layer)).filter((file) => /sim\/internal/.test(readFileSync(file, 'utf8'))),
+    );
+    expect(offenders).toEqual([]);
+  });
+});

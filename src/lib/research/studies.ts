@@ -1,5 +1,4 @@
-import { createRandomSource } from '../sim';
-import { applyYardSaleTrade } from '../sim/internal/YardSaleTrade';
+import { applyYardSaleTrade, createRandomSource } from '../sim';
 import { AdditiveExchangeEngine } from './additiveExchange';
 import { measureWealth, validateCheckpoints, type WealthMetrics } from './metrics';
 import { localRichAgentIndices, StaticNetworkYardSale, type StaticNetworkConfig } from './network';

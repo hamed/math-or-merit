@@ -59,10 +59,13 @@ html {
 }
 
 body {
+  /* Full-bleed descendants use 100cqi, which follows the body content box and
+     therefore excludes a classic desktop scrollbar. */
+  container-type: inline-size;
   margin: 0;
   min-inline-size: 20rem;
   min-block-size: 100vh;
-  /* the sandbox breaks out to 100vw; clip the scrollbar-width overhang */
+  /* Clip defensive overhang from transformed or animated children. */
   overflow-x: clip;
   background:
     radial-gradient(circle at 20% 8%, rgb(255 255 255 / 70%), transparent 25rem),
@@ -222,12 +225,8 @@ a:hover {
 
 /* ---------- shared widget chrome ---------- */
 
-/* Frameless yield sections: content on bare paper.
-   A widget is as tall as what it draws, and no taller. It used to reserve most
-   of a viewport whether it needed it or not, which centred a 200px control
-   panel inside a 700px box — so the words that introduce it were a screen away
-   from the thing they describe. The lead-in and the widget belong to each
-   other; they should be readable in one look. */
+/* Frameless yield sections size to their contents, keeping each lead-in and
+   its interaction readable in one view. */
 .widget {
   display: flex;
   flex-direction: column;
@@ -375,17 +374,8 @@ a:hover {
 
 /* ---------- scroll settling ---------- */
 
-/* CSS scroll snap is GONE (2026-08-27). It was `y proximity` with
-   `scroll-snap-align: center` on every `.widget`, and it trapped the reader:
-   a widget shorter than the viewport makes a snap area that a normal wheel
-   step cannot leave, so Chrome re-centres it forever. Measured at 1280x900
-   with 120px wheel steps: the page died at y=29792 (the first widget after
-   the person scene) and 162 consecutive steps moved it zero pixels. With the
-   align removed the same run passes every widget with no stall longer than
-   one step.
-   The one place settling actually helps is the full-screen sandbox, and that
-   one does it in JS, where it can tell an arriving reader from a leaving one.
-   Do not reintroduce snap here without re-running that wheel test. */
+/* Global CSS scroll snap traps short widgets by repeatedly recentering them.
+   Only the full-screen sandbox settles, using direction-aware JS. */
 html {
   /* Breathing room above a widget scrolled to by script or by anchor, so it
      never lands flush against the top edge. The sandbox cancels it — it is
