@@ -11,8 +11,6 @@
   const navs = new Set<SceneNav>();
   let hooksAttached = false;
   let touchStartY: number | null = null;
-  let wheelDirection: -1 | 0 | 1 = 0;
-  let wheelEndTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Space belongs to the focused control, not to the page. */
   function keyIsClaimed(el: Element | null): boolean {
@@ -56,14 +54,7 @@
     const nav = activeNav(true);
     if (!nav) return;
     e.preventDefault();
-    const direction = delta > 0 ? 1 : -1;
-    clearTimeout(wheelEndTimer);
-    wheelEndTimer = setTimeout(() => (wheelDirection = 0), 120);
-    // A wheel/trackpad gesture emits a stream of events. It owns one beat;
-    // reversing that gesture is the one exception and reverses immediately.
-    if (wheelDirection === direction) return;
-    wheelDirection = direction;
-    nav.go(direction);
+    nav.go(delta > 0 ? 1 : -1);
   }
 
   function onBeatTouchStart(e: TouchEvent): void {
@@ -101,8 +92,6 @@
     if (!hooksAttached || navs.size > 0) return;
     hooksAttached = false;
     touchStartY = null;
-    wheelDirection = 0;
-    clearTimeout(wheelEndTimer);
     window.removeEventListener('keydown', onBeatKey);
     window.removeEventListener('wheel', onBeatWheel);
     window.removeEventListener('touchstart', onBeatTouchStart);

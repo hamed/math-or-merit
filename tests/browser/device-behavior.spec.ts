@@ -132,7 +132,7 @@ test('authored scenes always release the reader past both boundaries', async ({ 
   }
 });
 
-test('the cow scene releases a sustained wheel gesture at its final boundary', async ({ page }) => {
+test('continuous scrolling carries through the cow scene’s final caption', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -143,8 +143,14 @@ test('the cow scene releases a sustained wheel gesture at its final boundary', a
     const box = el.getBoundingClientRect();
     return box.top + scrollY + box.height - innerHeight;
   });
-  await page.evaluate((y) => scrollTo(0, y), end - 2);
-  for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 120);
+  // Start just before the final resting point. The stream must first settle on
+  // “you cannot play with the real one either”, then continue beyond the pin
+  // without requiring a pause and a new gesture.
+  await page.evaluate((y) => scrollTo(0, y), end - 450);
+  for (let i = 0; i < 24; i++) {
+    await page.mouse.wheel(0, 120);
+    await page.waitForTimeout(50);
+  }
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(end);
 });
