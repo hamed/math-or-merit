@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { loadDeferred } from './helpers';
 
 test('the opening owns the phone viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -14,19 +15,43 @@ test('the opening owns the phone viewport', async ({ page }) => {
   expect(headline!.x + headline!.width).toBeLessThanOrEqual(390);
 });
 
-test('illustrated plates load one stage ahead instead of all at startup', async ({ page }) => {
-  const images: string[] = [];
+test('illustrated scene code and plates load one stage ahead instead of all at startup', async ({ page }) => {
+  const responses: string[] = [];
   page.on('response', (response) => {
-    if (response.url().endsWith('.webp')) images.push(response.url());
+    responses.push(response.url());
   });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(500);
 
-  expect(images.some((url) => url.includes('/cast/'))).toBe(true);
-  expect(images.some((url) => url.includes('/person/'))).toBe(false);
+  expect(responses.some((url) => url.includes('CowCastScene.svelte'))).toBe(true);
+  expect(responses.some((url) => url.includes('/cast/'))).toBe(true);
+  expect(responses.some((url) => url.includes('PersonTradeScene.svelte'))).toBe(false);
+  expect(responses.some((url) => url.includes('/person/'))).toBe(false);
+  expect(responses.some((url) => url.includes('/sandbox/Sandbox.svelte'))).toBe(false);
 
-  await page.locator('.pin-scene').nth(2).scrollIntoViewIfNeeded();
-  await expect.poll(() => images.some((url) => url.includes('/person/'))).toBe(true);
+  await loadDeferred(page, 'trade scene', page.locator('.room-stage'));
+  await expect.poll(() => responses.some((url) => url.includes('PersonTradeScene.svelte'))).toBe(true);
+  await expect.poll(() => responses.some((url) => url.includes('/person/'))).toBe(true);
+});
+
+test('a slow deferred module keeps a stable loading surface and then mounts', async ({ page }) => {
+  await page.route('**/Sandbox.svelte*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await route.continue();
+  });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  const marker = page.locator('[data-deferred="sandbox"]');
+  await marker.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await expect(marker).toHaveAttribute('aria-busy', 'true');
+  await expect(marker).toContainText('Loading sandbox');
+  await expect(page.locator('.sandbox.full')).toBeVisible();
+});
+
+test('a direct chapter link loads its deferred destination', async ({ page }) => {
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('.sandbox.full')).toBeVisible();
+  await expect(page.locator('#sandbox')).toBeInViewport();
 });
 
 test('the sandbox stacks into a readable page on a short landscape phone', async ({ page }) => {
@@ -34,7 +59,7 @@ test('the sandbox stacks into a readable page on a short landscape phone', async
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   const sandbox = page.locator('.sandbox.full');
-  await sandbox.scrollIntoViewIfNeeded();
+  await loadDeferred(page, 'sandbox', sandbox);
   const layout = await sandbox.evaluate((el) => {
     const style = getComputedStyle(el);
     const room = el.querySelector<HTMLElement>('.room-flex')!;
@@ -64,7 +89,7 @@ test('the desktop sandbox aligns to the scrollbar-safe viewport edges', async ({
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.addStyleTag({ content: 'html { overflow-y: scroll !important; }' });
   const sandbox = page.locator('.sandbox.full');
-  await sandbox.scrollIntoViewIfNeeded();
+  await loadDeferred(page, 'sandbox', sandbox);
   const edges = await sandbox.evaluate((el) => {
     const box = el.getBoundingClientRect();
     return { left: box.left, right: box.right, viewport: document.documentElement.clientWidth };
@@ -80,7 +105,7 @@ test('expert start money accepts zero and negative experiments without crashing'
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   const sandbox = page.locator('.sandbox.full');
-  await sandbox.scrollIntoViewIfNeeded();
+  await loadDeferred(page, 'sandbox', sandbox);
   await sandbox.getByRole('button', { name: '123' }).click();
   const money = sandbox.getByRole('spinbutton', { name: 'start $ each, raw number' });
   await money.fill('0');
@@ -95,6 +120,7 @@ test('expert start money accepts zero and negative experiments without crashing'
 test('prediction choices use native radio keyboard behavior', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const radios = page.getByRole('radio');
+  await loadDeferred(page, 'prediction', radios.first());
   await expect(radios).toHaveCount(4);
   await radios.first().focus();
   await page.keyboard.press('ArrowDown');
@@ -106,6 +132,7 @@ test('one presentation key advances one authored stage beat and reverse goes bac
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
+  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
   const cow = page.locator('.pin-scene').nth(1);
   await cow.scrollIntoViewIfNeeded();
   const start = await page.evaluate(() => scrollY);
@@ -124,6 +151,7 @@ test('separate wheel gestures complete successive actions and reverse one action
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
+  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
   const cow = page.locator('.pin-scene').nth(1);
   await cow.scrollIntoViewIfNeeded();
   const start = await page.evaluate(() => scrollY);
@@ -148,6 +176,7 @@ test('a swipe completes one authored action', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
+  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
   const cow = page.locator('.pin-scene').nth(1);
   await cow.scrollIntoViewIfNeeded();
   const start = await page.evaluate(() => scrollY);
@@ -167,6 +196,8 @@ test('authored scenes always release the reader past both boundaries', async ({ 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
+  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
+  await loadDeferred(page, 'trade scene', page.locator('.room-stage'));
   for (const index of [1, 2]) {
     const scene = page.locator('.pin-scene').nth(index);
     const spacer = scene.locator('..');
@@ -197,6 +228,7 @@ test('scrolling after the cow’s final action brings the next section onscreen'
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
+  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
   const spacer = page.locator('.pin-scene').nth(1).locator('..');
   await expect(spacer).toHaveClass(/pin-spacer/);
   const bounds = await spacer.evaluate((el) => {
@@ -219,7 +251,7 @@ test('the news dialog owns and restores keyboard focus', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   const sandbox = page.locator('.sandbox.full');
-  await sandbox.scrollIntoViewIfNeeded();
+  await loadDeferred(page, 'sandbox', sandbox);
   const press = sandbox.getByRole('button', { name: '📸' });
   await press.click();
   await sandbox.locator('canvas').click({ position: { x: 100, y: 100 } });

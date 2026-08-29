@@ -2,21 +2,8 @@
   import PinScene from '$lib/widgets/stage/PinScene.svelte';
   import Caption from '$lib/widgets/stage/Caption.svelte';
   import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
-  import CowCastScene from '$lib/widgets/stage/scenes/CowCastScene.svelte';
-  import PersonTradeScene from '$lib/widgets/stage/scenes/PersonTradeScene.svelte';
-  import ClosingScene from '$lib/widgets/stage/scenes/ClosingScene.svelte';
-  import Prediction from '$lib/widgets/predict/Prediction.svelte';
-  import RevealRun from '$lib/widgets/reveal/RevealRun.svelte';
-  import DistributionStage from '$lib/widgets/distribution/DistributionStage.svelte';
-  import GiniStage from '$lib/widgets/distribution/GiniStage.svelte';
-  import CrowdRun from '$lib/widgets/crowd/CrowdRun.svelte';
-  import TimeLapse from '$lib/widgets/ending/TimeLapse.svelte';
-  import StakeDial from '$lib/widgets/dial/StakeDial.svelte';
-  import TaxGame from '$lib/widgets/tax/TaxGame.svelte';
-  import TaxOnlyDemo from '$lib/widgets/tax/TaxOnlyDemo.svelte';
-  import PhaseDiagram from '$lib/widgets/phase/PhaseDiagram.svelte';
-  import Sandbox from '$lib/widgets/sandbox/Sandbox.svelte';
-import Chapter from '$lib/nav/Chapter.svelte';
+  import Deferred from '$lib/widgets/shared/Deferred.svelte';
+  import Chapter from '$lib/nav/Chapter.svelte';
 </script>
 
 <!--
@@ -88,22 +75,30 @@ import Chapter from '$lib/nav/Chapter.svelte';
 -->
 <Chapter id="cow" label="The cow" />
 
-<PinScene pace={0.75} navigation="step" deferAssets>
-  <CowCastScene />
-  <Caption beat={3} display>Once upon a time,<br />a farmer's cow stopped giving milk.</Caption>
-  <Caption beat={4}>He called in three scientists.</Caption>
-  <Caption beat={5}>A biologist, a chemist, and a physicist.</Caption>
-  <Caption beat={6}>The biologist explained where cows come from.</Caption>
-  <Caption beat={7}>Then the chemist spoke of the molecule<br />the cow was failing to produce.</Caption>
-  <Caption beat={8}>Then silence,</Caption>
-  <Caption beat={9}>More silence,</Caption>
-  <Caption beat={10}>Even more silence.</Caption>
-  <Caption beat={12}>Then the physicist shouted "I have solved it!"</Caption>
-  <Caption beat={13}>"Assume a spherical cow."</Caption>
-  <Caption beat={14}>"In a vacuum and no gravity!"</Caption>
-  <Caption beat={16}>If you cannot play football with a spherical cow,</Caption>
-  <Caption beat={17}>you cannot play with the real one either.</Caption>
-</PinScene>
+<Deferred
+  load={() => import('$lib/widgets/stage/scenes/CowCastScene.svelte')}
+  label="cow scene"
+  reserve="100svh"
+>
+  {#snippet content(CowCastScene)}
+    <PinScene pace={0.75} navigation="step" deferAssets>
+      <CowCastScene />
+      <Caption beat={3} display>Once upon a time,<br />a farmer's cow stopped giving milk.</Caption>
+      <Caption beat={4}>He called in three scientists.</Caption>
+      <Caption beat={5}>A biologist, a chemist, and a physicist.</Caption>
+      <Caption beat={6}>The biologist explained where cows come from.</Caption>
+      <Caption beat={7}>Then the chemist spoke of the molecule<br />the cow was failing to produce.</Caption>
+      <Caption beat={8}>Then silence,</Caption>
+      <Caption beat={9}>More silence,</Caption>
+      <Caption beat={10}>Even more silence.</Caption>
+      <Caption beat={12}>Then the physicist shouted "I have solved it!"</Caption>
+      <Caption beat={13}>"Assume a spherical cow."</Caption>
+      <Caption beat={14}>"In a vacuum and no gravity!"</Caption>
+      <Caption beat={16}>If you cannot play football with a spherical cow,</Caption>
+      <Caption beat={17}>you cannot play with the real one either.</Caption>
+    </PinScene>
+  {/snippet}
+</Deferred>
 
 <Chapter id="spherical-human" label="Now, the spherical human" />
 
@@ -137,27 +132,35 @@ Same trick. New subject.
   TEST(Study A, reader-study.md): can readers rank circles and judge rough ratios from
   area alone? Revisit if area is misread as radius.
 -->
-<PinScene navigation="step" deferAssets>
-  <PersonTradeScene />
-  <Caption beat={0}>Take the richest man in the world.</Caption>
-  <Caption beat={1}>We'll do to him exactly what the physicist did to the cow.</Caption>
-  <Caption beat={2}>We throw away all the details.</Caption>
-  <Caption beat={3}>Until we are left with nothing but a circle.</Caption>
-  <Caption beat={4}>The area is his wealth.</Caption>
-  <Caption beat={5} big>You are your money and nothing else.</Caption>
-  <Caption beat={7}>Someone new walks in, with exactly as much.</Caption>
-  <Caption beat={8}>Both put up half of what they have.</Caption>
-  <Caption beat={9}>They toss the coin — one color on each side.</Caption>
-  <Caption beat={10}>Whichever color lands takes it all.</Caption>
-  <Caption beat={11}>They play again.<br />Now one of them is poorer.</Caption>
-  <Caption beat={12}>So the rule says it plainly:<br />both put up half of what the <em>poorer</em> one has.</Caption>
-  <Caption beat={13}>Toss.</Caption>
-  <Caption beat={14}>This time the poorer one takes it.</Caption>
-  <Caption beat={15}>Again.<br />Half of what the poorer one has.</Caption>
-  <Caption beat={16}>Toss.</Caption>
-  <Caption beat={17}>And again it comes back.</Caption>
-  <Caption beat={18}>They finish almost exactly where they began.<br />No money was made, and none destroyed.<br />That is the whole game, and it is fair.</Caption>
-</PinScene>
+<Deferred
+  load={() => import('$lib/widgets/stage/scenes/PersonTradeScene.svelte')}
+  label="trade scene"
+  reserve="100svh"
+>
+  {#snippet content(PersonTradeScene)}
+    <PinScene navigation="step" deferAssets>
+      <PersonTradeScene />
+      <Caption beat={0}>Take the richest man in the world.</Caption>
+      <Caption beat={1}>We'll do to him exactly what the physicist did to the cow.</Caption>
+      <Caption beat={2}>We throw away all the details.</Caption>
+      <Caption beat={3}>Until we are left with nothing but a circle.</Caption>
+      <Caption beat={4}>The area is his wealth.</Caption>
+      <Caption beat={5} big>You are your money and nothing else.</Caption>
+      <Caption beat={7}>Someone new walks in, with exactly as much.</Caption>
+      <Caption beat={8}>Both put up half of what they have.</Caption>
+      <Caption beat={9}>They toss the coin — one color on each side.</Caption>
+      <Caption beat={10}>Whichever color lands takes it all.</Caption>
+      <Caption beat={11}>They play again.<br />Now one of them is poorer.</Caption>
+      <Caption beat={12}>So the rule says it plainly:<br />both put up half of what the <em>poorer</em> one has.</Caption>
+      <Caption beat={13}>Toss.</Caption>
+      <Caption beat={14}>This time the poorer one takes it.</Caption>
+      <Caption beat={15}>Again.<br />Half of what the poorer one has.</Caption>
+      <Caption beat={16}>Toss.</Caption>
+      <Caption beat={17}>And again it comes back.</Caption>
+      <Caption beat={18}>They finish almost exactly where they began.<br />No money was made, and none destroyed.<br />That is the whole game, and it is fair.</Caption>
+    </PinScene>
+  {/snippet}
+</Deferred>
 
 
 <Chapter id="guess" label="Your turn to guess" />
@@ -180,7 +183,7 @@ scroll.
   WIDGET: Prediction — the reader commits to an outcome before the reveal; the choice is
   quoted back by the reveal widget. Stored locally only.
 -->
-<Prediction />
+<Deferred load={() => import('$lib/widgets/predict/Prediction.svelte')} label="prediction" reserve="18rem" />
 
 <Chapter id="run" label="Now run it" />
 
@@ -201,7 +204,7 @@ A room full of shapes, the area shows the money, the shapes are just cosmetic.
   them. Do NOT name a cognitive bias in prose (research.md C12). Claim discipline: finite
   run only; NO power-law or distribution-family claim here. Asymptotics are beat 17.
 -->
-<RevealRun />
+<Deferred load={() => import('$lib/widgets/reveal/RevealRun.svelte')} label="main run" reserve="30rem" />
 
 One shape holds more than half of everything.
 
@@ -241,7 +244,11 @@ a pile for the comfortable, a pile for the rich.
   run; the seeded reveal room as fallback). Bin width is a reader-visible choice, not
   nature's. Original circle coloring; no shape vocabulary needed here.
 -->
-<DistributionStage />
+<Deferred
+  load={() => import('$lib/widgets/distribution/DistributionStage.svelte')}
+  label="distribution stage"
+  reserve="34rem"
+/>
 
 Now it is a shape: a chart whose bars are the people you just watched. (Where I cut the
 lines between the piles is a choice, not nature's — move them and the picture shifts a
@@ -283,7 +290,11 @@ rooms, or to watch one room drift.
   on-screen circles. Beat 21 discipline: introduced only for comparing whole rooms; no
   per-trade Gini claims (C5).
 -->
-<GiniStage />
+<Deferred
+  load={() => import('$lib/widgets/distribution/GiniStage.svelte')}
+  label="Gini stage"
+  reserve="34rem"
+/>
 
 Zero: everyone holds the same. One: a single owner and everyone else at nothing. The room
 you ran earlier has its own number — and from here on you will see it on every meter.
@@ -298,7 +309,7 @@ You have seen it with a handful. Watch it with a crowd.
   WIDGET: CrowdRun — a much larger seeded population (1,000 agents, 2M trades) runs the same
   fair trades; the log-ruled histogram forms live.
 -->
-<CrowdRun />
+<Deferred load={() => import('$lib/widgets/crowd/CrowdRun.svelte')} label="crowd run" reserve="26rem" />
 
 Same rules. Same fair coin. Many more people. Read it yourself — the wall of the poor, the
 thinning tail, the one circle out past the edge. The crowd does not soften the result. It
@@ -318,7 +329,7 @@ every coin even. Then let it run — not a hundred thousand trades, but without 
   pixels can show. Picks up the reveal room where it stopped; a fresh room ends the same way
   with a different owner.
 -->
-<TimeLapse />
+<Deferred load={() => import('$lib/widgets/ending/TimeLapse.svelte')} label="time lapse" reserve="30rem" />
 
 With probability one, it ends with a single owner. Everyone else goes to zero. A different
 winner each time you run it — but always, in the end, exactly one.
@@ -356,7 +367,7 @@ a gamble for a real chunk.
   confirmatory grid across N, β, seeds lands (research/baseline.md). The widget's own
   footnote says "what these runs did — not a law."
 -->
-<StakeDial />
+<Deferred load={() => import('$lib/widgets/dial/StakeDial.svelte')} label="stake dial" reserve="28rem" />
 
 Watch what changes — and what refuses to.
 
@@ -388,7 +399,7 @@ pull out is shared back across the room.
   hand genuinely can hold the room (robot-player tuning notes in the build log). Whether a
   fast enough hand can keep a room fair is left as the real, open question the prose asks.
 -->
-<TaxGame />
+<Deferred load={() => import('$lib/widgets/tax/TaxGame.svelte')} label="tax game" reserve="30rem" />
 
 Go ahead. Chase the big ones. Tap, tap, tap.
 
@@ -430,7 +441,7 @@ room's physics, not a hero's reflexes.
 
 First, see the tool alone — freeze the trading.
 
-<TaxOnlyDemo />
+<Deferred load={() => import('$lib/widgets/tax/TaxOnlyDemo.svelte')} label="levy demonstration" reserve="28rem" />
 
 <Chapter id="tax-against-trade" label="Tax against trade" />
 
@@ -455,7 +466,7 @@ stake against tax. You fill it in.
   research/phase.ts; stability notes in notes/research/interventions.md). GATE discipline:
   "fitted", never "theoretical"/"law".
 -->
-<PhaseDiagram />
+<Deferred load={() => import('$lib/widgets/phase/PhaseDiagram.svelte')} label="phase map" reserve="42rem" />
 
 One map, two regimes. Below the frontier, the stake outruns the levy and the room slides
 toward its single owner — slower, but surely. Above it, the levy holds. And the frontier
@@ -471,15 +482,14 @@ tap anyone to tax them on the spot. Break it. Save it. See what it takes.
 <!--
   WIDGET: Sandbox — the full-screen finale (owner review 2026-07-13). SandboxWorld composes
   engine primitives (shares sum 1 + totalDollars scalar). One flat levy dial 0-100%;
-  progressivity is a DUMMY slider until the parametric rate-of-log-wealth function lands
-  (no bracket tables come back). Click-tax mini-game via RoomCanvas onTap. The component
+  click-tax mini-game via RoomCanvas onTap. The component
   doubles as the reusable core: layout/panels/controls props let earlier beats become
   presets of it. Beat-22 discipline still holds: the levy is a TOY — no empirical claim
   about real tax design (Lima/Vieira/Anteneodo gate still open).
 -->
 <Chapter id="sandbox" label="The sandbox" flush />
 
-<Sandbox />
+<Deferred load={() => import('$lib/widgets/sandbox/Sandbox.svelte')} label="sandbox" reserve="100svh" />
 
 <Chapter id="verdict" label="So — merit, or math?" />
 
@@ -490,13 +500,21 @@ tap anyone to tax them on the spot. Break it. Save it. See what it takes.
   winner, the honesty bill (the discarded world drifting back), the headline echoed in the
   teletype mono, then bare paper and the closing line. Beats 24–25.
 -->
-<PinScene navigation="step">
-  <ClosingScene />
-  <Caption beat={0}>This is where every fair room ends, given time.<br />Before the last word — the honesty bill.</Caption>
-  <Caption beat={1}>To build this room I threw away work, wages, debt, inheritance, skill, effort, luck, power, law — and never handed them back. That list is the fence around the claim: a model this bare cannot explain real inequality, and it never tried to.</Caption>
-  <Caption beat={2}>I still cannot tell you how he got there — this little room does not know his name. But it shows something smaller and harder: a process can be fair in every single step and still end with everything in one place. So when the stories arrive — the talent, the grind, the vision — maybe they're real. Or maybe you are reading a winning trait off a fair coin.</Caption>
-  <Caption beat={3}><strong>Nothing was unfair. That was the unfairness.</strong></Caption>
-</PinScene>
+<Deferred
+  load={() => import('$lib/widgets/stage/scenes/ClosingScene.svelte')}
+  label="closing scene"
+  reserve="100svh"
+>
+  {#snippet content(ClosingScene)}
+    <PinScene navigation="step">
+      <ClosingScene />
+      <Caption beat={0}>This is where every fair room ends, given time.<br />Before the last word — the honesty bill.</Caption>
+      <Caption beat={1}>To build this room I threw away work, wages, debt, inheritance, skill, effort, luck, power, law — and never handed them back. That list is the fence around the claim: a model this bare cannot explain real inequality, and it never tried to.</Caption>
+      <Caption beat={2}>I still cannot tell you how he got there — this little room does not know his name. But it shows something smaller and harder: a process can be fair in every single step and still end with everything in one place. So when the stories arrive — the talent, the grind, the vision — maybe they're real. Or maybe you are reading a winning trait off a fair coin.</Caption>
+      <Caption beat={3}><strong>Nothing was unfair. That was the unfairness.</strong></Caption>
+    </PinScene>
+  {/snippet}
+</Deferred>
 
 <!--
   END OF ESSAY. The spine is complete end-to-end, storyboard beats 1–25 built, including the
