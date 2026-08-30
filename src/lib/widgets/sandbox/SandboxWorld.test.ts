@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { giniCoefficient } from '$lib/research';
-import { RoundSeries, SandboxWorld, TRACKED_AGENTS } from './SandboxWorld';
+import { measureToy, RoundSeries, SandboxWorld, TRACKED_AGENTS } from './SandboxWorld';
 
 const total = (w: Float64Array) => w.reduce((a, b) => a + b, 0);
+
+describe('measureToy', () => {
+  it('reports the effective-participant endpoints', () => {
+    expect(measureToy([1, 1, 1, 1]).effectiveParticipants).toBeCloseTo(4, 12);
+    expect(measureToy([4, 0, 0, 0]).effectiveParticipants).toBeCloseTo(1, 12);
+  });
+
+  it('is scale invariant', () => {
+    expect(measureToy([1, 2, 3]).effectiveParticipants)
+      .toBeCloseTo(measureToy([10, 20, 30]).effectiveParticipants, 12);
+  });
+});
 
 describe('RoundSeries', () => {
   it('keeps every round while small, anchored at round 1', () => {
@@ -86,6 +98,66 @@ describe('SandboxWorld', () => {
     world.tradesPerRound = 1; // one series point per trade
     world.step(1);
     expect(world.tradeVolumeSeries.values[0]).toBeCloseTo(20, 9);
+    expect(world.wealthTurnoverSeries.values[0]).toBeCloseTo(0.02, 12);
+  });
+
+  it('normalizes turnover across rooms with different starting-dollar totals', () => {
+    const make = (startDollars: number) => {
+      const world = new SandboxWorld({ n: 10, seed: 8, startDollars });
+      world.beta = 0.2;
+      world.tradesPerRound = 1;
+      world.step(1);
+      return world;
+    };
+    const small = make(100);
+    const large = make(250);
+    expect(large.tradeVolumeSeries.values[0]).toBeCloseTo(small.tradeVolumeSeries.values[0] * 2.5, 12);
+    expect(large.wealthTurnoverSeries.values[0]).toBeCloseTo(small.wealthTurnoverSeries.values[0], 12);
+  });
+
+  it('records zero ordinary turnover at zero stake', () => {
+    const world = new SandboxWorld({ n: 10, seed: 8, startDollars: 100 });
+    world.beta = 0;
+    world.tradesPerRound = 10;
+    world.step(10);
+    expect(world.tradeVolumeSeries.values[0]).toBe(0);
+    expect(world.wealthTurnoverSeries.values[0]).toBe(0);
+  });
+
+  it('keeps structural levy flow out of ordinary turnover', () => {
+    const world = new SandboxWorld({ n: 10, seed: 8, startDollars: 100 });
+    world.beta = 0;
+    world.taxRate = 0.1;
+    world.tradesPerRound = 10;
+    world.step(10);
+    expect(world.tradeVolumeSeries.values[0]).toBe(0);
+    expect(world.wealthTurnoverSeries.values[0]).toBe(0);
+    expect(world.levyFlowSeries.values[0]).toBeCloseTo(100, 9);
+  });
+
+  it('accounts for manual and structural levy flow in the same measurement bucket', () => {
+    const world = new SandboxWorld({ n: 4, seed: 1, startDollars: 100 });
+    world.beta = 0;
+    world.taxRate = 0.1;
+    world.tradesPerRound = 4;
+    expect(world.levyAgent(0, 0.2)).toBeCloseTo(20, 9);
+    world.step(4);
+    expect(world.levyFlowSeries.values[0]).toBeCloseTo(60, 9);
+    expect(world.leviedDollars).toBeCloseTo(60, 9);
+  });
+
+  it('keeps measurement cadence independent from levy cadence', () => {
+    const world = new SandboxWorld({ n: 4, seed: 1, startDollars: 100 });
+    world.beta = 0;
+    world.taxRate = 0.1;
+    world.tradesPerRound = 4;
+    world.levyEveryRounds = 3;
+    world.step(8);
+    expect(world.rounds).toBe(2);
+    expect(world.levyFlowSeries.values).toEqual([0, 0]);
+    world.step(4);
+    expect(world.rounds).toBe(3);
+    expect(world.levyFlowSeries.values[2]).toBeCloseTo(40, 9);
   });
 
   it('tracked-agent trajectories conserve the room total at equal start', () => {
@@ -176,7 +248,12 @@ describe('SandboxWorld', () => {
     expect(world.totalDollars).toBe(8 * 250);
     expect(world.leviedDollars).toBe(0);
     expect(world.giniSeries.values.length).toBe(0);
+    expect(world.topShareSeries.values.length).toBe(0);
+    expect(world.effectiveParticipantsSeries.values.length).toBe(0);
     expect(world.tradeVolumeSeries.values.length).toBe(0);
+    expect(world.wealthTurnoverSeries.values.length).toBe(0);
+    expect(world.levyFlowSeries.values.length).toBe(0);
+    expect(world.agentSeries.every((series) => series.values.length === 0)).toBe(true);
     expect(Array.from(world.wealth)).toEqual(new Array(8).fill(1 / 8));
   });
 });
