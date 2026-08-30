@@ -67,7 +67,7 @@ of manual and structural controls without the confirmatory game protocol above.
 "structural beats manual" lesson passes without realistic action constraints and a
 broader confirmatory grid.
 
-## Phase-map stability memo (2026-07-06, M8 build)
+## Superseded phase-map stability memo (2026-07-06, M8 build)
 
 Beat 23 shipped as a **measured map plus a fitted curve**, per the GATE:
 
@@ -89,3 +89,13 @@ Beat 23 shipped as a **measured map plus a fitted curve**, per the GATE:
   (β = 0, geometric equalization — exact: one flat levy scales every deviation by
   1 − rate). The manual-vs-structural comparison remains **unclaimed** (Verdict above
   still Defer).
+
+This memo records the old implementation; it is no longer the narrative contract. The
+Gini `0.5` contour was a chosen finite-run level, not evidence for two regimes or a phase
+transition. Protocol version 2 replaces correlated or two-seed cells with independent
+multi-metric outcomes and makes effective participants the primary continuous field.
+
+The square family remains worth measuring because redistribution is naturally compared
+with transaction variance `beta²`. Any fitted curve must name its selected outcome,
+cadence, horizon, parameter range, and replicate count. It must never be called a
+critical frontier or universal policy rule.

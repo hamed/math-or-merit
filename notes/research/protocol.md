@@ -22,6 +22,11 @@
 - **Gini:** standard finite-population Gini. Its maximum is `(N - 1) / N`, not one.
 - **Top share:** largest current wealth divided by total wealth.
 - **Effective participants:** inverse Herfindahl count, `1 / sum(share_i^2)`.
+- **Ordinary wealth turnover:** sum of Yard-Sale stakes transferred during one
+  measurement round, divided by total wealth. Count the transfer once, not both balance
+  changes. Levy and dividend transfers are excluded.
+- **Levy flow:** wealth collected by structural or manual levies during one measurement
+  round, divided by total wealth. It is reported separately from turnover.
 - **Trades per agent:** total pairwise trades divided by `N`.
 - **Wealth floor:** minimum current wealth.
 - **Lorenz curve:** cumulative sorted wealth against cumulative population.
@@ -45,3 +50,35 @@ Per-trade conservation, non-negativity, expected-transfer symmetry, replay, metr
 formulas, matched levy budgets, and graph-edge sampling are automated tests. A narrative claim additionally
 needs an appropriate ensemble, uncertainty summary, mechanism controls, and held-out
 seeds. Protocol version 1 is exploratory outside the baseline and additive controls.
+
+## Outcome protocol version 2
+
+The reader-facing outcome map is a finite-run experiment record, not a steady-state or
+phase record.
+
+- `N = 100` for the guided map.
+- One measurement round is always `N` ordinary trades.
+- The guided structural levy is assessed once per measurement round.
+- Each run records stake, levy rate, measurement cadence, levy cadence, total horizon,
+  burn-in, tail-sample count, seed, and protocol version.
+- The default comparison horizon remains 200,000 trades with burn-in at 120,000 trades
+  and eight evenly spaced tail checkpoints until a replacement is preregistered.
+- Every tail checkpoint records Gini, effective participants, ordinary turnover, and levy
+  flow from the same state and measurement window.
+- One fresh seed contributes exactly one independent outcome bundle. Multiple windows
+  from one continuous room are correlated observations, not additional runs.
+- Zero-tax cells are finite-horizon observations. They are never described as stationary
+  interior states.
+- Aggregate cells retain an independent sum and count per metric. Missing legacy metrics
+  remain missing rather than being inferred from Gini.
+- Storage and CSV identity includes population, measurement cadence, levy cadence,
+  horizon, burn-in, tail sampling, and protocol version. Results from different protocols
+  never merge silently.
+
+### Ensemble convergence gate
+
+Evaluate replicate counts `4, 8, 16, 32, 64`. Select the smallest count for which
+doubling replicates changes the median cell mean by no more than two effective
+participants and changes the fitted `tau = c * beta²` coefficient by no more than 5%.
+If the grid has not passed by 64 replicates, publish continuous measurements without a
+fitted curve.
