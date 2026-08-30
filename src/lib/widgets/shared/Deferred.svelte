@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount, type Component, type Snippet } from 'svelte';
+  import { onMount, tick, type Component, type Snippet } from 'svelte';
+  import { DEFERRED_MOUNTED_EVENT } from '$lib/deferredEvents';
 
   type ComponentModule = { default: Component };
 
@@ -24,9 +25,11 @@
     loading = true;
     failed = false;
     load().then(
-      (module) => {
+      async (module) => {
         Loaded = module.default;
         loading = false;
+        await tick();
+        document.dispatchEvent(new CustomEvent(DEFERRED_MOUNTED_EVENT, { detail: { label } }));
       },
       () => {
         failed = true;

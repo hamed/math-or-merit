@@ -13,7 +13,10 @@
   let touchStartY: number | null = null;
   let wheelGesture: SceneNav | undefined;
   let wheelRestTimer: number | undefined;
-  const WHEEL_REST_MS = 120;
+  // Trackpad tails regularly pause for more than one frame under rendering
+  // load. Keep the gesture claimed across those gaps so the tail cannot turn
+  // into native scrolling immediately after a scene releases.
+  const WHEEL_REST_MS = 300;
 
   function holdWheelGesture(nav: SceneNav): void {
     wheelGesture = nav;
@@ -406,7 +409,10 @@
         if (direction > 0) {
           const index = positions.findIndex((position) => position > y + 4);
           if (index < 0) {
-            target = st.end + window.innerHeight;
+            const spacer = root.parentElement;
+            target = spacer?.classList.contains('pin-spacer')
+              ? window.scrollY + spacer.getBoundingClientRect().bottom
+              : st.end + window.innerHeight;
             targetTime = total;
           } else {
             target = positions[index];
