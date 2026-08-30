@@ -40,14 +40,14 @@
   import NewsFlash from './NewsFlash.svelte';
   import StopSlider, { MONEY_STOPS, PEOPLE_STOPS, RATE_STOPS } from './StopSlider.svelte';
   import { collectStats, roomStatsSource } from './newsroom';
-  import { addMeasurement, clearPhaseData, exportCsv, importCsv, loadPhaseData } from './phaseGrid.svelte';
+  import { addOutcome, clearPhaseData, exportCsv, importCsv, loadPhaseData, outcomeProtocolFor } from './phaseGrid.svelte';
   import { createFixedTicker } from '../shared/ticker';
   import { CLASSIC_AGENT_FILL, CLASSIC_AGENT_STROKE, FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
   import { roomPositions, radiusScale, zoneName } from '../shared/layout';
   import { countTrades, dollarsCompact, percent } from '../shared/format';
   import { SandboxWorld, measureToy } from './SandboxWorld';
-  import { SteadyStateTracker } from './SteadyStateTracker';
+  import { OutcomeRunRecorder } from './OutcomeRunRecorder';
   import { START_DOLLARS } from '../shared/presets';
 
   interface Props {
@@ -142,7 +142,7 @@
       seed: Math.floor(Math.random() * 0xffff_ffff),
       startDollars,
     });
-    w.taxEvery = count;
+    w.tradesPerRound = count;
     return w;
   }
 
@@ -160,12 +160,25 @@
     topShare = m.topShare;
   }
 
-  const steadyState = new SteadyStateTracker();
+  let stopOutcomeMeasurement: (() => void) | undefined;
 
-  function trackSteadyState(): void {
-    if (broke) return;
-    const mean = steadyState.observe({ key: `${stake}|${taxRate}|${n}`, rounds: world.rounds, gini });
-    if (mean !== null) addMeasurement(stake, taxRate, n, mean);
+  function armOutcomeMeasurement(): void {
+    stopOutcomeMeasurement?.();
+    const seed = world.config.seed;
+    if (seed === undefined) return;
+    const protocol = outcomeProtocolFor(n);
+    world.tradesPerRound = protocol.tradesPerRound;
+    world.levyEveryRounds = protocol.levyEveryRounds;
+    const recorder = new OutcomeRunRecorder({ protocol, beta: stake, taxRate, seed });
+    stopOutcomeMeasurement = world.onMeasurement((measurement) => {
+      const recorded = recorder.observe(measurement, {
+        beta: world.beta,
+        taxRate: world.taxRate,
+        tradesPerRound: world.tradesPerRound,
+        levyEveryRounds: world.levyEveryRounds,
+      });
+      if (recorded) addOutcome(recorded.protocol, recorded.beta, recorded.taxRate, recorded.outcome);
+    });
   }
 
   const ticker = createFixedTicker(() => {
@@ -183,7 +196,6 @@
         return;
       }
     }
-    trackSteadyState();
   });
 
   function toggle(): void {
@@ -191,6 +203,10 @@
       running = false;
       ticker.stop();
     } else {
+      if (world.trades === 0) {
+        pushDials();
+        armOutcomeMeasurement();
+      }
       running = true;
       ticker.start();
     }
@@ -209,12 +225,13 @@
   function reset(): void {
     running = false;
     broke = false;
-    steadyState.reset();
     ticker.stop();
+    stopOutcomeMeasurement?.();
     closeNews();
     world = makeWorld(n);
     styles = randomStyles(n);
     pushDials();
+    armOutcomeMeasurement();
     revision++;
     measure();
   }
@@ -292,6 +309,7 @@
   });
 
   measure();
+  armOutcomeMeasurement();
 
   const trades = $derived.by(() => {
     void revision;
@@ -381,6 +399,7 @@
     return () => {
       window.removeEventListener('keydown', onKey);
       ticker.stop();
+      stopOutcomeMeasurement?.();
       clearTimeout(snapTimer);
       if (layout === 'full') {
         window.removeEventListener('scroll', trackDirection);

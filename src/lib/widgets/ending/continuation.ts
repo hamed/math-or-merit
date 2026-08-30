@@ -10,7 +10,7 @@ export function continuationWorld(run: LoggedRun, roundTrades: number): SandboxW
     seed: run.seed,
   });
   world.beta = run.beta;
-  world.taxEvery = roundTrades;
+  world.tradesPerRound = roundTrades;
   world.step(run.trades);
   return world;
 }

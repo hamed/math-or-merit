@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { giniCoefficient } from '$lib/research';
-import { RoundSeries, SandboxWorld, TRACKED_AGENTS } from './SandboxWorld';
+import { measureToy, RoundSeries, SandboxWorld, TRACKED_AGENTS } from './SandboxWorld';
 
 const total = (w: Float64Array) => w.reduce((a, b) => a + b, 0);
+
+describe('measureToy', () => {
+  it('reports the effective-participant endpoints', () => {
+    expect(measureToy([1, 1, 1, 1]).effectiveParticipants).toBeCloseTo(4, 12);
+    expect(measureToy([4, 0, 0, 0]).effectiveParticipants).toBeCloseTo(1, 12);
+  });
+
+  it('is scale invariant', () => {
+    expect(measureToy([1, 2, 3]).effectiveParticipants)
+      .toBeCloseTo(measureToy([10, 20, 30]).effectiveParticipants, 12);
+  });
+});
 
 describe('RoundSeries', () => {
   it('keeps every round while small, anchored at round 1', () => {
@@ -48,7 +60,7 @@ describe('SandboxWorld', () => {
     const world = new SandboxWorld({ n: 50, seed: 5, startDollars: 100 });
     world.beta = 0.25;
     world.taxRate = 0.05;
-    world.taxEvery = 50;
+    world.tradesPerRound = 50;
     world.step(20_000);
     expect(total(world.wealth)).toBeCloseTo(1, 9);
     expect(world.totalDollars).toBe(50 * 100); // levies redistribute; total unchanged
@@ -58,7 +70,7 @@ describe('SandboxWorld', () => {
     const world = new SandboxWorld({ n: 20, seed: 7, startDollars: 100 });
     world.beta = 1;
     world.taxRate = 1;
-    world.taxEvery = 20;
+    world.tradesPerRound = 20;
     world.step(5_000);
     expect(total(world.wealth)).toBeCloseTo(1, 9);
     for (const w of world.wealth) expect(Number.isFinite(w)).toBe(true);
@@ -67,31 +79,91 @@ describe('SandboxWorld', () => {
   it('records one point per round in every series, anchored at round 1', () => {
     const world = new SandboxWorld({ n: 10, seed: 3, startDollars: 100 });
     world.beta = 0.2;
-    world.taxEvery = 10;
+    world.tradesPerRound = 10;
     world.step(50); // 5 rounds
     expect(world.rounds).toBe(5);
     expect(world.giniSeries.values.length).toBe(5);
     expect(world.topShareSeries.values.length).toBe(5);
-    expect(world.volumeSeries.values.length).toBe(5);
+    expect(world.tradeVolumeSeries.values.length).toBe(5);
     expect(world.agentSeries.length).toBe(TRACKED_AGENTS);
     expect(world.agentSeries[0].values.length).toBe(5);
     expect(world.giniSeries.values.every((g) => g > 0 && g < 1)).toBe(true);
-    expect(world.volumeSeries.values.every((d) => d > 0)).toBe(true);
+    expect(world.tradeVolumeSeries.values.every((d) => d > 0)).toBe(true);
   });
 
   it('volume is the won money: the first equal-start trade moves exactly β·(total/n)', () => {
     // 10 agents × $100: first trade transfer = 0.2 × min(share) × total = $20
     const world = new SandboxWorld({ n: 10, seed: 8, startDollars: 100 });
     world.beta = 0.2;
-    world.taxEvery = 1; // one series point per trade
+    world.tradesPerRound = 1; // one series point per trade
     world.step(1);
-    expect(world.volumeSeries.values[0]).toBeCloseTo(20, 9);
+    expect(world.tradeVolumeSeries.values[0]).toBeCloseTo(20, 9);
+    expect(world.wealthTurnoverSeries.values[0]).toBeCloseTo(0.02, 12);
+  });
+
+  it('normalizes turnover across rooms with different starting-dollar totals', () => {
+    const make = (startDollars: number) => {
+      const world = new SandboxWorld({ n: 10, seed: 8, startDollars });
+      world.beta = 0.2;
+      world.tradesPerRound = 1;
+      world.step(1);
+      return world;
+    };
+    const small = make(100);
+    const large = make(250);
+    expect(large.tradeVolumeSeries.values[0]).toBeCloseTo(small.tradeVolumeSeries.values[0] * 2.5, 12);
+    expect(large.wealthTurnoverSeries.values[0]).toBeCloseTo(small.wealthTurnoverSeries.values[0], 12);
+  });
+
+  it('records zero ordinary turnover at zero stake', () => {
+    const world = new SandboxWorld({ n: 10, seed: 8, startDollars: 100 });
+    world.beta = 0;
+    world.tradesPerRound = 10;
+    world.step(10);
+    expect(world.tradeVolumeSeries.values[0]).toBe(0);
+    expect(world.wealthTurnoverSeries.values[0]).toBe(0);
+  });
+
+  it('keeps structural levy flow out of ordinary turnover', () => {
+    const world = new SandboxWorld({ n: 10, seed: 8, startDollars: 100 });
+    world.beta = 0;
+    world.taxRate = 0.1;
+    world.tradesPerRound = 10;
+    world.step(10);
+    expect(world.tradeVolumeSeries.values[0]).toBe(0);
+    expect(world.wealthTurnoverSeries.values[0]).toBe(0);
+    expect(world.levyFlowSeries.values[0]).toBeCloseTo(100, 9);
+  });
+
+  it('accounts for manual and structural levy flow in the same measurement bucket', () => {
+    const world = new SandboxWorld({ n: 4, seed: 1, startDollars: 100 });
+    world.beta = 0;
+    world.taxRate = 0.1;
+    world.tradesPerRound = 4;
+    expect(world.levyAgent(0, 0.2)).toBeCloseTo(20, 9);
+    world.step(4);
+    expect(world.levyFlowSeries.values[0]).toBeCloseTo(60, 9);
+    expect(world.leviedDollars).toBeCloseTo(60, 9);
+  });
+
+  it('keeps measurement cadence independent from levy cadence', () => {
+    const world = new SandboxWorld({ n: 4, seed: 1, startDollars: 100 });
+    world.beta = 0;
+    world.taxRate = 0.1;
+    world.tradesPerRound = 4;
+    world.levyEveryRounds = 3;
+    world.step(8);
+    expect(world.rounds).toBe(2);
+    expect(world.levyFlowSeries.values).toEqual([0, 0]);
+    world.step(4);
+    expect(world.rounds).toBe(3);
+    expect(world.levyFlowSeries.values[2]).toBeCloseTo(40, 9);
   });
 
   it('tracked-agent trajectories conserve the room total at equal start', () => {
     const world = new SandboxWorld({ n: 100, seed: 11, startDollars: 100 });
     world.beta = 0;
-    world.taxEvery = 100;
+    world.tradesPerRound = 100;
     world.step(100); // one no-trade round
     for (const s of world.agentSeries) expect(s.values[0]).toBeCloseTo(100, 9);
   });
@@ -111,7 +183,7 @@ describe('SandboxWorld', () => {
   it('expert chaos: a 150% stake conserves the total while it stays finite', () => {
     const world = new SandboxWorld({ n: 6, seed: 12, startDollars: 100 });
     world.beta = 1.5; // loser goes NEGATIVE — deliberately allowed
-    world.taxEvery = 6;
+    world.tradesPerRound = 6;
     world.step(30);
     expect(total(world.wealth)).toBeCloseTo(1, 6);
     expect(Array.from(world.wealth).some((w) => w < 0)).toBe(true);
@@ -122,7 +194,7 @@ describe('SandboxWorld', () => {
     world.wealth.set([0.4, 0.3, 0.15, 0.1, 0.05]);
     world.beta = 0;
     world.taxRate = -0.1; // the rich get 10% richer, financed equally by all
-    world.taxEvery = 5;
+    world.tradesPerRound = 5;
     world.step(5);
     expect(total(world.wealth)).toBeCloseTo(1, 9);
     expect(world.wealth[0]).toBeGreaterThan(0.4); // richest gained
@@ -133,7 +205,7 @@ describe('SandboxWorld', () => {
   it('handles the tiniest room: n = 2 with fewer tracked agents than TRACKED_AGENTS', () => {
     const world = new SandboxWorld({ n: 2, seed: 9, startDollars: 100 });
     world.beta = 0.5;
-    world.taxEvery = 2;
+    world.tradesPerRound = 2;
     world.step(200);
     expect(world.agentSeries.length).toBe(2);
     expect(total(world.wealth)).toBeCloseTo(1, 9);
@@ -167,7 +239,7 @@ describe('SandboxWorld', () => {
     const world = new SandboxWorld({ n: 8, seed: 4, startDollars: 250 });
     world.beta = 0.4;
     world.taxRate = 0.05;
-    world.taxEvery = 8;
+    world.tradesPerRound = 8;
     world.step(5000);
     world.levyAgent(0, 0.1);
     world.reset();
@@ -176,7 +248,12 @@ describe('SandboxWorld', () => {
     expect(world.totalDollars).toBe(8 * 250);
     expect(world.leviedDollars).toBe(0);
     expect(world.giniSeries.values.length).toBe(0);
-    expect(world.volumeSeries.values.length).toBe(0);
+    expect(world.topShareSeries.values.length).toBe(0);
+    expect(world.effectiveParticipantsSeries.values.length).toBe(0);
+    expect(world.tradeVolumeSeries.values.length).toBe(0);
+    expect(world.wealthTurnoverSeries.values.length).toBe(0);
+    expect(world.levyFlowSeries.values.length).toBe(0);
+    expect(world.agentSeries.every((series) => series.values.length === 0)).toBe(true);
     expect(Array.from(world.wealth)).toEqual(new Array(8).fill(1 / 8));
   });
 });
@@ -193,7 +270,7 @@ describe('SandboxWorld as the one world', () => {
       const w = new SandboxWorld({ n: 20, seed: 42, startDollars: 100 });
       w.beta = 0.3;
       w.taxRate = 0.02;
-      w.taxEvery = 20;
+      w.tradesPerRound = 20;
       return w;
     };
     const a = make();
@@ -212,7 +289,7 @@ describe('SandboxWorld as the one world', () => {
     const make = () => {
       const w = new SandboxWorld({ n: 10, seed: 7, startDollars: 100 });
       w.beta = 0.2;
-      w.taxEvery = 10;
+      w.tradesPerRound = 10;
       return w;
     };
     const a = make();
@@ -235,7 +312,7 @@ describe('SandboxWorld as the one world', () => {
     });
     world.beta = 0;
     world.taxRate = 0.1;
-    world.taxEvery = 1;
+    world.tradesPerRound = 1;
     const g0 = giniCoefficient(world.wealth);
     world.step(1);
     // one flat levy shrinks every deviation from the mean by exactly (1 - rate)
@@ -251,7 +328,7 @@ describe('SandboxWorld as the one world', () => {
     expect(world.wealth[0]).toBeCloseTo(0.5, 12);
     world.beta = 0;
     world.taxRate = 0.5;
-    world.taxEvery = 1;
+    world.tradesPerRound = 1;
     world.step(5);
     world.reset();
     expect(world.wealth[0]).toBeCloseTo(0.5, 12);

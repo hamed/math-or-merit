@@ -45,8 +45,8 @@ presentation validation, not as literature searches.
 | M2 | Additive exchange equilibrium | Experiment, literature | `physical-analogy.md` | Broad non-condensed control reproduced | Exponential goodness-of-fit and alternatives are reported |
 | M3 | Discrete levy versus published redistribution | Literature, model decision | `interventions.md` | Mechanisms not reconciled | Equations, timing, and incidence are compared explicitly |
 | M4 | Manual versus structural intervention | Experiment, reader test | `interventions.md` | One matched-budget result is ambiguous | Action rate, delay, information, budget, and win metric are preregistered and tested |
-| M5 | Progressive wealth levy | Literature, experiment | `interventions.md` | Relevant nonlinear-redistribution paper identified | Implemented rule matches a named model and survives held-out seeds |
-| M6 | Stake-levy regime map | Model decision, experiment | `interventions.md` | No phase boundary established | Exact model has stable finite-size regimes or a matched theoretical transition |
+| M5 | Progressive wealth levy | Literature, experiment | `interventions.md` | **Deferred:** not required for the core conclusion | Reopen in a separate literature pass with a precisely matched rule |
+| M6 | Stake-levy outcome map | Experiment | `interventions.md` | Phase claim rejected; continuous finite-run map retained | Independent protocol-v2 cells converge and displayed relationships name their chosen outcome |
 | M7 | Subsistence or participation threshold | Literature, model decision | `extensions.md` | Several incompatible meanings remain | One mechanism and its real-world analogy are selected, sourced, and controlled |
 
 ## P2 - Extensions
@@ -73,3 +73,7 @@ presentation validation, not as literature searches.
   with exponent below two; it does not establish the proposed wealth/Bose-Einstein chain.
 - The intervention code implements periodic wealth levies and equal dividends. Published
   Fokker-Planck redistribution results cannot be imported without matching mechanisms.
+- Do not treat repeated stable windows from one room as independent experiments.
+- Do not count levy or dividend transfers as ordinary trade turnover.
+- Scalar rank mobility is deferred until the horizon and near-zero rank-churn problem are
+  resolved.
