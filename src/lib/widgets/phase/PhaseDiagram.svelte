@@ -21,7 +21,7 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { contourSegments, fitCriticalCurve, IncrementalPhaseCell, measureWealth } from '$lib/research';
+  import { contourSegments, fitSquareRelationship, IncrementalOutcomeRun, measureWealth, OUTCOME_PROTOCOL_VERSION } from '$lib/research';
   import RoomCanvas from '../shared/RoomCanvas.svelte';
   import { createFixedTicker } from '../shared/ticker';
   import { assignStyles } from '../shared/agentStyle';
@@ -54,12 +54,14 @@
 
   const seedsFor = (ix: number, iy: number) => SEEDS.map((seed) => seed + ix * 101 + iy * 13);
 
-  function newWorld(b: number, tax: number, seed: number): IncrementalPhaseCell {
-    return new IncrementalPhaseCell({
+  function newWorld(b: number, tax: number, seed: number): IncrementalOutcomeRun {
+    return new IncrementalOutcomeRun({
+      version: OUTCOME_PROTOCOL_VERSION,
       n: N,
       beta: b,
       taxRate: tax,
-      levyEvery: LEVY_EVERY,
+      tradesPerRound: N,
+      levyEveryRounds: LEVY_EVERY / N,
       trades: TRADES,
       burnIn: BURN_IN,
       tailSamples: TAIL_SAMPLES,
@@ -84,7 +86,7 @@
     revision++;
     liveGini = measureWealth(world.wealth).gini;
     if (world.done) {
-      ensembleSum += world.result();
+      ensembleSum += world.result().gini;
       if (runIndex + 1 < activeSeeds.length) {
         runIndex++;
         world = newWorld(beta, taxRate, activeSeeds[runIndex]);
@@ -130,7 +132,7 @@
     let next = 0;
     let seedIndex = 0;
     let cellSum = 0;
-    let run: IncrementalPhaseCell | null = null;
+    let run: IncrementalOutcomeRun | null = null;
     const work = () => {
       const budget = performance.now() + 12;
       while (next < cells.length && performance.now() < budget) {
@@ -139,7 +141,7 @@
         run ??= newWorld(BETAS[ix], TAXES[iy], seeds[seedIndex]);
         run.step(2_000);
         if (run.done) {
-          cellSum += run.result();
+          cellSum += run.result().gini;
           seedIndex++;
           run = null;
         }
@@ -166,7 +168,9 @@
 
   const finished = $derived(done ? grid : null);
   const contour = $derived.by(() => (finished ? contourSegments(finished, BETAS, TAXES, 0.5) : []));
-  const fitted = $derived.by(() => (finished ? fitCriticalCurve(finished, BETAS, TAXES, 0.5) : null));
+  const fitted = $derived.by(() =>
+    finished ? fitSquareRelationship(finished, BETAS, TAXES, 0.5, 'decreases') : null,
+  );
 
   const xOf = (b: number) =>
     PLOT.x + ((b - BETAS[0]) / (BETAS[BETAS.length - 1] - BETAS[0])) * (PLOT.w - cellW) + cellW / 2;

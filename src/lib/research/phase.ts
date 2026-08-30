@@ -1,46 +1,116 @@
 /**
- * Phase-map computation for the tax-versus-stake beat (outline beat 23).
+ * Versioned finite-run outcomes for the stake-versus-levy experiment.
  *
- * Everything here is MEASURED from the same engine primitives the essay runs;
- * the "critical line" is a numerically FITTED curve (τ* ≈ c·β² family, from
- * the per-trade variance ∝ β² scaling heuristic), never a theorem. Keep the
- * word "fitted" attached to it wherever it is shown (GATE, interventions.md).
+ * The filename remains `phase.ts` until the later visible narrative rename,
+ * but nothing here asserts phases or stationary regimes. One seed produces
+ * one outcome bundle under one immutable protocol.
  */
 import { applyYardSaleTrade, createRandomSource, type RandomSource } from '$lib/sim';
 import { applyFlatWealthLevy } from './interventions';
-import { giniCoefficient } from './metrics';
+import { measureWealth } from './metrics';
 
-export interface PhaseCellConfig {
+export const OUTCOME_PROTOCOL_VERSION = 2 as const;
+
+export interface ExperimentProtocol {
+  readonly version: typeof OUTCOME_PROTOCOL_VERSION;
   readonly n: number;
-  readonly beta: number;
-  /** Flat wealth-levy rate applied every `levyEvery` trades. */
-  readonly taxRate: number;
-  readonly levyEvery: number;
+  /** Ordinary trades in one measurement round. */
+  readonly tradesPerRound: number;
+  /** Structural levy cadence, expressed in measurement rounds. */
+  readonly levyEveryRounds: number;
   readonly trades: number;
-  /** Trades to run before sampling begins (burn-in). */
   readonly burnIn: number;
-  /** Gini samples averaged over the tail, evenly spaced. */
   readonly tailSamples: number;
+}
+
+export interface OutcomeRunConfig extends ExperimentProtocol {
+  readonly beta: number;
+  readonly taxRate: number;
   readonly seed: number;
 }
 
-/**
- * A phase-cell run that can yield between bounded batches without changing the
- * estimator. Both the animated room and background map filling use this class,
- * so render cadence cannot alter which tail checkpoints are measured.
- */
-export class IncrementalPhaseCell {
+export interface OutcomeMeasurement {
+  readonly gini: number;
+  readonly topShare: number;
+  readonly effectiveParticipants: number;
+  /** Ordinary stake volume divided by total wealth per measurement round. */
+  readonly wealthTurnover: number;
+  /** Structural levy collected and returned, divided by total wealth per round. */
+  readonly levyFlow: number;
+}
+
+export type OutcomeMetric = keyof OutcomeMeasurement;
+
+export const GUIDED_OUTCOME_PROTOCOL: ExperimentProtocol = Object.freeze({
+  version: OUTCOME_PROTOCOL_VERSION,
+  n: 100,
+  tradesPerRound: 100,
+  levyEveryRounds: 1,
+  trades: 200_000,
+  burnIn: 120_000,
+  tailSamples: 8,
+});
+
+function validateProtocol(config: OutcomeRunConfig): void {
+  const integers: readonly [string, number][] = [
+    ['n', config.n],
+    ['tradesPerRound', config.tradesPerRound],
+    ['levyEveryRounds', config.levyEveryRounds],
+    ['trades', config.trades],
+    ['burnIn', config.burnIn],
+    ['tailSamples', config.tailSamples],
+    ['seed', config.seed],
+  ];
+  for (const [name, value] of integers) {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new RangeError(`${name} must be a non-negative safe integer`);
+    }
+  }
+  if (config.version !== OUTCOME_PROTOCOL_VERSION) throw new RangeError('unsupported outcome protocol version');
+  if (config.n < 2) throw new RangeError('n must be at least 2');
+  if (config.tradesPerRound < 1 || config.levyEveryRounds < 1) {
+    throw new RangeError('measurement and levy cadence must be positive');
+  }
+  if (config.tailSamples < 1 || config.trades <= config.burnIn) {
+    throw new RangeError('the outcome tail must contain at least one sample');
+  }
+  if (config.trades % config.tradesPerRound !== 0 || config.burnIn % config.tradesPerRound !== 0) {
+    throw new RangeError('horizon and burn-in must end on measurement-round boundaries');
+  }
+  const tailTrades = config.trades - config.burnIn;
+  if (tailTrades % config.tailSamples !== 0 || tailTrades / config.tailSamples % config.tradesPerRound !== 0) {
+    throw new RangeError('tail checkpoints must align with measurement rounds');
+  }
+  if (!Number.isFinite(config.beta) || config.beta < 0 || config.beta > 1) {
+    throw new RangeError('beta must be between 0 and 1');
+  }
+  if (!Number.isFinite(config.taxRate) || config.taxRate < 0 || config.taxRate > 1) {
+    throw new RangeError('taxRate must be between 0 and 1');
+  }
+}
+
+/** Incremental execution keeps browser frame batching out of the estimator. */
+export class IncrementalOutcomeRun {
   readonly wealth: Float64Array;
   private readonly random: RandomSource;
   private readonly sampleEvery: number;
-  private sum = 0;
+  private readonly sums = {
+    gini: 0,
+    topShare: 0,
+    effectiveParticipants: 0,
+    wealthTurnover: 0,
+    levyFlow: 0,
+  };
   private samples = 0;
   private completedTrades = 0;
+  private tradeBucket = 0;
+  private levyBucket = 0;
 
-  constructor(readonly config: PhaseCellConfig) {
+  constructor(readonly config: OutcomeRunConfig) {
+    validateProtocol(config);
     this.wealth = new Float64Array(config.n).fill(1 / config.n);
     this.random = createRandomSource(config.seed);
-    this.sampleEvery = Math.max(1, Math.floor((config.trades - config.burnIn) / config.tailSamples));
+    this.sampleEvery = (config.trades - config.burnIn) / config.tailSamples;
   }
 
   get trades(): number {
@@ -51,37 +121,56 @@ export class IncrementalPhaseCell {
     return this.completedTrades >= this.config.trades;
   }
 
-  /** Run at most `count` more trades and return whether the cell is complete. */
   step(count: number): boolean {
     if (!Number.isSafeInteger(count) || count < 0) throw new RangeError('count must be a non-negative integer');
-    const { n, beta, taxRate, levyEvery, trades, burnIn } = this.config;
+    const { n, beta, taxRate, tradesPerRound, levyEveryRounds, trades, burnIn } = this.config;
+    const levyEveryTrades = tradesPerRound * levyEveryRounds;
     const stop = Math.min(trades, this.completedTrades + count);
+
     while (this.completedTrades < stop) {
       const a = Math.floor(this.random.next() * n);
       let b = Math.floor(this.random.next() * (n - 1));
       if (b >= a) b++;
-      applyYardSaleTrade(this.wealth, a, b, beta, this.random.next() < 0.5);
+      this.tradeBucket += applyYardSaleTrade(this.wealth, a, b, beta, this.random.next() < 0.5);
       this.completedTrades++;
-      if (taxRate > 0 && this.completedTrades % levyEvery === 0) {
-        applyFlatWealthLevy(this.wealth, taxRate);
+
+      if (taxRate > 0 && this.completedTrades % levyEveryTrades === 0) {
+        this.levyBucket += applyFlatWealthLevy(this.wealth, taxRate);
       }
+
+      if (this.completedTrades % tradesPerRound !== 0) continue;
       if (this.completedTrades > burnIn && (this.completedTrades - burnIn) % this.sampleEvery === 0) {
-        this.sum += giniCoefficient(this.wealth);
+        const measured = measureWealth(this.wealth);
+        this.sums.gini += measured.gini;
+        this.sums.topShare += measured.topShare;
+        this.sums.effectiveParticipants += measured.effectiveParticipants;
+        this.sums.wealthTurnover += this.tradeBucket;
+        this.sums.levyFlow += this.levyBucket;
         this.samples++;
       }
+      this.tradeBucket = 0;
+      this.levyBucket = 0;
     }
     return this.done;
   }
 
-  result(): number {
-    if (!this.done) throw new Error('phase cell is not complete');
-    return this.samples === 0 ? giniCoefficient(this.wealth) : this.sum / this.samples;
+  result(): OutcomeMeasurement {
+    if (!this.done) throw new Error('outcome run is not complete');
+    if (this.samples !== this.config.tailSamples) {
+      throw new Error(`outcome run recorded ${this.samples} of ${this.config.tailSamples} samples`);
+    }
+    return {
+      gini: this.sums.gini / this.samples,
+      topShare: this.sums.topShare / this.samples,
+      effectiveParticipants: this.sums.effectiveParticipants / this.samples,
+      wealthTurnover: this.sums.wealthTurnover / this.samples,
+      levyFlow: this.sums.levyFlow / this.samples,
+    };
   }
 }
 
-/** Equilibrium Gini for one (β, τ) cell: mean of tail checkpoints. */
-export function runPhaseCell(config: PhaseCellConfig): number {
-  const run = new IncrementalPhaseCell(config);
+export function runOutcome(config: OutcomeRunConfig): OutcomeMeasurement {
+  const run = new IncrementalOutcomeRun(config);
   run.step(config.trades);
   return run.result();
 }
@@ -93,10 +182,7 @@ export interface ContourSegment {
   readonly y2: number;
 }
 
-/**
- * Marching squares on a grid[iy][ix] of values with axis coordinates xs/ys;
- * returns line segments (in axis units) tracing `level`.
- */
+/** Marching squares over a continuous measured field. */
 export function contourSegments(
   grid: readonly (readonly number[])[],
   xs: readonly number[],
@@ -109,7 +195,7 @@ export function contourSegments(
 
   for (let iy = 0; iy < ys.length - 1; iy++) {
     for (let ix = 0; ix < xs.length - 1; ix++) {
-      const v00 = grid[iy][ix]; // bottom-left  (xs[ix], ys[iy])
+      const v00 = grid[iy][ix];
       const v10 = grid[iy][ix + 1];
       const v01 = grid[iy + 1][ix];
       const v11 = grid[iy + 1][ix + 1];
@@ -120,14 +206,12 @@ export function contourSegments(
       if (v01 > level) caseId |= 8;
       if (caseId === 0 || caseId === 15) continue;
 
-      // edge interpolation points
       const bottom = { x: lerp(xs[ix], xs[ix + 1], v00, v10), y: ys[iy] };
       const top = { x: lerp(xs[ix], xs[ix + 1], v01, v11), y: ys[iy + 1] };
       const left = { x: xs[ix], y: lerp(ys[iy], ys[iy + 1], v00, v01) };
       const right = { x: xs[ix + 1], y: lerp(ys[iy], ys[iy + 1], v10, v11) };
-
-      const push = (p: { x: number; y: number }, q: { x: number; y: number }) =>
-        segments.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y });
+      const push = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+        segments.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
 
       switch (caseId) {
         case 1: case 14: push(left, bottom); break;
@@ -144,44 +228,43 @@ export function contourSegments(
   return segments;
 }
 
-export interface FittedCurve {
-  /** τ*(β) = c · β² */
+export interface FittedSquareRelationship {
+  /** tau(beta) = c * beta². */
   readonly c: number;
-  /** The measured crossing points the fit ran through. */
   readonly crossings: readonly { beta: number; tax: number }[];
 }
 
-/**
- * For each β column, find the tax rate where Gini crosses `level` (linear
- * interpolation down the column), then least-squares fit τ* = c·β² through
- * the crossings. Returns null when fewer than two columns cross.
- */
-export function fitCriticalCurve(
+export type OutcomeDirection = 'increases' | 'decreases';
+
+/** Fit tau = c * beta² through a named iso-outcome contour. */
+export function fitSquareRelationship(
   grid: readonly (readonly number[])[],
   betas: readonly number[],
   taxes: readonly number[],
   level: number,
-): FittedCurve | null {
+  direction: OutcomeDirection,
+): FittedSquareRelationship | null {
   const crossings: { beta: number; tax: number }[] = [];
   for (let ix = 0; ix < betas.length; ix++) {
+    if (!(betas[ix] > 0)) continue;
     for (let iy = 0; iy < taxes.length - 1; iy++) {
       const a = grid[iy][ix];
       const b = grid[iy + 1][ix];
-      // gini falls as tax rises; find the first bracket around the level
-      if ((a > level && b <= level) || (a >= level && b < level)) {
-        const t = taxes[iy] + ((a - level) / (a - b)) * (taxes[iy + 1] - taxes[iy]);
-        crossings.push({ beta: betas[ix], tax: t });
-        break;
-      }
+      const crossed = direction === 'increases'
+        ? (a < level && b >= level) || (a <= level && b > level)
+        : (a > level && b <= level) || (a >= level && b < level);
+      if (!crossed) continue;
+      const tax = taxes[iy] + ((level - a) / (b - a)) * (taxes[iy + 1] - taxes[iy]);
+      crossings.push({ beta: betas[ix], tax });
+      break;
     }
   }
   if (crossings.length < 2) return null;
-  // least squares for τ = c·β²: c = Σ(τ·β²) / Σ(β⁴)
-  let num = 0;
-  let den = 0;
+  let numerator = 0;
+  let denominator = 0;
   for (const { beta, tax } of crossings) {
-    num += tax * beta * beta;
-    den += beta ** 4;
+    numerator += tax * beta * beta;
+    denominator += beta ** 4;
   }
-  return { c: num / den, crossings };
+  return { c: numerator / denominator, crossings };
 }

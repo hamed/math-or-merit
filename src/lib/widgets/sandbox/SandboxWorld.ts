@@ -11,6 +11,15 @@ export interface ToyMetrics {
   readonly effectiveParticipants: number;
 }
 
+export interface RoundMeasurement extends ToyMetrics {
+  readonly round: number;
+  readonly trades: number;
+  readonly tradeVolumeDollars: number;
+  readonly wealthTurnover: number;
+  readonly levyFlowDollars: number;
+  readonly levyFlow: number;
+}
+
 export function measureToy(wealth: ArrayLike<number>): ToyMetrics {
   const n = wealth.length;
   const sorted = new Float64Array(n);
@@ -137,6 +146,7 @@ export class SandboxWorld {
   private _tradeVolumeBucket = 0;
   /** Share collected by structural and manual levies since the last round. */
   private _levyFlowBucket = 0;
+  private readonly measurementListeners = new Set<(measurement: RoundMeasurement) => void>();
 
   readonly giniSeries = new RoundSeries();
   readonly topShareSeries = new RoundSeries();
@@ -229,6 +239,11 @@ export class SandboxWorld {
     return this._wealth[index] * this._totalDollars;
   }
 
+  onMeasurement(listener: (measurement: RoundMeasurement) => void): () => void {
+    this.measurementListeners.add(listener);
+    return () => this.measurementListeners.delete(listener);
+  }
+
   step(trades: number): void {
     if (!Number.isSafeInteger(trades) || trades < 0) throw new RangeError('trades must be non-negative');
     const n = this.config.n;
@@ -295,12 +310,24 @@ export class SandboxWorld {
   private endMeasurementRound(): void {
     this._rounds++;
     const m = measureToy(this._wealth);
+    const tradeVolumeDollars = this._tradeVolumeBucket * this._totalDollars;
+    const levyFlowDollars = this._levyFlowBucket * this._totalDollars;
     this.giniSeries.push(m.gini);
     this.topShareSeries.push(m.topShare);
     this.effectiveParticipantsSeries.push(m.effectiveParticipants);
-    this.tradeVolumeSeries.push(this._tradeVolumeBucket * this._totalDollars);
+    this.tradeVolumeSeries.push(tradeVolumeDollars);
     this.wealthTurnoverSeries.push(this._tradeVolumeBucket);
-    this.levyFlowSeries.push(this._levyFlowBucket * this._totalDollars);
+    this.levyFlowSeries.push(levyFlowDollars);
+    const measurement: RoundMeasurement = {
+      ...m,
+      round: this._rounds,
+      trades: this._trades,
+      tradeVolumeDollars,
+      wealthTurnover: this._tradeVolumeBucket,
+      levyFlowDollars,
+      levyFlow: this._levyFlowBucket,
+    };
+    for (const listener of this.measurementListeners) listener(measurement);
     this._tradeVolumeBucket = 0;
     this._levyFlowBucket = 0;
     for (let k = 0; k < this.trackedAgents.length; k++) {
