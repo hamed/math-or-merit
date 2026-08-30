@@ -1,5 +1,4 @@
-import { createRandomSource, type RandomSource } from '$lib/sim';
-import { applyYardSaleTrade } from '$lib/sim/internal/YardSaleTrade';
+import { applyYardSaleTrade, createRandomSource, type RandomSource } from '$lib/sim';
 
 /**
  * Chaos-tolerant Gini + top share. The research metrics validate their
@@ -51,7 +50,8 @@ export class RoundSeries {
   private static readonly CAP = 1024;
   private _values: number[] = [];
   private _stride = 1;
-  private _carry: number | null = null;
+  private _pendingSum = 0;
+  private _pendingCount = 0;
 
   /** Rounds per stored point. */
   get stride(): number {
@@ -68,15 +68,14 @@ export class RoundSeries {
   }
 
   push(value: number): void {
-    if (this._stride === 1) {
-      this._values.push(value);
-    } else if (this._carry === null) {
-      this._carry = value;
-      return;
-    } else {
-      this._values.push((this._carry + value) / 2);
-      this._carry = null;
-    }
+    this._pendingSum += value;
+    this._pendingCount++;
+    if (this._pendingCount < this._stride) return;
+
+    this._values.push(this._pendingSum / this._pendingCount);
+    this._pendingSum = 0;
+    this._pendingCount = 0;
+
     if (this._values.length >= RoundSeries.CAP) {
       const halved: number[] = [];
       for (let i = 0; i + 1 < this._values.length; i += 2) {
@@ -90,7 +89,8 @@ export class RoundSeries {
   reset(): void {
     this._values = [];
     this._stride = 1;
-    this._carry = null;
+    this._pendingSum = 0;
+    this._pendingCount = 0;
   }
 }
 
@@ -100,12 +100,9 @@ export class RoundSeries {
  *
  * - Levy: one flat per-round rate, 0 = off. Proportional, scale-free —
  *   applied on shares directly, revenue returned as equal dividends.
- *   (Owner review 2026-07-13: progressivity will arrive as a parametric
- *   rate-of-log-wealth function behind ONE dial — keep `applyLevy` the seam;
- *   no bracket tables come back.)
  * - Click levy: `levyAgent` takes a slice of one agent on demand (the
  *   sandbox's mini-game), same equal-dividend redistribution.
- * - Round series (owner review 2026-07-14): Gini, top share, dollars WON
+ * - Round series: Gini, top share, dollars WON
  *   (trade volume, β·min summed), and TRACKED_AGENTS personal trajectories —
  *   all anchored at round 1 via RoundSeries.
  *
@@ -133,7 +130,7 @@ export class SandboxWorld {
 
   /**
    * Live-tunable dials (the sandbox UI writes these directly). DELIBERATELY
-   * unclamped (owner review 2026-07-14): expert mode may set a negative tax
+   * unclamped: expert mode may set a negative tax
    * or a 250% stake — watching the math break is part of the lesson. The
    * sandbox ticker carries the watchdog that catches non-finite wealth.
    */
@@ -144,10 +141,9 @@ export class SandboxWorld {
   taxEvery = 100;
 
   constructor(config: SandboxConfig) {
-    const { n, startDollars } = config;
+    const { n, startDollars, seed } = config;
     if (!Number.isSafeInteger(n) || n < 2) throw new RangeError('n must be at least 2');
-    if (!Number.isFinite(startDollars) || startDollars <= 0) throw new RangeError('startDollars must be positive');
-    this.config = config;
+    if (!Number.isFinite(startDollars)) throw new RangeError('startDollars must be finite');
     if (config.initialWealth) {
       if (config.initialWealth.length !== n) throw new RangeError('initialWealth must have length n');
       const copy = Float64Array.from(config.initialWealth as ArrayLike<number>);
@@ -155,7 +151,7 @@ export class SandboxWorld {
       for (let i = 0; i < n; i++) {
         // The START is validated even though the RUN is not: expert dials may
         // drive wealth negative, but a corrupt snapshot poisons the room before
-        // anyone touches a dial (audit 2026-07-10, finding 10).
+        // anyone touches a dial.
         if (!Number.isFinite(copy[i]) || copy[i] < 0) {
           throw new RangeError('initialWealth values must be finite and non-negative');
         }
@@ -167,9 +163,15 @@ export class SandboxWorld {
     } else {
       this._initial = new Float64Array(n).fill(1 / n);
     }
+    this.config = Object.freeze({
+      n,
+      startDollars,
+      ...(seed === undefined ? {} : { seed }),
+      ...(config.initialWealth ? { initialWealth: Object.freeze(Array.from(this._initial)) } : {}),
+    });
     this._wealth = Float64Array.from(this._initial);
     this._totalDollars = n * startDollars;
-    this.random = createRandomSource(config.seed);
+    this.random = createRandomSource(seed);
     const k = Math.min(TRACKED_AGENTS, n);
     this.trackedAgents = Array.from({ length: k }, (_, i) => Math.floor((i * n) / k));
     this.agentSeries = this.trackedAgents.map(() => new RoundSeries());

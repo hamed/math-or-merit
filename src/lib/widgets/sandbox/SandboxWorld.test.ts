@@ -23,6 +23,24 @@ describe('RoundSeries', () => {
     expect(s.values[0]).toBeCloseTo((0 + 1 + 2 + 3) / 4, 9); // first 4 rounds averaged
     expect(s.roundOf(0)).toBe(4);
   });
+
+  it('keeps post-compaction samples aligned with their represented rounds', () => {
+    const s = new RoundSeries();
+    for (let round = 1; round <= 3072; round++) s.push(round);
+    expect(s.stride).toBe(4);
+    expect(s.values).toHaveLength(768);
+    expect(s.values[512]).toBeCloseTo((2049 + 2050 + 2051 + 2052) / 4, 9);
+    expect(s.roundOf(512)).toBe(2052);
+    expect(s.roundOf(s.values.length - 1)).toBe(3072);
+  });
+
+  it('does not label a partial stride bucket as a completed round', () => {
+    const s = new RoundSeries();
+    for (let round = 1; round <= 2051; round++) s.push(round);
+    expect(s.stride).toBe(4);
+    expect(s.values).toHaveLength(512);
+    expect(s.roundOf(s.values.length - 1)).toBe(2048);
+  });
 });
 
 describe('SandboxWorld', () => {
@@ -119,6 +137,30 @@ describe('SandboxWorld', () => {
     world.step(200);
     expect(world.agentSeries.length).toBe(2);
     expect(total(world.wealth)).toBeCloseTo(1, 9);
+  });
+
+  it('lets expert rooms use zero or negative starting dollars', () => {
+    for (const startDollars of [0, -100]) {
+      const world = new SandboxWorld({ n: 4, seed: 9, startDollars });
+      world.step(40);
+      expect(world.totalDollars).toBe(4 * startDollars);
+      expect(Array.from(world.wealth).every(Number.isFinite)).toBe(true);
+      world.reset();
+      expect(world.totalDollars).toBe(4 * startDollars);
+    }
+  });
+
+  it('owns an immutable configuration snapshot', () => {
+    const config = { n: 4, seed: 5, startDollars: 100 };
+    const world = new SandboxWorld(config);
+    config.n = 20;
+    config.startDollars = -500;
+    world.step(40);
+    world.reset();
+    expect(world.config).not.toBe(config);
+    expect(Object.isFrozen(world.config)).toBe(true);
+    expect(world.wealth).toHaveLength(4);
+    expect(world.totalDollars).toBe(400);
   });
 
   it('resets to the equal start, the starting total, and empty series', () => {

@@ -6,8 +6,7 @@
  * the per-trade variance ∝ β² scaling heuristic), never a theorem. Keep the
  * word "fitted" attached to it wherever it is shown (GATE, interventions.md).
  */
-import { createRandomSource } from '$lib/sim';
-import { applyYardSaleTrade } from '$lib/sim/internal/YardSaleTrade';
+import { applyYardSaleTrade, createRandomSource, type RandomSource } from '$lib/sim';
 import { applyFlatWealthLevy } from './interventions';
 import { giniCoefficient } from './metrics';
 
@@ -25,28 +24,66 @@ export interface PhaseCellConfig {
   readonly seed: number;
 }
 
+/**
+ * A phase-cell run that can yield between bounded batches without changing the
+ * estimator. Both the animated room and background map filling use this class,
+ * so render cadence cannot alter which tail checkpoints are measured.
+ */
+export class IncrementalPhaseCell {
+  readonly wealth: Float64Array;
+  private readonly random: RandomSource;
+  private readonly sampleEvery: number;
+  private sum = 0;
+  private samples = 0;
+  private completedTrades = 0;
+
+  constructor(readonly config: PhaseCellConfig) {
+    this.wealth = new Float64Array(config.n).fill(1 / config.n);
+    this.random = createRandomSource(config.seed);
+    this.sampleEvery = Math.max(1, Math.floor((config.trades - config.burnIn) / config.tailSamples));
+  }
+
+  get trades(): number {
+    return this.completedTrades;
+  }
+
+  get done(): boolean {
+    return this.completedTrades >= this.config.trades;
+  }
+
+  /** Run at most `count` more trades and return whether the cell is complete. */
+  step(count: number): boolean {
+    if (!Number.isSafeInteger(count) || count < 0) throw new RangeError('count must be a non-negative integer');
+    const { n, beta, taxRate, levyEvery, trades, burnIn } = this.config;
+    const stop = Math.min(trades, this.completedTrades + count);
+    while (this.completedTrades < stop) {
+      const a = Math.floor(this.random.next() * n);
+      let b = Math.floor(this.random.next() * (n - 1));
+      if (b >= a) b++;
+      applyYardSaleTrade(this.wealth, a, b, beta, this.random.next() < 0.5);
+      this.completedTrades++;
+      if (taxRate > 0 && this.completedTrades % levyEvery === 0) {
+        applyFlatWealthLevy(this.wealth, taxRate);
+      }
+      if (this.completedTrades > burnIn && (this.completedTrades - burnIn) % this.sampleEvery === 0) {
+        this.sum += giniCoefficient(this.wealth);
+        this.samples++;
+      }
+    }
+    return this.done;
+  }
+
+  result(): number {
+    if (!this.done) throw new Error('phase cell is not complete');
+    return this.samples === 0 ? giniCoefficient(this.wealth) : this.sum / this.samples;
+  }
+}
+
 /** Equilibrium Gini for one (β, τ) cell: mean of tail checkpoints. */
 export function runPhaseCell(config: PhaseCellConfig): number {
-  const { n, beta, taxRate, levyEvery, trades, burnIn, tailSamples, seed } = config;
-  const wealth = new Float64Array(n).fill(1 / n);
-  const random = createRandomSource(seed);
-
-  let sum = 0;
-  let samples = 0;
-  const sampleEvery = Math.max(1, Math.floor((trades - burnIn) / tailSamples));
-
-  for (let t = 1; t <= trades; t++) {
-    const a = Math.floor(random.next() * n);
-    let b = Math.floor(random.next() * (n - 1));
-    if (b >= a) b++;
-    applyYardSaleTrade(wealth, a, b, beta, random.next() < 0.5);
-    if (taxRate > 0 && t % levyEvery === 0) applyFlatWealthLevy(wealth, taxRate);
-    if (t > burnIn && (t - burnIn) % sampleEvery === 0) {
-      sum += giniCoefficient(wealth);
-      samples++;
-    }
-  }
-  return samples === 0 ? giniCoefficient(wealth) : sum / samples;
+  const run = new IncrementalPhaseCell(config);
+  run.step(config.trades);
+  return run.result();
 }
 
 export interface ContourSegment {

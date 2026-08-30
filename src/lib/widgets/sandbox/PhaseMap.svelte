@@ -261,8 +261,10 @@
     inset-block-start: 50%;
     translate: 0 -50%;
     display: flex;
+    justify-content: end;
     align-items: stretch;
     gap: 0.1rem;
+    min-inline-size: 2.75rem;
     block-size: 52%;
     padding: 0;
     border: none;

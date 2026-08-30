@@ -3,7 +3,7 @@
  * scenes, RoomCanvas, and the sandbox all draw through this so the agent
  * look (pastel fill, independent stroke, shape, winner ring) has one home.
  */
-import type { AgentShape, AgentStyle } from './agentStyle';
+import { CLASSIC_AGENT_FILL, CLASSIC_AGENT_STROKE, type AgentShape, type AgentStyle } from './agentStyle';
 import type { Point } from './layout';
 
 /** Regular k-gon: circumradius factor (area = factor·R²) and rotation. */
@@ -56,8 +56,6 @@ export function traceShape(
 }
 
 /** Legacy single-family look, used when no per-agent styles are supplied. */
-const DEFAULT_FILL = 'rgb(189 98 69 / 26%)';
-const DEFAULT_STROKE = '#96543c';
 const WINNER_FILL = 'rgb(139 63 43 / 45%)';
 const WINNER_STROKE = '#4d271c';
 const HOT_STROKE = '#2e2a23';
@@ -119,16 +117,16 @@ export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOption
       ctx.strokeStyle = isHot ? HOT_STROKE : style.stroke;
       ctx.lineWidth = isWinner ? 2.6 : isHot ? 2.2 : 1.4;
     } else {
-      ctx.fillStyle = isWinner ? WINNER_FILL : DEFAULT_FILL;
+      ctx.fillStyle = isWinner ? WINNER_FILL : CLASSIC_AGENT_FILL;
       ctx.fill();
-      ctx.strokeStyle = isWinner ? WINNER_STROKE : isHot ? HOT_STROKE : DEFAULT_STROKE;
+      ctx.strokeStyle = isWinner ? WINNER_STROKE : isHot ? HOT_STROKE : CLASSIC_AGENT_STROKE;
       ctx.lineWidth = isWinner || isHot ? 2.2 : 1.2;
     }
     ctx.stroke();
 
     if (isWinner) {
       // the halo wears the winner's own silhouette — a dashed pentagon for a
-      // pentagon, never a generic circle (owner review 2026-07-08)
+      // pentagon, never a generic circle
       traceShape(ctx, style ? style.shape : null, x, p.y, r + 5);
       ctx.setLineDash([4, 5]);
       ctx.lineWidth = 1.4;

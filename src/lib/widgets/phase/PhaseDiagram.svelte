@@ -21,14 +21,12 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { contourSegments, fitCriticalCurve, measureWealth, runPhaseCell } from '$lib/research';
+  import { contourSegments, fitCriticalCurve, IncrementalPhaseCell, measureWealth } from '$lib/research';
   import RoomCanvas from '../shared/RoomCanvas.svelte';
-  import { createTicker } from '../shared/ticker';
+  import { createFixedTicker } from '../shared/ticker';
   import { assignStyles } from '../shared/agentStyle';
   import { countTrades, percent } from '../shared/format';
   import StopSlider from '../sandbox/StopSlider.svelte';
-  import { SandboxWorld } from '../sandbox/SandboxWorld';
-  import { START_DOLLARS } from '../shared/presets';
 
   // Owner review 2026-07-08: the reader plays rooms with the two dials; each
   // finished room paints ITS cell of the map. "Fill in the rest" completes
@@ -54,42 +52,49 @@
   let filling = $state(false);
   let fillProgress = $state(0);
 
-  // The sandbox's world, dialed to one cell of the map. `taxEvery` is the
-  // room's round, so one levy lands per N trades. Fresh dice every time —
-  // this widget has never been seeded.
-  const freshSeed = () => Math.floor(Math.random() * 0xffff_ffff);
+  const seedsFor = (ix: number, iy: number) => SEEDS.map((seed) => seed + ix * 101 + iy * 13);
 
-  function newWorld(b: number, tax: number, seed: number): SandboxWorld {
-    const w = new SandboxWorld({ n: N, startDollars: START_DOLLARS, seed });
-    w.beta = b;
-    w.taxRate = tax;
-    w.taxEvery = LEVY_EVERY;
-    return w;
+  function newWorld(b: number, tax: number, seed: number): IncrementalPhaseCell {
+    return new IncrementalPhaseCell({
+      n: N,
+      beta: b,
+      taxRate: tax,
+      levyEvery: LEVY_EVERY,
+      trades: TRADES,
+      burnIn: BURN_IN,
+      tailSamples: TAIL_SAMPLES,
+      seed,
+    });
   }
 
-  let world = $state(newWorld(BETAS[3], TAXES[2], freshSeed()));
+  let world = $state(newWorld(BETAS[3], TAXES[2], seedsFor(3, 2)[0]));
   let revision = $state(0);
   let playing = $state(false);
   let liveGini = $state(0);
   let liveTrades = $state(0);
-  let tailSum = 0;
-  let tailCount = 0;
+  let runIndex = $state(0);
+  let ensembleSum = 0;
+  let activeSeeds = seedsFor(3, 2);
 
   const TRADES_PER_FRAME = 1500; // ≈ 2.3 s per 200k-trade room at 60 fps
 
-  const ticker = createTicker(() => {
+  const ticker = createFixedTicker(() => {
     world.step(TRADES_PER_FRAME);
-    liveTrades = world.trades;
+    liveTrades = runIndex * TRADES + world.trades;
     revision++;
     liveGini = measureWealth(world.wealth).gini;
-    if (world.trades >= BURN_IN) {
-      tailSum += liveGini;
-      tailCount++;
-    }
-    if (world.trades >= TRADES) {
+    if (world.done) {
+      ensembleSum += world.result();
+      if (runIndex + 1 < activeSeeds.length) {
+        runIndex++;
+        world = newWorld(beta, taxRate, activeSeeds[runIndex]);
+        revision++;
+        return;
+      }
+
       ticker.stop();
       playing = false;
-      const g = tailCount > 0 ? tailSum / tailCount : liveGini;
+      const g = ensembleSum / activeSeeds.length;
       const ix = stakeIdx;
       const iy = taxIdx;
       grid[iy][ix] = g;
@@ -102,9 +107,10 @@
 
   function playRoom(): void {
     if (playing || filling) return;
-    world = newWorld(beta, taxRate, freshSeed());
-    tailSum = 0;
-    tailCount = 0;
+    activeSeeds = seedsFor(stakeIdx, taxIdx);
+    runIndex = 0;
+    ensembleSum = 0;
+    world = newWorld(beta, taxRate, activeSeeds[0]);
     liveTrades = 0;
     liveGini = 0;
     revision++;
@@ -122,29 +128,32 @@
       }
     }
     let next = 0;
+    let seedIndex = 0;
+    let cellSum = 0;
+    let run: IncrementalPhaseCell | null = null;
     const work = () => {
-      const budget = performance.now() + 24; // stay under ~30 ms per frame
+      const budget = performance.now() + 12;
       while (next < cells.length && performance.now() < budget) {
-        const { ix, iy } = cells[next++];
-        let sum = 0;
-        for (const seed of SEEDS) {
-          sum += runPhaseCell({
-            n: N,
-            beta: BETAS[ix],
-            taxRate: TAXES[iy],
-            levyEvery: LEVY_EVERY,
-            trades: TRADES,
-            burnIn: BURN_IN,
-            tailSamples: TAIL_SAMPLES,
-            seed: seed + ix * 101 + iy * 13,
-          });
+        const { ix, iy } = cells[next];
+        const seeds = seedsFor(ix, iy);
+        run ??= newWorld(BETAS[ix], TAXES[iy], seeds[seedIndex]);
+        run.step(2_000);
+        if (run.done) {
+          cellSum += run.result();
+          seedIndex++;
+          run = null;
         }
-        grid[iy][ix] = sum / SEEDS.length;
+        if (seedIndex === seeds.length) {
+          grid[iy][ix] = cellSum / seeds.length;
+          cellSum = 0;
+          seedIndex = 0;
+          next++;
+        }
       }
       grid = grid.slice();
-      fillProgress = next / cells.length;
+      fillProgress = cells.length === 0 ? 1 : (next + seedIndex / SEEDS.length) / cells.length;
       if (next < cells.length) {
-        requestAnimationFrame(work);
+        fillFrame = requestAnimationFrame(work);
       } else {
         filling = false;
         done = true;
@@ -152,7 +161,7 @@
         cachedDone = true;
       }
     };
-    requestAnimationFrame(work);
+    fillFrame = requestAnimationFrame(work);
   }
 
   const finished = $derived(done ? grid : null);
@@ -179,7 +188,11 @@
     return RAMP[Math.min(RAMP.length - 1, Math.max(0, Math.floor(gini * RAMP.length)))];
   }
 
-  onMount(() => () => ticker.stop());
+  let fillFrame = 0;
+  onMount(() => () => {
+    ticker.stop();
+    cancelAnimationFrame(fillFrame);
+  });
 </script>
 
 <div class="widget" aria-label="Play rooms with a stake and a tax dial; each finished room paints its spot on the map">
@@ -284,7 +297,7 @@
       Gini 0.5. The dashed one is a <em>fitted</em> curve, tax ≈ {fitted ? fitted.c.toFixed(2) : '…'} × stake² — steeper
       trading needs disproportionately more tax.
     {:else if playing}
-      The room is running your dials — {percent(beta)} stake against a {percent(taxRate, 1)} levy.
+      Run {runIndex + 1} of {SEEDS.length} is trading your dials — {percent(beta)} stake against a {percent(taxRate, 1)} levy.
     {:else if plays.length === 0}
       Every point on the map is a possible world: stake across, tax up. Pick your dials, run the room, and its ending
       paints that square.

@@ -33,24 +33,24 @@
     // live in the middle of it; the ring at the end reaches low and wide again.
     { label: 'person', length: 1.1, artBottom: 0.97 },
     { label: 'face', length: 0.9, artBottom: 0.97 },
-    { label: 'strip', length: 1.6, artBottom: 0.97 },
-    { label: 'circle', length: 0.9, artBottom: 0.78 },
-    { label: 'coins', length: 1.2, artBottom: 0.75 },
-    { label: 'one', length: 1, artBottom: 0.75 },
-    { label: 'slide', length: 0.9, artBottom: 0.78 },
-    { label: 'meet', length: 1, artBottom: 0.78 },
-    { label: 'ante-1', length: 1.0 },
-    { label: 'toss-1', length: 1.1 },
-    { label: 'take-1', length: 0.9 },
+    { label: 'strip', length: 1.6, restAt: 1.4, artBottom: 0.97 },
+    { label: 'circle', length: 0.9, restAt: 0.86, artBottom: 0.78 },
+    { label: 'coins', length: 1.2, restAt: 0.93, artBottom: 0.75 },
+    { label: 'one', length: 1, restAt: 0.65, artBottom: 0.75 },
+    { label: 'slide', length: 0.9, restAt: 0.65, artBottom: 0.78 },
+    { label: 'meet', length: 1, restAt: 0.7, artBottom: 0.78 },
+    { label: 'ante-1', length: 1.0, restAt: 0.63 },
+    { label: 'toss-1', length: 1.1, restAt: 0.69 },
+    { label: 'take-1', length: 0.9, restAt: 0.73 },
     { label: 'again', length: 0.9 },
-    { label: 'ante-2', length: 0.9 },
-    { label: 'toss-2', length: 1.0 },
-    { label: 'take-2', length: 0.9 },
-    { label: 'ante-3', length: 0.9 },
-    { label: 'toss-3', length: 1.0 },
-    { label: 'take-3', length: 0.9 },
-    { label: 'fair', length: 1.0 },
-    { label: 'crowd', length: 1.3, artBottom: 0.95 },
+    { label: 'ante-2', length: 0.9, restAt: 0.51 },
+    { label: 'toss-2', length: 1.0, restAt: 0.69 },
+    { label: 'take-2', length: 0.9, restAt: 0.65 },
+    { label: 'ante-3', length: 0.9, restAt: 0.57 },
+    { label: 'toss-3', length: 1.0, restAt: 0.69 },
+    { label: 'take-3', length: 0.9, restAt: 0.65 },
+    { label: 'fair', length: 1.0, restAt: 0.25 },
+    { label: 'crowd', length: 1.3, restAt: 1.05, artBottom: 0.95 },
   ];
 
   export const PLATES: readonly { src: string; beat: string }[] = [
@@ -318,7 +318,7 @@
       tl.fromTo(agentA, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.01, ease: 'steps(1)' }, circleAt + 0.55);
       tl.to(agentA, { fill: styleA.fill, stroke: styleA.stroke, duration: 0.3 }, circleAt + 0.56);
 
-      // coins — the circle IS money: same area, fourteen golden pieces
+      // coins — the circle IS money: same area, sixteen golden pieces
       tl.to(agentA, { autoAlpha: 0, duration: 0.25 }, 'coins');
       tl.fromTo(
         coinEls,
@@ -496,7 +496,7 @@
     {#each PLATES as plate, i}
       <image
         bind:this={plates[i]}
-        href={plate.src}
+        href={stage?.assetsReady() === false ? undefined : plate.src}
         x="0"
         y={PLATE_Y}
         width={VIEW_W}

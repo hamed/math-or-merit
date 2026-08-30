@@ -316,7 +316,7 @@
     {#each FRAMES as frame, i}
       <image
         bind:this={plates[i]}
-        href={frame.src}
+        href={stage?.assetsReady() === false ? undefined : frame.src}
         x="0"
         y="0"
         width="480"

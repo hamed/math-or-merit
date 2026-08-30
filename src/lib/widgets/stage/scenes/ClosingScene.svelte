@@ -2,10 +2,10 @@
   import type { BeatSpec } from '../contract';
 
   export const BEATS: readonly BeatSpec[] = [
-    { label: 'lone', length: 1 },
-    { label: 'fence', length: 1.2 },
-    { label: 'headline', length: 1.2 },
-    { label: 'closing', length: 1.2 },
+    { label: 'lone', length: 1, restAt: 0.6 },
+    { label: 'fence', length: 1.2, restAt: 0.96 },
+    { label: 'headline', length: 1.2, restAt: 0.55 },
+    { label: 'closing', length: 1.2, restAt: 0.4 },
   ];
 
   /** The discarded world, drifting back for the honesty bill. */

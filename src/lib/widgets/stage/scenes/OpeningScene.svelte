@@ -31,17 +31,6 @@
   ];
 
   /**
-   * Title arrangements, kept for the owner's pick.
-   * - stack  — one left-aligned column, the two M's on the same edge
-   * - center — a centred column
-   * - mono   — stack, set in the teletype's face: "Merit" and "Math?" are both
-   *            five characters, so in a monospace font they are exactly the
-   *            same width and the column edges line up on both sides
-   * - poles  — the original opposing thirds
-   */
-  export type OpeningLayout = 'stack' | 'center' | 'mono' | 'poles';
-
-  /**
    * The dated hook (research/narrative-sources.md "Elon Musk trillionaire
    * hook"): source name only, clickable, per the storyboard. The "on paper"
    * qualifier returns in the ending beat.
@@ -109,13 +98,6 @@
 <script lang="ts">
   import { getContext, onMount } from 'svelte';
   import { STAGE_CONTEXT, type StageContext } from '../contract';
-
-  interface Props {
-    /** Title arrangement — variants kept for the owner's pick. */
-    layout?: OpeningLayout;
-  }
-
-  let { layout = 'stack' }: Props = $props();
 
   const stage = getContext<StageContext | undefined>(STAGE_CONTEXT);
 
@@ -230,7 +212,7 @@
   });
 </script>
 
-<div bind:this={root} class={`scene-art opening layout-${layout}`} aria-label="Opening title">
+<div bind:this={root} class="scene-art opening" aria-label="Opening title">
   <p class="teletype" aria-label={`${HEADLINE} ${SOURCE}`}>
     <span class="tt-line" aria-hidden="true">
       {#each headlineChars as ch}<span class="tt-char">{ch}</span>{/each}</span
@@ -280,7 +262,7 @@
     inline-size: fit-content;
     max-inline-size: min(38rem, 84vw);
     font-family: var(--font-mono);
-    font-size: clamp(0.95rem, 2.2vw, 1.35rem);
+    font-size: clamp(0.68rem, 3.3vw, 1.35rem);
     color: var(--ink);
   }
 
@@ -418,27 +400,11 @@
     display: block;
   }
 
-  .layout-stack .title,
-  .layout-mono .title,
-  .layout-poles .title {
+  .title {
     inset-block-start: 16%;
     inset-inline-start: 12%;
     align-items: start;
   }
-
-  .layout-center .title {
-    inset-block-start: 16%;
-    inset-inline: 0;
-    align-items: center;
-  }
-
-  /* ---- variant: mono — five characters each, so the column is flush both
-     sides and the title shares the teletype's face ---- */
-
-  /* ---- variant: center — a centered column ---- */
-
-
-
 
   .hint {
     position: absolute;

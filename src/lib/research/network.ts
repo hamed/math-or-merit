@@ -1,5 +1,4 @@
-import { createRandomSource, type RandomSource } from '../sim';
-import { applyYardSaleTrade } from '../sim/internal/YardSaleTrade';
+import { applyYardSaleTrade, createRandomSource, type RandomSource } from '../sim';
 
 export type Edge = readonly [number, number];
 

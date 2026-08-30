@@ -1,7 +1,7 @@
 <script lang="ts" module>
   /**
    * The sandbox is the essay's one machine with every dial exposed — and the
-   * seam for reuse (owner review 2026-07-13): earlier beats can become presets
+   * seam for reuse: earlier beats can become presets
    * of THIS component by hiding panels, disabling controls, and dropping to
    * the `column` layout. Configuration is data; no per-preset branches.
    */
@@ -23,7 +23,6 @@
     stake: boolean;
     tax: boolean;
     clickTax: boolean;
-    progressivity: boolean;
     startWealth: boolean;
     news: boolean;
   }
@@ -42,12 +41,13 @@
   import StopSlider, { MONEY_STOPS, PEOPLE_STOPS, RATE_STOPS } from './StopSlider.svelte';
   import { collectStats, roomStatsSource } from './newsroom';
   import { addMeasurement, clearPhaseData, exportCsv, importCsv, loadPhaseData } from './phaseGrid.svelte';
-  import { createTicker } from '../shared/ticker';
-  import { FILLS, STROKES, randomStyles } from '../shared/agentStyle';
+  import { createFixedTicker } from '../shared/ticker';
+  import { CLASSIC_AGENT_FILL, CLASSIC_AGENT_STROKE, FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
   import { roomPositions, radiusScale, zoneName } from '../shared/layout';
   import { countTrades, dollarsCompact, percent } from '../shared/format';
   import { SandboxWorld, measureToy } from './SandboxWorld';
+  import { SteadyStateTracker } from './SteadyStateTracker';
   import { START_DOLLARS } from '../shared/presets';
 
   interface Props {
@@ -77,7 +77,6 @@
     stake: true,
     tax: true,
     clickTax: true,
-    progressivity: true,
     startWealth: true,
     news: true,
     ...controls,
@@ -85,9 +84,6 @@
 
   const MIN_N = 2;
   const MAX_N = 2048;
-  // mirror of roomRenderer's legacy single-family look (keep in sync)
-  const CLASSIC_FILL = 'rgb(189 98 69 / 26%)';
-  const CLASSIC_STROKE = '#96543c';
   const LOOKS = ['shapes', 'circles', 'classic'] as const;
   type Look = (typeof LOOKS)[number];
 
@@ -164,55 +160,21 @@
     topShare = m.topShare;
   }
 
-  /**
-   * The steady-state solidifier (owner review 2026-07-15): a run wanders,
-   * then settles. We average Gini over 50-round windows; once two consecutive
-   * windows agree within 0.015 the point is PAST its transient, and every
-   * further window solidifies one measurement into the shared phase record.
-   * Changing any dial (or the room) starts the watch over.
-   */
-  const WINDOW_ROUNDS = 50;
-  const STABLE_EPS = 0.015;
-  let mKey = '';
-  let mAccG = 0;
-  let mAccR = 0;
-  let mLastRound = 0;
-  let mMeans: number[] = [];
+  const steadyState = new SteadyStateTracker();
 
   function trackSteadyState(): void {
-    if (broke || !Number.isFinite(gini)) return;
-    const key = `${stake}|${taxRate}|${n}`;
-    if (key !== mKey) {
-      mKey = key;
-      mAccG = 0;
-      mAccR = 0;
-      mMeans = [];
-      mLastRound = world.rounds;
-      return;
-    }
-    const dr = world.rounds - mLastRound;
-    if (dr <= 0) return;
-    mLastRound = world.rounds;
-    mAccG += gini * dr;
-    mAccR += dr;
-    if (mAccR < WINDOW_ROUNDS) return;
-    const mean = mAccG / mAccR;
-    mAccG = 0;
-    mAccR = 0;
-    mMeans.push(mean);
-    const k = mMeans.length;
-    if (k >= 2 && Math.abs(mMeans[k - 1] - mMeans[k - 2]) < STABLE_EPS) {
-      addMeasurement(stake, taxRate, n, mean);
-    }
+    if (broke) return;
+    const mean = steadyState.observe({ key: `${stake}|${taxRate}|${n}`, rounds: world.rounds, gini });
+    if (mean !== null) addMeasurement(stake, taxRate, n, mean);
   }
 
-  const ticker = createTicker(() => {
+  const ticker = createFixedTicker(() => {
     pushDials();
     world.step(Math.max(1, Math.round((n / 3) * speed)));
     revision++;
     measure();
     // the watchdog: expert dials may blow the math up — freeze the wreck and
-    // say so, instead of a silently dead room (owner review 2026-07-14)
+    // say so, instead of leaving a silently dead room
     for (let i = 0; i < world.wealth.length; i++) {
       if (!Number.isFinite(world.wealth[i])) {
         broke = true;
@@ -240,14 +202,14 @@
   }
 
   function setStartDollars(value: number): void {
-    if (Number.isFinite(value) && value > 0) startDollars = value;
+    startDollars = value;
     reset();
   }
 
   function reset(): void {
     running = false;
     broke = false;
-    mKey = '';
+    steadyState.reset();
     ticker.stop();
     closeNews();
     world = makeWorld(n);
@@ -366,20 +328,7 @@
   onMount(() => {
     loadPhaseData(); // a returning reader keeps their measured map
 
-    /**
-     * Gentle snap: once scrolling STOPS with the sandbox nearly aligned, ease
-     * it into place.
-     *
-     * It must know an ARRIVING reader from a LEAVING one. The first version
-     * did not, and it was a trap: any rest inside a quarter-viewport of the
-     * top got pulled back to the top, so a 120px wheel step could never get
-     * out and the ending was unreachable by ordinary scrolling (measured
-     * 2026-08-27: the scroll position oscillated +4/-4px forever).
-     *
-     * So: snap only in the direction the reader is already travelling — down
-     * onto a sandbox that is still below them, or up onto one still above —
-     * and never twice in a row without leaving the zone in between.
-     */
+    /** Settle only while approaching the sandbox; never pull a leaving reader back. */
     let snapTimer: ReturnType<typeof setTimeout> | undefined;
     let lastY = window.scrollY;
     let direction = 0;
@@ -547,7 +496,7 @@
   {#if show.gstake}{@render plotBox('gstake')}{/if}
   {#if show.phase}{@render plotBox('phase')}{/if}
 
-  <!-- dials in order of importance (owner review 2026-07-15) -->
+  <!-- dials in order of importance -->
   <div class="controls">
     <div class="sliders" class:expert>
       {#if ctl.stake}
@@ -571,11 +520,6 @@
       {/if}
       {#if ctl.clickTax}
         <StopSlider label="tax per click" bind:value={clickRate} stops={RATE_STOPS} format={rateLabel} {expert} />
-      {/if}
-      {#if ctl.progressivity}
-        <!-- placeholder (owner review 2026-07-13): one dial, rate rising with
-             log wealth, replaces the old bracket table. Dummy until wired. -->
-        <StopSlider label="progressivity" value={0} stops={RATE_STOPS} format={() => 'soon'} {expert} disabled />
       {/if}
     </div>
   </div>
@@ -620,8 +564,8 @@
             <svg viewBox="-11 -11 22 22" aria-hidden="true">
               <path
                 d={svgShapePath(look === 'shapes' ? 'square' : 'circle', 8)}
-                fill={look === 'classic' ? CLASSIC_FILL : lookSwatch.fill}
-                stroke={look === 'classic' ? CLASSIC_STROKE : lookSwatch.stroke}
+                fill={look === 'classic' ? CLASSIC_AGENT_FILL : lookSwatch.fill}
+                stroke={look === 'classic' ? CLASSIC_AGENT_STROKE : lookSwatch.stroke}
                 stroke-width="1.6"
               />
             </svg>
@@ -677,25 +621,21 @@
     grid-template-rows: auto minmax(16rem, 40vh);
   }
 
-  /* ---- the finale: one full screen (owner review 2026-07-14) ----
+  /* ---- the finale: one full screen ----
      Landscape: a near-square 5-column grid. The room takes the top-left 3×2
      (rule of thirds); the phase composite takes the right 2×2; the bottom row
      is controls + four 1:1 plots. */
   .sandbox.full {
-    inline-size: 100vw;
+    inline-size: 100cqi;
     max-inline-size: none;
     margin-block: 0;
-    margin-inline: calc((100% - 100vw) / 2);
+    margin-inline: calc((100% - 100cqi) / 2);
     /* svh, not dvh: the smallest viewport is the one that is always visible, so
        the finale fits whether or not a mobile browser's toolbars are showing. */
     block-size: 100svh;
     min-block-size: 100svh;
 
-    /* This one is exactly a screen tall, so it snaps to the TOP of the screen
-       and cancels the scroll padding that every other snap point wants — with
-       the padding left in, the sandbox rests a strip too low and loses its own
-       bottom row of plots. */
-    /* Scrolled to by `maybeSnap` below, not by CSS snap. The negative margin
+    /* Scrolled to by `maybeSnap` below. The negative margin
        cancels the page's scroll padding: this one is exactly a screen tall, so
        with the padding left in it rests a strip low and loses its bottom row. */
     scroll-margin-block: calc(-1 * var(--snap-pad)) 0;
@@ -797,7 +737,7 @@
 
   .broke button {
     margin-block-start: 0.4rem;
-    min-block-size: 2.2rem;
+    min-block-size: 2.75rem;
     padding-inline: 1rem;
     border: 1px solid var(--accent);
     border-radius: 999px;
@@ -851,8 +791,8 @@
     inset-block-start: 0.5rem;
     inset-inline-end: 0.6rem;
     z-index: 1;
-    min-inline-size: 2rem;
-    min-block-size: 2rem;
+    min-inline-size: 2.75rem;
+    min-block-size: 2.75rem;
     border: 1px solid #a99980;
     border-radius: 999px;
     background: var(--paper-bright);
@@ -936,7 +876,8 @@
 
   fieldset button,
   .toolbar button {
-    min-block-size: 1.9rem;
+    min-inline-size: 2.75rem;
+    min-block-size: 2.75rem;
     padding-block: 0.2rem;
     padding-inline: 0.65rem;
     border: 1px solid #a99980;
@@ -962,7 +903,7 @@
   }
 
 
-  /* the run button never resizes underfoot (owner review 2026-07-13) */
+  /* the run button never resizes underfoot */
   button.steady {
     min-inline-size: 4.8rem;
   }
@@ -970,7 +911,7 @@
   button.look {
     display: grid;
     place-items: center;
-    inline-size: 2.2rem;
+    inline-size: 2.75rem;
     padding-inline: 0;
   }
 
@@ -1008,6 +949,34 @@
 
     .plot.zoomed {
       aspect-ratio: auto;
+    }
+  }
+
+  /* Short landscape phones need the same stacked reading order as portrait,
+     with a room tall enough to inspect. Height is the limiting dimension here,
+     not width: modern phones commonly exceed the width breakpoint sideways. */
+  @media (orientation: landscape) and (max-height: 32rem) {
+    .sandbox,
+    .sandbox.full {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-areas:
+        'head head'
+        'room room'
+        'gtax phase'
+        'lorenz gstake'
+        'hist ccdf'
+        'time ctrl'
+        'kbd kbd';
+      grid-template-rows: auto minmax(18rem, 65svh) auto auto auto auto auto;
+    }
+
+    .sandbox.full {
+      block-size: auto;
+      min-block-size: 100svh;
+    }
+
+    .plot {
+      aspect-ratio: 1;
     }
   }
 </style>

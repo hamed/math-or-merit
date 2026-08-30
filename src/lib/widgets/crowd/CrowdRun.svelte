@@ -6,12 +6,12 @@
   import { createTicker } from '../shared/ticker';
   import { countTrades, dollars, dollarsCompact, percent } from '../shared/format';
   import { logBins, toDollars } from '../distribution/binning';
-  import { CROWD_BETA, CROWD_N, CROWD_SEED, CROWD_START_DOLLARS, CROWD_TRADES, DUST_DOLLARS } from '../shared/presets';
+  import { CROWD_BETA, CROWD_N, CROWD_START_DOLLARS, CROWD_TRADES, DUST_DOLLARS } from '../shared/presets';
 
   const DURATION_MS = 7000;
   const HEIGHT = 300;
 
-  const engine = createEngine({ n: CROWD_N, beta: CROWD_BETA, seed: CROWD_SEED });
+  let engine = $state(createEngine({ n: CROWD_N, beta: CROWD_BETA }));
 
   let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -108,7 +108,7 @@
 
   function run(): void {
     if (running) return;
-    if (finished) engine.reset();
+    if (finished) engine = createEngine({ n: CROWD_N, beta: CROWD_BETA });
     elapsed = 0;
     finished = false;
     running = true;
@@ -120,7 +120,7 @@
     running = false;
     finished = false;
     elapsed = 0;
-    engine.reset();
+    engine = createEngine({ n: CROWD_N, beta: CROWD_BETA });
     trades = 0;
     revision++;
     measureAndDraw();

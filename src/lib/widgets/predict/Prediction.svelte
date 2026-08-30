@@ -46,25 +46,30 @@
 <div class="widget" aria-label="Commit to a prediction before running the room">
   <p class="kicker">Lock in a guess — before the room answers</p>
 
-  <div class="options" role="radiogroup" aria-label="What does the room look like after a hundred thousand fair trades?">
+  <fieldset class="options">
+    <legend class="visually-hidden">What does the room look like after a hundred thousand fair trades?</legend>
     {#each PREDICTIONS as option (option.id)}
-      <button
-        type="button"
+      <label
         class="option"
-        role="radio"
-        aria-checked={session.prediction === option.id}
         class:selected={session.prediction === option.id}
-        onclick={() => choose(option.id)}
       >
+        <input
+          class="visually-hidden"
+          type="radio"
+          name="prediction"
+          value={option.id}
+          checked={session.prediction === option.id}
+          onchange={() => choose(option.id)}
+        />
         <svg viewBox="0 0 96 64" aria-hidden="true">
           {#each PICTOGRAMS[option.id] as r, i}
             <circle cx={spots[i].x} cy={spots[i].y} r={Math.max(1, r)} />
           {/each}
         </svg>
         <span>{option.label}</span>
-      </button>
+      </label>
     {/each}
-  </div>
+  </fieldset>
 
   <p class="caption" aria-live="polite">
     {#if session.prediction === null}
@@ -80,6 +85,10 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
     gap: 0.7rem;
+    min-inline-size: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
   }
 
   .option {
@@ -104,7 +113,7 @@
     border-color: #8b3f2b;
   }
 
-  .option:focus-visible {
+  .option:focus-within {
     outline: 3px solid rgb(139 63 43 / 35%);
     outline-offset: 2px;
   }

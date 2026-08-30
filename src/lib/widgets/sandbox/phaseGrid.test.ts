@@ -3,6 +3,7 @@ import {
   addMeasurement,
   clearPhaseData,
   curveVs,
+  decodePhaseCells,
   exportCsv,
   importCsv,
   pointsFor,
@@ -52,5 +53,26 @@ describe('phase record', () => {
 
   it('rejects malformed CSV rows without dying', () => {
     expect(importCsv('stake,tax,n,gini,count\nnot,a,row,at,all\n0.1,0.1,64,abc,2')).toBe(0);
+  });
+
+  it('keeps arbitrary finite economic values while enforcing CSV structure', () => {
+    const csv = [
+      'stake,tax,n,gini,count',
+      '-2,0,64,-0.5,2',
+      '0,0,1,0.2,1',
+      '0,0,64,0.2,1.5',
+    ].join('\n');
+    expect(importCsv(csv)).toBe(1);
+    expect(pointsFor(64)).toEqual([{ stake: -2, tax: 0, n: 64, gini: -0.5, count: 2 }]);
+  });
+
+  it('filters malformed persisted cells without discarding valid ones', () => {
+    const cells = decodePhaseCells(JSON.stringify({
+      '-2|0|64': { sum: -1, count: 2 },
+      '0.2|0.1|1': { sum: 0.5, count: 1 },
+      '0.2|0.1|64': { sum: 'bad', count: 1 },
+      broken: null,
+    }));
+    expect(cells).toEqual({ '-2|0|64': { sum: -1, count: 2 } });
   });
 });

@@ -4,6 +4,7 @@ import { ROOM_BETA, ROOM_N } from './presets';
 
 export interface LoggedRun {
   readonly seed: number;
+  readonly beta: number;
   readonly trades: number;
   readonly wealth: Float64Array;
   readonly winner: number;
@@ -17,5 +18,5 @@ export function completedRoomRun(seed: number, trades: number, n = ROOM_N, beta 
   const wealth = Float64Array.from(engine.state.wealth);
   let winner = 0;
   for (let i = 1; i < wealth.length; i++) if (wealth[i] > wealth[winner]) winner = i;
-  return { seed, trades, wealth, winner, topShare: measureWealth(wealth).topShare };
+  return { seed, beta, trades, wealth, winner, topShare: measureWealth(wealth).topShare };
 }

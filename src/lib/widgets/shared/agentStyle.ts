@@ -19,8 +19,7 @@ export const AGENT_SHAPES = ['circle', 'triangle', 'square', 'pentagon', 'hexago
 
 /**
  * The wider pool for randomized rooms (sandbox): everything above plus the
- * upside-down triangle and polygons up to the octagon (owner review
- * 2026-07-13). `AGENT_SHAPES` stays five so the deterministic cycle — and
+ * upside-down triangle and polygons up to the octagon. `AGENT_SHAPES` stays five so the deterministic cycle — and
  * every earlier beat's look — is untouched.
  */
 export const EXTENDED_SHAPES = [...AGENT_SHAPES, 'triangleDown', 'heptagon', 'octagon'] as const;
@@ -65,6 +64,10 @@ export const FILLS: Record<ColorName, string> = {
 export const COIN_FILL = '#e9c96a';
 export const COIN_STROKE = '#8a6a2a';
 
+/** Single-family fallback used when individual display styles are hidden. */
+export const CLASSIC_AGENT_FILL = 'rgb(189 98 69 / 26%)';
+export const CLASSIC_AGENT_STROKE = '#96543c';
+
 export interface AgentStyle {
   readonly fill: string;
   readonly stroke: string;
@@ -100,7 +103,7 @@ export function assignStyles(n: number): AgentStyle[] {
 /**
  * Random style table for the sandbox: same palette and the same
  * stroke-never-matches-fill rule, but shuffled — the deterministic cycle
- * reads as one shape per column on a grid room (owner review 2026-07-13).
+ * reads as one shape per column on a grid room.
  */
 export function randomStyles(n: number, rand: () => number = Math.random): AgentStyle[] {
   const styles: AgentStyle[] = [];
@@ -180,7 +183,7 @@ const HEADLINE_TEMPLATES: Record<AgentShape, readonly WinnerHeadline[]> = {
 
 /**
  * Headlines for the classic (uniform terracotta) look, where the only visible
- * "trait" is WHERE the winner stood (owner review 2026-07-14). Just as inert,
+ * "trait" is WHERE the winner stood. Just as inert,
  * just as confident.
  */
 const LOCATION_HEADLINES: readonly WinnerHeadline[] = [

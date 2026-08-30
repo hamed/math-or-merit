@@ -34,8 +34,13 @@ jobs:
 
       - run: npm ci
 
-      # The suite is ~2s; a broken build should never reach the reviewers.
+      - run: npm run check
+
       - run: npm test
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:browser
 
       - run: npm run build
         env:
