@@ -1,4 +1,6 @@
 <script lang="ts" module>
+  import { WHEEL_GESTURE_REST_MS } from '../shared/gesture';
+
   let fontsRefreshHooked = false;
 
   interface SceneNav {
@@ -13,18 +15,13 @@
   let touchStartY: number | null = null;
   let wheelGesture: SceneNav | undefined;
   let wheelRestTimer: number | undefined;
-  // Trackpad tails regularly pause for more than one frame under rendering
-  // load. Keep the gesture claimed across those gaps so the tail cannot turn
-  // into native scrolling immediately after a scene releases.
-  const WHEEL_REST_MS = 300;
-
   function holdWheelGesture(nav: SceneNav): void {
     wheelGesture = nav;
     if (wheelRestTimer !== undefined) window.clearTimeout(wheelRestTimer);
     wheelRestTimer = window.setTimeout(() => {
       wheelGesture = undefined;
       wheelRestTimer = undefined;
-    }, WHEEL_REST_MS);
+    }, WHEEL_GESTURE_REST_MS);
   }
 
   function clearWheelGesture(): void {

@@ -8,8 +8,8 @@ describe('guidedRunAction', () => {
     expect(guidedRunAction('finished', 1)).toBe('pass');
   });
 
-  it('reverses an active or completed run and releases before the start', () => {
-    expect(guidedRunAction('finished', -1)).toBe('undo');
+  it('reverses an active run without destroying a completed result', () => {
+    expect(guidedRunAction('finished', -1)).toBe('pass');
     expect(guidedRunAction('running', -1)).toBe('undo');
     expect(guidedRunAction('idle', -1)).toBe('pass');
   });

@@ -26,6 +26,10 @@
     let frame: number | undefined;
     const align = () => {
       if (!followingInitialHash) return;
+      if (location.hash !== `#${id}`) {
+        followingInitialHash = false;
+        return;
+      }
       if (frame !== undefined) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         if (flush) {
@@ -42,7 +46,9 @@
       document.addEventListener(DEFERRED_MOUNTED_EVENT, align);
       window.addEventListener('wheel', release, { once: true, passive: true });
       window.addEventListener('touchstart', release, { once: true, passive: true });
+      window.addEventListener('pointerdown', release, { once: true, passive: true });
       window.addEventListener('keydown', release, { once: true });
+      window.addEventListener('hashchange', release, { once: true });
     }
     const timeout = window.setTimeout(release, 5000);
     return () => {
@@ -52,7 +58,9 @@
       document.removeEventListener(DEFERRED_MOUNTED_EVENT, align);
       window.removeEventListener('wheel', release);
       window.removeEventListener('touchstart', release);
+      window.removeEventListener('pointerdown', release);
       window.removeEventListener('keydown', release);
+      window.removeEventListener('hashchange', release);
     };
   });
 </script>
