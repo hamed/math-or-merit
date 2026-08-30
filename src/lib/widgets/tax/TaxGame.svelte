@@ -193,7 +193,7 @@
       <strong>The room got away.</strong> You held it for {seconds}s and {countTrades(trades)} trades. The rule never
       changed — the room simply outpaced your taps. Nothing was unfair along the way.
     {:else if !started}
-      Tap a shape that has grown too fat: a quarter of its wealth is pulled out and shared back equally, all {ROOM_N} of them.
+      Choose a large holder: a quarter of its wealth is collected and returned in equal shares to all {ROOM_N} participants.
       Pick how hard the room trades — a higher stake condenses faster.
     {:else if !running}
       Paused. The room waits — it won’t when you’re back.

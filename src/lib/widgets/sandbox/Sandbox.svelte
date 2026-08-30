@@ -332,7 +332,7 @@
     const blob = new Blob([exportCsv()], { type: 'text/csv' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'merit-or-math-phase-points.csv';
+    a.download = 'merit-or-math-outcome-points.csv';
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -600,12 +600,12 @@
       </fieldset>
       <fieldset>
         <legend>map data</legend>
-        <button type="button" title="Download your measured phase points as CSV" onclick={downloadCsv}>⤓</button>
-        <button type="button" title="Merge a CSV of measured phase points" onclick={() => csvInput?.click()}>⤒</button>
+        <button type="button" title="Download your measured outcome points as CSV" onclick={downloadCsv}>⤓</button>
+        <button type="button" title="Merge a CSV of measured outcome points" onclick={() => csvInput?.click()}>⤒</button>
         <button
           type="button"
           title="Forget every measured point"
-          onclick={() => window.confirm('Wipe every measured phase point?') && clearPhaseData()}
+          onclick={() => window.confirm('Wipe every measured outcome point?') && clearPhaseData()}
         >wipe</button>
         <input bind:this={csvInput} type="file" accept=".csv,text/csv" class="visually-hidden" onchange={uploadCsv} />
       </fieldset>

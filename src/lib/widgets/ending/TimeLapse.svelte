@@ -140,7 +140,7 @@
 
   <p class="caption" aria-live="polite">
     {#if finished}
-      One circle holds everything the pixels can show. Run a different room — a different circle ends up as the one. It is always someone. It is never no one.
+      One circle holds everything the pixels can show. Run a different room and chance chooses again — perhaps another circle, perhaps the same one. It is always someone. It is never no one.
     {:else if running}
       Each second covers more trades than the last. Watch the counter, not the clock.
     {:else}

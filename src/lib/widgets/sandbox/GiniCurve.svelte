@@ -106,10 +106,10 @@
     x={xAxis}
     y={yAxis}
     title={`Gini vs ${axis} — at ${cut.fixedUsed !== null ? percentNumber(cut.fixedUsed) + '% ' : 'your '}${other}`}
-    description={`A cut through YOUR measured points: how the settled Gini responds to the ${axis} dial with the ${other} held fixed. Hover the map to preview other cuts.`}
+    description={`A cut through YOUR measured finite-run outcomes: how Gini responds to the ${axis} dial with the ${other} held fixed. Hover the map to preview other cuts.`}
     sharedZero={!xLog && !yLog}
     onHoverChange={(inside) => (hovered = inside)}
-    ariaLabel={`Gini as a function of the ${axis} dial, cut through the measured phase points at ${other} ${percent(fixedRequested)}. Click an axis to toggle its scale.`}
+    ariaLabel={`Gini as a function of the ${axis} dial, cut through the measured outcome points at ${other} ${percent(fixedRequested)}. Click an axis to toggle its scale.`}
   >
     {#snippet children({ xOf, yOf, frame })}
       {@const d = buildPath(xOf, yOf)}
@@ -128,7 +128,7 @@
         {/each}
       {:else}
         <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 - 5} text-anchor="middle">no measurements on this cut yet —</text>
-        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 + 6} text-anchor="middle">hold the dials and let a run settle</text>
+        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 + 6} text-anchor="middle">hold the dials and complete a run</text>
       {/if}
       {#if !(xLog && dial <= 0)}
         <line class="section" x1={xOf(Math.max(dial, xLog ? X_FLOOR : 0))} y1={frame.y} x2={xOf(Math.max(dial, xLog ? X_FLOOR : 0))} y2={frame.y + frame.h} />
@@ -138,7 +138,7 @@
           {@const ix = xOf(Math.max(dial, xLog ? X_FLOOR : 0))}
           {@const iy = yOf(Math.max(atDial, yLog ? yFloor : 0))}
           <circle class="at-dot" cx={ix} cy={iy} r="2.6" />
-          <text class="at-label" x={ix + 5} y={iy - 4} text-anchor="start">settles near {atDial.toFixed(2)}</text>
+          <text class="at-label" x={ix + 5} y={iy - 4} text-anchor="start">measured near {atDial.toFixed(2)}</text>
         {/if}
       </g>
     {/snippet}

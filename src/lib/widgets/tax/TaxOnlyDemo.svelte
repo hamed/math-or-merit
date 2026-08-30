@@ -89,7 +89,7 @@
     {:else if running}
       {levies} {levies === 1 ? 'levy' : 'levies'} — Gini {gini.toFixed(2)}. The dividend lifts the many faster than the levy dents the few.
     {:else}
-      Equal again, in {levies} levies, no force involved. Redistribution alone always wins — <em>when nothing pushes back</em>. Now turn the trading back on…
+      Equal again, in {levies} levies. With trading frozen, redistribution is the only force acting. Now turn the trading back on…
     {/if}
   </p>
 
