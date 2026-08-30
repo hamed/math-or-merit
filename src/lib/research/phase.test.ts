@@ -1,33 +1,48 @@
 import { describe, expect, it } from 'vitest';
-import { contourSegments, fitCriticalCurve, IncrementalPhaseCell, runPhaseCell } from './phase';
+import {
+  contourSegments,
+  fitSquareRelationship,
+  IncrementalOutcomeRun,
+  OUTCOME_PROTOCOL_VERSION,
+  runOutcome,
+} from './phase';
 
-describe('runPhaseCell', () => {
-  const base = { n: 50, levyEvery: 50, trades: 20_000, burnIn: 10_000, tailSamples: 5, seed: 7 };
+describe('runOutcome', () => {
+  const base = {
+    version: OUTCOME_PROTOCOL_VERSION,
+    n: 50,
+    tradesPerRound: 50,
+    levyEveryRounds: 1,
+    trades: 20_000,
+    burnIn: 10_000,
+    tailSamples: 5,
+    seed: 7,
+  } as const;
 
   it('is deterministic under the same seed', () => {
-    const a = runPhaseCell({ ...base, beta: 0.2, taxRate: 0.02 });
-    const b = runPhaseCell({ ...base, beta: 0.2, taxRate: 0.02 });
-    expect(a).toBe(b);
+    const a = runOutcome({ ...base, beta: 0.2, taxRate: 0.02 });
+    const b = runOutcome({ ...base, beta: 0.2, taxRate: 0.02 });
+    expect(a).toEqual(b);
   });
 
   it('has the same estimator regardless of incremental batch size', () => {
     const config = { ...base, beta: 0.2, taxRate: 0.02 };
-    const expected = runPhaseCell(config);
-    const incremental = new IncrementalPhaseCell(config);
+    const expected = runOutcome(config);
+    const incremental = new IncrementalOutcomeRun(config);
     while (!incremental.done) incremental.step(137);
-    expect(incremental.result()).toBe(expected);
+    expect(incremental.result()).toEqual(expected);
   });
 
   it('concentrates more at higher stakes when untaxed', () => {
-    const low = runPhaseCell({ ...base, beta: 0.05, taxRate: 0 });
-    const high = runPhaseCell({ ...base, beta: 0.4, taxRate: 0 });
-    expect(high).toBeGreaterThan(low);
+    const low = runOutcome({ ...base, beta: 0.05, taxRate: 0 });
+    const high = runOutcome({ ...base, beta: 0.4, taxRate: 0 });
+    expect(high.gini).toBeGreaterThan(low.gini);
   });
 
   it('concentrates less as the levy rises at a fixed stake', () => {
-    const untaxed = runPhaseCell({ ...base, beta: 0.3, taxRate: 0 });
-    const taxed = runPhaseCell({ ...base, beta: 0.3, taxRate: 0.1 });
-    expect(taxed).toBeLessThan(untaxed);
+    const untaxed = runOutcome({ ...base, beta: 0.3, taxRate: 0 });
+    const taxed = runOutcome({ ...base, beta: 0.3, taxRate: 0.1 });
+    expect(taxed.gini).toBeLessThan(untaxed.gini);
   });
 });
 
@@ -54,17 +69,28 @@ describe('contourSegments', () => {
   });
 });
 
-describe('fitCriticalCurve', () => {
+describe('fitSquareRelationship', () => {
   it('recovers a planted tax = c·beta² frontier', () => {
     const c = 0.42;
     const betas = [0.1, 0.2, 0.3, 0.4, 0.5];
     const taxes = Array.from({ length: 25 }, (_, i) => i * 0.005);
     // linear-in-tax columns crossing 0.5 exactly at tax = c·beta²
     const grid = taxes.map((tax) => betas.map((beta) => 0.5 + (c * beta * beta - tax)));
-    const fit = fitCriticalCurve(grid, betas, taxes, 0.5);
+    const fit = fitSquareRelationship(grid, betas, taxes, 0.5, 'decreases');
     expect(fit).not.toBeNull();
     expect(fit!.c).toBeCloseTo(c, 3);
     expect(fit!.crossings.length).toBe(betas.length);
+  });
+
+  it('recovers the same frontier from an increasing participation metric', () => {
+    const c = 0.35;
+    const betas = [0, 0.1, 0.2, 0.3, 0.4];
+    const taxes = Array.from({ length: 25 }, (_, i) => i * 0.005);
+    const grid = taxes.map((tax) => betas.map((beta) => 10 + tax - c * beta * beta));
+    const fit = fitSquareRelationship(grid, betas, taxes, 10, 'increases');
+    expect(fit).not.toBeNull();
+    expect(fit!.c).toBeCloseTo(c, 3);
+    expect(fit!.crossings).toHaveLength(betas.length - 1); // beta = 0 is not fit evidence
   });
 
   it('returns null when fewer than two columns cross', () => {
@@ -72,6 +98,6 @@ describe('fitCriticalCurve', () => {
       [0.9, 0.9],
       [0.8, 0.8],
     ];
-    expect(fitCriticalCurve(grid, [0.1, 0.2], [0, 0.01], 0.5)).toBeNull();
+    expect(fitSquareRelationship(grid, [0.1, 0.2], [0, 0.01], 0.5, 'decreases')).toBeNull();
   });
 });
