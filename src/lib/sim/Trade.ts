@@ -12,9 +12,10 @@ export function applyYardSaleTrade(
   b: number,
   beta: number,
   firstWins: boolean,
-): void {
+): number {
   const stake = beta * Math.min(wealth[a], wealth[b]);
   const sign = firstWins ? 1 : -1;
   wealth[a] += sign * stake;
   wealth[b] -= sign * stake;
+  return stake;
 }

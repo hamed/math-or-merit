@@ -5,23 +5,37 @@ import { applyYardSaleTrade, createRandomSource, type RandomSource } from '$lib/
  * inputs (rightly); the sandbox in expert mode produces negative wealth on
  * purpose and still wants numbers on screen. Non-finite input → NaN.
  */
-export function measureToy(wealth: ArrayLike<number>): { gini: number; topShare: number } {
+export interface ToyMetrics {
+  readonly gini: number;
+  readonly topShare: number;
+  readonly effectiveParticipants: number;
+}
+
+export function measureToy(wealth: ArrayLike<number>): ToyMetrics {
   const n = wealth.length;
   const sorted = new Float64Array(n);
   let sum = 0;
+  let sumSquares = 0;
   let max = -Infinity;
   for (let i = 0; i < n; i++) {
     const v = wealth[i];
-    if (!Number.isFinite(v)) return { gini: NaN, topShare: NaN };
+    if (!Number.isFinite(v)) return { gini: NaN, topShare: NaN, effectiveParticipants: NaN };
     sorted[i] = v;
     sum += v;
+    sumSquares += v * v;
     if (v > max) max = v;
   }
-  if (sum === 0) return { gini: NaN, topShare: NaN };
+  if (sum === 0 || sumSquares === 0) {
+    return { gini: NaN, topShare: NaN, effectiveParticipants: NaN };
+  }
   sorted.sort();
   let weighted = 0;
   for (let i = 0; i < n; i++) weighted += (i + 1) * sorted[i];
-  return { gini: (2 * weighted) / (n * sum) - (n + 1) / n, topShare: max / sum };
+  return {
+    gini: (2 * weighted) / (n * sum) - (n + 1) / n,
+    topShare: max / sum,
+    effectiveParticipants: (sum * sum) / sumSquares,
+  };
 }
 
 export interface SandboxConfig {
@@ -119,11 +133,22 @@ export class SandboxWorld {
   private _rounds = 0;
   private _leviedDollars = 0;
   /** Share volume won by trade winners since the last round point. */
-  private _volumeBucket = 0;
+  /** Share transferred by ordinary trades since the last measurement round. */
+  private _tradeVolumeBucket = 0;
+  /** Share collected by structural and manual levies since the last round. */
+  private _levyFlowBucket = 0;
 
   readonly giniSeries = new RoundSeries();
   readonly topShareSeries = new RoundSeries();
-  readonly volumeSeries = new RoundSeries();
+  readonly effectiveParticipantsSeries = new RoundSeries();
+  /** Dollar value transferred through ordinary trades per measurement round. */
+  readonly tradeVolumeSeries = new RoundSeries();
+  /** Transitional name retained until all consumers move to the explicit unit. */
+  readonly volumeSeries = this.tradeVolumeSeries;
+  /** Ordinary trade volume divided by total wealth; one means one roomful. */
+  readonly wealthTurnoverSeries = new RoundSeries();
+  /** Dollar value collected by all levy paths per measurement round. */
+  readonly levyFlowSeries = new RoundSeries();
   /** Personal wealth (in dollars) of TRACKED_AGENTS evenly-spread agents. */
   readonly agentSeries: readonly RoundSeries[];
   readonly trackedAgents: readonly number[];
@@ -137,8 +162,23 @@ export class SandboxWorld {
   beta = 0.2;
   /** Flat wealth levy per round; 0 = off. */
   taxRate = 0;
-  /** Trades between levies (a "round" is n trades). */
-  taxEvery = 100;
+  /** The measurement clock. A normal round is one trade per participant. */
+  tradesPerRound: number;
+  /** The policy clock, expressed in measurement rounds. */
+  levyEveryRounds = 1;
+
+  /**
+   * Transitional compatibility for existing presets: their old value meant
+   * both one measurement window and one levy interval.
+   */
+  get taxEvery(): number {
+    return this.tradesPerRound;
+  }
+
+  set taxEvery(trades: number) {
+    this.tradesPerRound = trades;
+    this.levyEveryRounds = 1;
+  }
 
   constructor(config: SandboxConfig) {
     const { n, startDollars, seed } = config;
@@ -172,6 +212,7 @@ export class SandboxWorld {
     this._wealth = Float64Array.from(this._initial);
     this._totalDollars = n * startDollars;
     this.random = createRandomSource(seed);
+    this.tradesPerRound = n;
     const k = Math.min(TRACKED_AGENTS, n);
     this.trackedAgents = Array.from({ length: k }, (_, i) => Math.floor((i * n) / k));
     this.agentSeries = this.trackedAgents.map(() => new RoundSeries());
@@ -214,10 +255,19 @@ export class SandboxWorld {
         const a = Math.floor(this.random.next() * n);
         let b = Math.floor(this.random.next() * (n - 1));
         if (b >= a) b++;
-        this._volumeBucket += beta * Math.min(w[a], w[b]);
-        applyYardSaleTrade(w, a, b, beta, this.random.next() < 0.5);
+        this._tradeVolumeBucket += applyYardSaleTrade(w, a, b, beta, this.random.next() < 0.5);
       }
-      if (this._trades % this.taxEvery === 0) this.endRound();
+      const measurementDue =
+        Number.isSafeInteger(this.tradesPerRound) &&
+        this.tradesPerRound > 0 &&
+        this._trades % this.tradesPerRound === 0;
+      const levyInterval = this.tradesPerRound * this.levyEveryRounds;
+      const levyDue =
+        Number.isSafeInteger(levyInterval) &&
+        levyInterval > 0 &&
+        this._trades % levyInterval === 0;
+      if (levyDue) this.applyStructuralLevy();
+      if (measurementDue) this.endMeasurementRound();
     }
   }
 
@@ -235,35 +285,39 @@ export class SandboxWorld {
     for (let i = 0; i < w.length; i++) w[i] += dividend;
     const dollars = takeShare * this._totalDollars;
     this._leviedDollars += dollars;
+    this._levyFlowBucket += takeShare;
     return dollars;
   }
 
-  /**
-   * Round boundary: apply the flat levy, then record every series point.
-   * The levy is inlined rather than borrowed from research/ — the research
-   * primitive validates rates to [0, 1], and this toy deliberately does not.
-   * (A negative rate is a wealth-proportional subsidy, financed equally.)
-   */
-  private endRound(): void {
+  /** Apply the structural rule on its own clock. */
+  private applyStructuralLevy(): void {
     const rate = this.taxRate;
-    if (rate !== 0) {
-      const w = this._wealth;
-      let revenueShare = 0;
-      for (let i = 0; i < w.length; i++) {
-        const take = w[i] * rate;
-        w[i] -= take;
-        revenueShare += take;
-      }
-      const dividend = revenueShare / w.length;
-      for (let i = 0; i < w.length; i++) w[i] += dividend;
-      this._leviedDollars += revenueShare * this._totalDollars;
+    if (rate === 0) return;
+    const w = this._wealth;
+    let revenueShare = 0;
+    for (let i = 0; i < w.length; i++) {
+      const take = w[i] * rate;
+      w[i] -= take;
+      revenueShare += take;
     }
+    const dividend = revenueShare / w.length;
+    for (let i = 0; i < w.length; i++) w[i] += dividend;
+    this._leviedDollars += revenueShare * this._totalDollars;
+    this._levyFlowBucket += revenueShare;
+  }
+
+  /** Record every metric on the fixed measurement clock. */
+  private endMeasurementRound(): void {
     this._rounds++;
     const m = measureToy(this._wealth);
     this.giniSeries.push(m.gini);
     this.topShareSeries.push(m.topShare);
-    this.volumeSeries.push(this._volumeBucket * this._totalDollars);
-    this._volumeBucket = 0;
+    this.effectiveParticipantsSeries.push(m.effectiveParticipants);
+    this.tradeVolumeSeries.push(this._tradeVolumeBucket * this._totalDollars);
+    this.wealthTurnoverSeries.push(this._tradeVolumeBucket);
+    this.levyFlowSeries.push(this._levyFlowBucket * this._totalDollars);
+    this._tradeVolumeBucket = 0;
+    this._levyFlowBucket = 0;
     for (let k = 0; k < this.trackedAgents.length; k++) {
       this.agentSeries[k].push(this._wealth[this.trackedAgents[k]] * this._totalDollars);
     }
@@ -276,10 +330,14 @@ export class SandboxWorld {
     this._trades = 0;
     this._rounds = 0;
     this._leviedDollars = 0;
-    this._volumeBucket = 0;
+    this._tradeVolumeBucket = 0;
+    this._levyFlowBucket = 0;
     this.giniSeries.reset();
     this.topShareSeries.reset();
-    this.volumeSeries.reset();
+    this.effectiveParticipantsSeries.reset();
+    this.tradeVolumeSeries.reset();
+    this.wealthTurnoverSeries.reset();
+    this.levyFlowSeries.reset();
     for (const s of this.agentSeries) s.reset();
   }
 }

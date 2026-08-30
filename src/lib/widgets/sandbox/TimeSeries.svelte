@@ -41,7 +41,7 @@
     if (m === 'agents') {
       return world.agentSeries.map((s, k) => ({ s, color: agentColors[k % agentColors.length] }));
     }
-    return [{ s: world.volumeSeries, color: 'var(--accent)' }];
+    return [{ s: world.tradeVolumeSeries, color: 'var(--accent)' }];
   }
 
   const view = $derived.by(() => {
