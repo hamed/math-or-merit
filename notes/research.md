@@ -139,6 +139,67 @@ available through `npm run research`.
 - **Source lead:** [Boghosian (2014)](https://arxiv.org/abs/1407.6851).
 - **Essay-safe wording:** "Inside this toy exchange process..."
 
+### C14 - The equal-agent model establishes sufficiency, not a complete explanation
+
+- **Status:** Established by the implemented model together with C4.
+- **Conditions:** Equal initial wealth, identical agents, uniformly random distinct
+  partners, the poorer-wealth stake, and an independent fair coin.
+- **Evidence:** No personal trait enters the simulation; the baseline still condenses
+  almost surely under C4's assumptions.
+- **Limitation:** This does not claim that talent, effort, institutions, inheritance,
+  power, or policy are absent from real fortunes. It establishes only that unequal merit
+  is not necessary for concentration in this mechanism.
+- **Essay-safe wording:** "We removed every difference between people. The concentration
+  remained."
+
+### C15 - The demonstrated counterforce is levy plus equal return
+
+- **Status:** Established for the implemented discrete intervention.
+- **Conditions:** A proportional levy on current wealth followed immediately by an equal
+  per-person dividend inside a closed, conserved room.
+- **Evidence:** A proportional levy without return scales every holding equally and does
+  not change relative shares. The equal dividend supplies the redistributive term.
+- **Limitation:** The dividend can illustrate a broadly shared benefit, not arbitrary
+  government expenditure; no real tax-code outcome follows.
+- **Essay-safe wording:** "The rule takes the same fraction from every fortune and returns
+  the pool equally."
+
+### C16 - Effective participants measures concentration as an equivalent count
+
+- **Status:** Established and tested.
+- **Definition:** For wealth shares `s_i`, `N_eff = 1 / sum(s_i^2)`.
+- **Endpoints:** Equal shares among `N` agents give `N`; a single owner gives one.
+- **Limitation:** This is a concentration-equivalent count, not a legal, behavioral, or
+  subsistence definition of economic participation.
+- **Essay-safe wording:** "This room has the same concentration as an equal room of this
+  many participants."
+
+### C17 - Ordinary turnover can collapse while trade events continue
+
+- **Status:** Observable under a predeclared finite-run protocol.
+- **Definition:** Sum the wealth stakes won in ordinary trades during one measurement
+  round and divide by total wealth. Count each transfer once.
+- **Guard:** Levies and equal dividends are recorded separately and never enter ordinary
+  turnover.
+- **Limitation:** This is model wealth turnover, not GDP, production, consumption, or
+  transaction-tax revenue.
+- **Essay-safe wording:** "The coin can keep flipping after almost nothing meaningful is
+  left to move."
+
+### C18 - Stake and redistribution are compared through a measured square relationship
+
+- **Status:** Literature-motivated and locally measured, not a phase theorem.
+- **Conditions:** The fair Yard-Sale rule, fixed levy cadence, calibrated finite parameter
+  range, and a predeclared continuous outcome level.
+- **Evidence:** Transaction variance scales with `beta²`; the Fokker-Planck control
+  parameter compares redistribution with that variance. Local ensembles may fit
+  `tau = c * beta²` to a selected iso-outcome contour.
+- **Limitation:** The coefficient depends on the exact discrete protocol and chosen
+  outcome. The curve is not a universal tax law or phase boundary.
+- **Source:** [Boghosian (2014)](https://arxiv.org/abs/1407.6851).
+- **Essay-safe wording:** "In this measured range, doubling the stake calls for roughly
+  four times the counterforce to preserve the same participation level."
+
 ## Workstream index
 
 - [Prioritized research backlog](research/backlog.md)
@@ -156,6 +217,7 @@ available through `npm run research`.
 - [Additional mechanism research](research/extensions.md)
 - [Idea disposition audit](research/idea-disposition.md)
 - [Protocol-v1 results](research/results.md)
+- [Human-experience audit and author interview](../reviews/2026-08-30-human-experience-audit/REPORT.md)
 
 ## Promotion gate
 
