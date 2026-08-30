@@ -63,7 +63,10 @@ export function createFixedTicker(
   const clock = createFixedStepClock(stepMs, maxCatchUpMs);
   const ticker = createTicker((elapsedMs) => {
     const steps = clock.advance(elapsedMs);
-    for (let i = 0; i < steps; i++) tick(stepMs);
+    for (let i = 0; i < steps; i++) {
+      if (!ticker.running) break;
+      tick(stepMs);
+    }
   });
 
   return {

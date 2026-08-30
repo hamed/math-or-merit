@@ -37,7 +37,6 @@
     if (engine.config.beta === 0) {
       // Nothing at stake, nothing happens — draw once and idle.
       revision++;
-      running = false;
       ticker.stop();
       return;
     }

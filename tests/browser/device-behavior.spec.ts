@@ -117,6 +117,26 @@ test('expert start money accepts zero and negative experiments without crashing'
   expect(errors).toEqual([]);
 });
 
+test('a running stake dial idles at zero and resumes above zero', async ({ page }) => {
+  await page.goto('/#dial', { waitUntil: 'domcontentloaded' });
+  const dial = page.locator('[aria-label="Vary the stake and watch the speed change"]');
+  await loadDeferred(page, 'stake dial', dial);
+
+  await dial.getByRole('button', { name: 'Run', exact: true }).click();
+  const stake = dial.getByRole('slider', { name: "Stake as a percentage of the poorer trader's wealth" });
+  const setStake = (value: string) => stake.evaluate((input, next) => {
+    (input as HTMLInputElement).value = next;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
+
+  await setStake('0');
+  await expect(dial.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+  await expect(dial.locator('output')).toHaveText('0 trades');
+
+  await setStake('20');
+  await expect.poll(() => dial.locator('output').textContent()).not.toBe('0 trades');
+});
+
 test('prediction choices use native radio keyboard behavior', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const radios = page.getByRole('radio');
@@ -169,6 +189,41 @@ test('separate wheel gestures complete successive actions and reverse one action
   await page.waitForTimeout(2200);
   const reversed = await page.evaluate(() => scrollY);
   expect(reversed).toBeLessThan(second);
+});
+
+test('a trackpad inertia tail advances only one authored action', async ({ browser }) => {
+  async function resultingScroll(deltas: readonly number[]): Promise<number> {
+    const page = await browser.newPage({ reducedMotion: 'no-preference', viewport: { width: 1440, height: 900 } });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
+    await page.locator('.pin-scene').nth(1).scrollIntoViewIfNeeded();
+    for (const delta of deltas) {
+      await page.mouse.wheel(0, delta);
+      await page.waitForTimeout(110);
+    }
+    await page.waitForTimeout(2600);
+    const result = await page.evaluate(() => scrollY);
+    await page.close();
+    return result;
+  }
+
+  const oneGesture = await resultingScroll([240]);
+  const inertialGesture = await resultingScroll([
+    240, 190, 150, 115, 90, 70, 55, 42, 32, 24, 19, 15,
+    12, 10, 8, 7, 6, 5, 4, 3, 3, 3, 3, 3,
+  ]);
+
+  expect(inertialGesture).toBeCloseTo(oneGesture, 0);
+});
+
+test('deferred stage plates load when intersection observation is unavailable', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-deferred="cow scene"]').waitFor({ state: 'attached' });
+  await page.evaluate(() => Reflect.deleteProperty(window, 'IntersectionObserver'));
+
+  const cow = page.locator('.pin-scene').nth(1);
+  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
+  await expect.poll(() => cow.locator('image[href]').count()).toBeGreaterThan(0);
 });
 
 test('a swipe completes one authored action', async ({ page }) => {

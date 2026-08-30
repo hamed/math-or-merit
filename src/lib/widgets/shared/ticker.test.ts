@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { createFixedStepClock } from './ticker';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createFixedStepClock, createFixedTicker, type Ticker } from './ticker';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 function ticksFor(refreshHz: number, seconds = 1): number {
   const clock = createFixedStepClock();
@@ -34,5 +39,31 @@ describe('fixed-step clock', () => {
     expect(clock.advance(9)).toBe(0);
     clock.reset();
     expect(clock.advance(1)).toBe(0);
+  });
+});
+
+describe('fixed ticker', () => {
+  it('drops remaining catch-up steps when a tick stops it', () => {
+    let frameCallback: FrameRequestCallback | undefined;
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      frameCallback = callback;
+      return 1;
+    }));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    vi.spyOn(performance, 'now').mockReturnValue(100);
+
+    let ticks = 0;
+    let ticker!: Ticker;
+    ticker = createFixedTicker(() => {
+      ticks++;
+      ticker.stop();
+    }, 10, 100);
+
+    ticker.start();
+    expect(frameCallback).toBeDefined();
+    frameCallback!(150);
+
+    expect(ticks).toBe(1);
+    expect(ticker.running).toBe(false);
   });
 });

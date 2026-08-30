@@ -11,6 +11,24 @@
   const navs = new Set<SceneNav>();
   let hooksAttached = false;
   let touchStartY: number | null = null;
+  let wheelGesture: SceneNav | undefined;
+  let wheelRestTimer: number | undefined;
+  const WHEEL_REST_MS = 300;
+
+  function holdWheelGesture(nav: SceneNav): void {
+    wheelGesture = nav;
+    if (wheelRestTimer !== undefined) window.clearTimeout(wheelRestTimer);
+    wheelRestTimer = window.setTimeout(() => {
+      wheelGesture = undefined;
+      wheelRestTimer = undefined;
+    }, WHEEL_REST_MS);
+  }
+
+  function clearWheelGesture(): void {
+    if (wheelRestTimer !== undefined) window.clearTimeout(wheelRestTimer);
+    wheelGesture = undefined;
+    wheelRestTimer = undefined;
+  }
 
   /** Space belongs to the focused control, not to the page. */
   function keyIsClaimed(el: Element | null): boolean {
@@ -52,8 +70,14 @@
     const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
     if (Math.abs(delta) < 2) return;
     const nav = activeNav(true);
+    if (wheelGesture) {
+      e.preventDefault();
+      holdWheelGesture(wheelGesture);
+      return;
+    }
     if (!nav) return;
     e.preventDefault();
+    holdWheelGesture(nav);
     nav.go(delta > 0 ? 1 : -1);
   }
 
@@ -92,6 +116,7 @@
     if (!hooksAttached || navs.size > 0) return;
     hooksAttached = false;
     touchStartY = null;
+    clearWheelGesture();
     window.removeEventListener('keydown', onBeatKey);
     window.removeEventListener('wheel', onBeatWheel);
     window.removeEventListener('touchstart', onBeatTouchStart);
@@ -236,7 +261,7 @@
     };
 
     let assetObserver: IntersectionObserver | undefined;
-    if (deferAssets) {
+    if (deferAssets && 'IntersectionObserver' in window) {
       assetObserver = new IntersectionObserver(
         (entries) => {
           if (!entries.some((entry) => entry.isIntersecting)) return;
@@ -248,6 +273,7 @@
       );
       assetObserver.observe(root);
     } else {
+      assetsReady = true;
       void decodePlates();
     }
 
