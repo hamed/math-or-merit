@@ -33,7 +33,7 @@ export function roomStatsSource(world: SandboxWorld): StatsSource {
     startDollars: world.config.startDollars,
     taxRate: world.taxRate,
     dollarsOf: (i) => world.dollarsOf(i),
-    volume: world.volumeSeries.values,
+    volume: world.tradeVolumeSeries.values,
   };
 }
 
