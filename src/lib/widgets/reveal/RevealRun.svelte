@@ -8,9 +8,10 @@
   import { createTicker } from '../shared/ticker';
   import { countTrades, percent } from '../shared/format';
   import { radiusScale, roomPositions } from '../shared/layout';
-  import { logRun, predictionLabel, session } from '../shared/runLog.svelte';
+  import { logRun, predictionLabel, session, unlogRun } from '../shared/runLog.svelte';
   import { REVEAL_BETA, REVEAL_TRADES, ROOM_N, START_DOLLARS } from '../shared/presets';
   import { assignStyles, styleNoun } from '../shared/agentStyle';
+  import { guidedRunAction, type GuidedRunState } from './guidance';
 
   // Display-only styles, dealt before any run (agentStyle.ts GUARD: the sim
   // has no import path to them — the morning paper below is the only consumer).
@@ -33,6 +34,10 @@
   let topShare = $state(0);
   let winner = $state<number | null>(null);
   let history = $state<{ seed: number; winner: number; topShare: number }[]>([]);
+  let root: HTMLElement;
+  let wheelGesture = false;
+  let wheelRestTimer: number | undefined;
+  let touchStartY: number | null = null;
 
   // The morning paper is the sandbox's: it prints ON the room, over whoever
   // the camera caught, instead of arriving as a card underneath it.
@@ -116,6 +121,26 @@
   const easeInOutCubic = (t: number) =>
     t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
+  function finishRun(): void {
+    ticker.stop();
+    running = false;
+    finished = true;
+    measureTop();
+    const wealth = Float64Array.from(engine.state.wealth);
+    logRun({
+      seed: engine.config.seed ?? -1,
+      beta: engine.config.beta,
+      trades: engine.state.step,
+      wealth,
+      winner: winner ?? 0,
+      topShare,
+    });
+    history.push({ seed: engine.config.seed ?? -1, winner: winner ?? 0, topShare });
+    newsSubject = winner ?? 0;
+    newsRun = history.length - 1;
+    newsOpen = true;
+  }
+
   const ticker = createTicker((dt) => {
     elapsed += dt;
     const duration = history.length === 0 ? FIRST_MS : RERUN_MS;
@@ -125,23 +150,7 @@
     if (stepBy > 0) engine.step(stepBy);
     revision++;
     if (progress >= 1) {
-      ticker.stop();
-      running = false;
-      finished = true;
-      measureTop();
-      const wealth = Float64Array.from(engine.state.wealth);
-      logRun({
-        seed: engine.config.seed ?? -1,
-        beta: engine.config.beta,
-        trades: engine.state.step,
-        wealth,
-        winner: winner ?? 0,
-        topShare,
-      });
-      history.push({ seed: engine.config.seed ?? -1, winner: winner ?? 0, topShare });
-      newsSubject = winner ?? 0;
-      newsRun = history.length - 1; // same headline rotation as before
-      newsOpen = true;
+      finishRun();
     } else {
       measureTop();
     }
@@ -163,12 +172,128 @@
     ticker.start();
   }
 
-  onMount(() => () => ticker.stop());
+  function finishImmediately(): void {
+    if (!running) return;
+    const remaining = REVEAL_TRADES - engine.state.step;
+    if (remaining > 0) engine.step(remaining);
+    revision++;
+    finishRun();
+  }
+
+  function undoRun(): void {
+    ticker.stop();
+    if (finished) {
+      unlogRun(engine.config.seed ?? -1);
+      if (history[history.length - 1]?.seed === (engine.config.seed ?? -1)) history = history.slice(0, -1);
+    }
+    engine.reset();
+    elapsed = 0;
+    running = false;
+    finished = false;
+    winner = null;
+    topShare = 0;
+    closeNews();
+    revision++;
+  }
+
+  const currentState = (): GuidedRunState => finished ? 'finished' : running ? 'running' : 'idle';
+
+  function performGuidedAction(direction: -1 | 1): boolean {
+    const action = guidedRunAction(currentState(), direction);
+    if (action === 'start') run();
+    else if (action === 'finish') finishImmediately();
+    else if (action === 'undo') undoRun();
+    return action !== 'pass';
+  }
+
+  function activeInViewport(): boolean {
+    const box = root?.getBoundingClientRect();
+    if (!box) return false;
+    const focusY = window.innerHeight * 0.5;
+    return box.top <= focusY && box.bottom >= focusY;
+  }
+
+  function keyIsClaimed(): boolean {
+    const el = document.activeElement as HTMLElement | null;
+    if (!el || el === document.body) return false;
+    return ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(el.tagName) || el.isContentEditable;
+  }
+
+  function onGuidedKey(event: KeyboardEvent): void {
+    if (!activeInViewport() || keyIsClaimed() || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+    const backward = (event.key === ' ' || event.key === 'Spacebar') && event.shiftKey
+      || ['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(event.key);
+    const forward = [' ', 'Spacebar', 'Enter', 'ArrowRight', 'ArrowDown', 'PageDown'].includes(event.key) && !event.shiftKey;
+    if (!backward && !forward) return;
+    if (performGuidedAction(backward ? -1 : 1)) event.preventDefault();
+  }
+
+  function holdWheelGesture(): void {
+    wheelGesture = true;
+    if (wheelRestTimer !== undefined) window.clearTimeout(wheelRestTimer);
+    wheelRestTimer = window.setTimeout(() => {
+      wheelGesture = false;
+      wheelRestTimer = undefined;
+    }, 120);
+  }
+
+  function onGuidedWheel(event: WheelEvent): void {
+    if (!activeInViewport() || event.ctrlKey || event.metaKey || event.altKey) return;
+    const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    if (Math.abs(delta) < 2) return;
+    if (wheelGesture) {
+      event.preventDefault();
+      holdWheelGesture();
+      return;
+    }
+    if (!performGuidedAction(delta > 0 ? 1 : -1)) return;
+    event.preventDefault();
+    holdWheelGesture();
+  }
+
+  function onGuidedTouchStart(event: TouchEvent): void {
+    if (!activeInViewport() || event.touches.length !== 1) return;
+    touchStartY = event.touches[0].clientY;
+  }
+
+  function onGuidedTouchMove(event: TouchEvent): void {
+    if (touchStartY === null || !activeInViewport() || event.touches.length !== 1) return;
+    const delta = touchStartY - event.touches[0].clientY;
+    if (Math.abs(delta) < 8) return;
+    const action = guidedRunAction(currentState(), delta > 0 ? 1 : -1);
+    if (action !== 'pass' && event.cancelable) event.preventDefault();
+  }
+
+  function onGuidedTouchEnd(event: TouchEvent): void {
+    if (touchStartY === null) return;
+    const start = touchStartY;
+    touchStartY = null;
+    const end = event.changedTouches[0]?.clientY;
+    if (end === undefined || !activeInViewport() || Math.abs(start - end) < 24) return;
+    if (performGuidedAction(start > end ? 1 : -1) && event.cancelable) event.preventDefault();
+  }
+
+  onMount(() => {
+    window.addEventListener('keydown', onGuidedKey);
+    window.addEventListener('wheel', onGuidedWheel, { passive: false });
+    window.addEventListener('touchstart', onGuidedTouchStart, { passive: true });
+    window.addEventListener('touchmove', onGuidedTouchMove, { passive: false });
+    window.addEventListener('touchend', onGuidedTouchEnd, { passive: false });
+    return () => {
+      ticker.stop();
+      if (wheelRestTimer !== undefined) window.clearTimeout(wheelRestTimer);
+      window.removeEventListener('keydown', onGuidedKey);
+      window.removeEventListener('wheel', onGuidedWheel);
+      window.removeEventListener('touchstart', onGuidedTouchStart);
+      window.removeEventListener('touchmove', onGuidedTouchMove);
+      window.removeEventListener('touchend', onGuidedTouchEnd);
+    };
+  });
 
   const distinctWinners = $derived(new Set(history.map((h) => h.winner)).size);
 </script>
 
-<div class="widget" aria-label="The main run: a hundred thousand fair trades, fresh dice every run">
+<div bind:this={root} class="widget" data-guided-run aria-label="The main run: a hundred thousand fair trades, fresh dice every run">
   <p class="kicker">The room, for real this time</p>
 
   <div class="room-frame" bind:clientWidth={roomW}>
