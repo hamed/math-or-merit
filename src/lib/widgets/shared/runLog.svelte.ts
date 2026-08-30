@@ -30,14 +30,6 @@ export function logRun(run: LoggedRun): void {
   session.runs.push(run);
 }
 
-/** Undo only the room currently at the end of the guided story. */
-export function unlogRun(seed: number): boolean {
-  const latest = session.runs[session.runs.length - 1];
-  if (!latest || latest.seed !== seed) return false;
-  session.runs.pop();
-  return true;
-}
-
 export function latestRun(): LoggedRun | null {
   return session.runs.length === 0 ? null : session.runs[session.runs.length - 1];
 }
