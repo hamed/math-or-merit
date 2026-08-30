@@ -98,6 +98,17 @@ test('the desktop sandbox aligns to the scrollbar-safe viewport edges', async ({
   expect(edges.right).toBeCloseTo(edges.viewport, 0);
 });
 
+test('the chapter index remains fixed to the viewport while the body is a size container', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => scrollTo(0, 1800));
+
+  const index = page.locator('.index');
+  await expect(index).toHaveClass(/shown/);
+  await page.waitForTimeout(400);
+  expect(await index.evaluate((element) => element.getBoundingClientRect().top)).toBeCloseTo(0, 0);
+});
+
 test('expert start money accepts zero and negative experiments without crashing', async ({ page }) => {
   const errors: Error[] = [];
   page.on('pageerror', (error) => errors.push(error));
@@ -199,7 +210,7 @@ test('a trackpad inertia tail advances only one authored action', async ({ brows
     await page.locator('.pin-scene').nth(1).scrollIntoViewIfNeeded();
     for (const delta of deltas) {
       await page.mouse.wheel(0, delta);
-      await page.waitForTimeout(110);
+      await page.waitForTimeout(16);
     }
     await page.waitForTimeout(2600);
     const result = await page.evaluate(() => scrollY);
@@ -208,10 +219,9 @@ test('a trackpad inertia tail advances only one authored action', async ({ brows
   }
 
   const oneGesture = await resultingScroll([240]);
-  const inertialGesture = await resultingScroll([
-    240, 190, 150, 115, 90, 70, 55, 42, 32, 24, 19, 15,
-    12, 10, 8, 7, 6, 5, 4, 3, 3, 3, 3, 3,
-  ]);
+  const inertialGesture = await resultingScroll(
+    Array.from({ length: 100 }, (_, index) => Math.max(3, Math.round(240 * Math.exp(-index / 12)))),
+  );
 
   expect(inertialGesture).toBeCloseTo(oneGesture, 0);
 });
@@ -292,7 +302,10 @@ test('scrolling after the cow’s final action brings the next section onscreen'
     return { start, end: start + box.height - innerHeight };
   });
   await page.evaluate((y) => scrollTo(0, y), bounds.end - 2);
-  await page.mouse.wheel(0, 400);
+  for (let index = 0; index < 60; index++) {
+    await page.mouse.wheel(0, Math.max(3, Math.round(400 * Math.exp(-index / 9))));
+    await page.waitForTimeout(16);
+  }
   await page.waitForTimeout(700);
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(bounds.end);
   const cow = page.locator('.pin-scene').nth(1);

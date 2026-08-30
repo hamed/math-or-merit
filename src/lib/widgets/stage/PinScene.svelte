@@ -13,7 +13,7 @@
   let touchStartY: number | null = null;
   let wheelGesture: SceneNav | undefined;
   let wheelRestTimer: number | undefined;
-  const WHEEL_REST_MS = 300;
+  const WHEEL_REST_MS = 120;
 
   function holdWheelGesture(nav: SceneNav): void {
     wheelGesture = nav;
