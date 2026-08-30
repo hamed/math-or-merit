@@ -25,7 +25,7 @@
     const w = new SandboxWorld({ n: ROOM_N, startDollars: START_DOLLARS, initialWealth: snapshot() });
     w.beta = 0;
     w.taxRate = LEVY_RATE;
-    w.taxEvery = 1;
+    w.tradesPerRound = 1;
     return w;
   }
 

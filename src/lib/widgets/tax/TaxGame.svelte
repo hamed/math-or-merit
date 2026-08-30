@@ -37,7 +37,7 @@
     });
     w.beta = DIFFICULTIES[difficulty].beta;
     w.taxRate = 0;
-    w.taxEvery = ROOM_N;
+    w.tradesPerRound = ROOM_N;
     return w;
   };
 

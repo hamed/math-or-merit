@@ -143,8 +143,6 @@ export class SandboxWorld {
   readonly effectiveParticipantsSeries = new RoundSeries();
   /** Dollar value transferred through ordinary trades per measurement round. */
   readonly tradeVolumeSeries = new RoundSeries();
-  /** Transitional name retained until all consumers move to the explicit unit. */
-  readonly volumeSeries = this.tradeVolumeSeries;
   /** Ordinary trade volume divided by total wealth; one means one roomful. */
   readonly wealthTurnoverSeries = new RoundSeries();
   /** Dollar value collected by all levy paths per measurement round. */
@@ -166,19 +164,6 @@ export class SandboxWorld {
   tradesPerRound: number;
   /** The policy clock, expressed in measurement rounds. */
   levyEveryRounds = 1;
-
-  /**
-   * Transitional compatibility for existing presets: their old value meant
-   * both one measurement window and one levy interval.
-   */
-  get taxEvery(): number {
-    return this.tradesPerRound;
-  }
-
-  set taxEvery(trades: number) {
-    this.tradesPerRound = trades;
-    this.levyEveryRounds = 1;
-  }
 
   constructor(config: SandboxConfig) {
     const { n, startDollars, seed } = config;

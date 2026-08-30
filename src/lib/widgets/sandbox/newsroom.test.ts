@@ -82,7 +82,7 @@ describe('collectStats', () => {
   it('measures poverty, the top-bottom ratio, and the volume trend from a live world', () => {
     const world = new SandboxWorld({ n: 10, seed: 5, startDollars: 100 });
     world.beta = 0.3;
-    world.taxEvery = 10;
+    world.tradesPerRound = 10;
     world.step(5000);
     const stats = collectStats(roomStatsSource(world), 0.7, 0.5);
     expect(stats.n).toBe(10);

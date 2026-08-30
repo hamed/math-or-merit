@@ -142,7 +142,7 @@
       seed: Math.floor(Math.random() * 0xffff_ffff),
       startDollars,
     });
-    w.taxEvery = count;
+    w.tradesPerRound = count;
     return w;
   }
 
