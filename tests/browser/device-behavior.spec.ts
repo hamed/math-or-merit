@@ -166,7 +166,7 @@ test('a running stake dial idles at zero and resumes above zero', async ({ page 
   await expect(dial.getByText('turnover / round', { exact: true })).toBeVisible();
 });
 
-test('the measurement lesson keeps Gini and adds effective participants', async ({ page }) => {
+test('the Gini lesson still builds the Lorenz gap from first principles', async ({ page }) => {
   await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
   const stage = page.locator('[aria-label="Building the Gini coefficient from twelve circles"]');
   await loadDeferred(page, 'Gini stage', stage);
@@ -177,10 +177,56 @@ test('the measurement lesson keeps Gini and adds effective participants', async 
   await stage.getByRole('button', { name: 'Sort them' }).click();
   await stage.getByRole('button', { name: 'Add them up' }).click();
 
-  await expect(stage.getByText('effective participants', { exact: true })).toBeVisible({ timeout: 6000 });
-  await expect(stage.getByText('Gini', { exact: true })).toBeVisible();
-  await expect(stage.getByText(/of 12/)).toBeVisible();
-  await expect(stage.getByText(/Gini = the hatched gap/)).toBeVisible();
+  await expect(stage.getByText(/Gini = the hatched gap/)).toBeVisible({ timeout: 6000 });
+  await expect(stage.getByText(/Gini ≈/)).toBeVisible();
+});
+
+test('dragging a coin changes the pairing grid and can be undone', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
+  const stage = page.locator('[aria-label="Build effective participants by moving twelve coins among four people"]');
+  await loadDeferred(page, 'effective participants stage', stage);
+  await stage.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(500);
+
+  await expect(stage.locator('output')).toContainText('4.00');
+  await expect(stage.getByRole('img', { name: /36 of 144/ })).toBeVisible();
+
+  const coin = stage.getByRole('button', { name: 'Coin 4, held by person B' });
+  const destination = stage.locator('[data-holder="0"]');
+  await coin.evaluate((element) => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const from = await coin.boundingBox();
+  const to = await destination.boundingBox();
+  await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to!.x + to!.width / 2, to!.y + to!.height / 2, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(stage.locator('output')).toContainText('3.79');
+  await expect(stage.getByRole('img', { name: /38 of 144/ })).toBeVisible();
+  await stage.getByRole('button', { name: 'Undo one move' }).click();
+  await expect(stage.locator('output')).toContainText('4.00');
+});
+
+test('tap destinations can make exactly three effective participants on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
+  const stage = page.locator('[aria-label="Build effective participants by moving twelve coins among four people"]');
+  await loadDeferred(page, 'effective participants stage', stage);
+  await stage.scrollIntoViewIfNeeded();
+
+  for (const coin of [4, 7, 10]) {
+    await stage.getByRole('button', { name: `Coin ${coin}, held by person ${coin === 4 ? 'B' : coin === 7 ? 'C' : 'D'}` }).click();
+    await stage.locator('.destinations').getByRole('button', { name: 'A', exact: true }).click();
+  }
+
+  await expect(stage.locator('output')).toContainText('3.00');
+  await expect(stage.getByRole('img', { name: /48 of 144/ })).toBeVisible();
+  await expect(stage.getByText(/Four people remain/)).toBeVisible();
+  expect(await stage.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await stage.getByRole('button', { name: 'Restore equality' }).click();
+  await expect(stage.locator('output')).toContainText('4.00');
 });
 
 test('the larger room reports all three measurements from one run', async ({ page }) => {

@@ -291,14 +291,33 @@ own number — and from here on you will see it on every meter.
 But Gini is not the question I most want to ask. I want to know how many people are still
 meaningfully in the game.
 
-So take every person's share of the room, square it, add those squares, and turn the answer
-upside down. That gives the **effective participants**: the number of equal holders that
-would make a room this concentrated.
+### Four people. How many participants?
 
-One hundred equal people give 100. One person holding everything gives 1. A room with one
-hundred names can therefore behave, in this precise sense, like a room with only five equal
-participants. It is an equivalent count, not a headcount: nobody vanishes when the number
-falls. Their capacity to matter does.
+Four people enter with three coins each. Move the coins yourself. The circles will keep
+showing wealth. Then imagine drawing one coin blindly, putting it back, and drawing again.
+The square underneath shows every possible first-and-second draw. Whenever both draws have
+the same owner, that tile lights up.
+
+<Deferred
+  load={() => import('$lib/widgets/distribution/EffectiveParticipantsStage.svelte')}
+  label="effective participants stage"
+  reserve="42rem"
+/>
+
+A larger fortune catches both draws more often. That is why its matching block grows as a
+square. Turn the total matching chance upside down and you get **effective
+participants**: the number of equal holders that would produce the same repeat-owner chance.
+
+Four equal people give 4. The 6 · 2 · 2 · 2 room gives exactly 3. One owner holding all
+twelve coins gives 1. It is an equivalent count, not a headcount: nobody disappears when the
+number falls. Their capacity to matter does.
+
+<details class="claim-note">
+  <summary>Show the formula</summary>
+  <p>If each person's wealth share is <em>sᵢ</em>, the same-owner chance is
+  <em>Σsᵢ²</em>. Effective participants is its reciprocal: <em>1 / Σsᵢ²</em>. This is the
+  inverse Herfindahl concentration index.</p>
+</details>
 
 There is one more number. A trade can keep happening after the poorer player has almost
 nothing left to risk. Counting trades would call that activity. Counting the money moved
