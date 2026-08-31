@@ -161,6 +161,45 @@ test('a running stake dial idles at zero and resumes above zero', async ({ page 
 
   await setStake('20');
   await expect.poll(() => dial.locator('output').textContent()).not.toBe('0 trades');
+  await expect(dial.getByText('Gini', { exact: true })).toBeVisible();
+  await expect(dial.getByText('effective participants', { exact: true })).toBeVisible();
+  await expect(dial.getByText('turnover / round', { exact: true })).toBeVisible();
+});
+
+test('the measurement lesson keeps Gini and adds effective participants', async ({ page }) => {
+  await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
+  const stage = page.locator('[aria-label="Building the Gini coefficient from twelve circles"]');
+  await loadDeferred(page, 'Gini stage', stage);
+
+  await stage.getByRole('button', { name: 'Add them up' }).click();
+  await expect(stage.getByRole('button', { name: 'Now, an unequal room' })).toBeVisible({ timeout: 6000 });
+  await stage.getByRole('button', { name: 'Now, an unequal room' }).click();
+  await stage.getByRole('button', { name: 'Sort them' }).click();
+  await stage.getByRole('button', { name: 'Add them up' }).click();
+
+  await expect(stage.getByText('effective participants', { exact: true })).toBeVisible({ timeout: 6000 });
+  await expect(stage.getByText('Gini', { exact: true })).toBeVisible();
+  await expect(stage.getByText(/of 12/)).toBeVisible();
+  await expect(stage.getByText(/Gini = the hatched gap/)).toBeVisible();
+});
+
+test('the larger room reports all three measurements from one run', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#crowd', { waitUntil: 'domcontentloaded' });
+  const crowd = page.locator('[aria-label="A thousand traders, two million trades, on the multiplying ruler"]');
+  await loadDeferred(page, 'crowd run', crowd);
+
+  await expect(crowd.getByText('Gini', { exact: true })).toBeVisible();
+  await expect(crowd.getByText('effective participants', { exact: true })).toBeVisible();
+  await expect(crowd.getByText('ordinary turnover', { exact: true })).toBeVisible();
+  await expect(crowd.getByText('1000.0 of 1000', { exact: true })).toBeVisible();
+  expect(await crowd.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await crowd.getByRole('button', { name: 'Trade two million times' }).click();
+  await expect(crowd.getByRole('button', { name: 'Run it again' })).toBeVisible({ timeout: 10_000 });
+  const effective = await crowd.getByText(/of 1000$/).textContent();
+  expect(Number(effective!.split(' ')[0])).toBeLessThan(1000);
+  await expect(crowd.getByText(/the last round moved/)).toBeVisible();
 });
 
 test('prediction choices use native radio keyboard behavior', async ({ page }) => {
