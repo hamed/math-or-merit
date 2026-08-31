@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { createEngine } from '$lib/sim';
   import { measureWealth } from '$lib/research';
+  import { SandboxWorld, type RoundMeasurement } from '../sandbox/SandboxWorld';
   import LorenzMini from '../shared/LorenzMini.svelte';
   import { createTicker } from '../shared/ticker';
   import { countTrades, dollars, dollarsCompact, percent } from '../shared/format';
@@ -10,8 +10,6 @@
 
   const DURATION_MS = 7000;
   const HEIGHT = 300;
-
-  let engine = $state(createEngine({ n: CROWD_N, beta: CROWD_BETA }));
 
   let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -24,18 +22,34 @@
   let topDollars = $state(CROWD_START_DOLLARS);
   let topShare = $state(1 / CROWD_N);
   let gini = $state(0);
+  let effectiveParticipants = $state(CROWD_N);
+  let turnover = $state(0);
   let elapsed = 0;
 
+  function buildWorld(): SandboxWorld {
+    const next = new SandboxWorld({ n: CROWD_N, startDollars: CROWD_START_DOLLARS });
+    next.beta = CROWD_BETA;
+    next.onMeasurement(readMeasurement);
+    return next;
+  }
+
+  function readMeasurement(measurement: RoundMeasurement): void {
+    turnover = measurement.wealthTurnover;
+  }
+
+  let world = $state(buildWorld());
+
   function measureAndDraw(): void {
-    const amounts = toDollars(engine.state.wealth, CROWD_START_DOLLARS);
+    const amounts = toDollars(world.wealth, CROWD_START_DOLLARS);
     const bins = logBins(amounts, DUST_DOLLARS);
     dustCount = bins.dustCount;
     let max = 0;
     for (let i = 0; i < amounts.length; i++) max = Math.max(max, amounts[i]);
     topDollars = max;
-    const metrics = measureWealth(engine.state.wealth);
+    const metrics = measureWealth(world.wealth);
     topShare = metrics.topShare;
     gini = metrics.gini;
+    effectiveParticipants = metrics.effectiveParticipants;
 
     const ctx = canvas?.getContext('2d');
     if (!ctx || width === 0) return;
@@ -87,16 +101,16 @@
     ctx.stroke();
     ctx.fillStyle = '#8b3f2b';
     ctx.font = 'italic 11px Vazirmatn, system-ui, sans-serif';
-    ctx.fillText('ten times the money per step — and bar height is stepped too, so the tail stays visible', plotX + plotW / 2, baseline + 34);
+    ctx.fillText('×10 wealth steps · log bar height', plotX + plotW / 2, baseline + 34);
   }
 
   const ticker = createTicker((dt) => {
     elapsed += dt;
     const progress = Math.min(1, elapsed / DURATION_MS);
     const target = Math.round(progress * CROWD_TRADES);
-    const step = target - engine.state.step;
-    if (step > 0) engine.step(step);
-    trades = engine.state.step;
+    const step = target - world.trades;
+    if (step > 0) world.step(step);
+    trades = world.trades;
     revision++;
     measureAndDraw();
     if (progress >= 1) {
@@ -108,9 +122,12 @@
 
   function run(): void {
     if (running) return;
-    if (finished) engine = createEngine({ n: CROWD_N, beta: CROWD_BETA });
+    if (finished) world = buildWorld();
     elapsed = 0;
     finished = false;
+    trades = 0;
+    turnover = 0;
+    measureAndDraw();
     running = true;
     ticker.start();
   }
@@ -120,8 +137,9 @@
     running = false;
     finished = false;
     elapsed = 0;
-    engine = createEngine({ n: CROWD_N, beta: CROWD_BETA });
+    world = buildWorld();
     trades = 0;
+    turnover = 0;
     revision++;
     measureAndDraw();
   }
@@ -147,22 +165,24 @@
       <canvas bind:this={canvas} style={`block-size: ${HEIGHT}px`}></canvas>
     </div>
     <aside class="sidebar" aria-label="The same crowd as a Lorenz curve">
-      <LorenzMini wealth={engine.state.wealth} {revision} label="Lorenz curve of the crowd" />
+      <LorenzMini wealth={world.wealth} {revision} label="Lorenz curve of the crowd" />
     </aside>
   </div>
 
-  <div class="meters" aria-live="off">
-    <div class="meter" role="img" aria-label={`Richest person holds ${percent(topShare)} of everything; Gini ${gini.toFixed(2)}`}>
-      <div class="meter-fill" style={`inline-size: ${Math.min(100, topShare * 100)}%`}></div>
-      <span class="meter-label">richest holds {percent(topShare)}</span>
-    </div>
+  <div class="meters" aria-live="off" aria-label="Measurements for the larger room">
+    <p><span>Gini</span><strong>{gini.toFixed(2)}</strong></p>
+    <p><span>effective participants</span><strong>{effectiveParticipants.toFixed(1)} of {CROWD_N}</strong></p>
+    <p><span>ordinary turnover</span><strong>{turnover > 0 && turnover < 0.005 ? '<0.01' : turnover.toFixed(2)} roomfuls</strong></p>
   </div>
 
   <p class="caption" aria-live="polite">
     {#if trades === 0}
       One thousand people, $10,000 each, $10 million in the room. Same rule, same fair coin.
+    {:else if finished}
+      After {countTrades(trades)} trades: equivalent to {effectiveParticipants.toFixed(1)} equal participants;
+      the last round moved {turnover > 0 && turnover < 0.005 ? '<0.01' : turnover.toFixed(2)} roomfuls.
     {:else}
-      {countTrades(trades)} trades · {dustCount} of 1,000 below one cent · the richest holds {dollars(topDollars)}.
+      {countTrades(trades)} trades · {dustCount} of 1,000 below one cent · the richest holds {dollars(topDollars)} ({percent(topShare)} of the room).
     {/if}
   </p>
 
@@ -207,15 +227,34 @@
   }
 
   .meters {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.7rem;
     margin-block-start: 0.6rem;
   }
 
-  /* the pill itself lives in app.css; this one sits on brighter paper */
-  .meter {
-    --meter-bg: var(--paper-bright);
+  .meters p {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin: 0;
+    padding-block: 0.5rem;
+    border-block: 1px solid #d8cdb9;
+    color: #756c5d;
+    font-size: 0.72rem;
+  }
+
+  .meters strong {
+    color: #5c5344;
+    font-size: 0.86rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 40rem) {
+    .meters {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
   }
 
 </style>

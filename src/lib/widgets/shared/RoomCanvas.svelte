@@ -14,6 +14,8 @@
     winner?: number | null;
     highlight?: readonly number[];
     height?: number;
+    /** Optional room inset for compositions that need fixed breathing room. */
+    margin?: number;
     label: string;
     onTap?: ((index: number) => void) | null;
   }
@@ -25,6 +27,7 @@
     winner = null,
     highlight = [],
     height = 300,
+    margin,
     label,
     onTap = null,
   }: Props = $props();
@@ -45,8 +48,8 @@
   function ensureLayout(): void {
     const n = wealth.length;
     if (positions.length !== n || scale === 0) {
-      positions = roomPositions(n, width, height);
-      scale = radiusScale(n, width, height);
+      positions = roomPositions(n, width, height, margin);
+      scale = radiusScale(n, width, height, margin);
     }
     if (displayed.length !== n) {
       displayed = Float64Array.from({ length: n }, (_, i) => wealth[i]);
@@ -157,6 +160,7 @@
 
   $effect(() => {
     void height; // flexible rooms (sandbox) resize in both axes
+    void margin;
     if (width > 0) {
       positions = [];
       scale = 0;

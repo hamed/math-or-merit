@@ -185,6 +185,18 @@ a:hover {
   line-height: 1.55;
 }
 
+.essay-shell details.claim-note p {
+  margin-block: 0.8rem 0;
+}
+
+.essay-shell .claim-note summary {
+  cursor: pointer;
+  color: var(--accent-deep);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .essay-shell .closing {
   margin-block: 5rem 2rem;
   color: #8b3f2b;

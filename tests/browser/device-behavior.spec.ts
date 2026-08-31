@@ -161,6 +161,120 @@ test('a running stake dial idles at zero and resumes above zero', async ({ page 
 
   await setStake('20');
   await expect.poll(() => dial.locator('output').textContent()).not.toBe('0 trades');
+  await expect(dial.getByText('Gini', { exact: true })).toBeVisible();
+  await expect(dial.getByText('effective participants', { exact: true })).toBeVisible();
+  await expect(dial.getByText('turnover / round', { exact: true })).toBeVisible();
+});
+
+test('the Gini lesson still builds the Lorenz gap from first principles', async ({ page }) => {
+  await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
+  const stage = page.locator('[aria-label="Building the Gini coefficient from twelve circles"]');
+  await loadDeferred(page, 'Gini stage', stage);
+
+  await stage.getByRole('button', { name: 'Add them up' }).click();
+  await expect(stage.getByRole('button', { name: 'Now, an unequal room' })).toBeVisible({ timeout: 6000 });
+  await stage.getByRole('button', { name: 'Now, an unequal room' }).click();
+  await stage.getByRole('button', { name: 'Sort them' }).click();
+  await stage.getByRole('button', { name: 'Add them up' }).click();
+
+  await expect(stage.getByText(/Gini = the hatched gap/)).toBeVisible({ timeout: 6000 });
+  await expect(stage.getByText(/Gini ≈/)).toBeVisible();
+});
+
+test('dragging the real coin between room circles changes effective participants and can be undone', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
+  const stage = page.locator('[aria-label="Explore effective participants by moving coins in a four-person room"]');
+  await loadDeferred(page, 'effective participants stage', stage);
+  await stage.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(500);
+
+  await expect(stage.locator('output')).toContainText('4.00');
+
+  const firstCoin = stage.getByRole('button', { name: 'Coin 1, held by person 1' });
+  const coin = stage.getByRole('button', { name: 'Coin 5, held by person 2' });
+  const destination = stage.locator('.drop-target[data-holder="0"]');
+
+  await firstCoin.click();
+  await coin.click();
+  await expect(firstCoin).toHaveAttribute('aria-pressed', 'false');
+  await expect(coin).toHaveAttribute('aria-pressed', 'true');
+  await expect(stage.locator('output')).toContainText('4.00');
+  await expect(stage.getByRole('button', { name: 'Undo one move' })).toBeDisabled();
+  await coin.press('Escape');
+  await expect(coin).toHaveAttribute('aria-pressed', 'false');
+
+  await firstCoin.focus();
+  await firstCoin.press('Enter');
+  await page.keyboard.press('Tab');
+  await expect(stage.getByRole('button', { name: 'Move selected coin to person 1' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(firstCoin).toHaveAttribute('aria-pressed', 'false');
+
+  const roomLayer = await stage.locator('.coin-layer').boundingBox();
+  await coin.evaluate((element) => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  let from = await coin.boundingBox();
+  await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(roomLayer!.x + roomLayer!.width / 2, roomLayer!.y + 5, { steps: 8 });
+  await page.mouse.up();
+  await expect(coin).toHaveAttribute('aria-pressed', 'true');
+  await coin.click();
+  await expect(coin).toHaveAttribute('aria-pressed', 'false');
+
+  from = await coin.boundingBox();
+  const to = await destination.boundingBox();
+  await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to!.x + to!.width / 2, to!.y + to!.height / 2, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(stage.locator('output')).toContainText('3.88');
+  await stage.getByRole('button', { name: 'Undo one move' }).click();
+  await expect(stage.locator('output')).toContainText('4.00');
+});
+
+test('selecting coins and room circles concentrates the square room on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
+  const stage = page.locator('[aria-label="Explore effective participants by moving coins in a four-person room"]');
+  await loadDeferred(page, 'effective participants stage', stage);
+  await stage.scrollIntoViewIfNeeded();
+
+  for (const coin of [5, 9, 13]) {
+    await stage.getByRole('button', { name: `Coin ${coin}, held by person ${coin === 5 ? 2 : coin === 9 ? 3 : 4}` }).click();
+    const destination = await stage.getByRole('button', { name: 'Move selected coin to person 1' }).boundingBox();
+    await page.mouse.click(destination!.x + destination!.width * 0.82, destination!.y + destination!.height / 2);
+  }
+
+  await expect(stage.locator('output')).toContainText('3.37');
+  expect(await stage.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await stage.getByRole('button', { name: 'Restore equality' }).click();
+  await expect(stage.locator('output')).toContainText('4.00');
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(stage.locator('output')).toContainText('4.00');
+  expect(await stage.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
+test('the larger room reports all three measurements from one run', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#crowd', { waitUntil: 'domcontentloaded' });
+  const crowd = page.locator('[aria-label="A thousand traders, two million trades, on the multiplying ruler"]');
+  await loadDeferred(page, 'crowd run', crowd);
+
+  await expect(crowd.getByText('Gini', { exact: true })).toBeVisible();
+  await expect(crowd.getByText('effective participants', { exact: true })).toBeVisible();
+  await expect(crowd.getByText('ordinary turnover', { exact: true })).toBeVisible();
+  await expect(crowd.getByText('1000.0 of 1000', { exact: true })).toBeVisible();
+  expect(await crowd.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await crowd.getByRole('button', { name: 'Trade two million times' }).click();
+  await expect(crowd.getByRole('button', { name: 'Run it again' })).toBeVisible({ timeout: 10_000 });
+  const effective = await crowd.getByText(/of 1000$/).textContent();
+  expect(Number(effective!.split(' ')[0])).toBeLessThan(1000);
+  await expect(crowd.getByText(/the last round moved/)).toBeVisible();
 });
 
 test('prediction choices use native radio keyboard behavior', async ({ page }) => {

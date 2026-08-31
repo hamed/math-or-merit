@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { createEngine, type SimEngine } from '$lib/sim';
+  import { measureWealth } from '$lib/research';
+  import { SandboxWorld, type RoundMeasurement } from '../sandbox/SandboxWorld';
   import RoomCanvas from '../shared/RoomCanvas.svelte';
   import HistoMini from '../shared/HistoMini.svelte';
   import LorenzMini from '../shared/LorenzMini.svelte';
   import { createFixedTicker } from '../shared/ticker';
-  import { countTrades, percent } from '../shared/format';
+  import { countTrades } from '../shared/format';
   import { ROOM_N, START_DOLLARS } from '../shared/presets';
 
   const TRADES_PER_FRAME = 2600;
@@ -15,51 +16,63 @@
   let stakePercent = $state(20);
   const beta = $derived(stakePercent / 100);
 
-  let engine: SimEngine = $state(createEngine({ n: ROOM_N, beta: 0.2 }));
   let revision = $state(0);
   let running = $state(false);
   let topShare = $state(0);
+  let gini = $state(0);
+  let effectiveParticipants = $state(ROOM_N);
+  let turnover = $state(0);
   let halfAt = $state<number | null>(null);
   let observations = $state<{ stake: number; trades: number }[]>([]);
 
+  function readMeasurement(measurement: RoundMeasurement): void {
+    turnover = measurement.wealthTurnover;
+  }
+
+  function buildWorld(): SandboxWorld {
+    const next = new SandboxWorld({ n: ROOM_N, startDollars: START_DOLLARS });
+    next.beta = beta;
+    next.onMeasurement(readMeasurement);
+    return next;
+  }
+
+  let world = $state(buildWorld());
+
   function measure(): void {
-    const w = engine.state.wealth;
-    let total = 0;
-    let max = 0;
-    for (let i = 0; i < w.length; i++) {
-      total += w[i];
-      if (w[i] > max) max = w[i];
-    }
-    topShare = total === 0 ? 0 : max / total;
+    const metrics = measureWealth(world.wealth);
+    topShare = metrics.topShare;
+    gini = metrics.gini;
+    effectiveParticipants = metrics.effectiveParticipants;
   }
 
   const ticker = createFixedTicker(() => {
-    if (engine.config.beta === 0) {
+    if (world.beta === 0) {
       // Nothing at stake, nothing happens — draw once and idle.
       revision++;
       ticker.stop();
       return;
     }
-    engine.step(TRADES_PER_FRAME);
+    world.step(TRADES_PER_FRAME);
     revision++;
     measure();
     if (halfAt === null && topShare >= HALF_ROOM) {
-      halfAt = engine.state.step;
-      const stake = Math.round(engine.config.beta * 100);
+      halfAt = world.trades;
+      const stake = Math.round(world.beta * 100);
       if (!observations.some((o) => o.stake === stake)) {
         observations.push({ stake, trades: halfAt });
         observations.sort((a, b) => a.stake - b.stake);
       }
     }
-    if (engine.state.step >= MAX_TRADES) {
+    if (world.trades >= MAX_TRADES) {
       ticker.stop();
       running = false;
     }
   });
 
   function restart(): void {
-    engine = createEngine({ n: ROOM_N, beta });
+    world = buildWorld();
     halfAt = null;
+    turnover = 0;
     revision++;
     measure();
     if (running) ticker.start();
@@ -77,7 +90,7 @@
 
   const step = $derived.by(() => {
     void revision;
-    return engine.state.step;
+    return world.trades;
   });
 
   onMount(() => () => ticker.stop());
@@ -101,23 +114,22 @@
 
   <div class="duo">
     <RoomCanvas
-      wealth={engine.state.wealth}
+      wealth={world.wealth}
       {revision}
       height={300}
       label={`The room trading live at a ${stakePercent} percent stake`}
     />
     <aside class="sidebar" aria-label="The same room as a histogram and a Lorenz curve">
-      <HistoMini wealth={engine.state.wealth} startDollars={START_DOLLARS} {revision} />
-      <LorenzMini wealth={engine.state.wealth} {revision} />
+      <HistoMini wealth={world.wealth} startDollars={START_DOLLARS} {revision} />
+      <LorenzMini wealth={world.wealth} {revision} />
     </aside>
   </div>
 
   <div class="readout">
     <output>{countTrades(step)} trades</output>
-    <div class="meter" role="img" aria-label={`Biggest circle holds ${percent(topShare)}`}>
-      <div class="meter-fill" style={`inline-size: ${Math.min(100, topShare * 100)}%`}></div>
-      <span class="meter-label">biggest circle: {percent(topShare)}</span>
-    </div>
+    <p><span>Gini</span><strong>{gini.toFixed(2)}</strong></p>
+    <p><span>effective participants</span><strong>{effectiveParticipants.toFixed(1)}</strong></p>
+    <p><span>turnover / round</span><strong>{turnover > 0 && turnover < 0.005 ? '<0.01' : turnover.toFixed(2)}</strong></p>
   </div>
 
   <p class="caption" aria-live="polite">
@@ -141,7 +153,7 @@
         <li><strong>{o.stake}%</strong> → half the room after {countTrades(o.trades)} trades</li>
       {/each}
     </ul>
-    <p class="footnote">What these seeded runs did — not a law. The ending is the same for any stake above zero; the speed is what you are changing.</p>
+    <p class="footnote">What these fresh runs did — not a law. The ending is the same for any stake above zero; the speed is what you are changing.</p>
   {/if}
 </div>
 
@@ -183,18 +195,42 @@
   }
 
   .readout {
-    display: flex;
+    display: grid;
+    grid-template-columns: 9.5rem repeat(3, minmax(0, 1fr));
     align-items: center;
-    gap: 1rem;
+    gap: 0.7rem;
     margin-block-start: 0.8rem;
   }
 
   output {
-    min-inline-size: 9.5rem;
     font-variant-numeric: tabular-nums;
     font-size: 0.85rem;
     font-weight: 700;
     color: #3c352b;
+  }
+
+  .readout p {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin: 0;
+    padding-block: 0.4rem;
+    border-block: 1px solid #d8cdb9;
+    color: #756c5d;
+    font-size: 0.68rem;
+  }
+
+  .readout strong {
+    color: #5c5344;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 40rem) {
+    .readout {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
   }
 
   .observations {
