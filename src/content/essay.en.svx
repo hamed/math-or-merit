@@ -259,12 +259,14 @@ no spot on that ruler. The truly empty sit in their own pile, off to the side.)
   check leave readers able to read ratios? A bare label is not enough (Ryan & Evers).
 -->
 
-<Chapter id="gini" label="One number for the whole room" />
+<Chapter id="gini" label="Measure the room" />
 
-## One number for the whole room
+## Measure the room
 
 A histogram is a picture. Sometimes you need a single number instead — to compare two
 rooms, or to watch one room drift.
+
+Start with Gini.
 
 <!--
   WIDGET: GiniStage (R5, owner storyboard 2026-07-08) — the Gini built from first
@@ -286,21 +288,46 @@ Zero: everyone holds the same. One is the theoretical limit: as the room grows, 
 and everyone else at nothing gets closer and closer to it. The room you ran earlier has its
 own number — and from here on you will see it on every meter.
 
+But Gini is not the question I most want to ask. I want to know how many people are still
+meaningfully in the game.
+
+So take every person's share of the room, square it, add those squares, and turn the answer
+upside down. That gives the **effective participants**: the number of equal holders that
+would make a room this concentrated.
+
+One hundred equal people give 100. One person holding everything gives 1. A room with one
+hundred names can therefore behave, in this precise sense, like a room with only five equal
+participants. It is an equivalent count, not a headcount: nobody vanishes when the number
+falls. Their capacity to matter does.
+
+There is one more number. A trade can keep happening after the poorer player has almost
+nothing left to risk. Counting trades would call that activity. Counting the money moved
+tells a different story.
+
+One **measurement round** is one trade per person on average. Add the stakes won in those
+ordinary trades, then divide by all the wealth in the room. The answer is **ordinary
+turnover**, measured in roomfuls. A turnover of 0.30 means that round moved wealth equal to
+30% of the room. Later, when levies appear, their transfers will never be counted here.
+
 <Chapter id="crowd" label="More of them" />
 
 ## More of them
 
-You have seen it with a handful. Watch it with a crowd.
+You have seen the room. Now use all three measurements on a crowd.
 
 <!--
-  WIDGET: CrowdRun — a much larger seeded population (1,000 agents, 2M trades) runs the same
-  fair trades; the log-ruled histogram forms live.
+  WIDGET: CrowdRun — a much larger fresh population (1,000 agents, 2M trades) runs the same
+  fair trades; the log-ruled histogram forms live. Gini, effective participants, and
+  ordinary turnover are recorded from the same state. One measurement round is N trades;
+  levy flow is absent and cannot contaminate turnover.
 -->
 <Deferred load={() => import('$lib/widgets/crowd/CrowdRun.svelte')} label="crowd run" reserve="26rem" />
 
-Same rules. Same fair coin. Many more people. Read it yourself — the wall of the poor, the
-thinning tail, the one circle out past the edge. The crowd does not soften the result. It
-sharpens it.
+The histogram tells you where the money sits. Gini tells you how far the room has bent from
+equality. Effective participants tells you how many equal holders the concentration is
+equivalent to. Turnover tells you whether the coin is still moving meaningful money.
+
+No one number is the truth. Together they let the room answer more than one question.
 
 <Chapter id="where-it-ends" label="Where it ends" />
 
@@ -321,17 +348,15 @@ every coin even. Then let it run — not a hundred thousand trades, but without 
 With probability one, it ends with a single owner. Everyone else goes to zero. Chance chooses
 the owner, and chance may choose the same one twice — but always, in the end, exactly one.
 
-Two cautions, because they carry the honesty of the whole piece:
-
-- "Without end" is doing the work. This is the limit, not a date. For any real number of
-  trades you get deep concentration — not literally one owner. The time-lapse shows a
-  destination, not a deadline.
-- The path can wobble. A poorer circle can win, and the room can briefly grow fairer, even
-  as the whole process grinds toward the one.
-
-<aside class="claim-note">
+<details class="claim-note">
+  <summary>Show the math and its limits</summary>
+  <p>"Without end" is doing the work. This is the limit, not a date. For any finite number
+  of trades the room can become deeply concentrated, but it does not literally reach one
+  owner. The time-lapse shows a destination, not a deadline.</p>
+  <p>The path can wobble. A poorer circle can win, and the room can briefly grow fairer,
+  even as the long process approaches one owner.</p>
   <p>The finite-agent convergence result is proved in <a href="https://arxiv.org/abs/2308.01485">Börgers &amp; Greengard (2023)</a>.</p>
-</aside>
+</details>
 
 <Chapter id="dial" label="Your hand on the dial" />
 
@@ -346,8 +371,8 @@ hold of it. Turn it down, and each trade risks almost nothing. Turn it up, and e
 a gamble for a real chunk.
 
 <!--
-  WIDGET: StakeDial — dragging the stake re-runs the room live at the chosen value; each
-  stake replays a fixed seed, so the comparison is repeatable.
+  WIDGET: StakeDial — dragging the stake starts a fresh room at the chosen value. Its Gini,
+  effective-participant count, and ordinary turnover share one N-trade measurement clock.
   GATE(β timing): the qualitative split is safe — asymptotic concentration is the same for
   every fixed β in (0,1) (C4); the *rate* is shown as what the live runs do, not a precise
   law. Do NOT state a precise timing relationship (e.g. a formula in β or N) until the
@@ -356,7 +381,9 @@ a gamble for a real chunk.
 -->
 <Deferred load={() => import('$lib/widgets/dial/StakeDial.svelte')} label="stake dial" reserve="28rem" />
 
-Watch what changes — and what refuses to.
+Watch what changes — and what refuses to. The Gini shows concentration, effective
+participants shows how broad the field remains, and turnover shows how much wealth still
+moves in an ordinary round.
 
 Turn the stake down and the collapse drags: the room looks fair for a long, comfortable
 while. Turn it up and the winner arrives fast and brutal. The speed is yours.

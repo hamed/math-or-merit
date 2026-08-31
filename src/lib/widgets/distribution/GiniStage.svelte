@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { giniCoefficient } from '$lib/research';
+  import { effectiveParticipantCount, giniCoefficient } from '$lib/research';
   import { noise } from '../shared/layout';
 
   /**
@@ -61,6 +61,7 @@
   });
 
   const shownGini = $derived(giniCoefficient(Float64Array.from(weights)));
+  const shownParticipants = $derived(effectiveParticipantCount(Float64Array.from(weights)));
 
   const merging = $derived(phase === 'equalMerge' || phase === 'unequalMerge');
 
@@ -143,7 +144,7 @@
     unequal: 'Keep the graph. New room, same total — but unequal. First, sort them.',
     unequalMerge: 'The poor add almost nothing — the line crawls. The rich arrive last — it leaps.',
     gap: 'The sag is the inequality. Gini = the hatched gap ÷ everything under the straight line: 0 means all equal, 1 is the theoretical one-owner limit.',
-    play: 'Bend it yourself. The circles are the room the curve describes.',
+    play: 'Bend it yourself. Gini follows the gap; effective participants translates the same room into an equivalent number of equal holders.',
   };
 
   const buttonLabel = $derived.by(() => {
@@ -167,7 +168,7 @@
 </script>
 
 <div class="widget" aria-label="Building the Gini coefficient from twelve circles">
-  <p class="kicker">One number for the whole room</p>
+  <p class="kicker">Two numbers for the same room</p>
 
   <svg viewBox="0 0 480 352" role="img" aria-label="Circles merging into a running total; the Lorenz curve and the Gini gap">
     <defs>
@@ -226,6 +227,13 @@
   </svg>
 
   <p class="caption" aria-live="polite">{captions[phase]}</p>
+
+  {#if phase === 'gap' || phase === 'play'}
+    <div class="metric-pair" aria-live="polite">
+      <p><span>Gini</span><strong>{shownGini.toFixed(2)}</strong></p>
+      <p><span>effective participants</span><strong>{shownParticipants.toFixed(1)} of {N}</strong></p>
+    </div>
+  {/if}
 
   <div class="toolbar">
     {#if buttonLabel}
@@ -329,6 +337,39 @@
     font-weight: 650;
     font-variant-numeric: tabular-nums;
     color: #5c5344;
+  }
+
+  .metric-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+    margin-block: 0.8rem 0;
+  }
+
+  .metric-pair p {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0;
+    padding-block: 0.55rem;
+    border-block: 1px solid #d8cdb9;
+    color: #5c5344;
+    font-size: 0.76rem;
+  }
+
+  .metric-pair span {
+    text-transform: lowercase;
+  }
+
+  .metric-pair strong {
+    color: #8b3f2b;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 30rem) {
+    .metric-pair {
+      grid-template-columns: 1fr;
+    }
   }
 
   input[type='range'] {
