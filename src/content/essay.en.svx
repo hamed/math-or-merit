@@ -293,21 +293,21 @@ meaningfully in the game.
 
 ### Four people. How many participants?
 
-Four people enter with three coins each. Move the coins yourself. The circles keep showing
+Four people enter with four coins each. Move the coins yourself. The circles keep showing
 wealth. The black box gives you one number. What arrangements make it rise? What makes it
-fall? Can you make it say exactly 3?
+fall?
 
 <Deferred
   load={() => import('$lib/widgets/distribution/EffectiveParticipantsStage.svelte')}
   label="effective participants stage"
-  reserve="30rem"
+  reserve="48rem"
 />
 
 The box reports **effective participants**: the number of equal holders that would produce
 the same concentration of wealth.
 
-Four equal people give 4. The 6 · 2 · 2 · 2 room gives exactly 3. One owner holding all
-twelve coins gives 1. It is an equivalent count, not a headcount: nobody disappears when the
+Four equal people give 4. Two equal fortunes while the other two hold nothing gives 2. One
+owner holding all sixteen coins gives 1. It is an equivalent count, not a headcount: nobody disappears when the
 number falls. Their capacity to matter does.
 
 <details class="claim-note">

@@ -1,8 +1,8 @@
 export const PARTICIPATION_HOLDERS = 4;
-export const PARTICIPATION_COINS = 12;
+export const PARTICIPATION_COINS = 16;
 
 export const EQUAL_COIN_OWNERS: readonly number[] = Object.freeze(
-  Array.from({ length: PARTICIPATION_COINS }, (_, coin) => Math.floor(coin / 3)),
+  Array.from({ length: PARTICIPATION_COINS }, (_, coin) => Math.floor(coin / 4)),
 );
 
 export interface PairingMetrics {

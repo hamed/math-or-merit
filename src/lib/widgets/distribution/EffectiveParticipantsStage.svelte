@@ -11,10 +11,6 @@
     transferCoin,
   } from './participation';
 
-  const HEIGHT = 300;
-  const COIN_RADIUS = 7.5;
-  const COIN_STEP = 16.5;
-
   let room: HTMLDivElement;
   let width = $state(0);
   let owners = $state([...EQUAL_COIN_OWNERS]);
@@ -31,7 +27,11 @@
 
   const metrics = $derived(pairingMetrics(owners));
   const wealth = $derived(Float64Array.from(metrics.holdings, (holding) => holding / PARTICIPATION_COINS));
-  const positions = $derived(roomPositions(PARTICIPATION_HOLDERS, width, HEIGHT));
+  const roomMargin = $derived(width * 0.12);
+  const positions = $derived(roomPositions(PARTICIPATION_HOLDERS, width, width, roomMargin));
+  const coinRadius = $derived(Math.max(8.5, Math.min(13, width / 42)));
+  const coinStep = $derived(coinRadius * 2.15);
+  const dropRadius = $derived(Math.max(40, width * 0.14));
   const coinsByHolder = $derived.by(() =>
     Array.from({ length: PARTICIPATION_HOLDERS }, (_, holder) =>
       owners.flatMap((owner, coin) => owner === holder ? [coin] : []),
@@ -46,8 +46,8 @@
     const inRow = Math.min(columns, count - rowStart);
     const column = index - rowStart;
     return {
-      x: (column - (inRow - 1) / 2) * COIN_STEP,
-      y: (row - (rows - 1) / 2) * COIN_STEP,
+      x: (column - (inRow - 1) / 2) * coinStep,
+      y: (row - (rows - 1) / 2) * coinStep,
     };
   }
 
@@ -142,19 +142,20 @@
   <p class="kicker">A room in. One number out.</p>
 
   <div bind:this={room} class="room-stage">
-    <RoomCanvas
-      {wealth}
-      {revision}
-      height={HEIGHT}
-      label="Four people whose circle areas show their shares of twelve coins"
-    />
-
     {#if width > 0}
+      <RoomCanvas
+        {wealth}
+        {revision}
+        height={width}
+        margin={roomMargin}
+        label="Four people at the corners of a square room; circle area shows each share of sixteen coins"
+      />
+
       <svg
         class="coin-layer"
         class:choosing={selectedCoin !== null}
-        viewBox={`0 0 ${width} ${HEIGHT}`}
-        aria-label="Twelve movable coins"
+        viewBox={`0 0 ${width} ${width}`}
+        aria-label="Sixteen movable coins, four per person"
       >
         {#each positions as position, holder}
           <circle
@@ -162,7 +163,7 @@
             class="drop-target"
             cx={position.x}
             cy={position.y}
-            r="42"
+            r={dropRadius}
             data-holder={holder}
             role="button"
             tabindex={selectedCoin === null ? -1 : 0}
@@ -201,7 +202,7 @@
                 }
               }}
             >
-              <Coin r={COIN_RADIUS} face={coin % 2 === 0 ? 'front' : 'back'} />
+              <Coin r={coinRadius} face={coin % 2 === 0 ? 'front' : 'back'} />
             </g>
           {/each}
         {/each}
@@ -224,7 +225,7 @@
 
   {#if draggingCoin !== null && dragMoved}
     <svg class="drag-ghost" aria-hidden="true">
-      <Coin cx={dragX} cy={dragY} r={COIN_RADIUS * 1.2} face={draggingCoin % 2 === 0 ? 'front' : 'back'} />
+      <Coin cx={dragX} cy={dragY} r={coinRadius * 1.2} face={draggingCoin % 2 === 0 ? 'front' : 'back'} />
     </svg>
   {/if}
 </div>
@@ -232,6 +233,9 @@
 <style>
   .room-stage {
     position: relative;
+    inline-size: min(100%, 36rem);
+    aspect-ratio: 1;
+    margin-inline: auto;
     margin-block: 0.4rem 0.8rem;
   }
 
