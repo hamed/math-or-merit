@@ -73,6 +73,7 @@
 
   function beginDrag(event: PointerEvent, coin: number): void {
     if (event.button !== 0) return;
+    suppressedClick = -1;
     draggingCoin = coin;
     dragMoved = false;
     dragStartX = dragX = event.clientX;
@@ -84,7 +85,10 @@
     if (draggingCoin === null) return;
     dragX = event.clientX;
     dragY = event.clientY;
-    if (Math.hypot(dragX - dragStartX, dragY - dragStartY) > 6) dragMoved = true;
+    if (!dragMoved && Math.hypot(dragX - dragStartX, dragY - dragStartY) > 6) {
+      dragMoved = true;
+      selectedCoin = null;
+    }
   }
 
   function endDrag(event: PointerEvent): void {
@@ -111,6 +115,26 @@
 
   function chooseDestination(holder: number): void {
     if (selectedCoin !== null) moveCoin(selectedCoin, holder);
+  }
+
+  function handleCoinKeydown(event: KeyboardEvent, coin: number): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      selectedCoin = null;
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      selectedCoin = selectedCoin === coin ? null : coin;
+    }
+  }
+
+  function handleDestinationKeydown(event: KeyboardEvent, holder: number): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      selectedCoin = null;
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      chooseDestination(holder);
+    }
   }
 
   function undo(): void {
@@ -159,22 +183,16 @@
       >
         {#each positions as position, holder}
           <circle
-            class:destination={selectedCoin !== null && owners[selectedCoin] !== holder}
-            class="drop-target"
+            class="drop-surface"
             cx={position.x}
             cy={position.y}
             r={dropRadius}
             data-holder={holder}
             role="button"
-            tabindex={selectedCoin === null ? -1 : 0}
-            aria-label={`Move selected coin to person ${holder + 1}`}
+            tabindex="-1"
+            aria-hidden="true"
             onclick={() => chooseDestination(holder)}
-            onkeydown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                chooseDestination(holder);
-              }
-            }}
+            onkeydown={(event) => handleDestinationKeydown(event, holder)}
           />
         {/each}
 
@@ -187,7 +205,7 @@
               class:drag-source={draggingCoin === coin && dragMoved}
               transform={`translate(${positions[holder].x + offset.x} ${positions[holder].y + offset.y})`}
               role="button"
-              tabindex="0"
+              tabindex={selectedCoin === null || selectedCoin === coin ? 0 : -1}
               aria-label={`Coin ${coin + 1}, held by person ${holder + 1}`}
               aria-pressed={selectedCoin === coin}
               onclick={(event) => chooseCoin(event, coin)}
@@ -195,16 +213,27 @@
               onpointermove={continueDrag}
               onpointerup={endDrag}
               onpointercancel={cancelDrag}
-              onkeydown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  selectedCoin = selectedCoin === coin ? null : coin;
-                }
-              }}
+              onkeydown={(event) => handleCoinKeydown(event, coin)}
             >
               <Coin r={coinRadius} face={coin % 2 === 0 ? 'front' : 'back'} />
             </g>
           {/each}
+        {/each}
+
+        {#each positions as position, holder}
+          <circle
+            class:destination={selectedCoin !== null && owners[selectedCoin] !== holder}
+            class="drop-target"
+            cx={position.x}
+            cy={position.y}
+            r={dropRadius}
+            data-holder={holder}
+            role="button"
+            tabindex={selectedCoin === null ? -1 : 0}
+            aria-label={`Move selected coin to person ${holder + 1}`}
+            onclick={() => chooseDestination(holder)}
+            onkeydown={(event) => handleDestinationKeydown(event, holder)}
+          />
         {/each}
       </svg>
     {/if}
@@ -254,10 +283,20 @@
     stroke-width: 1.5;
     cursor: default;
     outline: none;
+    pointer-events: none;
+  }
+
+  .drop-surface {
+    fill: transparent;
+    cursor: pointer;
+  }
+
+  .coin-layer:not(.choosing) .drop-surface {
+    pointer-events: none;
   }
 
   .drop-target.destination {
-    fill: rgb(255 252 245 / 32%);
+    fill: transparent;
     stroke: rgb(74 63 48 / 38%);
     stroke-dasharray: 4 4;
     cursor: pointer;
@@ -284,10 +323,6 @@
 
   .coin-slot.drag-source {
     opacity: 0.2;
-  }
-
-  .coin-layer.choosing .coin-slot {
-    pointer-events: none;
   }
 
   output {

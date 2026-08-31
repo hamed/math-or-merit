@@ -191,10 +191,38 @@ test('dragging the real coin between room circles changes effective participants
 
   await expect(stage.locator('output')).toContainText('4.00');
 
+  const firstCoin = stage.getByRole('button', { name: 'Coin 1, held by person 1' });
   const coin = stage.getByRole('button', { name: 'Coin 5, held by person 2' });
-  const destination = stage.locator('[data-holder="0"]');
+  const destination = stage.locator('.drop-target[data-holder="0"]');
+
+  await firstCoin.click();
+  await coin.click();
+  await expect(firstCoin).toHaveAttribute('aria-pressed', 'false');
+  await expect(coin).toHaveAttribute('aria-pressed', 'true');
+  await expect(stage.locator('output')).toContainText('4.00');
+  await expect(stage.getByRole('button', { name: 'Undo one move' })).toBeDisabled();
+  await coin.press('Escape');
+  await expect(coin).toHaveAttribute('aria-pressed', 'false');
+
+  await firstCoin.focus();
+  await firstCoin.press('Enter');
+  await page.keyboard.press('Tab');
+  await expect(stage.getByRole('button', { name: 'Move selected coin to person 1' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(firstCoin).toHaveAttribute('aria-pressed', 'false');
+
+  const roomLayer = await stage.locator('.coin-layer').boundingBox();
   await coin.evaluate((element) => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
-  const from = await coin.boundingBox();
+  let from = await coin.boundingBox();
+  await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(roomLayer!.x + roomLayer!.width / 2, roomLayer!.y + 5, { steps: 8 });
+  await page.mouse.up();
+  await expect(coin).toHaveAttribute('aria-pressed', 'true');
+  await coin.click();
+  await expect(coin).toHaveAttribute('aria-pressed', 'false');
+
+  from = await coin.boundingBox();
   const to = await destination.boundingBox();
   await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
   await page.mouse.down();
@@ -215,7 +243,8 @@ test('selecting coins and room circles concentrates the square room on mobile', 
 
   for (const coin of [5, 9, 13]) {
     await stage.getByRole('button', { name: `Coin ${coin}, held by person ${coin === 5 ? 2 : coin === 9 ? 3 : 4}` }).click();
-    await stage.getByRole('button', { name: 'Move selected coin to person 1' }).click();
+    const destination = await stage.getByRole('button', { name: 'Move selected coin to person 1' }).boundingBox();
+    await page.mouse.click(destination!.x + destination!.width * 0.82, destination!.y + destination!.height / 2);
   }
 
   await expect(stage.locator('output')).toContainText('3.37');

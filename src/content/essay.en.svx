@@ -365,13 +365,16 @@ every coin even. Then let it run — not a hundred thousand trades, but without 
 With probability one, it ends with a single owner. Everyone else goes to zero. Chance chooses
 the owner, and chance may choose the same one twice — but always, in the end, exactly one.
 
-<details class="claim-note">
-  <summary>Show the math and its limits</summary>
-  <p>"Without end" is doing the work. This is the limit, not a date. For any finite number
+Two cautions, because they carry the honesty of the whole piece:
+
+- "Without end" is doing the work. This is the limit, not a date. For any finite number
   of trades the room can become deeply concentrated, but it does not literally reach one
-  owner. The time-lapse shows a destination, not a deadline.</p>
-  <p>The path can wobble. A poorer circle can win, and the room can briefly grow fairer,
-  even as the long process approaches one owner.</p>
+  owner. The time-lapse shows a destination, not a deadline.
+- The path can wobble. A poorer circle can win, and the room can briefly grow fairer,
+  even as the long process approaches one owner.
+
+<details class="claim-note">
+  <summary>Show the theorem source</summary>
   <p>The finite-agent convergence result is proved in <a href="https://arxiv.org/abs/2308.01485">Börgers &amp; Greengard (2023)</a>.</p>
 </details>
 
