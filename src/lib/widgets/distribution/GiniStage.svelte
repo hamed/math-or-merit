@@ -142,7 +142,7 @@
     equalMerge: 'Each step adds the same slice — the running total climbs in a perfectly straight line.',
     unequal: 'Keep the graph. New room, same total — but unequal. First, sort them.',
     unequalMerge: 'The poor add almost nothing — the line crawls. The rich arrive last — it leaps.',
-    gap: 'The sag is the inequality. Gini = the hatched gap ÷ everything under the straight line: 0 means all equal, 1 means one owner.',
+    gap: 'The sag is the inequality. Gini = the hatched gap ÷ everything under the straight line: 0 means all equal, 1 is the theoretical one-owner limit.',
     play: 'Bend it yourself. The circles are the room the curve describes.',
   };
 

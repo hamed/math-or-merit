@@ -1,4 +1,6 @@
 <script lang="ts" module>
+  import { WHEEL_GESTURE_REST_MS } from '../shared/gesture';
+
   let fontsRefreshHooked = false;
 
   interface SceneNav {
@@ -13,15 +15,13 @@
   let touchStartY: number | null = null;
   let wheelGesture: SceneNav | undefined;
   let wheelRestTimer: number | undefined;
-  const WHEEL_REST_MS = 120;
-
   function holdWheelGesture(nav: SceneNav): void {
     wheelGesture = nav;
     if (wheelRestTimer !== undefined) window.clearTimeout(wheelRestTimer);
     wheelRestTimer = window.setTimeout(() => {
       wheelGesture = undefined;
       wheelRestTimer = undefined;
-    }, WHEEL_REST_MS);
+    }, WHEEL_GESTURE_REST_MS);
   }
 
   function clearWheelGesture(): void {
@@ -406,7 +406,10 @@
         if (direction > 0) {
           const index = positions.findIndex((position) => position > y + 4);
           if (index < 0) {
-            target = st.end + window.innerHeight;
+            const spacer = root.parentElement;
+            target = spacer?.classList.contains('pin-spacer')
+              ? window.scrollY + spacer.getBoundingClientRect().bottom
+              : st.end + window.innerHeight;
             targetTime = total;
           } else {
             target = positions[index];

@@ -28,9 +28,11 @@
     /** Measured room statistics. */
     stats: RoomStats;
     onClose: () => void;
+    /** Guided stories can keep arrow-key page navigation on the dialog itself. */
+    focusClose?: boolean;
   }
 
-  let { paper, style, zone = null, dollars, percentile, pos, run, stats, onClose }: Props = $props();
+  let { paper, style, zone = null, dollars, percentile, pos, run, stats, onClose, focusClose = true }: Props = $props();
 
   const winnerLine = $derived(zone ? headlineForZone(zone, run) : headlineForStyle(style, run));
   const noun = $derived(zone ? `the one at the ${zone}` : styleNoun(style));
@@ -60,7 +62,7 @@
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     // The dialog mounts during the canvas pointerdown. Focus after that pointer
     // gesture finishes so its eventual pointerup cannot steal focus back.
-    const focusFrame = requestAnimationFrame(() => closeEl?.focus());
+    const focusFrame = requestAnimationFrame(() => (focusClose ? closeEl : overlayEl)?.focus());
     let firstFrame: number | undefined;
     let secondFrame: number | undefined;
     const timers: ReturnType<typeof setTimeout>[] = [];

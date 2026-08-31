@@ -36,7 +36,7 @@
    * qualifier returns in the ending beat.
    */
   const HEADLINE = 'The world has its first trillionaire.';
-  const SOURCE = '(Reuters)';
+  const SOURCE = '(Reuters · June 14, 2026)';
   const SOURCE_URL =
     'https://www.investing.com/news/stock-market-news/spacex-ipo-makes-elon-musk-worlds-first-trillionaire-4741087';
 
@@ -216,7 +216,7 @@
   <p class="teletype" aria-label={`${HEADLINE} ${SOURCE}`}>
     <span class="tt-line" aria-hidden="true">
       {#each headlineChars as ch}<span class="tt-char">{ch}</span>{/each}</span
-    ><a class="tt-source" href={SOURCE_URL} aria-label="Source: Reuters"
+    ><a class="tt-source" href={SOURCE_URL} aria-label="Source: Reuters, June 14, 2026"
       >{#each sourceChars as ch}<span class="tt-char" aria-hidden="true">{ch}</span>{/each}</a
     ><span bind:this={cursor} class="tt-cursor" aria-hidden="true"></span>
   </p>

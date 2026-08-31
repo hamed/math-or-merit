@@ -54,6 +54,21 @@ test('a direct chapter link loads its deferred destination', async ({ page }) =>
   await expect(page.locator('#sandbox')).toBeInViewport();
 });
 
+test('a deferred mount cannot pull navigation back to an obsolete hash target', async ({ page }) => {
+  await page.goto('/#run', { waitUntil: 'domcontentloaded' });
+  await loadDeferred(page, 'main run', page.locator('[data-guided-run]'));
+  await page.waitForTimeout(500);
+
+  const movedTo = await page.evaluate(() => {
+    history.replaceState(null, '', '#sandbox');
+    scrollTo(0, 3000);
+    document.dispatchEvent(new CustomEvent('merit-or-math:deferred-mounted'));
+    return scrollY;
+  });
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => scrollY)).toBe(movedTo);
+});
+
 test('the sandbox stacks into a readable page on a short landscape phone', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -156,6 +171,100 @@ test('prediction choices use native radio keyboard behavior', async ({ page }) =
   await radios.first().focus();
   await page.keyboard.press('ArrowDown');
   await expect(radios.nth(1)).toBeChecked();
+});
+
+test('the main run groups start, active reversal, completion, and interpretation into separate actions', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#run', { waitUntil: 'domcontentloaded' });
+  const guided = page.locator('[data-guided-run]');
+  await loadDeferred(page, 'main run', guided);
+  await guided.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+
+  const waiting = page.getByText('The room has not answered yet. Run it above; the interpretation can wait.');
+  await expect(waiting).toBeAttached();
+
+  await page.keyboard.press('Space');
+  await expect(guided.getByRole('button', { name: 'Trading…' })).toBeDisabled();
+
+  await page.keyboard.press('Shift+Space');
+  await expect(guided.locator('output')).toHaveText('0 trades');
+  await expect(waiting).toBeAttached();
+
+  await page.keyboard.press('Space');
+
+  await page.keyboard.press('Space');
+  await expect(guided.locator('output')).toHaveText('100,000 trades');
+  await expect(page.getByText(/The largest shape in this run holds/)).toBeAttached();
+  const firstShare = await guided.locator('.meter-label').textContent();
+
+  // NewsFlash focuses its own button; guided keys still reach the page, while
+  // a completed result remains intact for readers scrolling back to reread it.
+  const beforeReread = await page.evaluate(() => scrollY);
+  await page.keyboard.press('ArrowUp');
+  await expect(guided.locator('output')).toHaveText('100,000 trades');
+  await expect(guided.locator('.meter-label')).toHaveText(firstShare!);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThan(beforeReread);
+});
+
+test('one wheel gesture cannot both start and finish the main run', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#run', { waitUntil: 'domcontentloaded' });
+  const guided = page.locator('[data-guided-run]');
+  await loadDeferred(page, 'main run', guided);
+  await guided.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+
+  for (const delta of [240, 160, 90, 45, 20]) {
+    await page.mouse.wheel(0, delta);
+    await page.waitForTimeout(16);
+  }
+  await expect(guided.getByRole('button', { name: 'Trading…' })).toBeDisabled();
+
+  await page.waitForTimeout(350);
+  await page.mouse.wheel(0, 240);
+  await expect(guided.locator('output')).toHaveText('100,000 trades');
+});
+
+test('mobile swipes reverse an active run and preserve a completed result', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#run', { waitUntil: 'domcontentloaded' });
+  const guided = page.locator('[data-guided-run]');
+  await loadDeferred(page, 'main run', guided);
+  await guided.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+
+  const swipe = (from: number, to: number) => page.evaluate(({ from, to }) => {
+    const target = document.body;
+    const begin = new Touch({ identifier: 8, target, clientX: 195, clientY: from });
+    const end = new Touch({ identifier: 8, target, clientX: 195, clientY: to });
+    window.dispatchEvent(new TouchEvent('touchstart', { touches: [begin], bubbles: true, cancelable: true }));
+    window.dispatchEvent(new TouchEvent('touchmove', { touches: [end], bubbles: true, cancelable: true }));
+    window.dispatchEvent(new TouchEvent('touchend', { changedTouches: [end], bubbles: true, cancelable: true }));
+  }, { from, to });
+
+  await swipe(700, 180);
+  await expect(guided.getByRole('button', { name: 'Trading…' })).toBeDisabled();
+  await swipe(180, 700);
+  await expect(guided.locator('output')).toHaveText('0 trades');
+  await swipe(700, 180);
+  await swipe(700, 180);
+  await expect(guided.locator('output')).toHaveText('100,000 trades');
+  await swipe(180, 700);
+  await expect(guided.locator('output')).toHaveText('100,000 trades');
+});
+
+test('a horizontal trackpad gesture does not drive the main run', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#run', { waitUntil: 'domcontentloaded' });
+  const guided = page.locator('[data-guided-run]');
+  await loadDeferred(page, 'main run', guided);
+  await guided.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+
+  await page.evaluate(() => {
+    for (let index = 0; index < 4; index++) {
+      window.dispatchEvent(new WheelEvent('wheel', { deltaX: 120, deltaY: 0, bubbles: true, cancelable: true }));
+    }
+  });
+  await expect(guided.locator('output')).toHaveText('0 trades');
+  await expect(guided.getByRole('button', { name: /Run 100,000 trades/ })).toBeEnabled();
 });
 
 test('one presentation key advances one authored stage beat and reverse goes back', async ({ page }) => {

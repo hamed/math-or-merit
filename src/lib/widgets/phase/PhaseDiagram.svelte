@@ -199,7 +199,7 @@
   });
 </script>
 
-<div class="widget" aria-label="Play rooms with a stake and a tax dial; each finished room paints its spot on the map">
+<div class="widget" aria-label="Play rooms with a stake and a levy dial; each finite run paints its measured outcome on the map">
   <p class="kicker">Both rules, one map</p>
 
   <div class="duo">
@@ -224,7 +224,7 @@
       class="map"
       viewBox={`0 0 ${MAP_W} ${MAP_H}`}
       role="img"
-      aria-label="Phase map: stake across, tax up; each played cell colored by how its room settled"
+      aria-label="Outcome map: stake across, levy up; each played cell colored by its finite-run Gini"
     >
       {#each TAXES as tax, iy}
         {#each BETAS as b, ix}
@@ -297,14 +297,13 @@
     {#if filling}
       Running every remaining room, live — {Math.round(fillProgress * 100)}% of the map painted.
     {:else if done}
-      Dark: the stake wins, the room condenses. Light: the levy wins. The pale line is measured — rooms that settle at
-      Gini 0.5. The dashed one is a <em>fitted</em> curve, tax ≈ {fitted ? fitted.c.toFixed(2) : '…'} × stake² — steeper
-      trading needs disproportionately more tax.
+      Dark: higher finite-run Gini. Light: lower finite-run Gini. The pale line marks the chosen Gini 0.5 outcome — it is
+      not a phase boundary. The dashed curve is <em>fitted</em>: levy ≈ {fitted ? fitted.c.toFixed(2) : '…'} × stake².
     {:else if playing}
       Run {runIndex + 1} of {SEEDS.length} is trading your dials — {percent(beta)} stake against a {percent(taxRate, 1)} levy.
     {:else if plays.length === 0}
-      Every point on the map is a possible world: stake across, tax up. Pick your dials, run the room, and its ending
-      paints that square.
+      Every point is one fixed-length experiment: stake across, levy up. Pick your dials, run the room, and its measured
+      outcome paints that square.
     {:else}
       {plays.length} {plays.length === 1 ? 'room' : 'rooms'} run and painted. Try dials on the other side of the map —
       or fill in the rest.

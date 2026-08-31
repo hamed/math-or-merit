@@ -106,18 +106,18 @@
   <PlotFrame
     x={xAxis}
     y={yAxis}
-    title={`measured worlds — n=${n}`}
-    description="Each mark is a steady state YOUR runs measured: stake across, tax up, color = settled Gini. Hover to preview cross-sections; click to change the drawing style."
+    title={`measured outcomes — n=${n}`}
+    description="Each mark is one finite run under a versioned protocol: stake across, levy up, color = measured Gini. Hover to preview cross-sections; click to change the drawing style."
     sharedZero
     onBody={cycleMode}
     bodyTooltip={`drawn as ${mode} — click for the next style`}
     onBodyMove={handleMove}
-    ariaLabel={`Phase map of ${points.length} measured settings for rooms of ${n}. Your dials sit at ${percent(stake)} stake and ${percent(taxRate)} tax; dashed lines mark the cross-sections.`}
+    ariaLabel={`Outcome map of ${points.length} measured settings for rooms of ${n}. Your dials sit at ${percent(stake)} stake and ${percent(taxRate)} levy; dashed lines mark the cross-sections.`}
   >
     {#snippet children({ xOf, yOf, frame })}
       {#if points.length === 0}
         <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 - 5} text-anchor="middle">nothing is given —</text>
-        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 + 6} text-anchor="middle">every settled run paints its point</text>
+        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 + 6} text-anchor="middle">every completed run paints its point</text>
       {:else if mode === 'shade' && shadeUrl}
         <image href={shadeUrl} x={frame.x} y={frame.y} width={frame.w} height={frame.h} preserveAspectRatio="none" />
       {:else if mode === 'cells'}
