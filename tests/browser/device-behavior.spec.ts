@@ -425,6 +425,31 @@ test('separate wheel gestures complete successive actions and reverse one action
   expect(reversed).toBeLessThan(second);
 });
 
+test('a new wheel gesture is not swallowed while a long stage step is still moving', async ({ browser }) => {
+  async function resultingScroll(gestures: number, gapMs = 350): Promise<number> {
+    const page = await browser.newPage({ reducedMotion: 'no-preference', viewport: { width: 1440, height: 900 } });
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
+    await page.locator('.pin-scene').nth(1).scrollIntoViewIfNeeded();
+
+    await page.mouse.wheel(0, 240);
+    if (gestures === 2) {
+      await page.waitForTimeout(gapMs);
+      await page.mouse.wheel(0, 240);
+    }
+    await page.waitForTimeout(4_000);
+    const result = await page.evaluate(() => scrollY);
+    await page.close();
+    return result;
+  }
+
+  const oneGesture = await resultingScroll(1);
+  const twoGestures = await resultingScroll(2);
+  const twoSettledGestures = await resultingScroll(2, 2_500);
+  expect(twoGestures).toBeCloseTo(twoSettledGestures, 0);
+  expect(twoGestures).toBeGreaterThan(oneGesture);
+});
+
 test('a trackpad inertia tail advances only one authored action', async ({ browser }) => {
   async function resultingScroll(deltas: readonly number[]): Promise<number> {
     const page = await browser.newPage({ reducedMotion: 'no-preference', viewport: { width: 1440, height: 900 } });
@@ -534,7 +559,9 @@ test('scrolling after the cow’s final action brings the next section onscreen'
   const cow = page.locator('.pin-scene').nth(1);
   const cowBox = await cow.boundingBox();
   expect(cowBox!.y + cowBox!.height).toBeLessThanOrEqual(1);
-  await expect(page.getByRole('heading', { name: 'Now, the spherical human' })).toBeInViewport();
+  const headingTop = await page.getByRole('heading', { name: 'Now, the spherical human' })
+    .evaluate((element) => element.getBoundingClientRect().top);
+  expect(headingTop).toBeLessThan(900);
 });
 
 test('the news dialog owns and restores keyboard focus', async ({ page }) => {

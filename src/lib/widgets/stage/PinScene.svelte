@@ -393,18 +393,25 @@
       });
 
       let movingDirection: -1 | 0 | 1 = 0;
+      let movingTarget: number | undefined;
       const stopPositions = () =>
         restTimes.map((t) => st.start + (t / total) * (st.end - st.start));
 
       const go = (direction: -1 | 1) => {
-        if (movingDirection === direction) return;
-
         const y = window.scrollY;
+        // A new wheel gesture may arrive before a long authored step has
+        // finished tweening. In that case navigate from the step already
+        // promised to the reader, not from the playhead still travelling
+        // toward it. Otherwise the new gesture is prevented above and then
+        // silently spends itself on the same target.
+        const reference = movingDirection === direction && movingTarget !== undefined
+          ? movingTarget
+          : y;
         const positions = stopPositions();
         let target: number;
         let targetTime: number;
         if (direction > 0) {
-          const index = positions.findIndex((position) => position > y + 4);
+          const index = positions.findIndex((position) => position > reference + 4);
           if (index < 0) {
             const spacer = root.parentElement;
             target = spacer?.classList.contains('pin-spacer')
@@ -418,7 +425,7 @@
         } else {
           let index = -1;
           for (let i = positions.length - 1; i >= 0; i--) {
-            if (positions[i] < y - 4) {
+            if (positions[i] < reference - 4) {
               index = i;
               break;
             }
@@ -433,12 +440,19 @@
         }
 
         navTween?.kill();
+        navTween = undefined;
+        // A killed tween has not reached the stop it promised. Clear the
+        // reference before replacing it so no future path can navigate from a
+        // phantom target and skip a beat.
+        movingDirection = 0;
+        movingTarget = undefined;
         const currentTime = Math.max(0, Math.min(total, ((y - st.start) / (st.end - st.start)) * total));
         const duration = target < st.start || target > st.end
           ? 0.55
           : Math.max(0.18, Math.abs(targetTime - currentTime));
         const scroll = { y };
         movingDirection = direction;
+        movingTarget = target;
         navTween = gsap.to(scroll, {
           y: target,
           duration,
@@ -449,6 +463,7 @@
             window.scrollTo(0, target);
             navTween = undefined;
             movingDirection = 0;
+            movingTarget = undefined;
           },
         });
       };
