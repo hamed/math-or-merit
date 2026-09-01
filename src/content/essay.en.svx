@@ -474,11 +474,18 @@ contribute net. The room keeps every coin.
 
 ## Tax against trade
 
-Now both rules run at once. Fair trades create the fluctuations that can concentrate wealth.
-At its own cadence, the levy collects the same percentage from every holder and returns the
-pool equally. What the room looks like after a fixed run depends on both dials.
+Now turn trading back on. To isolate the new rule, write one fresh random script of partners
+and coin tosses and give it to two rooms. One gets only the trades. The other gets the same
+trades plus the shared counterforce.
 
-So measure it. Put stake on one axis and levy rate on the other. Every point is one finite
+<Deferred load={() => import('$lib/widgets/tax/MatchedRooms.svelte')} label="matched room comparison" reserve="38rem" />
+
+That comparison says what happened under one disclosed finite protocol. It does not choose a
+real tax code, and it does not promise the same numbers on a fresh random run. It isolates one
+thing: what the levy plus equal return changed while luck stayed matched.
+
+One pair is evidence, not a landscape. So measure many. Put stake on one axis and levy rate
+on the other. Every point is one finite
 experiment under the same protocol; its color records the measured outcome. You fill in the
 map.
 

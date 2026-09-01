@@ -326,6 +326,32 @@ test('the levy lesson keeps collection, return, and final wealth in separate rev
   expect(await lesson.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 });
 
+test('matched rooms share luck and report participation and levy-free turnover', async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 47 / 0x1_0000_0000;
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#tax-against-trade', { waitUntil: 'domcontentloaded' });
+  const comparison = page.locator('[aria-label="Two matched rooms compare fair trades without and with a shared counterforce"]');
+  await loadDeferred(page, 'matched room comparison', comparison);
+
+  await expect(comparison.getByText('Same partners. Same tosses. One changed rule.')).toBeVisible();
+  await comparison.getByRole('button', { name: 'Run both rooms' }).click();
+  await expect(comparison.getByRole('button', { name: 'Run another matched pair' })).toBeVisible({ timeout: 10_000 });
+
+  const control = comparison.getByRole('region', { name: 'Matched room without a levy' });
+  const treatment = comparison.getByRole('region', { name: 'Matched room with a levy and equal return' });
+  const value = async (section: typeof control, row: number) =>
+    Number((await section.locator('.measurements strong').nth(row).textContent())!.split(' ')[0]);
+  expect(await value(treatment, 0)).toBeGreaterThan(await value(control, 0));
+  expect(await value(treatment, 1)).toBeGreaterThan(await value(control, 1));
+  await expect(comparison.getByText(/Same random script/)).toBeVisible();
+  expect(await comparison.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  expect(await comparison.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
 test('prediction choices use native radio keyboard behavior', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const radios = page.getByRole('radio');
