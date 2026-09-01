@@ -320,6 +320,15 @@ test('the levy lesson keeps collection, return, and final wealth in separate rev
   await lesson.getByRole('button', { name: 'Step back' }).click();
   await expect(lesson.getByText('Return one equal share to each person.')).toBeVisible();
   await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(8);
+
+  await lesson.getByRole('button', { name: 'Count the result' }).click();
+  await lesson.getByRole('button', { name: 'Repeat until equal' }).click();
+  await expect(lesson.getByText(/room is equal to the eye/)).toBeVisible({ timeout: 10_000 });
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(0);
+  await expect(lesson.locator('output')).toHaveText(/round \d+/);
+  await lesson.getByRole('button', { name: 'Step back' }).click();
+  await expect(lesson.getByText(/The same rule pulls every fortune/)).toBeVisible();
+  await expect(lesson.getByRole('button', { name: 'Keep going' })).toBeVisible();
   expect(await lesson.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 
   await page.setViewportSize({ width: 844, height: 390 });
