@@ -1,4 +1,6 @@
 <script lang="ts" module>
+  import { sandboxPlotsFor, type SandboxPlotId } from './sandboxPlots';
+
   /**
    * The sandbox is the essay's one machine with every dial exposed — and the
    * seam for reuse: earlier beats can become presets
@@ -27,6 +29,7 @@
     startWealth: boolean;
     news: boolean;
   }
+
 </script>
 
 <script lang="ts">
@@ -97,7 +100,6 @@
   const LOOKS = ['shapes', 'circles', 'classic'] as const;
   const LEVY_CADENCE_STOPS = [1, 2, 5, 10, 20, 50, 100] as const;
   type Look = (typeof LOOKS)[number];
-  type PlotId = 'hist' | 'lorenz' | 'ccdf' | 'time' | 'phase' | 'gtax' | 'gstake';
 
   let n = $state(ROOM_N);
   let stake = $state(0.2);
@@ -142,8 +144,14 @@
   let roomW = $state(0);
   let roomH = $state(0);
 
-  let zoomed = $state<PlotId | null>(null);
-  let dashboardPlot = $state<PlotId>('phase');
+  let zoomed = $state<SandboxPlotId | null>(null);
+  let dashboardPlot = $state<SandboxPlotId>('phase');
+  const availablePlots = $derived(sandboxPlotsFor(show));
+  $effect(() => {
+    if (!availablePlots.includes(dashboardPlot) && availablePlots.length > 0) {
+      dashboardPlot = availablePlots[0];
+    }
+  });
 
   // hovering the phase map previews other cross-sections
   let probeStake = $state<number | null>(null);
@@ -269,7 +277,7 @@
     zoomed = zoomed === plot ? null : plot;
   }
 
-  const plotLabel: Record<PlotId, string> = {
+  const plotLabel: Record<SandboxPlotId, string> = {
     phase: 'map',
     gtax: 'tax cut',
     gstake: 'stake cut',
@@ -509,13 +517,13 @@
   </div>
 
   <nav class="plot-tabs" aria-label="Choose a sandbox plot">
-    {#each ['phase', 'gtax', 'gstake', 'hist', 'lorenz', 'ccdf', 'time'] as id}
+    {#each availablePlots as id}
       <button
         type="button"
         class:primary={dashboardPlot === id}
         aria-pressed={dashboardPlot === id}
-        onclick={() => (dashboardPlot = id as PlotId)}
-      >{plotLabel[id as PlotId]}</button>
+        onclick={() => (dashboardPlot = id)}
+      >{plotLabel[id]}</button>
     {/each}
   </nav>
 
@@ -1060,7 +1068,7 @@
       min-block-size: 100dvh;
     }
 
-    .plot {
+    .plot:not(.zoomed) {
       grid-area: dashboard !important;
       aspect-ratio: auto;
       block-size: calc(100vw - 1.8rem);
@@ -1102,7 +1110,7 @@
       min-block-size: 100svh;
     }
 
-    .plot {
+    .plot:not(.zoomed) {
       grid-area: dashboard !important;
       aspect-ratio: auto;
       block-size: 70svh;

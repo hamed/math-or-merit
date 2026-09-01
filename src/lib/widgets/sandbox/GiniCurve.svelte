@@ -127,7 +127,12 @@
       {@const d = buildPath(xOf, yOf)}
       {#if theory}
         <line class="theory" x1={frame.x} y1={yOf(Math.max(theory.y, yLog ? yFloor : 0))} x2={frame.x + frame.w} y2={yOf(Math.max(theory.y, yLog ? yFloor : 0))} />
-        <text class="theory-label" x={frame.x + frame.w - 3} y={yOf(Math.max(theory.y, yLog ? yFloor : 0)) + (theory.y > 0.5 ? 9 : -4)} text-anchor="end">{theory.label}</text>
+        <text
+          class="theory-label"
+          x={frame.x + frame.w - 3}
+          y={yOf(Math.max(theory.y, yLog ? yFloor : 0)) + (theory.y > (yAxis.lo + yAxis.hi) / 2 ? 9 : -4)}
+          text-anchor="end"
+        >{theory.label}</text>
       {/if}
       {#if d}
         <path class="curve" class:probing d={d} />
