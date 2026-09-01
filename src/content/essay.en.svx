@@ -438,16 +438,16 @@ participation, or does the room outpace the taps? The game will report what your
 
 <Deferred load={() => import('$lib/widgets/tax/TaxGame.svelte')} label="tax game" reserve="30rem" />
 
-This game uses a targeted intervention because pointing is the game: you choose one holder.
-The rule coming next is different. It applies the same percentage to everyone, collects the
-pieces into one pool, and returns that pool equally to everyone.
+Pointing is the game, so this intervention is targeted: you choose one holder. The rule
+coming next is not an automated version of your hand. It is a different rule. Nobody is
+selected. The same percentage applies to every fortune, the pieces enter one pool, and the
+pool returns equally to everyone.
 
 <!--
   BUILD NOTE (2026-07-06, M8) — the formerly gated middle, now built to the storyboard with
   claim discipline intact:
-    20  automatic structural levy: TaxOnlyDemo shows the levy as a RULE (trading off). The
-        "structural beats manual" comparison is still NOT claimed — no matched-budget test
-        has run (research/interventions.md); the prose only invites the contrast.
+    20  structural levy lesson: LevyLesson keeps trading off and follows the proportional
+        collection, common pool, equal return, and net result as separate reversible states.
     21  Gini — shipped in Chapter III (GiniStage), rooms-comparison only.
     22  progressive levy designer — ships inside the sandbox (M9), as a toy, no empirical claim.
     23  outcome map — finite-run grid + a chosen Gini-0.5 contour; the smooth curve is labeled
@@ -458,12 +458,17 @@ pieces into one pool, and returns that pool equally to everyone.
 
 ## Put the levy in the rules
 
-Your hands were always going to tire. So replace the targeted game with a structural rule:
-a wealth levy plus an equal social return, applied on its own clock.
+Your hands were always going to tire. So put a structural rule in the room: a proportional
+wealth levy plus an equal social return, applied on its own clock.
 
-First, see the tool alone — freeze the trading.
+First freeze the trading. Four fortunes are enough to see every piece move.
 
-<Deferred load={() => import('$lib/widgets/tax/TaxOnlyDemo.svelte')} label="levy demonstration" reserve="28rem" />
+<Deferred load={() => import('$lib/widgets/tax/LevyLesson.svelte')} label="levy lesson" reserve="42rem" />
+
+Collection alone would shrink every circle by the same proportion and leave every wealth
+share unchanged. The equal return is what changes the shares. Below-average fortunes receive
+more than they contributed; an exactly average fortune breaks even; above-average fortunes
+contribute net. The room keeps every coin.
 
 <Chapter id="tax-against-trade" label="Tax against trade" />
 

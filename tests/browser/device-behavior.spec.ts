@@ -294,6 +294,38 @@ test('the manual intervention game measures the field instead of punishing a win
   expect(await game.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 });
 
+test('the levy lesson keeps collection, return, and final wealth in separate reversible states', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#levy', { waitUntil: 'domcontentloaded' });
+  const lesson = page.locator('[aria-label="A reversible lesson showing a proportional wealth levy and equal return"]');
+  await loadDeferred(page, 'levy lesson', lesson);
+
+  await expect(lesson.getByText('Four fortunes. One rule will touch all four.')).toBeVisible();
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(0);
+
+  await lesson.getByRole('button', { name: 'Take the same 25%' }).click();
+  await expect(lesson.getByText(/Three give one coin/)).toBeVisible();
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(8);
+
+  await lesson.getByRole('button', { name: 'Make one pool' }).click();
+  await expect(lesson.getByText('Eight coins enter one common pool.')).toBeVisible();
+  await lesson.getByRole('button', { name: 'Divide it equally' }).click();
+  await expect(lesson.getByText(/four equal shares/)).toBeVisible();
+  await lesson.getByRole('button', { name: 'Return it to the room' }).click();
+  await expect(lesson.getByText('Return one equal share to each person.')).toBeVisible();
+
+  await lesson.getByRole('button', { name: 'Count the result' }).click();
+  await expect(lesson.getByText(/each smaller fortune gains one coin/)).toBeVisible();
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(0);
+  await lesson.getByRole('button', { name: 'Step back' }).click();
+  await expect(lesson.getByText('Return one equal share to each person.')).toBeVisible();
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(8);
+  expect(await lesson.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  expect(await lesson.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
 test('prediction choices use native radio keyboard behavior', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const radios = page.getByRole('radio');
