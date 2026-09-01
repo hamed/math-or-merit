@@ -426,7 +426,7 @@ test('separate wheel gestures complete successive actions and reverse one action
 });
 
 test('a new wheel gesture is not swallowed while a long stage step is still moving', async ({ browser }) => {
-  async function resultingScroll(gestures: number): Promise<number> {
+  async function resultingScroll(gestures: number, gapMs = 350): Promise<number> {
     const page = await browser.newPage({ reducedMotion: 'no-preference', viewport: { width: 1440, height: 900 } });
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
@@ -434,7 +434,7 @@ test('a new wheel gesture is not swallowed while a long stage step is still movi
 
     await page.mouse.wheel(0, 240);
     if (gestures === 2) {
-      await page.waitForTimeout(350);
+      await page.waitForTimeout(gapMs);
       await page.mouse.wheel(0, 240);
     }
     await page.waitForTimeout(4_000);
@@ -445,6 +445,8 @@ test('a new wheel gesture is not swallowed while a long stage step is still movi
 
   const oneGesture = await resultingScroll(1);
   const twoGestures = await resultingScroll(2);
+  const twoSettledGestures = await resultingScroll(2, 2_500);
+  expect(twoGestures).toBeCloseTo(twoSettledGestures, 0);
   expect(twoGestures).toBeGreaterThan(oneGesture);
 });
 

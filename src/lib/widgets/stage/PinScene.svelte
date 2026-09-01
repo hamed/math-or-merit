@@ -440,6 +440,12 @@
         }
 
         navTween?.kill();
+        navTween = undefined;
+        // A killed tween has not reached the stop it promised. Clear the
+        // reference before replacing it so no future path can navigate from a
+        // phantom target and skip a beat.
+        movingDirection = 0;
+        movingTarget = undefined;
         const currentTime = Math.max(0, Math.min(total, ((y - st.start) / (st.end - st.start)) * total));
         const duration = target < st.start || target > st.end
           ? 0.55
