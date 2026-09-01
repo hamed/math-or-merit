@@ -1,4 +1,4 @@
-/** Versioned independent outcome evidence used by the existing Gini views. */
+/** Versioned independent outcome evidence shared by the guided map and sandbox views. */
 import {
   OUTCOME_PROTOCOL_VERSION,
   type ExperimentProtocol,
@@ -33,6 +33,18 @@ export interface PhasePoint {
   tax: number;
   n: number;
   gini: number;
+  count: number;
+  protocolVersion: number;
+}
+
+export type OutcomeMapMetric = 'gini' | 'effectiveParticipants';
+
+export interface OutcomePoint {
+  stake: number;
+  tax: number;
+  n: number;
+  metric: OutcomeMapMetric;
+  value: number;
   count: number;
   protocolVersion: number;
 }
@@ -192,6 +204,7 @@ export function loadPhaseData(): void {
     phaseData.cells = {
       ...migrated,
       ...(current ? decodeOutcomeStore(current) : {}),
+      ...phaseData.cells,
     };
     if (legacy) {
       persist();
@@ -244,29 +257,46 @@ export function clearPhaseData(): void {
   persist();
 }
 
-/** Current protocol points plus legacy Gini where no current point replaces it. */
-export function pointsFor(n: number, protocol: ExperimentProtocol = outcomeProtocolFor(n)): PhasePoint[] {
+/** Current protocol points for one reader-facing metric, plus valid legacy Gini. */
+export function metricPointsFor(
+  n: number,
+  metric: OutcomeMapMetric,
+  protocol: ExperimentProtocol = outcomeProtocolFor(n),
+): OutcomePoint[] {
   const currentKey = protocolKey(protocol);
-  const current = new Map<string, PhasePoint>();
-  const legacy = new Map<string, PhasePoint>();
+  const current = new Map<string, OutcomePoint>();
+  const legacy = new Map<string, OutcomePoint>();
   for (const cell of Object.values(phaseData.cells)) {
     if (cell.protocol.n !== n) continue;
-    const aggregate = cell.metrics.gini;
+    const aggregate = cell.metrics[metric];
     if (!aggregate) continue;
-    const point: PhasePoint = {
+    const point: OutcomePoint = {
       stake: cell.stake,
       tax: cell.tax,
       n,
-      gini: aggregate.sum / aggregate.count,
+      metric,
+      value: aggregate.sum / aggregate.count,
       count: aggregate.count,
       protocolVersion: cell.protocol.version,
     };
     const setting = `${cell.stake}|${cell.tax}`;
     if (protocolKey(cell.protocol) === currentKey) current.set(setting, point);
-    else if (cell.protocol.version === 1) legacy.set(setting, point);
+    else if (metric === 'gini' && cell.protocol.version === 1) legacy.set(setting, point);
   }
   for (const [setting, point] of legacy) if (!current.has(setting)) current.set(setting, point);
   return [...current.values()];
+}
+
+/** Current protocol points plus legacy Gini where no current point replaces it. */
+export function pointsFor(n: number, protocol: ExperimentProtocol = outcomeProtocolFor(n)): PhasePoint[] {
+  return metricPointsFor(n, 'gini', protocol).map((point) => ({
+    stake: point.stake,
+    tax: point.tax,
+    n: point.n,
+    gini: point.value,
+    count: point.count,
+    protocolVersion: point.protocolVersion,
+  }));
 }
 
 export interface PhaseCurve {
@@ -280,9 +310,29 @@ export function curveVs(
   n: number,
   protocol: ExperimentProtocol = outcomeProtocolFor(n),
 ): PhaseCurve {
-  const all = pointsFor(n, protocol);
-  if (all.length === 0) return { fixedUsed: null, points: [] };
-  const groups = new Map<number, PhasePoint[]>();
+  const cut = curveVsMetric(axis, fixed, n, 'gini', protocol);
+  return {
+    fixedUsed: cut.fixedUsed,
+    points: cut.points.map((point) => ({ v: point.v, gini: point.value, count: point.count })),
+  };
+}
+
+export interface OutcomeCurve {
+  fixedUsed: number | null;
+  metric: OutcomeMapMetric;
+  points: { v: number; value: number; count: number }[];
+}
+
+export function curveVsMetric(
+  axis: 'tax' | 'stake',
+  fixed: number,
+  n: number,
+  metric: OutcomeMapMetric,
+  protocol: ExperimentProtocol = outcomeProtocolFor(n),
+): OutcomeCurve {
+  const all = metricPointsFor(n, metric, protocol);
+  if (all.length === 0) return { fixedUsed: null, metric, points: [] };
+  const groups = new Map<number, OutcomePoint[]>();
   for (const point of all) {
     const group = axis === 'tax' ? point.stake : point.tax;
     if (!groups.has(group)) groups.set(group, []);
@@ -292,11 +342,11 @@ export function curveVs(
   for (const group of groups.keys()) {
     if (best === null || Math.abs(group - fixed) < Math.abs(best - fixed)) best = group;
   }
-  if (best === null || Math.abs(best - fixed) > 0.06) return { fixedUsed: null, points: [] };
+  if (best === null || Math.abs(best - fixed) > 0.06) return { fixedUsed: null, metric, points: [] };
   const points = groups.get(best)!
-    .map((point) => ({ v: axis === 'tax' ? point.tax : point.stake, gini: point.gini, count: point.count }))
+    .map((point) => ({ v: axis === 'tax' ? point.tax : point.stake, value: point.value, count: point.count }))
     .sort((a, b) => a.v - b.v);
-  return { fixedUsed: best, points };
+  return { fixedUsed: best, metric, points };
 }
 
 export function exportCsv(): string {

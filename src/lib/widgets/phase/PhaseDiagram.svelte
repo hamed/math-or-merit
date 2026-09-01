@@ -27,6 +27,7 @@
   import { assignStyles } from '../shared/agentStyle';
   import { countTrades, percent } from '../shared/format';
   import StopSlider from '../sandbox/StopSlider.svelte';
+  import { addOutcome, outcomeProtocolFor } from '../sandbox/phaseGrid.svelte';
 
   // Owner review 2026-07-08: the reader plays rooms with the two dials; each
   // finished room paints ITS cell of the map. "Fill in the rest" completes
@@ -86,7 +87,9 @@
     revision++;
     liveGini = measureWealth(world.wealth).gini;
     if (world.done) {
-      ensembleSum += world.result().gini;
+      const outcome = world.result();
+      ensembleSum += outcome.gini;
+      addOutcome(outcomeProtocolFor(N), beta, taxRate, outcome);
       if (runIndex + 1 < activeSeeds.length) {
         runIndex++;
         world = newWorld(beta, taxRate, activeSeeds[runIndex]);
@@ -141,7 +144,9 @@
         run ??= newWorld(BETAS[ix], TAXES[iy], seeds[seedIndex]);
         run.step(2_000);
         if (run.done) {
-          cellSum += run.result().gini;
+          const outcome = run.result();
+          cellSum += outcome.gini;
+          addOutcome(outcomeProtocolFor(N), BETAS[ix], TAXES[iy], outcome);
           seedIndex++;
           run = null;
         }

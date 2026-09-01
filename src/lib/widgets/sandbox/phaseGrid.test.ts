@@ -4,11 +4,13 @@ import {
   addOutcome,
   clearPhaseData,
   curveVs,
+  curveVsMetric,
   decodeLegacyPhaseCells,
   decodeOutcomeStore,
   exportCsv,
   importCsv,
   migrateLegacyPhaseCells,
+  metricPointsFor,
   outcomeProtocolFor,
   phaseData,
   pointsFor,
@@ -65,6 +67,24 @@ describe('versioned outcome record', () => {
     expect(curveVs('tax', 0.9, 128, protocol).fixedUsed).toBeNull();
   });
 
+  it('reads effective participation from the same independent outcome cells', () => {
+    const protocol = outcomeProtocolFor(128);
+    addOutcome(protocol, 0.2, 0, outcome(0.8));
+    addOutcome(protocol, 0.2, 0.1, outcome(0.4));
+    addOutcome(protocol, 0.2, 0.5, outcome(0.1));
+
+    const points = metricPointsFor(128, 'effectiveParticipants');
+    expect(points).toHaveLength(3);
+    expect(points[0].value).toBeCloseTo(20, 12);
+    expect(points[1].value).toBeCloseTo(60, 12);
+    expect(points[2].value).toBeCloseTo(90, 12);
+    const cut = curveVsMetric('tax', 0.2, 128, 'effectiveParticipants');
+    expect(cut.metric).toBe('effectiveParticipants');
+    expect(cut.points[0].value).toBeCloseTo(20, 12);
+    expect(cut.points[1].value).toBeCloseTo(60, 12);
+    expect(cut.points[2].value).toBeCloseTo(90, 12);
+  });
+
   it('round-trips every metric through versioned CSV with weighted counts', () => {
     const protocol = outcomeProtocolFor(128);
     addOutcome(protocol, 0.2, 0.1, outcome(0.4));
@@ -104,6 +124,7 @@ describe('legacy evidence migration', () => {
     expect(cell.metrics).toEqual({ gini: { sum: -1, count: 2 } });
     phaseData.cells = migrated;
     expect(pointsFor(64)[0]).toMatchObject({ gini: -0.5, count: 2, protocolVersion: 1 });
+    expect(metricPointsFor(64, 'effectiveParticipants')).toEqual([]);
   });
 
   it('imports the old CSV as protocol-v1 Gini-only evidence', () => {

@@ -99,6 +99,40 @@ test('the sandbox stacks into a readable page on a short landscape phone', async
   expect(undersized).toEqual([]);
 });
 
+test('the sandbox opens as a fresh participation-first lab with one mobile plot in focus', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  await loadDeferred(page, 'sandbox', sandbox);
+
+  await expect(sandbox.locator('[data-primary-metric]')).toHaveText('100.0 of 100 effective');
+  await expect(sandbox.getByRole('slider', { name: 'levy every' })).toBeVisible();
+  await expect(sandbox.locator('.plot:visible')).toHaveCount(1);
+  await expect(sandbox.getByRole('button', { name: 'map', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+  await sandbox.getByRole('button', { name: 'histogram', exact: true }).click();
+  await expect(sandbox.locator('.plot-hist')).toBeVisible();
+  await expect(sandbox.locator('.plot-phase')).toBeHidden();
+
+  await sandbox.locator('[data-map-metric]').click();
+  await expect(sandbox.locator('[data-primary-metric]')).toHaveText('Gini 0.00');
+  await expect(sandbox.locator('[data-map-metric]')).toHaveText('Gini');
+});
+
+test('a guided outcome remains available when the reader reaches the sandbox', async ({ page }) => {
+  await page.goto('/#tax-against-trade', { waitUntil: 'domcontentloaded' });
+  const guidedMap = page.locator('[aria-label^="Play rooms with a stake and a levy dial"]');
+  await loadDeferred(page, 'outcome map', guidedMap);
+  await guidedMap.getByRole('button', { name: 'Run this room' }).click();
+  await expect(guidedMap.getByText(/1 room run and painted/)).toBeVisible({ timeout: 12_000 });
+
+  await page.evaluate(() => { location.hash = 'sandbox'; });
+  const sandbox = page.locator('.sandbox.full');
+  await loadDeferred(page, 'sandbox', sandbox);
+  await expect(sandbox.locator('.plot-phase .cell')).toHaveCount(1);
+  await expect(sandbox.locator('.plot-phase .cell title')).toContainText('effective participants');
+});
+
 test('the desktop sandbox aligns to the scrollbar-safe viewport edges', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });

@@ -40,8 +40,9 @@ export function measureToy(wealth: ArrayLike<number>): ToyMetrics {
   sorted.sort();
   let weighted = 0;
   for (let i = 0; i < n; i++) weighted += (i + 1) * sorted[i];
+  const gini = (2 * weighted) / (n * sum) - (n + 1) / n;
   return {
-    gini: (2 * weighted) / (n * sum) - (n + 1) / n,
+    gini: Math.abs(gini) < Number.EPSILON * n ? 0 : gini,
     topShare: max / sum,
     effectiveParticipants: (sum * sum) / sumSquares,
   };
