@@ -85,10 +85,10 @@ Beat 23 shipped as a **measured map plus a fitted curve**, per the GATE:
   frontier are reproducible; the widget displays whatever c its own live grid fits.
 - Language guard: captions say "measured" for the contour and "fitted" for the curve;
   "theoretical", "law", and "phase transition" stay out of the essay.
-- Beat 20 discipline unchanged: TaxOnlyDemo shows the structural levy alone
-  (β = 0, geometric equalization — exact: one flat levy scales every deviation by
-  1 − rate). The manual-vs-structural comparison remains **unclaimed** (Verdict above
-  still Defer).
+- Beat 20 now uses LevyLesson to show the structural levy alone, coin by coin and
+  then repeated to visual equality (β = 0, geometric equalization — exact: one flat
+  levy scales every deviation by 1 − rate). The manual-vs-structural comparison
+  remains **unclaimed** (Verdict above still Defer).
 
 This memo records the old implementation; it is no longer the narrative contract. The
 Gini `0.5` contour was a chosen finite-run level, not evidence for two regimes or a phase

@@ -266,10 +266,10 @@ Backlog item 3 opened, at the layer where it costs nothing on screen.
 - **One world, not three.** `LeviedWorld` and `TaxWorld` are DELETED.
   `SandboxWorld` was already the same machine — same share array, same
   `RandomSource`, same `applyYardSaleTrade` in the same order, same
-  equal-dividend levy — so `PhaseDiagram`, `TaxGame` and `TaxOnlyDemo` now
-  build one and set `beta` / `taxRate` / `taxEvery` as fields. `SandboxWorld`
-  gained the one thing it lacked, an optional `initialWealth` (the tax-only
-  demo's condensed snapshot); `reset` returns to it. Its members are validated
+  equal-dividend levy — so `PhaseDiagram` and `TaxGame` now build one and set
+  `beta` / `taxRate` / `taxEvery` as fields. The former `TaxOnlyDemo` did too
+  until Phase 4 replaced it with the coin-by-coin `LevyLesson`. `SandboxWorld`
+  gained the one thing it lacked, an optional `initialWealth`; `reset` returns to it. Its members are validated
   even though the RUN is not — that closes audit finding 10, which
   `LeviedWorld` had left open.
 - `judgeGame` moved to `tax/judge.ts`. `TaxWorld.escalationPerLevy` is gone;

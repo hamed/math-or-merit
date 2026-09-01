@@ -11,7 +11,7 @@
 
   const TRADES_PER_FRAME = 26; // ≈ 1,500 trades per second at 60 fps
   const LEVY_RATE = 0.25;
-  const LOSE_SHARE = 0.35;
+  const MIN_EFFECTIVE_PARTICIPANTS = 20;
   const LOSE_SUSTAIN = 240; // frames ≈ 4 s over the line = game over
 
   // Difficulty = the room's stake, fixed for the whole game (owner decision
@@ -48,16 +48,16 @@
   let started = $state(false);
   let gameOver = $state(false);
   let topShare = $state(0);
-  let gini = $state(0);
+  let effectiveParticipants = $state(ROOM_N);
   let taps = $state(0);
   let playMs = $state(0);
   let levied = $state(0);
-  let shareHistory: number[] = [];
+  let participationHistory: number[] = [];
 
   function measure(): void {
     const metrics = measureWealth(world.wealth);
     topShare = metrics.topShare;
-    gini = metrics.gini;
+    effectiveParticipants = metrics.effectiveParticipants;
   }
 
   const ticker = createFixedTicker((dt) => {
@@ -65,9 +65,11 @@
     world.step(TRADES_PER_FRAME);
     revision++;
     measure();
-    shareHistory.push(topShare);
-    if (shareHistory.length > LOSE_SUSTAIN + 8) shareHistory = shareHistory.slice(-LOSE_SUSTAIN - 4);
-    if (judgeGame(shareHistory, LOSE_SHARE, LOSE_SUSTAIN)) {
+    participationHistory.push(effectiveParticipants);
+    if (participationHistory.length > LOSE_SUSTAIN + 8) {
+      participationHistory = participationHistory.slice(-LOSE_SUSTAIN - 4);
+    }
+    if (judgeGame(participationHistory, MIN_EFFECTIVE_PARTICIPANTS, LOSE_SUSTAIN)) {
       running = false;
       gameOver = true;
       ticker.stop();
@@ -104,7 +106,7 @@
     taps = 0;
     playMs = 0;
     levied = 0;
-    shareHistory = [];
+    participationHistory = [];
     revision++;
     measure();
   }
@@ -129,22 +131,32 @@
 
   const seconds = $derived(Math.floor(playMs / 1000));
 
+  const announcement = $derived.by(() => {
+    if (gameOver) return 'Participation closed.';
+    if (!started) return 'The manual intervention game is ready.';
+    if (!running) return 'The room is paused.';
+    if (effectiveParticipants >= 70) return 'The field is broad.';
+    if (effectiveParticipants >= 35) return 'The field is narrowing.';
+    return 'Participation is close to closing.';
+  });
+
   // keyboard path: the same levy as tapping the canvas, as real buttons
   // (the canvas is pointer-only; reviews 2026-07-08 flagged it)
   const topFive = $derived.by(() => {
     void revision;
     const w = world.wealth;
+    const total = w.reduce((sum, value) => sum + value, 0);
     return Array.from(w.keys())
       .sort((a, b) => w[b] - w[a])
       .slice(0, 5)
-      .map((i) => ({ i, share: w[i] }));
+      .map((i) => ({ i, share: total === 0 ? 0 : w[i] / total }));
   });
 
   onMount(() => () => ticker.stop());
 </script>
 
-<div class="widget" aria-label="A live room you tax by tapping the largest circles">
-  <p class="kicker">The room keeps trading. You hold the levy.</p>
+<div class="widget" aria-label="A live trading room where manual levies keep participation open">
+  <p class="kicker">Keep the field open. Your hand is the rule.</p>
 
   <RoomCanvas
     bind:this={room}
@@ -158,9 +170,9 @@
 
   {#if running}
     <div class="quick-tax" role="group" aria-label="Tax one of the five biggest holders">
-      <span class="quick-label">tax the big five:</span>
+      <span class="quick-label">largest holders:</span>
       {#each topFive as t, rank (rank)}
-        <button type="button" onclick={() => tap(t.i)} aria-label={`Tax holder number ${rank + 1}, currently ${percent(t.share)}`}>
+        <button type="button" onclick={() => tap(t.i)} aria-label={`Apply the manual levy to holder number ${rank + 1}, currently ${percent(t.share)}`}>
           #{rank + 1} · {percent(t.share)}
         </button>
       {/each}
@@ -175,12 +187,12 @@
 
   <div class="stats">
     <div class="meter" role="img" aria-label={`Biggest holder has ${percent(topShare)}`}>
-      <div class="meter-fill" class:alarming={topShare > LOSE_SHARE} style={`inline-size: ${Math.min(100, topShare * 100)}%`}></div>
+      <div class="meter-fill" class:alarming={topShare > 0.35} style={`inline-size: ${Math.min(100, topShare * 100)}%`}></div>
       <span class="meter-label">biggest: {percent(topShare)}</span>
     </div>
-    <div class="meter" role="img" aria-label={`Gini ${gini.toFixed(2)}`}>
-      <div class="meter-fill" class:alarming={gini > 0.8} style={`inline-size: ${Math.min(100, gini * 100)}%`}></div>
-      <span class="meter-label">Gini: {gini.toFixed(2)}</span>
+    <div class="meter" role="img" aria-label={`${effectiveParticipants.toFixed(1)} effective participants out of ${ROOM_N}`}>
+      <div class="meter-fill participation" class:alarming={effectiveParticipants < MIN_EFFECTIVE_PARTICIPANTS} style={`inline-size: ${Math.min(100, effectiveParticipants / ROOM_N * 100)}%`}></div>
+      <span class="meter-label">effective participants: {effectiveParticipants.toFixed(1)}</span>
     </div>
     <div class="meter" role="img" aria-label={`Stake ${percent(stake)}`}>
       <div class="meter-fill stake" style={`inline-size: ${Math.min(100, stake * 200)}%`}></div>
@@ -188,23 +200,24 @@
     </div>
   </div>
 
-  <p class="caption" aria-live="polite">
+  <p class="caption">
     {#if gameOver}
-      <strong>The room got away.</strong> You held it for {seconds}s and {countTrades(trades)} trades. The rule never
-      changed — the room simply outpaced your taps. Nothing was unfair along the way.
+      <strong>Participation closed.</strong> Fewer than {MIN_EFFECTIVE_PARTICIPANTS} effective participants remained
+      for four seconds. You kept the field open for {seconds}s and {countTrades(trades)} trades.
     {:else if !started}
-      Choose a large holder: a quarter of its wealth is collected and returned in equal shares to all {ROOM_N} participants.
-      Pick how hard the room trades — a higher stake condenses faster.
+      Choose a large holder. A quarter of its wealth returns in equal shares to all {ROOM_N} participants.
+      This is a targeted manual move, not the automatic rule coming next.
     {:else if !running}
       Paused. The room waits — it won’t when you’re back.
-    {:else if topShare < 0.12}
-      You are holding it. For now.
-    {:else if topShare < 0.3}
-      It’s slipping. Two more are swelling behind your back.
+    {:else if effectiveParticipants >= 70}
+      The field is broad: {effectiveParticipants.toFixed(1)} effective participants remain.
+    {:else if effectiveParticipants >= 35}
+      The field is narrowing: {effectiveParticipants.toFixed(1)} effective participants remain.
     {:else}
-      The room is getting away from you.
+      Only {effectiveParticipants.toFixed(1)} effective participants remain. Choose carefully.
     {/if}
   </p>
+  <p class="visually-hidden" aria-live="polite" data-game-announcement>{announcement}</p>
 
   <div class="toolbar">
     {#if gameOver}
@@ -250,6 +263,14 @@
 
   .meter-fill.stake {
     background: linear-gradient(90deg, rgb(233 201 106 / 55%), rgb(138 106 42 / 80%));
+  }
+
+  .meter-fill.participation {
+    background: linear-gradient(90deg, rgb(233 201 106 / 65%), rgb(89 152 91 / 75%));
+  }
+
+  .meter-fill.participation.alarming {
+    background: linear-gradient(90deg, rgb(139 63 43 / 55%), rgb(93 30 18 / 85%));
   }
 
   .difficulty {

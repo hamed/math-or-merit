@@ -420,9 +420,9 @@ trading at all. Nothing at stake, nothing happens.)
 
 Reading about it is one thing. Try to fix it yourself.
 
-Here is a live room, falling the usual way. Your job: keep participation open. Point at a
-large holder and collect a quarter of its wealth. Every dollar you collect returns to the
-room in equal shares.
+Here is a live room, falling the usual way. Your job is not to punish the largest holder.
+It is to keep participation open. Point at a large holder and collect a quarter of its
+wealth. Every dollar you collect returns to the room in equal shares.
 
 <!--
   WIDGET: TaxGame — the live room keeps trading while the reader taps; tapping a circle
@@ -438,16 +438,16 @@ participation, or does the room outpace the taps? The game will report what your
 
 <Deferred load={() => import('$lib/widgets/tax/TaxGame.svelte')} label="tax game" reserve="30rem" />
 
-This game uses a targeted intervention because pointing is the game: you choose one holder.
-The rule coming next is different. It applies the same percentage to everyone, collects the
-pieces into one pool, and returns that pool equally to everyone.
+Pointing is the game, so this intervention is targeted: you choose one holder. The rule
+coming next is not an automated version of your hand. It is a different rule. Nobody is
+selected. The same percentage applies to every fortune, the pieces enter one pool, and the
+pool returns equally to everyone.
 
 <!--
   BUILD NOTE (2026-07-06, M8) — the formerly gated middle, now built to the storyboard with
   claim discipline intact:
-    20  automatic structural levy: TaxOnlyDemo shows the levy as a RULE (trading off). The
-        "structural beats manual" comparison is still NOT claimed — no matched-budget test
-        has run (research/interventions.md); the prose only invites the contrast.
+    20  structural levy lesson: LevyLesson keeps trading off and follows the proportional
+        collection, common pool, equal return, and net result as separate reversible states.
     21  Gini — shipped in Chapter III (GiniStage), rooms-comparison only.
     22  progressive levy designer — ships inside the sandbox (M9), as a toy, no empirical claim.
     23  outcome map — finite-run grid + a chosen Gini-0.5 contour; the smooth curve is labeled
@@ -458,22 +458,34 @@ pieces into one pool, and returns that pool equally to everyone.
 
 ## Put the levy in the rules
 
-Your hands were always going to tire. So replace the targeted game with a structural rule:
-a wealth levy plus an equal social return, applied on its own clock.
+Your hands were always going to tire. So put a structural rule in the room: a proportional
+wealth levy plus an equal social return, applied on its own clock.
 
-First, see the tool alone — freeze the trading.
+First freeze the trading. Four fortunes are enough to see every piece move.
 
-<Deferred load={() => import('$lib/widgets/tax/TaxOnlyDemo.svelte')} label="levy demonstration" reserve="28rem" />
+<Deferred load={() => import('$lib/widgets/tax/LevyLesson.svelte')} label="levy lesson" reserve="42rem" />
+
+Collection alone would shrink every circle by the same proportion and leave every wealth
+share unchanged. The equal return is what changes the shares. Below-average fortunes receive
+more than they contributed; an exactly average fortune breaks even; above-average fortunes
+contribute net. The room keeps every coin.
 
 <Chapter id="tax-against-trade" label="Tax against trade" />
 
 ## Tax against trade
 
-Now both rules run at once. Fair trades create the fluctuations that can concentrate wealth.
-At its own cadence, the levy collects the same percentage from every holder and returns the
-pool equally. What the room looks like after a fixed run depends on both dials.
+Now turn trading back on. To isolate the new rule, write one fresh random script of partners
+and coin tosses and give it to two rooms. One gets only the trades. The other gets the same
+trades plus the shared counterforce.
 
-So measure it. Put stake on one axis and levy rate on the other. Every point is one finite
+<Deferred load={() => import('$lib/widgets/tax/MatchedRooms.svelte')} label="matched room comparison" reserve="38rem" />
+
+That comparison says what happened under one disclosed finite protocol. It does not choose a
+real tax code, and it does not promise the same numbers on a fresh random run. It isolates one
+thing: what the levy plus equal return changed while luck stayed matched.
+
+One pair is evidence, not a landscape. So measure many. Put stake on one axis and levy rate
+on the other. Every point is one finite
 experiment under the same protocol; its color records the measured outcome. You fill in the
 map.
 

@@ -277,6 +277,118 @@ test('the larger room reports all three measurements from one run', async ({ pag
   await expect(crowd.getByText(/the last round moved/)).toBeVisible();
 });
 
+test('the manual intervention game measures the field instead of punishing a winner', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#stop-it', { waitUntil: 'domcontentloaded' });
+  const game = page.locator('[aria-label="A live trading room where manual levies keep participation open"]');
+  await loadDeferred(page, 'tax game', game);
+
+  await expect(game.getByText(/effective participants:/)).toBeVisible();
+  await expect(game.getByText('Gini:', { exact: false })).toHaveCount(0);
+  await expect(game.locator('.caption')).not.toHaveAttribute('aria-live');
+  const announcement = game.locator('[data-game-announcement]');
+  await expect(announcement).toHaveAttribute('aria-live', 'polite');
+
+  const participationFill = game.locator('.meter-fill.participation');
+  const normalBackground = await participationFill.evaluate((element) => getComputedStyle(element).backgroundImage);
+  await participationFill.evaluate((element) => element.classList.add('alarming'));
+  const alarmingBackground = await participationFill.evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(alarmingBackground).not.toBe(normalBackground);
+  await participationFill.evaluate((element) => element.classList.remove('alarming'));
+
+  await game.getByRole('button', { name: 'Start the room' }).click();
+  await expect(game.getByText('largest holders:', { exact: true })).toBeVisible();
+  const manualLevy = game.getByRole('button', { name: /Apply the manual levy/ }).first();
+  await expect(manualLevy).toBeVisible();
+  await expect(manualLevy).toHaveAccessibleName(/currently \d+%/);
+  const liveMutations = await announcement.evaluate((element) => new Promise<number>((resolve) => {
+    let count = 0;
+    const observer = new MutationObserver((records) => { count += records.length; });
+    observer.observe(element, { childList: true, characterData: true, subtree: true });
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(count);
+    }, 700);
+  }));
+  expect(liveMutations).toBeLessThanOrEqual(2);
+  await game.getByRole('button', { name: 'Pause' }).click();
+  expect(await game.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
+test('the levy lesson keeps collection, return, and final wealth in separate reversible states', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#levy', { waitUntil: 'domcontentloaded' });
+  const lesson = page.locator('[aria-label="A reversible lesson showing a proportional wealth levy and equal return"]');
+  await loadDeferred(page, 'levy lesson', lesson);
+
+  await expect(lesson.getByText('Four fortunes. One rule will touch all four.')).toBeVisible();
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(0);
+
+  await lesson.getByRole('button', { name: 'Take the same 25%' }).click();
+  await expect(lesson.getByText(/Three give one coin/)).toBeVisible();
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(8);
+
+  await lesson.getByRole('button', { name: 'Make one pool' }).click();
+  await expect(lesson.getByText('Eight coins enter one common pool.')).toBeVisible();
+  await lesson.getByRole('button', { name: 'Divide it equally' }).click();
+  await expect(lesson.getByText(/four equal shares/)).toBeVisible();
+  await lesson.getByRole('button', { name: 'Return it to the room' }).click();
+  await expect(lesson.getByText('Return one equal share to each person.')).toBeVisible();
+
+  await lesson.getByRole('button', { name: 'Count the result' }).click();
+  await expect(lesson.getByText(/each smaller fortune gains one coin/)).toBeVisible();
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(0);
+  await lesson.getByRole('button', { name: 'Step back' }).click();
+  await expect(lesson.getByText('Return one equal share to each person.')).toBeVisible();
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(8);
+
+  await lesson.getByRole('button', { name: 'Count the result' }).click();
+  await lesson.getByRole('button', { name: 'Repeat until equal' }).click();
+  await expect(lesson.getByText(/room is equal to the eye/)).toBeVisible({ timeout: 10_000 });
+  await expect(lesson.locator('.levy-coin:not(.hidden)')).toHaveCount(0);
+  await expect(lesson.locator('output')).toHaveText(/round \d+/);
+  await lesson.getByRole('button', { name: 'Step back' }).click();
+  await expect(lesson.getByText(/The same rule pulls every fortune/)).toBeVisible();
+  await expect(lesson.getByRole('button', { name: 'Keep going' })).toBeVisible();
+  expect(await lesson.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  expect(await lesson.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
+test('matched rooms share luck and report participation and levy-free turnover', async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 47 / 0x1_0000_0000;
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#tax-against-trade', { waitUntil: 'domcontentloaded' });
+  const comparison = page.locator('[aria-label="Two matched rooms compare fair trades without and with a shared counterforce"]');
+  await loadDeferred(page, 'matched room comparison', comparison);
+
+  await expect(comparison.getByText('Same partners. Same tosses. One changed rule.')).toBeVisible();
+  await expect(comparison.locator('.caption')).not.toHaveAttribute('aria-live');
+  const announcement = comparison.locator('[data-matched-announcement]');
+  const control = comparison.getByRole('region', { name: 'Matched room without a levy' });
+  const treatment = comparison.getByRole('region', { name: 'Matched room with a levy and equal return' });
+  await expect(announcement).toHaveText('Matched rooms ready.');
+  await expect(control.getByText('effective participants now', { exact: true })).toBeVisible();
+  await expect(control.getByText('late-run ordinary turnover', { exact: true })).toBeVisible();
+  await comparison.getByRole('button', { name: 'Run both rooms' }).click();
+  await expect(comparison.getByRole('button', { name: 'Run another matched pair' })).toBeVisible({ timeout: 10_000 });
+
+  const value = async (section: typeof control, row: number) =>
+    Number((await section.locator('.measurements strong').nth(row).textContent())!.split(' ')[0]);
+  expect(await value(treatment, 0)).toBeGreaterThan(await value(control, 0));
+  expect(await value(treatment, 1)).toBeGreaterThan(await value(control, 1));
+  await expect(comparison.getByText(/Same random script/)).toBeVisible();
+  await expect(comparison.getByText(/Across four late-run measurements/)).toBeVisible();
+  await expect(announcement).toContainText('Matched comparison complete. The late-run averages');
+  expect(await comparison.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  expect(await comparison.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
 test('prediction choices use native radio keyboard behavior', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const radios = page.getByRole('radio');
