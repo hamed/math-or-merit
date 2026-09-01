@@ -73,8 +73,6 @@
     finished = true;
     controlResult = pair.control.result();
     treatmentResult = pair.treatment.result();
-    controlEffective = controlResult.effectiveParticipants;
-    treatmentEffective = treatmentResult.effectiveParticipants;
   });
 
   function run(): void {
@@ -83,6 +81,14 @@
     running = true;
     ticker.start();
   }
+
+  const announcement = $derived(
+    finished && controlResult && treatmentResult
+      ? `Matched comparison complete. The late-run averages were ${controlResult.effectiveParticipants.toFixed(1)} without the shared rule and ${treatmentResult.effectiveParticipants.toFixed(1)} with it.`
+      : running
+        ? 'Matched comparison running.'
+        : 'Matched rooms ready.',
+  );
 
   onMount(() => () => ticker.stop());
 </script>
@@ -101,8 +107,8 @@
         label={`One hundred people trading with a ${percent(MATCHED_BETA)} stake and no levy`}
       />
       <div class="measurements">
-        <p><span>effective participants</span><strong>{controlEffective.toFixed(1)} of {MATCHED_PROTOCOL.n}</strong></p>
-        <p><span>ordinary turnover</span><strong>{controlResult ? `${controlResult.wealthTurnover.toFixed(3)} roomfuls` : '—'}</strong></p>
+        <p><span>effective participants now</span><strong>{controlEffective.toFixed(1)} of {MATCHED_PROTOCOL.n}</strong></p>
+        <p><span>late-run ordinary turnover</span><strong>{controlResult ? `${controlResult.wealthTurnover.toFixed(3)} roomfuls` : '—'}</strong></p>
       </div>
     </section>
 
@@ -118,15 +124,15 @@
         label={`The same trades with a ${percent(MATCHED_LEVY_RATE, 1)} levy and equal return every round`}
       />
       <div class="measurements">
-        <p><span>effective participants</span><strong>{treatmentEffective.toFixed(1)} of {MATCHED_PROTOCOL.n}</strong></p>
-        <p><span>ordinary turnover</span><strong>{treatmentResult ? `${treatmentResult.wealthTurnover.toFixed(3)} roomfuls` : '—'}</strong></p>
+        <p><span>effective participants now</span><strong>{treatmentEffective.toFixed(1)} of {MATCHED_PROTOCOL.n}</strong></p>
+        <p><span>late-run ordinary turnover</span><strong>{treatmentResult ? `${treatmentResult.wealthTurnover.toFixed(3)} roomfuls` : '—'}</strong></p>
       </div>
     </section>
   </div>
 
-  <p class="caption" aria-live="polite">
+  <p class="caption">
     {#if finished && controlResult && treatmentResult}
-      Same random script, {countTrades(MATCHED_PROTOCOL.trades)} trades each. The shared rule left this run equivalent to
+      Same random script, {countTrades(MATCHED_PROTOCOL.trades)} trades each. Across four late-run measurements, the shared rule left this run equivalent to
       {treatmentResult.effectiveParticipants.toFixed(1)} equal participants instead of {controlResult.effectiveParticipants.toFixed(1)};
       ordinary trades moved {treatmentResult.wealthTurnover.toFixed(3)} roomfuls per measured round instead of
       {controlResult.wealthTurnover.toFixed(3)}.
@@ -136,6 +142,7 @@
       One fresh random script will drive both rooms. The right room adds a {percent(MATCHED_LEVY_RATE, 1)} levy plus equal return every round.
     {/if}
   </p>
+  <p class="visually-hidden" aria-live="polite" data-matched-announcement>{announcement}</p>
 
   <div class="toolbar">
     <button class="primary" type="button" onclick={run} disabled={running}>

@@ -295,8 +295,8 @@ were built end-to-end on branch `claude/interactive-build` (M0–M10; ADR-013):
 - **Trait vocabulary is now agentStyle** (pastel fill + independent stroke + shape;
   validated palette); traits.ts deleted; seed-501 winner promise re-guarded
   ("a red pentagon with a teal edge").
-- **Formerly gated middle (beats 20–23) shipped with discipline:** TaxOnlyDemo
-  (no manual-vs-structural claim — that gate stays open), GiniStage, sandbox
+- **Formerly gated middle (beats 20–23) shipped with discipline:** LevyLesson
+  (replaced TaxOnlyDemo; no manual-vs-structural claim), GiniStage, sandbox
   progressive designer (toy, no policy claim), phase map (measured contour, FITTED
   curve, stability memo in research/interventions.md).
 - **Open, unchanged:** reader studies A–D; redistribute-to-poorest fork (beat 19

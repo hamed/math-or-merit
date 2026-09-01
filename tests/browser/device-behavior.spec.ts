@@ -285,11 +285,32 @@ test('the manual intervention game measures the field instead of punishing a win
 
   await expect(game.getByText(/effective participants:/)).toBeVisible();
   await expect(game.getByText('Gini:', { exact: false })).toHaveCount(0);
+  await expect(game.locator('.caption')).not.toHaveAttribute('aria-live');
+  const announcement = game.locator('[data-game-announcement]');
+  await expect(announcement).toHaveAttribute('aria-live', 'polite');
+
+  const participationFill = game.locator('.meter-fill.participation');
+  const normalBackground = await participationFill.evaluate((element) => getComputedStyle(element).backgroundImage);
+  await participationFill.evaluate((element) => element.classList.add('alarming'));
+  const alarmingBackground = await participationFill.evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(alarmingBackground).not.toBe(normalBackground);
+  await participationFill.evaluate((element) => element.classList.remove('alarming'));
+
   await game.getByRole('button', { name: 'Start the room' }).click();
   await expect(game.getByText('largest holders:', { exact: true })).toBeVisible();
   const manualLevy = game.getByRole('button', { name: /Apply the manual levy/ }).first();
   await expect(manualLevy).toBeVisible();
   await expect(manualLevy).toHaveAccessibleName(/currently \d+%/);
+  const liveMutations = await announcement.evaluate((element) => new Promise<number>((resolve) => {
+    let count = 0;
+    const observer = new MutationObserver((records) => { count += records.length; });
+    observer.observe(element, { childList: true, characterData: true, subtree: true });
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(count);
+    }, 700);
+  }));
+  expect(liveMutations).toBeLessThanOrEqual(2);
   await game.getByRole('button', { name: 'Pause' }).click();
   expect(await game.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 });
@@ -345,16 +366,23 @@ test('matched rooms share luck and report participation and levy-free turnover',
   await loadDeferred(page, 'matched room comparison', comparison);
 
   await expect(comparison.getByText('Same partners. Same tosses. One changed rule.')).toBeVisible();
+  await expect(comparison.locator('.caption')).not.toHaveAttribute('aria-live');
+  const announcement = comparison.locator('[data-matched-announcement]');
+  const control = comparison.getByRole('region', { name: 'Matched room without a levy' });
+  const treatment = comparison.getByRole('region', { name: 'Matched room with a levy and equal return' });
+  await expect(announcement).toHaveText('Matched rooms ready.');
+  await expect(control.getByText('effective participants now', { exact: true })).toBeVisible();
+  await expect(control.getByText('late-run ordinary turnover', { exact: true })).toBeVisible();
   await comparison.getByRole('button', { name: 'Run both rooms' }).click();
   await expect(comparison.getByRole('button', { name: 'Run another matched pair' })).toBeVisible({ timeout: 10_000 });
 
-  const control = comparison.getByRole('region', { name: 'Matched room without a levy' });
-  const treatment = comparison.getByRole('region', { name: 'Matched room with a levy and equal return' });
   const value = async (section: typeof control, row: number) =>
     Number((await section.locator('.measurements strong').nth(row).textContent())!.split(' ')[0]);
   expect(await value(treatment, 0)).toBeGreaterThan(await value(control, 0));
   expect(await value(treatment, 1)).toBeGreaterThan(await value(control, 1));
   await expect(comparison.getByText(/Same random script/)).toBeVisible();
+  await expect(comparison.getByText(/Across four late-run measurements/)).toBeVisible();
+  await expect(announcement).toContainText('Matched comparison complete. The late-run averages');
   expect(await comparison.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 
   await page.setViewportSize({ width: 844, height: 390 });

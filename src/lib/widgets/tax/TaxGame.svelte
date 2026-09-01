@@ -131,6 +131,15 @@
 
   const seconds = $derived(Math.floor(playMs / 1000));
 
+  const announcement = $derived.by(() => {
+    if (gameOver) return 'Participation closed.';
+    if (!started) return 'The manual intervention game is ready.';
+    if (!running) return 'The room is paused.';
+    if (effectiveParticipants >= 70) return 'The field is broad.';
+    if (effectiveParticipants >= 35) return 'The field is narrowing.';
+    return 'Participation is close to closing.';
+  });
+
   // keyboard path: the same levy as tapping the canvas, as real buttons
   // (the canvas is pointer-only; reviews 2026-07-08 flagged it)
   const topFive = $derived.by(() => {
@@ -191,7 +200,7 @@
     </div>
   </div>
 
-  <p class="caption" aria-live="polite">
+  <p class="caption">
     {#if gameOver}
       <strong>Participation closed.</strong> Fewer than {MIN_EFFECTIVE_PARTICIPANTS} effective participants remained
       for four seconds. You kept the field open for {seconds}s and {countTrades(trades)} trades.
@@ -208,6 +217,7 @@
       Only {effectiveParticipants.toFixed(1)} effective participants remain. Choose carefully.
     {/if}
   </p>
+  <p class="visually-hidden" aria-live="polite" data-game-announcement>{announcement}</p>
 
   <div class="toolbar">
     {#if gameOver}
@@ -257,6 +267,10 @@
 
   .meter-fill.participation {
     background: linear-gradient(90deg, rgb(233 201 106 / 65%), rgb(89 152 91 / 75%));
+  }
+
+  .meter-fill.participation.alarming {
+    background: linear-gradient(90deg, rgb(139 63 43 / 55%), rgb(93 30 18 / 85%));
   }
 
   .difficulty {
