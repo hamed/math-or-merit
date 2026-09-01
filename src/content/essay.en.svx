@@ -420,9 +420,9 @@ trading at all. Nothing at stake, nothing happens.)
 
 Reading about it is one thing. Try to fix it yourself.
 
-Here is a live room, falling the usual way. Your job: keep participation open. Point at a
-large holder and collect a quarter of its wealth. Every dollar you collect returns to the
-room in equal shares.
+Here is a live room, falling the usual way. Your job is not to punish the largest holder.
+It is to keep participation open. Point at a large holder and collect a quarter of its
+wealth. Every dollar you collect returns to the room in equal shares.
 
 <!--
   WIDGET: TaxGame — the live room keeps trading while the reader taps; tapping a circle

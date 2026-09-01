@@ -277,6 +277,23 @@ test('the larger room reports all three measurements from one run', async ({ pag
   await expect(crowd.getByText(/the last round moved/)).toBeVisible();
 });
 
+test('the manual intervention game measures the field instead of punishing a winner', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#stop-it', { waitUntil: 'domcontentloaded' });
+  const game = page.locator('[aria-label="A live trading room where manual levies keep participation open"]');
+  await loadDeferred(page, 'tax game', game);
+
+  await expect(game.getByText(/effective participants:/)).toBeVisible();
+  await expect(game.getByText('Gini:', { exact: false })).toHaveCount(0);
+  await game.getByRole('button', { name: 'Start the room' }).click();
+  await expect(game.getByText('largest holders:', { exact: true })).toBeVisible();
+  const manualLevy = game.getByRole('button', { name: /Apply the manual levy/ }).first();
+  await expect(manualLevy).toBeVisible();
+  await expect(manualLevy).toHaveAccessibleName(/currently \d+%/);
+  await game.getByRole('button', { name: 'Pause' }).click();
+  expect(await game.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
 test('prediction choices use native radio keyboard behavior', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const radios = page.getByRole('radio');
