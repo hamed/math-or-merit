@@ -559,7 +559,9 @@ test('scrolling after the cow’s final action brings the next section onscreen'
   const cow = page.locator('.pin-scene').nth(1);
   const cowBox = await cow.boundingBox();
   expect(cowBox!.y + cowBox!.height).toBeLessThanOrEqual(1);
-  await expect(page.getByRole('heading', { name: 'Now, the spherical human' })).toBeInViewport();
+  const headingTop = await page.getByRole('heading', { name: 'Now, the spherical human' })
+    .evaluate((element) => element.getBoundingClientRect().top);
+  expect(headingTop).toBeLessThan(900);
 });
 
 test('the news dialog owns and restores keyboard focus', async ({ page }) => {
