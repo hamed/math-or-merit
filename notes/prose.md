@@ -404,19 +404,21 @@ law. "Roughly four times" is as precise as we may get.
 
 [close.0] The coin is still fair.
 
-[close.1] It never saw talent, effort, inheritance, power — or even a name. Money did not buy better odds. It bought more meaningful tosses. Enough money kept one player at the table while everyone else's chance to make a meaningful bet disappeared.
+[close.1] It never saw talent, effort, inheritance, power — or even a name. Money did not buy better odds. It bought tosses it could survive. Enough money kept one player at the table while everyone else's chance to make a meaningful bet disappeared.
 
 [close.2] Left alone, the fair game closed itself. Fewer people could put meaningful wealth at risk, and less wealth moved when they traded.
 
 [close.3] Then one shared counterforce kept the field open: collect the same percentage from every fortune, put it in one pool, and return that pool equally. The coin stayed fair. More people stayed able to play.
 
-[close.4] So this is not an argument against merit. It is a warning about the field merit enters.
+[close.4] This room cannot tell me why any real person is rich. I threw that world away on purpose. It can tell me something narrower: talent and effort were not required to build the trap.
 
-[close.5] **If merit is supposed to win, keep the game open long enough for merit to play.**
+[close.5] So this is not an argument against merit. It is a warning about the field merit enters.
 
-[close.6] I am done touching the controls.
+[close.6] **If merit is supposed to win, keep the game open long enough for merit to play.**
 
-[close.7] The machine is yours. Break my argument.
+[close.7] I am done touching the controls.
+
+[close.8] The machine is yours. Break my argument.
 
 ! keep true: the conclusion distinguishes fair odds from staying power, names
 the full levy-plus-equal-return mechanism, and does not claim to explain any
