@@ -54,6 +54,17 @@ test('a direct chapter link loads its deferred destination', async ({ page }) =>
   await expect(page.locator('#sandbox')).toBeInViewport();
 });
 
+test('the earned conclusion hands the final guided position to the sandbox', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  const finalChapters = await page.locator('.chapter-anchor').evaluateAll((anchors) =>
+    anchors.slice(-2).map((anchor) => anchor.id),
+  );
+  expect(finalChapters).toEqual(['verdict', 'sandbox']);
+  await expect(page.getByText('The machine is yours. Break my argument.')).toHaveCount(1);
+  await expect(page.locator('[data-deferred="closing scene"]')).toHaveCount(0);
+});
+
 test('a deferred mount cannot pull navigation back to an obsolete hash target', async ({ page }) => {
   await page.goto('/#run', { waitUntil: 'domcontentloaded' });
   await loadDeferred(page, 'main run', page.locator('[data-guided-run]'));

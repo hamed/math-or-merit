@@ -504,6 +504,31 @@ If you fill the map, it adds a chosen Gini 0.5 contour and a square-law fit. The
 not a border between two proven phases. The fit asks a narrower question: how does the levy
 needed for the same measured outcome change as the stake changes?
 
+<Chapter id="verdict" label="So — merit, or math?" />
+
+## So — merit, or math?
+
+The coin is still fair.
+
+It never saw talent, effort, inheritance, power — or even a name. Money did not buy better
+odds. It bought more meaningful tosses. Enough money kept one player at the table while everyone
+else's chance to make a meaningful bet disappeared.
+
+Left alone, the fair game closed itself. Fewer people could put meaningful wealth at risk,
+and less wealth moved when they traded.
+
+Then one shared counterforce kept the field open: collect the same percentage from every
+fortune, put it in one pool, and return that pool equally. The coin stayed fair. More people
+stayed able to play.
+
+So this is not an argument against merit. It is a warning about the field merit enters.
+
+**If merit is supposed to win, keep the game open long enough for merit to play.**
+
+I am done touching the controls.
+
+The machine is yours. Break my argument.
+
 ## The sandbox
 
 Everything you have seen was this one machine wearing different costumes. Here it is with
@@ -523,34 +548,7 @@ Gini is one button away. Tap anyone, change anything, and see what it takes.
 
 <Deferred load={() => import('$lib/widgets/sandbox/Sandbox.svelte')} label="sandbox" reserve="100svh" />
 
-<Chapter id="verdict" label="So — merit, or math?" />
-
-## So — merit, or math?
-
 <!--
-  BUILD NOTE (2026-07-06, M10): the ending is a PinScene bookending the opening — the lone
-  winner, the honesty bill (the discarded world drifting back), the headline echoed in the
-  teletype mono, then bare paper and the closing line. Beats 24–25.
--->
-<Deferred
-  load={() => import('$lib/widgets/stage/scenes/ClosingScene.svelte')}
-  label="closing scene"
-  reserve="100svh"
->
-  {#snippet content(ClosingScene)}
-    <PinScene navigation="step">
-      <ClosingScene />
-      <Caption beat={0}>This is where every fair room ends, given time.<br />Before the last word — the honesty bill.</Caption>
-      <Caption beat={1}>To build this room I threw away work, wages, debt, inheritance, skill, effort, luck, power, law — and never handed them back. That list is the fence around the claim: a model this bare cannot explain real inequality, and it never tried to.</Caption>
-      <Caption beat={2}>I still cannot tell you how he got there — this little room does not know his name. But it shows something smaller and harder: a process can be fair in every single step and still end with everything in one place. So when the stories arrive — the talent, the grind, the vision — maybe they're real. Or maybe you are reading a winning trait off a fair coin.</Caption>
-      <Caption beat={3}><strong>Nothing was unfair. That was the unfairness.</strong></Caption>
-    </PinScene>
-  {/snippet}
-</Deferred>
-
-<!--
-  END OF ESSAY. The spine is complete end-to-end, storyboard beats 1–25 built, including the
-  formerly gated middle (20–23) under the claim discipline recorded at each widget. Still-open
-  content threads live in notes/draft-decisions.md (the [TEST] reader studies A–D, the
-  manual-vs-structural comparison gate, the redistribute-to-poorest fork).
+  END OF GUIDED ESSAY. The sandbox is the final experience. Only methods, references,
+  credits, real links, and clearly separated support material may follow it.
 -->

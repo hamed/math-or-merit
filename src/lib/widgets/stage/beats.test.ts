@@ -3,7 +3,6 @@ import { validateBeats, type BeatSpec } from './contract';
 import * as CowCastScene from './scenes/CowCastScene.svelte';
 import * as OpeningScene from './scenes/OpeningScene.svelte';
 import * as PersonTradeScene from './scenes/PersonTradeScene.svelte';
-import * as ClosingScene from './scenes/ClosingScene.svelte';
 
 const {
   BEATS: CAST_BEATS,
@@ -41,14 +40,11 @@ const {
   UNITS: number;
 };
 
-const { BEATS: CLOSING_BEATS } = ClosingScene as unknown as { BEATS: readonly BeatSpec[] };
-
 /** Every scene's beat table, checked at data level (no DOM mounting). */
 const SCENES: Record<string, readonly BeatSpec[]> = {
   CowCastScene: CAST_BEATS,
   OpeningScene: OPENING_BEATS,
   PersonTradeScene: ROOM_BEATS,
-  ClosingScene: CLOSING_BEATS,
 };
 
 describe('scene beat tables', () => {

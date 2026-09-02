@@ -395,36 +395,46 @@ law. "Roughly four times" is as precise as we may get.
 
 ---
 
-## 15 · The sandbox
+## 15 · The earned conclusion
 
-> picture: the whole machine, every dial exposed, full screen.
+> picture: no new spectacle. The argument lands before the reader receives the
+> whole machine.
+
+[close.head] So — merit, or math?
+
+[close.0] The coin is still fair.
+
+[close.1] It never saw talent, effort, inheritance, power — or even a name. Money did not buy better odds. It bought more meaningful tosses. Enough money kept one player at the table while everyone else's chance to make a meaningful bet disappeared.
+
+[close.2] Left alone, the fair game closed itself. Fewer people could put meaningful wealth at risk, and less wealth moved when they traded.
+
+[close.3] Then one shared counterforce kept the field open: collect the same percentage from every fortune, put it in one pool, and return that pool equally. The coin stayed fair. More people stayed able to play.
+
+[close.4] So this is not an argument against merit. It is a warning about the field merit enters.
+
+[close.5] **If merit is supposed to win, keep the game open long enough for merit to play.**
+
+[close.6] I am done touching the controls.
+
+[close.7] The machine is yours. Break my argument.
+
+! keep true: the conclusion distinguishes fair odds from staying power, names
+the full levy-plus-equal-return mechanism, and does not claim to explain any
+real person's wealth.
+
+---
+
+## 16 · The sandbox
+
+> picture: the whole machine, every dial exposed, full screen. This is the last
+> guided destination; no narrative verdict follows it.
 
 [sandbox.head] The sandbox
 
 [sandbox.body]
-Everything you have seen was this one machine wearing different costumes. Here it is with every dial exposed: people, stake, a levy — and the room itself answers to your finger: tap anyone to tax them on the spot. Break it. Save it. See what it takes.
+Everything you have seen was this one machine wearing different costumes. Here it is with every dial exposed: people, stake, levy rate, levy timing — and the room itself answers to your finger. It begins equal, with fresh dice. Effective participants is the first reading; Gini is one button away. Tap anyone, change anything, and see what it takes.
 
 ! keep true: the levy here is a toy. No claim about real tax policy.
-
----
-
-## 16 · The ending
-
-> picture: the lone winner; then everything the model threw away drifting back;
-> then the opening headline again in teletype; then bare paper.
-
-[close.head] So — merit, or math?
-
-[close.0] This is where every fair room ends, given time. Before the last word — the honesty bill.
-
-[close.1] To build this room I threw away work, wages, debt, inheritance, skill, effort, luck, power, law — and never handed them back. That list is the fence around the claim: a model this bare cannot explain real inequality, and it never tried to.
-
-[close.2] I still cannot tell you how he got there — this little room does not know his name. But it shows something smaller and harder: a process can be fair in every single step and still end with everything in one place. So when the stories arrive — the talent, the grind, the vision — maybe they're real. Or maybe you are reading a winning trait off a fair coin.
-
-[close.3] **Nothing was unfair. That was the unfairness.**
-
-! keep true: close.1 is the honesty bill — the list of what the model discards
-has to stay a real list, and the disclaimer with it.
 
 ---
 
