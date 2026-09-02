@@ -10,6 +10,13 @@ export interface ReadingPlace {
   readonly id: string;
   /** How far past that anchor the reader had scrolled, in pixels. */
   readonly offset: number;
+  /**
+   * The fragment in the URL when this place was recorded. `ChapterIndex` leaves
+   * its fragment behind as the reader continues past it, so a hash on a later
+   * load is only a destination request if it is not the one already sitting in
+   * the address bar of the entry being reloaded.
+   */
+  readonly hash: string;
 }
 
 /**
@@ -20,6 +27,7 @@ export interface ReadingPlace {
 export function placeFor(
   anchors: readonly { readonly id: string; readonly top: number }[],
   scrollY: number,
+  hash = '',
 ): ReadingPlace | null {
   let best: { id: string; top: number } | null = null;
   for (const anchor of anchors) {
@@ -27,7 +35,7 @@ export function placeFor(
     if (!best || anchor.top > best.top) best = anchor;
   }
   if (!best) return null;
-  return { id: best.id, offset: Math.round(scrollY - best.top) };
+  return { id: best.id, offset: Math.round(scrollY - best.top), hash };
 }
 
 export function parsePlace(raw: string | null): ReadingPlace | null {
@@ -36,7 +44,11 @@ export function parsePlace(raw: string | null): ReadingPlace | null {
     const value = JSON.parse(raw) as Partial<ReadingPlace>;
     if (typeof value.id !== 'string' || value.id.length === 0) return null;
     if (!Number.isFinite(value.offset) || value.offset! < 0) return null;
-    return { id: value.id, offset: Math.round(value.offset!) };
+    return {
+      id: value.id,
+      offset: Math.round(value.offset!),
+      hash: typeof value.hash === 'string' ? value.hash : '',
+    };
   } catch {
     return null;
   }
@@ -44,10 +56,25 @@ export function parsePlace(raw: string | null): ReadingPlace | null {
 
 /**
  * A hash names a destination the reader asked for, and `Chapter` already owns
- * aligning to it. Restoring a remembered place on top of that would fight it.
+ * aligning to it — so a fresh fragment navigation wins and the restore stands
+ * down.
+ *
+ * A hash that is merely still in the address bar is a different thing. Opening
+ * `/#gini` and reading on to the sandbox leaves `#gini` in the URL, and on
+ * reload that stale fragment would drag the reader back to a chapter they left
+ * long ago. Two things separate the cases: a reload or a back/forward step is
+ * never a new destination request, and neither is a fragment identical to the
+ * one recorded with the place.
  */
-export function shouldRestore(hash: string, place: ReadingPlace | null): boolean {
-  return place !== null && hash.length <= 1;
+export function shouldRestore(
+  hash: string,
+  place: ReadingPlace | null,
+  navigationType = 'navigate',
+): boolean {
+  if (place === null) return false;
+  if (hash.length <= 1) return true;
+  if (navigationType === 'reload' || navigationType === 'back_forward') return true;
+  return hash === place.hash;
 }
 
 /** The remembered place, as far as the document currently reaches. */
@@ -90,12 +117,18 @@ export function installScrollRestore(): () => void {
 
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
-  let restoring = shouldRestore(location.hash, place);
+  let restoring = shouldRestore(location.hash, place, navigationType());
   const deadline = performance.now() + RESTORE_BUDGET_MS;
   let walking = 0;
   let writing = 0;
   let previousTarget = -1;
   let stableFrames = 0;
+
+  /** 'reload' and 'back_forward' both mean the reader is returning, not arriving. */
+  function navigationType(): string {
+    const [entry] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    return entry?.type ?? 'navigate';
+  }
 
   const anchors = () =>
     [...document.querySelectorAll<HTMLElement>('.chapter-anchor')].map((el) => ({
@@ -109,7 +142,7 @@ export function installScrollRestore(): () => void {
     if (restoring || writing) return;
     writing = requestAnimationFrame(() => {
       writing = 0;
-      const next = placeFor(anchors(), window.scrollY);
+      const next = placeFor(anchors(), window.scrollY, location.hash);
       try {
         if (next) sessionStorage.setItem(SCROLL_KEY, JSON.stringify(next));
       } catch {

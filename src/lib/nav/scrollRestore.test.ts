@@ -10,9 +10,9 @@ const anchors = [
 
 describe('remembering the reader’s place', () => {
   it('names the chapter the reader is inside, and how far into it', () => {
-    expect(placeFor(anchors, 16500)).toEqual({ id: 'spherical-human', offset: 6555 });
-    expect(placeFor(anchors, 4000)).toEqual({ id: 'cow', offset: 0 });
-    expect(placeFor(anchors, 19600)).toEqual({ id: 'guess', offset: 100 });
+    expect(placeFor(anchors, 16500)).toEqual({ id: 'spherical-human', offset: 6555, hash: '' });
+    expect(placeFor(anchors, 4000)).toEqual({ id: 'cow', offset: 0, hash: '' });
+    expect(placeFor(anchors, 19600, '#gini')).toEqual({ id: 'guess', offset: 100, hash: '#gini' });
   });
 
   it('has nothing to remember above the first chapter', () => {
@@ -21,7 +21,9 @@ describe('remembering the reader’s place', () => {
   });
 
   it('accepts only a place it could act on', () => {
-    expect(parsePlace('{"id":"cow","offset":40}')).toEqual({ id: 'cow', offset: 40 });
+    expect(parsePlace('{"id":"cow","offset":40,"hash":"#gini"}')).toEqual({ id: 'cow', offset: 40, hash: '#gini' });
+    // A place written before the hash was recorded still restores.
+    expect(parsePlace('{"id":"cow","offset":40}')).toEqual({ id: 'cow', offset: 40, hash: '' });
     expect(parsePlace(null)).toBeNull();
     expect(parsePlace('not json')).toBeNull();
     expect(parsePlace('{"id":"","offset":40}')).toBeNull();
@@ -29,12 +31,24 @@ describe('remembering the reader’s place', () => {
     expect(parsePlace('{"id":"cow","offset":-8}')).toBeNull();
   });
 
-  it('defers to a hash, which names a destination the reader asked for', () => {
-    const place = { id: 'cow', offset: 40 };
+  it('defers to a fragment the reader has just asked for', () => {
+    const place = { id: 'cow', offset: 40, hash: '' };
     expect(shouldRestore('', place)).toBe(true);
     expect(shouldRestore('#', place)).toBe(true);
     expect(shouldRestore('#sandbox', place)).toBe(false);
     expect(shouldRestore('', null)).toBe(false);
+  });
+
+  it('is not fooled by a fragment left in the address bar', () => {
+    // Opened at /#gini, read on to the verdict: ChapterIndex leaves #gini behind.
+    const place = { id: 'verdict', offset: 73, hash: '#gini' };
+    expect(shouldRestore('#gini', place, 'reload')).toBe(true);
+    expect(shouldRestore('#gini', place, 'back_forward')).toBe(true);
+    // Same stale fragment, but as a fresh entry rather than a return.
+    expect(shouldRestore('#gini', place, 'navigate')).toBe(true);
+    // A fragment the reader has genuinely just navigated to still wins.
+    expect(shouldRestore('#sandbox', place, 'navigate')).toBe(false);
+    expect(shouldRestore('#sandbox', place, 'reload')).toBe(true);
   });
 
   it('reaches only as far as the document currently allows', () => {
