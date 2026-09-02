@@ -448,7 +448,7 @@
     }
   }
 
-  @media (max-height: 520px) and (orientation: landscape) {
+  @media (max-height: 560px) and (orientation: landscape) {
     .teletype {
       inset-block-start: 4%;
       font-size: clamp(0.65rem, 2.1vw, 1rem);

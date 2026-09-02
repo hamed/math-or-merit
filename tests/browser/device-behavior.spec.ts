@@ -35,6 +35,20 @@ test('the opening owns the phone viewport', async ({ page }) => {
   expect(landscape.title.bottom).toBeLessThanOrEqual(landscape.credit.top);
   expect(landscape.credit.bottom).toBeLessThanOrEqual(390);
 
+  // The full-height timed stage shifts the title lower than the ordinary
+  // reduced-motion stage. Keep the band just above phone landscape covered.
+  await page.setViewportSize({ width: 962, height: 527 });
+  await page.waitForTimeout(100);
+  const shallowLandscape = await page.locator('.opening').evaluate((opening) => {
+    const title = opening.querySelector('.title')!.getBoundingClientRect();
+    const credit = opening.querySelector('.credit')!.getBoundingClientRect();
+    return { titleBottom: title.bottom, creditTop: credit.top, creditBottom: credit.bottom };
+  });
+  expect(shallowLandscape.titleBottom).toBeLessThanOrEqual(shallowLandscape.creditTop);
+  expect(shallowLandscape.creditBottom).toBeLessThanOrEqual(527);
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.waitForTimeout(100);
   const castStage = page.locator('.cast-stage');
   await expect(castStage).toBeAttached();
   const cast = await castStage.evaluate((stage) => ({
