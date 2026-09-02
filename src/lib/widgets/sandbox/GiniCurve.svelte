@@ -1,6 +1,7 @@
 <script lang="ts">
+  // Legacy filename; this plot now renders either Gini or effective participation.
   import PlotFrame, { type AxisSpec } from './PlotFrame.svelte';
-  import { curveVs, phaseData } from './phaseGrid.svelte';
+  import { curveVsMetric, phaseData, type OutcomeMapMetric } from './phaseGrid.svelte';
   import { logTicks, niceLinearTicks, percentNumber } from './ticks';
   import { percent } from '../shared/format';
   import { gatedClick } from './gatedClick';
@@ -10,6 +11,7 @@
     axis: 'tax' | 'stake';
     stake: number;
     taxRate: number;
+    metric: OutcomeMapMetric;
     /** Room size — cuts only mix measurements of the same n. */
     n: number;
     /** Hovering the map previews another cut without moving the dials. */
@@ -17,7 +19,7 @@
     probeTax?: number | null;
   }
 
-  let { axis, stake, taxRate, n, probeStake = null, probeTax = null }: Props = $props();
+  let { axis, stake, taxRate, n, metric, probeStake = null, probeTax = null }: Props = $props();
 
   let xLog = $state(false);
   let yLog = $state(false);
@@ -34,14 +36,16 @@
   // measured value of the OTHER dial
   const cut = $derived.by(() => {
     void phaseData.version;
-    return curveVs(axis, fixedRequested, n);
+    return curveVsMetric(axis, fixedRequested, n, metric);
   });
+
+  const metricName = $derived(metric === 'gini' ? 'Gini' : 'effective participants');
 
   const X_FLOOR = 0.001; // the smallest nonzero dial stop
   const yFloor = $derived.by(() => {
     let lo = 1;
-    for (const p of cut.points) if (p.gini > 0 && p.gini < lo) lo = p.gini;
-    return Math.min(Math.max(lo, 1e-3), 0.1);
+    for (const p of cut.points) if (p.value > 0 && p.value < lo) lo = p.value;
+    return metric === 'gini' ? Math.min(Math.max(lo, 1e-3), 0.1) : 1;
   });
 
   const xAxis: AxisSpec = $derived({
@@ -57,10 +61,10 @@
   const yAxis: AxisSpec = $derived({
     type: yLog ? 'log' : 'linear',
     lo: yLog ? yFloor : 0,
-    hi: 1,
-    ticks: yLog ? logTicks(yFloor, 1) : niceLinearTicks(0, 1),
+    hi: metric === 'gini' ? 1 : n,
+    ticks: yLog ? logTicks(yFloor, metric === 'gini' ? 1 : n) : niceLinearTicks(0, metric === 'gini' ? 1 : n),
     format: (v) => String(Number(v.toPrecision(3))),
-    label: 'Gini',
+    label: metric === 'gini' ? 'Gini' : 'participants',
     onToggle: gatedClick(() => (yLog = !yLog)),
   });
 
@@ -68,8 +72,8 @@
   function buildPath(xOf: (v: number) => number, yOf: (v: number) => number): string {
     let d = '';
     for (const p of cut.points) {
-      if ((xLog && p.v <= 0) || (yLog && p.gini <= 0)) continue;
-      d += `${d === '' ? 'M' : 'L'} ${xOf(p.v).toFixed(1)} ${yOf(p.gini).toFixed(1)} `;
+      if ((xLog && p.v <= 0) || (yLog && p.value <= 0)) continue;
+      d += `${d === '' ? 'M' : 'L'} ${xOf(p.v).toFixed(1)} ${yOf(p.value).toFixed(1)} `;
     }
     return d;
   }
@@ -79,8 +83,16 @@
   // closed-form limits (the only ones that exist): no tax → the yard sale
   // condenses to one owner (Gini → 1); no trades → the room stays equal.
   const theory = $derived.by(() => {
-    if (axis === 'stake' && fixedRequested === 0) return { y: 1, label: 'theory: no tax → one owner' };
-    if (axis === 'tax' && fixedRequested === 0) return { y: 0, label: 'theory: no trades → stays equal' };
+    if (axis === 'stake' && fixedRequested === 0) {
+      return metric === 'gini'
+        ? { y: 1, label: 'theory: no tax → one owner' }
+        : { y: 1, label: 'theory: no tax → one participant' };
+    }
+    if (axis === 'tax' && fixedRequested === 0) {
+      return metric === 'gini'
+        ? { y: 0, label: 'theory: no trades → stays equal' }
+        : { y: n, label: `theory: no trades → ${n} participants` };
+    }
     return null;
   });
 
@@ -97,7 +109,7 @@
     }
     const span = upper.v - lower.v;
     const t = span > 0 ? (dial - lower.v) / span : 0;
-    return lower.gini + (upper.gini - lower.gini) * t;
+    return lower.value + (upper.value - lower.value) * t;
   });
 </script>
 
@@ -105,24 +117,29 @@
   <PlotFrame
     x={xAxis}
     y={yAxis}
-    title={`Gini vs ${axis} — at ${cut.fixedUsed !== null ? percentNumber(cut.fixedUsed) + '% ' : 'your '}${other}`}
-    description={`A cut through YOUR measured finite-run outcomes: how Gini responds to the ${axis} dial with the ${other} held fixed. Hover the map to preview other cuts.`}
+    title={`${metricName} vs ${axis} — at ${cut.fixedUsed !== null ? percentNumber(cut.fixedUsed) + '% ' : 'your '}${other}`}
+    description={`A cut through the measured finite-run every-round levy outcomes: how ${metricName} responds to the ${axis} dial with the ${other} held fixed. Hover the map to preview other cuts.`}
     sharedZero={!xLog && !yLog}
     onHoverChange={(inside) => (hovered = inside)}
-    ariaLabel={`Gini as a function of the ${axis} dial, cut through the measured outcome points at ${other} ${percent(fixedRequested)}. Click an axis to toggle its scale.`}
+    ariaLabel={`${metricName} as a function of the ${axis} dial, cut through the measured outcome points at ${other} ${percent(fixedRequested)}. Click an axis to toggle its scale.`}
   >
     {#snippet children({ xOf, yOf, frame })}
       {@const d = buildPath(xOf, yOf)}
       {#if theory}
         <line class="theory" x1={frame.x} y1={yOf(Math.max(theory.y, yLog ? yFloor : 0))} x2={frame.x + frame.w} y2={yOf(Math.max(theory.y, yLog ? yFloor : 0))} />
-        <text class="theory-label" x={frame.x + frame.w - 3} y={yOf(Math.max(theory.y, yLog ? yFloor : 0)) + (theory.y > 0.5 ? 9 : -4)} text-anchor="end">{theory.label}</text>
+        <text
+          class="theory-label"
+          x={frame.x + frame.w - 3}
+          y={yOf(Math.max(theory.y, yLog ? yFloor : 0)) + (theory.y > (yAxis.lo + yAxis.hi) / 2 ? 9 : -4)}
+          text-anchor="end"
+        >{theory.label}</text>
       {/if}
       {#if d}
         <path class="curve" class:probing d={d} />
         {#each cut.points as p (p.v)}
-          {#if !(xLog && p.v <= 0) && !(yLog && p.gini <= 0)}
-            <circle class="pt" cx={xOf(p.v)} cy={yOf(p.gini)} r="2">
-              <title>{axis} {percent(p.v)} → Gini {p.gini.toFixed(2)} ({p.count}×)</title>
+          {#if !(xLog && p.v <= 0) && !(yLog && p.value <= 0)}
+            <circle class="pt" cx={xOf(p.v)} cy={yOf(p.value)} r="2">
+              <title>{axis} {percent(p.v)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
             </circle>
           {/if}
         {/each}

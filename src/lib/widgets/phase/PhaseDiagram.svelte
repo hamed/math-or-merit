@@ -1,17 +1,15 @@
 <script lang="ts" module>
+  import { GUIDED_OUTCOME_PROTOCOL } from '$lib/research';
+  import { GINI_RAMP as RAMP } from '../shared/presets';
+
   /** Grid axes: stake (x) × flat levy rate per round (y). Calibrated so the
    * Gini spans ~0.05–0.98 and the 0.5 contour crosses every column
    * (scripts/phase-calibrate.ts, 2026-07-06). */
   const BETAS = Array.from({ length: 10 }, (_, i) => 0.05 + i * 0.05);
   const TAXES = Array.from({ length: 13 }, (_, i) => i * 0.01);
-  const N = 100;
-  const LEVY_EVERY = 100; // one levy per "round" of the room
-  const TRADES = 200_000;
-  const BURN_IN = 120_000;
-  const TAIL_SAMPLES = 8;
+  const N = GUIDED_OUTCOME_PROTOCOL.n;
+  const TRADES = GUIDED_OUTCOME_PROTOCOL.trades;
   const SEEDS = [11, 271];
-
-  import { GINI_RAMP as RAMP } from '../shared/presets';
 
   // Session cache: plays and the completed map survive scrolling away.
   let cachedGrid: number[][] | null = null;
@@ -21,12 +19,13 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { contourSegments, fitSquareRelationship, IncrementalOutcomeRun, measureWealth, OUTCOME_PROTOCOL_VERSION } from '$lib/research';
+  import { contourSegments, fitSquareRelationship, IncrementalOutcomeRun, measureWealth } from '$lib/research';
   import RoomCanvas from '../shared/RoomCanvas.svelte';
   import { createFixedTicker } from '../shared/ticker';
   import { assignStyles } from '../shared/agentStyle';
   import { countTrades, percent } from '../shared/format';
   import StopSlider from '../sandbox/StopSlider.svelte';
+  import { addOutcome, loadPhaseData } from '../sandbox/phaseGrid.svelte';
 
   // Owner review 2026-07-08: the reader plays rooms with the two dials; each
   // finished room paints ITS cell of the map. "Fill in the rest" completes
@@ -56,15 +55,9 @@
 
   function newWorld(b: number, tax: number, seed: number): IncrementalOutcomeRun {
     return new IncrementalOutcomeRun({
-      version: OUTCOME_PROTOCOL_VERSION,
-      n: N,
+      ...GUIDED_OUTCOME_PROTOCOL,
       beta: b,
       taxRate: tax,
-      tradesPerRound: N,
-      levyEveryRounds: LEVY_EVERY / N,
-      trades: TRADES,
-      burnIn: BURN_IN,
-      tailSamples: TAIL_SAMPLES,
       seed,
     });
   }
@@ -86,7 +79,9 @@
     revision++;
     liveGini = measureWealth(world.wealth).gini;
     if (world.done) {
-      ensembleSum += world.result().gini;
+      const outcome = world.result();
+      ensembleSum += outcome.gini;
+      addOutcome(GUIDED_OUTCOME_PROTOCOL, beta, taxRate, outcome);
       if (runIndex + 1 < activeSeeds.length) {
         runIndex++;
         world = newWorld(beta, taxRate, activeSeeds[runIndex]);
@@ -141,7 +136,9 @@
         run ??= newWorld(BETAS[ix], TAXES[iy], seeds[seedIndex]);
         run.step(2_000);
         if (run.done) {
-          cellSum += run.result().gini;
+          const outcome = run.result();
+          cellSum += outcome.gini;
+          addOutcome(GUIDED_OUTCOME_PROTOCOL, BETAS[ix], TAXES[iy], outcome);
           seedIndex++;
           run = null;
         }
@@ -193,9 +190,12 @@
   }
 
   let fillFrame = 0;
-  onMount(() => () => {
-    ticker.stop();
-    cancelAnimationFrame(fillFrame);
+  onMount(() => {
+    loadPhaseData();
+    return () => {
+      ticker.stop();
+      cancelAnimationFrame(fillFrame);
+    };
   });
 </script>
 

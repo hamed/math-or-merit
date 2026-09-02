@@ -1,6 +1,6 @@
 <script lang="ts">
   import PlotFrame, { type AxisSpec } from './PlotFrame.svelte';
-  import { phaseData, pointsFor } from './phaseGrid.svelte';
+  import { metricPointsFor, phaseData, type OutcomeMapMetric } from './phaseGrid.svelte';
   import { PHASE_RAMPS, rampColor } from '../shared/presets';
   import { niceLinearTicks, percentNumber } from './ticks';
   import { percent } from '../shared/format';
@@ -12,13 +12,15 @@
     taxRate: number;
     /** Room size: measured points are finite-size, shown per-n only. */
     n: number;
-    /** The live room's instantaneous Gini — the wandering, unsolidified dot. */
-    liveGini: number;
+    /** Which stored outcome colors the map. */
+    metric: OutcomeMapMetric;
+    /** The live room's matching instantaneous outcome. */
+    liveMetric: number;
     /** Hover probe: fractions over the map, for previewing cross-sections. */
     onProbe?: ((stake: number | null, tax: number | null) => void) | null;
   }
 
-  let { stake, taxRate, n, liveGini, onProbe = null }: Props = $props();
+  let { stake, taxRate, n, metric, liveMetric, onProbe = null }: Props = $props();
 
   let rampIdx = $state(0);
   // display styles for the measured points — a body click cycles them so the
@@ -38,8 +40,14 @@
 
   const points = $derived.by(() => {
     void phaseData.version;
-    return pointsFor(n);
+    return metricPointsFor(n, metric);
   });
+
+  const metricName = $derived(metric === 'gini' ? 'Gini' : 'effective participants');
+  const shortMetricName = $derived(metric === 'gini' ? 'Gini' : 'participants');
+  const colorValue = (value: number) => metric === 'gini'
+    ? Math.max(0, Math.min(1, value))
+    : 1 - Math.max(0, Math.min(1, (value - 1) / Math.max(1, n - 1)));
 
   // shade mode: nearest measured point colors its neighborhood — regions
   // grow organically as the reader's data accumulates
@@ -60,14 +68,14 @@
         let best: { d: number; g: number } | null = null;
         for (const p of points) {
           const d = Math.hypot(p.stake - sx, p.tax - ty);
-          if (d <= REACH && (!best || d < best.d)) best = { d, g: p.gini };
+          if (d <= REACH && (!best || d < best.d)) best = { d, g: p.value };
         }
         const at = (py * FINE + px) * 4;
         if (!best) {
           img.data[at + 3] = 0;
           continue;
         }
-        const hex = rampColor(ramp, Math.max(0, Math.min(1, best.g)));
+        const hex = rampColor(ramp, colorValue(best.g));
         img.data[at] = parseInt(hex.slice(1, 3), 16);
         img.data[at + 1] = parseInt(hex.slice(3, 5), 16);
         img.data[at + 2] = parseInt(hex.slice(5, 7), 16);
@@ -106,18 +114,18 @@
   <PlotFrame
     x={xAxis}
     y={yAxis}
-    title={`measured outcomes — n=${n}`}
-    description="Each mark is one finite run under a versioned protocol: stake across, levy up, color = measured Gini. Hover to preview cross-sections; click to change the drawing style."
+    title={`measured ${shortMetricName} — ${n}`}
+    description={`Each mark is one finite run under a versioned every-round levy protocol: stake across, levy up, color = measured ${metricName}. Hover to preview cross-sections; click to change the drawing style.`}
     sharedZero
     onBody={cycleMode}
     bodyTooltip={`drawn as ${mode} — click for the next style`}
     onBodyMove={handleMove}
-    ariaLabel={`Outcome map of ${points.length} measured settings for rooms of ${n}. Your dials sit at ${percent(stake)} stake and ${percent(taxRate)} levy; dashed lines mark the cross-sections.`}
+    ariaLabel={`Outcome map of ${points.length} measured ${metricName} settings for rooms of ${n}. Your dials sit at ${percent(stake)} stake and ${percent(taxRate)} levy; dashed lines mark the cross-sections.`}
   >
     {#snippet children({ xOf, yOf, frame })}
       {#if points.length === 0}
         <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 - 5} text-anchor="middle">nothing is given —</text>
-        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 + 6} text-anchor="middle">every completed run paints its point</text>
+        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 + 6} text-anchor="middle">completed runs paint this map</text>
       {:else if mode === 'shade' && shadeUrl}
         <image href={shadeUrl} x={frame.x} y={frame.y} width={frame.w} height={frame.h} preserveAspectRatio="none" />
       {:else if mode === 'cells'}
@@ -128,9 +136,9 @@
             y={yOf(p.tax) - 5.5}
             width="11"
             height="11"
-            fill={rampColor(ramp, Math.max(0, Math.min(1, p.gini)))}
+            fill={rampColor(ramp, colorValue(p.value))}
           >
-            <title>stake {percent(p.stake)} · tax {percent(p.tax)} → Gini {p.gini.toFixed(2)} ({p.count}×)</title>
+            <title>stake {percent(p.stake)} · tax {percent(p.tax)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
           </rect>
         {/each}
       {:else}
@@ -140,9 +148,9 @@
             cx={xOf(p.stake)}
             cy={yOf(p.tax)}
             r={3 + Math.min(3, Math.log2(p.count + 1))}
-            fill={rampColor(ramp, Math.max(0, Math.min(1, p.gini)))}
+            fill={rampColor(ramp, colorValue(p.value))}
           >
-            <title>stake {percent(p.stake)} · tax {percent(p.tax)} → Gini {p.gini.toFixed(2)} ({p.count}×)</title>
+            <title>stake {percent(p.stake)} · tax {percent(p.tax)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
           </circle>
         {/each}
       {/if}
@@ -158,26 +166,28 @@
       {/if}
 
       <!-- the live room: an unsolidified, wandering reading at your dials -->
-      {#if Number.isFinite(liveGini)}
-        <circle class="live" cx={xOf(cs)} cy={yOf(ct)} r="4.4" fill={rampColor(ramp, Math.max(0, Math.min(1, liveGini)))} />
+      {#if Number.isFinite(liveMetric)}
+        <circle class="live" cx={xOf(cs)} cy={yOf(ct)} r="4.4" fill={rampColor(ramp, colorValue(liveMetric))} />
       {/if}
       <circle class="marker" cx={xOf(cs)} cy={yOf(ct)} r="4.4" />
     {/snippet}
   </PlotFrame>
 
-  <!-- Gini colorbar on the right; a click cycles the colormap -->
+  <!-- One concentration color language across both metrics; a click cycles the colormap. -->
   <button
     class="colorbar"
     type="button"
     onclick={cycleRamp}
-    aria-label="Gini color scale, 0 at the bottom to 1 at the top; activate for the next colormap"
+    aria-label={metric === 'gini'
+      ? 'Gini color scale, 0 at the bottom to 1 at the top; activate for the next colormap'
+      : `Effective participants color scale, ${n} at the bottom to 1 at the top; activate for the next colormap`}
     title="colormap"
   >
     <span class="bar" style={`background: linear-gradient(to top, ${ramp.join(', ')})`}></span>
     <span class="bar-ticks" aria-hidden="true">
       <span>1</span>
-      <span>0.5</span>
-      <span>0</span>
+      <span>{metric === 'gini' ? '0.5' : Math.round((n + 1) / 2)}</span>
+      <span>{metric === 'gini' ? '0' : n}</span>
     </span>
   </button>
 </div>

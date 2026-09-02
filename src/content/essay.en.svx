@@ -492,7 +492,8 @@ map.
 <!--
   WIDGET: PhaseDiagram (legacy component name) — the reader
   runs live rooms (SandboxWorld, fresh dice, ~2.3 s each) with snap-to-grid stake/tax dials;
-  each finished room paints its own cell with its measured tail-mean Gini. After three
+  each independent finished room contributes its complete outcome bundle to the shared
+  evidence store and paints its cell with measured tail-mean Gini. After three
   plays, "fill in the rest" completes the 10×13 grid live in-page (two fixed seeds per
   remaining cell, chunked under a frame budget; cached per session). White contour = chosen
   finite-run Gini 0.5 outcome. Dashed curve = FITTED τ ≈ c·β². Neither is phase evidence.
@@ -506,12 +507,13 @@ needed for the same measured outcome change as the stake changes?
 ## The sandbox
 
 Everything you have seen was this one machine wearing different costumes. Here it is with
-every dial exposed: people, stake, a levy — and the room itself answers to your finger:
-tap anyone to tax them on the spot. Break it. Save it. See what it takes.
+every dial exposed: people, stake, levy rate, levy timing — and the room itself answers to
+your finger. It begins equal, with fresh dice. Effective participants is the first reading;
+Gini is one button away. Tap anyone, change anything, and see what it takes.
 
 <!--
   WIDGET: Sandbox — the full-screen finale (owner review 2026-07-13). SandboxWorld composes
-  engine primitives (shares sum 1 + totalDollars scalar). One flat levy dial 0-100%;
+  engine primitives (shares sum 1 + totalDollars scalar). Flat levy rate and cadence dials;
   click-tax mini-game via RoomCanvas onTap. The component
   doubles as the reusable core: layout/panels/controls props let earlier beats become
   presets of it. Beat-22 discipline still holds: the levy is a TOY — no empirical claim

@@ -1,4 +1,6 @@
 <script lang="ts" module>
+  import { sandboxPlotsFor, type SandboxPlotId } from './sandboxPlots';
+
   /**
    * The sandbox is the essay's one machine with every dial exposed — and the
    * seam for reuse: earlier beats can become presets
@@ -22,10 +24,12 @@
     look: boolean;
     stake: boolean;
     tax: boolean;
+    taxCadence: boolean;
     clickTax: boolean;
     startWealth: boolean;
     news: boolean;
   }
+
 </script>
 
 <script lang="ts">
@@ -40,7 +44,15 @@
   import NewsFlash from './NewsFlash.svelte';
   import StopSlider, { MONEY_STOPS, PEOPLE_STOPS, RATE_STOPS } from './StopSlider.svelte';
   import { collectStats, roomStatsSource } from './newsroom';
-  import { addOutcome, clearPhaseData, exportCsv, importCsv, loadPhaseData, outcomeProtocolFor } from './phaseGrid.svelte';
+  import {
+    addOutcome,
+    clearPhaseData,
+    exportCsv,
+    importCsv,
+    loadPhaseData,
+    outcomeProtocolFor,
+    type OutcomeMapMetric,
+  } from './phaseGrid.svelte';
   import { createFixedTicker } from '../shared/ticker';
   import { CLASSIC_AGENT_FILL, CLASSIC_AGENT_STROKE, FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
@@ -48,7 +60,7 @@
   import { countTrades, dollarsCompact, percent } from '../shared/format';
   import { SandboxWorld, measureToy } from './SandboxWorld';
   import { OutcomeRunRecorder } from './OutcomeRunRecorder';
-  import { START_DOLLARS } from '../shared/presets';
+  import { ROOM_N, START_DOLLARS } from '../shared/presets';
 
   interface Props {
     /** `full` owns the whole screen (the finale); `column` sits in the prose. */
@@ -76,6 +88,7 @@
     look: true,
     stake: true,
     tax: true,
+    taxCadence: true,
     clickTax: true,
     startWealth: true,
     news: true,
@@ -85,11 +98,13 @@
   const MIN_N = 2;
   const MAX_N = 2048;
   const LOOKS = ['shapes', 'circles', 'classic'] as const;
+  const LEVY_CADENCE_STOPS = [1, 2, 5, 10, 20, 50, 100] as const;
   type Look = (typeof LOOKS)[number];
 
-  let n = $state(128);
+  let n = $state(ROOM_N);
   let stake = $state(0.2);
   let taxRate = $state(0);
+  let levyEveryRounds = $state(1);
   let clickRate = $state(0.25);
   let startDollars = $state(START_DOLLARS);
   let speed = $state(4);
@@ -105,8 +120,8 @@
   // the look button wears a fresh palette pair on every press
   let lookSwatch = $state({ fill: FILLS.violet, stroke: STROKES.teal });
 
-  let world = $state(makeWorld(128));
-  let styles = $state(randomStyles(128));
+  let world = $state(makeWorld(ROOM_N));
+  let styles = $state(randomStyles(ROOM_N));
 
   // display-only, as ever: the look never touches the simulation
   const displayStyles = $derived(
@@ -119,14 +134,24 @@
   let revision = $state(0);
   let running = $state(false);
   let gini = $state(0);
+  let effectiveParticipants = $state(ROOM_N);
   let topShare = $state(0);
+  let latestTurnover = $state(0);
+  let mapMetric = $state<OutcomeMapMetric>('effectiveParticipants');
 
   let rootEl: HTMLDivElement | undefined = $state();
   let room: RoomCanvas | undefined = $state();
   let roomW = $state(0);
   let roomH = $state(0);
 
-  let zoomed = $state<null | 'hist' | 'lorenz' | 'ccdf' | 'time' | 'phase' | 'gtax' | 'gstake'>(null);
+  let zoomed = $state<SandboxPlotId | null>(null);
+  let dashboardPlot = $state<SandboxPlotId>('phase');
+  const availablePlots = $derived(sandboxPlotsFor(show));
+  $effect(() => {
+    if (!availablePlots.includes(dashboardPlot) && availablePlots.length > 0) {
+      dashboardPlot = availablePlots[0];
+    }
+  });
 
   // hovering the phase map previews other cross-sections
   let probeStake = $state<number | null>(null);
@@ -152,11 +177,13 @@
   function pushDials(): void {
     world.beta = stake;
     world.taxRate = taxRate;
+    world.levyEveryRounds = levyEveryRounds;
   }
 
   function measure(): void {
     const m = measureToy(world.wealth);
     gini = m.gini;
+    effectiveParticipants = m.effectiveParticipants;
     topShare = m.topShare;
   }
 
@@ -168,9 +195,9 @@
     if (seed === undefined) return;
     const protocol = outcomeProtocolFor(n);
     world.tradesPerRound = protocol.tradesPerRound;
-    world.levyEveryRounds = protocol.levyEveryRounds;
     const recorder = new OutcomeRunRecorder({ protocol, beta: stake, taxRate, seed });
     stopOutcomeMeasurement = world.onMeasurement((measurement) => {
+      latestTurnover = measurement.wealthTurnover;
       const recorded = recorder.observe(measurement, {
         beta: world.beta,
         taxRate: world.taxRate,
@@ -230,6 +257,7 @@
     closeNews();
     world = makeWorld(n);
     styles = randomStyles(n);
+    latestTurnover = 0;
     pushDials();
     armOutcomeMeasurement();
     revision++;
@@ -248,6 +276,16 @@
   function toggleZoom(plot: NonNullable<typeof zoomed>): void {
     zoomed = zoomed === plot ? null : plot;
   }
+
+  const plotLabel: Record<SandboxPlotId, string> = {
+    phase: 'map',
+    gtax: 'tax cut',
+    gstake: 'stake cut',
+    hist: 'histogram',
+    lorenz: 'Lorenz',
+    ccdf: 'tail',
+    time: 'history',
+  };
 
   /** Room clicks: the tax game levies; the press game takes a photo. */
   function tapAgent(index: number): void {
@@ -417,6 +455,7 @@
   <div
     class={`plot plot-${id}`}
     class:zoomed={zoomed === id}
+    class:mobile-hidden={dashboardPlot !== id}
     style={zoomed === id ? undefined : `grid-area: ${id}`}
     role="button"
     tabindex="0"
@@ -436,15 +475,16 @@
     {:else if id === 'time'}
       <TimeSeries {world} {revision} />
     {:else if id === 'gtax'}
-      <GiniCurve axis="tax" {stake} {taxRate} {n} {probeStake} {probeTax} />
+      <GiniCurve axis="tax" {stake} {taxRate} {n} metric={mapMetric} {probeStake} {probeTax} />
     {:else if id === 'gstake'}
-      <GiniCurve axis="stake" {stake} {taxRate} {n} {probeStake} {probeTax} />
+      <GiniCurve axis="stake" {stake} {taxRate} {n} metric={mapMetric} {probeStake} {probeTax} />
     {:else}
       <PhaseMap
         {stake}
         {taxRate}
         {n}
-        liveGini={gini}
+        metric={mapMetric}
+        liveMetric={levyEveryRounds === 1 ? (mapMetric === 'gini' ? gini : effectiveParticipants) : NaN}
         onProbe={(ps, pt) => {
           probeStake = ps;
           probeTax = pt;
@@ -464,6 +504,10 @@
     <p class="kicker">The whole machine, yours</p>
     {#if show.stats}
       <div class="stats">
+        <output data-primary-metric>
+          {mapMetric === 'gini' ? `Gini ${gini.toFixed(2)}` : `${effectiveParticipants.toFixed(1)} of ${n} effective`}
+        </output>
+        <output>{latestTurnover.toFixed(3)} roomfuls / round</output>
         <output>{countTrades(trades)} trades</output>
         <output>{countTrades(roundCount)} rounds</output>
         <output>holds {dollarsCompact(totalDollars)}</output>
@@ -471,6 +515,17 @@
       </div>
     {/if}
   </div>
+
+  <nav class="plot-tabs" aria-label="Choose a sandbox plot">
+    {#each availablePlots as id}
+      <button
+        type="button"
+        class:primary={dashboardPlot === id}
+        aria-pressed={dashboardPlot === id}
+        onclick={() => (dashboardPlot = id)}
+      >{plotLabel[id]}</button>
+    {/each}
+  </nav>
 
   <div class="room-flex" bind:clientWidth={roomW} bind:clientHeight={roomH}>
     {#if roomW > 0 && roomH > 0}
@@ -522,7 +577,16 @@
         <StopSlider label="stake" bind:value={stake} stops={RATE_STOPS} format={rateLabel} {expert} />
       {/if}
       {#if ctl.tax}
-        <StopSlider label="tax /round" bind:value={taxRate} stops={RATE_STOPS} format={rateLabel} {expert} />
+        <StopSlider label="levy rate" bind:value={taxRate} stops={RATE_STOPS} format={rateLabel} {expert} />
+      {/if}
+      {#if ctl.taxCadence}
+        <StopSlider
+          label="levy every"
+          bind:value={levyEveryRounds}
+          stops={LEVY_CADENCE_STOPS}
+          format={(v) => `${v} ${v === 1 ? 'round' : 'rounds'}`}
+          {expert}
+        />
       {/if}
       {#if ctl.population}
         <StopSlider label="people" value={n} stops={PEOPLE_STOPS} format={(v) => String(Math.round(v))} {expert} onChange={setPopulation} />
@@ -574,6 +638,17 @@
           {#each [1, 4, 16] as s}
             <button type="button" class:primary={speed === s} aria-pressed={speed === s} onclick={() => (speed = s)}>{s}×</button>
           {/each}
+        </fieldset>
+      {/if}
+      {#if show.phase || show.gtax || show.gstake}
+        <fieldset>
+          <legend>map measure</legend>
+          <button
+            type="button"
+            data-map-metric
+            title="Switch between the intuitive participation count and technical Gini"
+            onclick={() => (mapMetric = mapMetric === 'effectiveParticipants' ? 'gini' : 'effectiveParticipants')}
+          >{mapMetric === 'effectiveParticipants' ? 'participants' : 'Gini'}</button>
         </fieldset>
       {/if}
       <fieldset>
@@ -690,6 +765,34 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.3rem 1.2rem;
+  }
+
+  .plot-tabs {
+    display: none;
+    grid-area: tabs;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding-block: 0.15rem 0.25rem;
+    scrollbar-width: thin;
+  }
+
+  .plot-tabs button {
+    flex: 0 0 auto;
+    min-block-size: 2.75rem;
+    padding-inline: 0.75rem;
+    border: 1px solid #a99980;
+    border-radius: 0.45rem;
+    background: var(--paper-bright);
+    color: #3c352b;
+    font-size: 0.72rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .plot-tabs button.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--paper-bright);
   }
 
   /* Only the full-bleed layout reaches the corner the chapter index owns. */
@@ -908,6 +1011,10 @@
     font-weight: 650;
   }
 
+  fieldset button {
+    border-radius: 0.45rem;
+  }
+
   fieldset button:disabled,
   .toolbar button:disabled {
     cursor: not-allowed;
@@ -949,12 +1056,11 @@
       grid-template-areas:
         'head head'
         'room room'
-        'gtax phase'
-        'lorenz gstake'
-        'hist ccdf'
-        'time ctrl'
+        'tabs tabs'
+        'dashboard dashboard'
+        'ctrl ctrl'
         'kbd kbd';
-      grid-template-rows: auto minmax(30dvh, 36dvh) auto auto auto auto auto;
+      grid-template-rows: auto minmax(30dvh, 36dvh) auto minmax(18rem, calc(100vw - 1.8rem)) auto auto;
     }
 
     .sandbox.full {
@@ -962,12 +1068,23 @@
       min-block-size: 100dvh;
     }
 
-    .plot {
-      aspect-ratio: 1;
+    .plot:not(.zoomed) {
+      grid-area: dashboard !important;
+      aspect-ratio: auto;
+      block-size: calc(100vw - 1.8rem);
+    }
+
+    .plot.mobile-hidden {
+      display: none;
+    }
+
+    .plot-tabs {
+      display: flex;
     }
 
     .plot.zoomed {
       aspect-ratio: auto;
+      block-size: auto;
     }
   }
 
@@ -981,12 +1098,11 @@
       grid-template-areas:
         'head head'
         'room room'
-        'gtax phase'
-        'lorenz gstake'
-        'hist ccdf'
-        'time ctrl'
+        'tabs tabs'
+        'dashboard dashboard'
+        'ctrl ctrl'
         'kbd kbd';
-      grid-template-rows: auto minmax(18rem, 65svh) auto auto auto auto auto;
+      grid-template-rows: auto minmax(18rem, 65svh) auto minmax(18rem, 70svh) auto auto;
     }
 
     .sandbox.full {
@@ -994,8 +1110,22 @@
       min-block-size: 100svh;
     }
 
-    .plot {
-      aspect-ratio: 1;
+    .plot:not(.zoomed) {
+      grid-area: dashboard !important;
+      aspect-ratio: auto;
+      block-size: 70svh;
+    }
+
+    .plot.mobile-hidden {
+      display: none;
+    }
+
+    .plot.zoomed {
+      block-size: auto;
+    }
+
+    .plot-tabs {
+      display: flex;
     }
   }
 </style>

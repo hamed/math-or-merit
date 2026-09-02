@@ -99,6 +99,77 @@ test('the sandbox stacks into a readable page on a short landscape phone', async
   expect(undersized).toEqual([]);
 });
 
+test('the sandbox opens as a fresh participation-first lab with one mobile plot in focus', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  await loadDeferred(page, 'sandbox', sandbox);
+
+  await expect(sandbox.locator('[data-primary-metric]')).toHaveText('100.0 of 100 effective');
+  await expect(sandbox.getByRole('slider', { name: 'levy every' })).toBeVisible();
+  await expect(sandbox.locator('.plot:visible')).toHaveCount(1);
+  await expect(sandbox.getByRole('button', { name: 'map', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+  const phasePlot = sandbox.locator('.plot-phase');
+  const beforeZoom = await phasePlot.boundingBox();
+  await phasePlot.dblclick();
+  await expect(phasePlot).toHaveClass(/zoomed/);
+  const afterZoom = await phasePlot.boundingBox();
+  expect(afterZoom!.height).toBeGreaterThan(beforeZoom!.height * 2);
+  await phasePlot.getByRole('button', { name: 'Shrink the plot back' }).click();
+
+  await sandbox.getByRole('button', { name: 'stake cut', exact: true }).click();
+  const theoryPosition = await sandbox.locator('.plot-gstake').evaluate((plot) => ({
+    line: Number(plot.querySelector('.theory')?.getAttribute('y1')),
+    label: Number(plot.querySelector('.theory-label')?.getAttribute('y')),
+  }));
+  expect(theoryPosition.label).toBeLessThan(theoryPosition.line);
+
+  await sandbox.getByRole('button', { name: 'histogram', exact: true }).click();
+  await expect(sandbox.locator('.plot-hist')).toBeVisible();
+  await expect(sandbox.locator('.plot-phase')).toBeHidden();
+
+  await sandbox.locator('[data-map-metric]').click();
+  await expect(sandbox.locator('[data-primary-metric]')).toHaveText('Gini 0.00');
+  await expect(sandbox.locator('[data-map-metric]')).toHaveText('Gini');
+});
+
+test('a guided outcome remains available when the reader reaches the sandbox', async ({ page }) => {
+  await page.addInitScript(() => {
+    const protocol = {
+      version: 2,
+      n: 100,
+      tradesPerRound: 100,
+      levyEveryRounds: 1,
+      trades: 200_000,
+      burnIn: 120_000,
+      tailSamples: 8,
+    };
+    localStorage.setItem('merit-or-math:outcome-points:v2', JSON.stringify({
+      schemaVersion: 2,
+      cells: {
+        priorA: { protocol, stake: 0.1, tax: 0.01, metrics: { gini: { sum: 0.4, count: 1 } } },
+        priorB: { protocol, stake: 0.3, tax: 0.03, metrics: { gini: { sum: 0.6, count: 1 } } },
+      },
+    }));
+  });
+  await page.goto('/#tax-against-trade', { waitUntil: 'domcontentloaded' });
+  const guidedMap = page.locator('[aria-label^="Play rooms with a stake and a levy dial"]');
+  await loadDeferred(page, 'outcome map', guidedMap);
+  await guidedMap.getByRole('button', { name: 'Run this room' }).click();
+  await expect(guidedMap.getByText(/1 room run and painted/)).toBeVisible({ timeout: 12_000 });
+  await expect.poll(() => page.evaluate(() => {
+    const raw = localStorage.getItem('merit-or-math:outcome-points:v2');
+    return raw ? Object.keys(JSON.parse(raw).cells).length : 0;
+  })).toBe(3);
+
+  await page.evaluate(() => { location.hash = 'sandbox'; });
+  const sandbox = page.locator('.sandbox.full');
+  await loadDeferred(page, 'sandbox', sandbox);
+  await expect(sandbox.locator('.plot-phase .cell')).toHaveCount(1);
+  await expect(sandbox.locator('.plot-phase .cell title')).toContainText('effective participants');
+});
+
 test('the desktop sandbox aligns to the scrollbar-safe viewport edges', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });

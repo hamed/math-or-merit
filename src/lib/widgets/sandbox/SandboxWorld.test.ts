@@ -6,7 +6,9 @@ const total = (w: Float64Array) => w.reduce((a, b) => a + b, 0);
 
 describe('measureToy', () => {
   it('reports the effective-participant endpoints', () => {
-    expect(measureToy([1, 1, 1, 1]).effectiveParticipants).toBeCloseTo(4, 12);
+    const equal = measureToy([1, 1, 1, 1]);
+    expect(equal.gini).toBe(0);
+    expect(equal.effectiveParticipants).toBeCloseTo(4, 12);
     expect(measureToy([4, 0, 0, 0]).effectiveParticipants).toBeCloseTo(1, 12);
   });
 
