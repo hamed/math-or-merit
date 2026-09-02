@@ -13,17 +13,23 @@ const {
   textLineOffset,
 } = CowCastScene as unknown as {
   BEATS: readonly BeatSpec[];
-  FRAMES: readonly { src: string; beat: string; until?: string }[];
+  FRAMES: readonly { src: string; beat: string; offset?: number; until?: string }[];
   STAGE_TEXT: readonly { text: string; beat: string; until: string }[];
   TEXT_EXIT: number;
   TEXT_FADE: number;
   textLineOffset: (index: number) => number;
 };
 
-const { BEATS: OPENING_BEATS, SLOTS: REEL_SLOTS, LAND: REEL_LAND } = OpeningScene as unknown as {
+const {
+  BEATS: OPENING_BEATS,
+  SLOTS: REEL_SLOTS,
+  LAND: REEL_LAND,
+  OPENING_SECONDS,
+} = OpeningScene as unknown as {
   BEATS: readonly BeatSpec[];
   SLOTS: readonly string[];
   LAND: number;
+  OPENING_SECONDS: number;
 };
 
 const {
@@ -75,6 +81,12 @@ describe('CowCastScene frames', () => {
     expect(new Set(CAST_FRAMES.map((f) => f.src)).size).toBe(CAST_FRAMES.length);
   });
 
+  it('plays the four-panel silence as one ordered reader action', () => {
+    const silent = CAST_FRAMES.filter((frame) => frame.beat === 'silence');
+    expect(silent.map((frame) => frame.offset)).toEqual([0, 0.75, 1.5, 2.25]);
+    expect(CAST_BEATS.filter((beat) => beat.label === 'silence')).toHaveLength(1);
+  });
+
   it('every plate that leaves early leaves on a beat that exists', () => {
     for (const frame of CAST_FRAMES) {
       if (frame.until) expect(labels.has(frame.until), `no beat "${frame.until}"`).toBe(true);
@@ -116,6 +128,11 @@ describe('CowCastScene frames', () => {
 });
 
 describe('OpeningScene reel', () => {
+  it('keeps the cinematic opening under fifteen seconds', () => {
+    expect(OPENING_SECONDS).toBeGreaterThan(12);
+    expect(OPENING_SECONDS).toBeLessThanOrEqual(15);
+  });
+
   it('lands on Math', () => {
     expect(REEL_SLOTS[REEL_LAND]).toBe('Math');
   });

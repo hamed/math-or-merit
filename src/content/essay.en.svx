@@ -25,9 +25,9 @@
   chapters-1-3-brief.md §1 (see research/narrative-sources.md "Elon Musk trillionaire hook").
 -->
 <!--
-  BUILD NOTE (2026-07-08, R1 per owner review): opening is TIME-driven — teletype and
-  title play on the wall clock at load, then the scroll hint hands over. Source name
-  only, clickable; "on paper" qualifier returns in the ending. The labor-hours caption
+  BUILD NOTE (2026-09-02, Phase 7): opening is TIME-driven — the dated teletype and
+  title play in roughly fourteen seconds, then the director credit and scroll hint hand
+  over. The linked source carries the "on paper" qualifier. The labor-hours caption
   was cut on owner request; the misattributed-Musk-quote guard (D1) still applies —
   do not reintroduce the hustle quote.
 -->
@@ -60,10 +60,9 @@
   subject; the hill's Sisyphus framing did not. The old SVG choreography is archived
   under archive/scenes-pre-r13/ if this ever needs reverting.
 
-  Captions are the only visible text; beat indices refer to CowCastScene.BEATS. The football
-  ending now makes the limited model-literacy claim: the retained mass is sufficient for this
-  answer, so the discarded details were not needed for it. It makes no claim that every richer
-  model must behave like the minimal one.
+  Beat indices refer to CowCastScene.BEATS. One gesture plays the four silent reaction
+  panels; the visuals carry the pause without four compulsory advances. The football ending
+  makes the limited model-literacy claim: the sphere answers this question, not every question.
 -->
 <Chapter id="cow" label="The cow" />
 
@@ -80,14 +79,11 @@
       <Caption beat={5}>A biologist, a chemist, and a physicist.</Caption>
       <Caption beat={6}>The biologist explained where cows come from.</Caption>
       <Caption beat={7}>Then the chemist spoke of the molecule<br />the cow was failing to produce.</Caption>
-      <Caption beat={8}>Then silence,</Caption>
-      <Caption beat={9}>More silence,</Caption>
-      <Caption beat={10}>Even more silence.</Caption>
-      <Caption beat={12}>Then the physicist shouted "I have solved it!"</Caption>
-      <Caption beat={13}>"Assume a spherical cow."</Caption>
-      <Caption beat={14}>"In a vacuum and no gravity!"</Caption>
-      <Caption beat={16}>The spherical cow is still too heavy to kick.</Caption>
-      <Caption beat={17}>So the details we threw away were not what stopped the game.</Caption>
+      <Caption beat={9}>Then the physicist shouted "I have solved it!"</Caption>
+      <Caption beat={10}>"Assume a spherical cow."</Caption>
+      <Caption beat={11}>"In a vacuum and no gravity!"</Caption>
+      <Caption beat={13}>The spherical cow is still too heavy to kick.</Caption>
+      <Caption beat={14}>The sphere alone answered this question.<br />Not every question. This one.</Caption>
     </PinScene>
   {/snippet}
 </Deferred>

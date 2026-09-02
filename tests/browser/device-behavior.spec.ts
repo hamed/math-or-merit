@@ -13,6 +13,35 @@ test('the opening owns the phone viewport', async ({ page }) => {
   const headline = await page.locator('.opening .teletype').boundingBox();
   expect(headline).not.toBeNull();
   expect(headline!.x + headline!.width).toBeLessThanOrEqual(390);
+  const credit = page.locator('.opening .credit');
+  await expect(credit).toHaveAttribute('href', 'https://github.com/hamed');
+  await expect(credit).toBeVisible({ timeout: 16_000 });
+  await expect(page.getByRole('link', { name: 'Source: Reuters, June 14, 2026' })).toContainText('on paper');
+
+  const portraitCredit = await page.locator('.opening .credit').boundingBox();
+  const portraitHint = await page.locator('.opening .hint svg').boundingBox();
+  expect(portraitCredit!.y + portraitCredit!.height).toBeLessThan(portraitHint!.y);
+
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.waitForTimeout(100);
+  const landscape = await page.locator('.opening').evaluate((opening) => {
+    const box = (selector: string) => {
+      const rect = opening.querySelector(selector)!.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom };
+    };
+    return { source: box('.teletype'), title: box('.title'), credit: box('.credit') };
+  });
+  expect(landscape.source.bottom).toBeLessThanOrEqual(landscape.title.top);
+  expect(landscape.title.bottom).toBeLessThanOrEqual(landscape.credit.top);
+  expect(landscape.credit.bottom).toBeLessThanOrEqual(390);
+
+  const castStage = page.locator('.cast-stage');
+  await expect(castStage).toBeAttached();
+  const cast = await castStage.evaluate((stage) => ({
+    stageTop: stage.getBoundingClientRect().top,
+    artTop: stage.querySelector('svg')!.getBoundingClientRect().top,
+  }));
+  expect(cast.artTop).toBeGreaterThanOrEqual(cast.stageTop - 1);
 });
 
 test('illustrated scene code and plates load one stage ahead instead of all at startup', async ({ page }) => {
