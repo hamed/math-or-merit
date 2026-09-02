@@ -676,6 +676,56 @@ test('scrolling after the cow’s final action brings the next section onscreen'
   expect(headingTop).toBeLessThan(900);
 });
 
+test('a reload deep in the essay returns the reader to the scene they were reading', async ({ page }) => {
+  await page.setViewportSize({ width: 962, height: 527 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
+  await loadDeferred(page, 'trade scene', page.locator('.room-stage'));
+  await page.evaluate(() => {
+    const room = document.querySelector('.room-stage')!;
+    scrollTo(0, Math.round(room.getBoundingClientRect().top + scrollY + innerHeight * 2));
+  });
+  await page.waitForTimeout(500);
+  const before = await page.evaluate(() => Math.round(scrollY));
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  // Deferred scenes mount one after another, so the page reaches the remembered
+  // place in steps rather than in one jump.
+  await expect.poll(() => page.evaluate(() => Math.round(scrollY)), { timeout: 8_000 })
+    .toBeGreaterThan(before - 120);
+  await expect(page.locator('.room-stage').first()).toBeVisible();
+});
+
+test('a reader who scrolls during a restore keeps the position they chose', async ({ page }) => {
+  await page.setViewportSize({ width: 962, height: 527 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
+  await loadDeferred(page, 'trade scene', page.locator('.room-stage'));
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight * 0.6));
+  await page.waitForTimeout(500);
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.mouse.wheel(0, 10);
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.waitForTimeout(2_000);
+  expect(await page.evaluate(() => Math.round(scrollY))).toBeLessThan(2_000);
+});
+
+test('a hash link still wins over the remembered place', async ({ page }) => {
+  await page.setViewportSize({ width: 962, height: 527 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => scrollTo(0, 6_000));
+  await page.waitForTimeout(500);
+
+  await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1_500);
+  const gap = await page.evaluate(() => {
+    const el = document.getElementById('gini')!;
+    return Math.abs(el.getBoundingClientRect().top);
+  });
+  expect(gap).toBeLessThan(140);
+});
+
 test('the news dialog owns and restores keyboard focus', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });

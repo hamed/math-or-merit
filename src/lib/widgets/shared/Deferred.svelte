@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick, type Component, type Snippet } from 'svelte';
-  import { DEFERRED_MOUNTED_EVENT } from '$lib/deferredEvents';
+  import { DEFERRED_MOUNT_NOW_EVENT, DEFERRED_MOUNTED_EVENT } from '$lib/deferredEvents';
 
   type ComponentModule = { default: Component };
 
@@ -39,9 +39,14 @@
   }
 
   onMount(() => {
+    // A restore needs the essay at its true height before it can aim, so it
+    // asks every block to load at once instead of walking down the page.
+    const mountNow = () => begin();
+    document.addEventListener(DEFERRED_MOUNT_NOW_EVENT, mountNow);
+
     if (!('IntersectionObserver' in window)) {
       begin();
-      return;
+      return () => document.removeEventListener(DEFERRED_MOUNT_NOW_EVENT, mountNow);
     }
 
     const observer = new IntersectionObserver(
@@ -54,7 +59,10 @@
     );
     if (marker) observer.observe(marker);
     else begin();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener(DEFERRED_MOUNT_NOW_EVENT, mountNow);
+    };
   });
 </script>
 

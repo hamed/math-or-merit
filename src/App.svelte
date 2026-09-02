@@ -1,11 +1,17 @@
 <script>
+  import { onMount } from 'svelte';
   import Essay from './content/essay.en.svx';
   import ChapterIndex from '$lib/nav/ChapterIndex.svelte';
+  import { installScrollRestore } from '$lib/nav/scrollRestore';
 
   // Review-copy chrome only. VITE_REVIEW_ISSUES_URL is set by the Pages
   // workflow; a public build leaves it unset and renders no footer at all,
   // so the essay itself never carries reviewer scaffolding.
   const issuesUrl = import.meta.env.VITE_REVIEW_ISSUES_URL;
+
+  // Scenes mount as they are approached, so a reload deep in the essay would
+  // otherwise restore against a document that has not grown yet.
+  onMount(installScrollRestore);
 </script>
 
 <svelte:head>
