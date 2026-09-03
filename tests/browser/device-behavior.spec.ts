@@ -298,6 +298,7 @@ test('a running stake dial idles at zero and resumes above zero', async ({ page 
   await setStake('0');
   await expect(dial.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
   await expect(dial.locator('output')).toHaveText('0 trades');
+  await expect(dial.getByText('Zero is not a slower game.', { exact: false })).toBeVisible();
 
   await setStake('20');
   await expect.poll(() => dial.locator('output').textContent()).not.toBe('0 trades');
@@ -330,6 +331,9 @@ test('dragging the real coin between room circles changes effective participants
   await page.waitForTimeout(500);
 
   await expect(stage.locator('output')).toContainText('4.00');
+  await expect(stage.locator('output')).toContainText('Same concentration as 4.00 equal fortunes.');
+  await expect(stage.locator('.ends')).toContainText('one owner');
+  await expect(stage.locator('.ends')).toContainText('four equal');
 
   const firstCoin = stage.getByRole('button', { name: 'Coin 1, held by person 1' });
   const coin = stage.getByRole('button', { name: 'Coin 5, held by person 2' });
@@ -370,8 +374,34 @@ test('dragging the real coin between room circles changes effective participants
   await page.mouse.up();
 
   await expect(stage.locator('output')).toContainText('3.88');
+  await expect(stage.locator('output')).toContainText('Same concentration as 3.88 equal fortunes.');
   await stage.getByRole('button', { name: 'Undo one move' }).click();
   await expect(stage.locator('output')).toContainText('4.00');
+});
+
+test('the Act III rulers and theorem say exactly what they establish', async ({ page }) => {
+  await page.goto('/#line-them-up', { waitUntil: 'domcontentloaded' });
+  const distribution = page.locator('[aria-label^="From scattered circles to a sorted"]');
+  await loadDeferred(page, 'distribution stage', distribution);
+
+  await distribution.getByRole('button', { name: 'Sort them' }).click();
+  await distribution.getByRole('button', { name: 'Stack them into piles' }).click();
+  await expect(distribution.getByText(/richest circle sets the ruler/)).toBeVisible();
+  await distribution.getByRole('button', { name: 'Change the ruler' }).click();
+  await expect(distribution.getByText(/gap between dots means times more/)).toBeVisible();
+
+  await page.evaluate(() => { location.hash = 'where-it-ends'; });
+  await expect(page.getByText('A run can show you something. It cannot prove it.')).toBeVisible();
+  await loadDeferred(
+    page,
+    'time lapse',
+    page.locator('[aria-label="Time accelerates toward the one-owner limit"]'),
+  );
+  const math = page.getByText('Show the math', { exact: true });
+  await math.click();
+  const theoremNote = math.locator('..');
+  await expect(theoremNote).toContainText('fixed stake fraction');
+  await expect(theoremNote).toContainText('does not mean every imaginable sequence');
 });
 
 test('selecting coins and room circles concentrates the square room on mobile', async ({ page }) => {

@@ -66,9 +66,11 @@
     const plotW = width - 2 * plotX;
     const slots = 1 + bins.counts.length; // dust pile + decades
     const slotW = plotW / slots;
-    // log-y (storyboard p8): the 800-strong dust wall must not crush the tail
+    // Wealth uses a multiplying ruler. Bar height remains an ordinary headcount:
+    // two logarithmic encodings in one chart made the picture harder to read.
     const yMax = baseline - 26;
-    const yOf = (count: number) => (yMax * Math.log10(count + 1)) / Math.log10(CROWD_N + 1);
+    const maxCount = Math.max(1, bins.dustCount, ...bins.counts);
+    const yOf = (count: number) => (yMax * count) / maxCount;
 
     const drawBar = (slot: number, count: number, label: string, dust: boolean) => {
       const x = plotX + slot * slotW + 5;
@@ -101,7 +103,7 @@
     ctx.stroke();
     ctx.fillStyle = '#8b3f2b';
     ctx.font = 'italic 11px Vazirmatn, system-ui, sans-serif';
-    ctx.fillText('×10 wealth steps · log bar height', plotX + plotW / 2, baseline + 34);
+    ctx.fillText('×10 wealth steps · bar height = people', plotX + plotW / 2, baseline + 34);
   }
 
   const ticker = createTicker((dt) => {
@@ -158,7 +160,7 @@
 </script>
 
 <div class="widget" aria-label="A thousand traders, two million trades, on the multiplying ruler">
-  <p class="kicker">A thousand of them this time</p>
+  <p class="kicker">Same game. A thousand people.</p>
 
   <div class="duo">
     <div bind:this={container} class="plot" role="img" aria-label={`Log-scale histogram of a thousand traders: ${dustCount} below one cent, richest at ${dollars(topDollars)}`}>

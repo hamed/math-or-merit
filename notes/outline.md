@@ -23,7 +23,7 @@ the experiment, not an apology for missing realism.
 - The demonstrated intervention is a periodic wealth levy **plus equal social return**.
   Collection alone is not the mechanism.
 - Ordinary readers learn effective participants and ordinary wealth turnover. Gini is
-  secondary technical material and remains available in the sandbox.
+  taught as a secondary technical measure and remains available in the sandbox.
 - No prose calls the stake-versus-levy outcome map a phase transition, a frontier
   between regimes, or a statement about how the world ends.
 - Everything instructional happens before the sandbox. After it come only methods,
@@ -97,14 +97,17 @@ narration.
 
 Move the participants the reader watched into wealth bins. Teach that binning is a
 choice. Then introduce the log ruler only to reveal ratios hidden by the linear scale.
-Do not infer a power law.
+Do not infer a power law. In the larger-room histogram, wealth may use a multiplying
+ruler but bar height remains an ordinary headcount; do not stack two unexplained
+logarithmic encodings.
 
 **9. Effective participants**
 
 Introduce the inverse-Herfindahl effective count as “how many equal participants this
 room is equivalent to.” Equal wealth among 100 people gives 100; one owner gives one.
 This is the primary human measurement because it expresses how many people remain able
-to take meaningful part.
+to take meaningful part. Teach it as a black box: the reader moves real coins among four
+visible fortunes while the headcount stays fixed and the effective count moves.
 
 **10. Ordinary wealth turnover**
 
@@ -118,7 +121,8 @@ Use the learned measurements on a larger fresh room. State the finite-agent conv
 theorem briefly, with its assumptions and asymptotic limitation. Put proof and sources
 behind “Show the math.” Then let the reader vary the stake and observe how finite-time
 speed changes without implying a different asymptotic destination for fixed positive
-stakes.
+stakes. Fresh luck may blur any one comparison, so the stake widget reports observations,
+not an exact timing law.
 
 ### Act IV — Keep the game open
 

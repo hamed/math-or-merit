@@ -26,6 +26,9 @@
   let suppressedClick = -1;
 
   const metrics = $derived(pairingMetrics(owners));
+  const participationPosition = $derived(
+    ((metrics.effectiveParticipants - 1) / (PARTICIPATION_HOLDERS - 1)) * 100,
+  );
   const wealth = $derived(Float64Array.from(metrics.holdings, (holding) => holding / PARTICIPATION_COINS));
   const roomMargin = $derived(width * 0.12);
   const positions = $derived(roomPositions(PARTICIPATION_HOLDERS, width, width, roomMargin));
@@ -240,11 +243,21 @@
   </div>
 
   <output aria-live="polite">
-    <span>effective participants</span>
+    <span class="measure">effective participants</span>
     <strong>{metrics.effectiveParticipants.toFixed(2)} <small>of 4</small></strong>
+    <span class="meaning">
+      Same concentration as {metrics.effectiveParticipants.toFixed(2)} equal fortunes.
+    </span>
+    <span class="scale" aria-hidden="true">
+      <span class="track">
+        <span class="fill" style={`inline-size: ${participationPosition}%`}></span>
+        <span class="marker" style={`inset-inline-start: ${participationPosition}%`}></span>
+      </span>
+      <span class="ends"><span>one owner</span><span>four equal</span></span>
+    </span>
   </output>
 
-  <p class="caption">Move a coin. Watch what the number does.</p>
+  <p class="caption">Move a coin. The headcount stays four. The effective count does not.</p>
 
   <div class="toolbar">
     <button type="button" onclick={undo} disabled={history.length === 0}>Undo one move</button>
@@ -289,6 +302,7 @@
   .drop-surface {
     fill: transparent;
     cursor: pointer;
+    outline: none;
   }
 
   .coin-layer:not(.choosing) .drop-surface {
@@ -326,28 +340,92 @@
   }
 
   output {
-    display: flex;
-    max-inline-size: 24rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    max-inline-size: 28rem;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
+    gap: 0.35rem 1rem;
     margin-inline: auto;
-    padding-block: 0.65rem;
-    border-block: 1px solid #c9bca5;
-    color: #5c5344;
+    padding-block: 1rem;
+    padding-inline: 1.1rem;
+    border-radius: 0.35rem;
+    color: #f5ecdd;
+    background: #29251f;
     font-size: 0.78rem;
     font-weight: 650;
   }
 
   output strong {
-    color: #8b3f2b;
-    font-size: 1.55rem;
+    color: #f1b89d;
+    font-size: 1.75rem;
     font-variant-numeric: tabular-nums;
   }
 
   output small {
-    color: #756c5d;
+    color: #cfc3af;
     font-size: 0.72rem;
+    font-weight: 500;
+  }
+
+  .measure {
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .meaning,
+  .scale {
+    grid-column: 1 / -1;
+  }
+
+  .meaning {
+    color: #fffaf1;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 0.98rem;
+    font-weight: 400;
+  }
+
+  .scale {
+    display: grid;
+    gap: 0.3rem;
+    margin-block-start: 0.45rem;
+  }
+
+  .track {
+    position: relative;
+    display: block;
+    block-size: 0.3rem;
+    border-radius: 999px;
+    background: #625a4e;
+  }
+
+  .fill {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    border-radius: inherit;
+    background: #d88767;
+  }
+
+  .marker {
+    position: absolute;
+    inset-block-start: 50%;
+    inline-size: 0.85rem;
+    block-size: 0.85rem;
+    border: 2px solid #29251f;
+    border-radius: 50%;
+    background: #f1b89d;
+    transform: translate(-50%, -50%);
+  }
+
+  :global([dir='rtl']) .marker {
+    transform: translate(50%, -50%);
+  }
+
+  .ends {
+    display: flex;
+    justify-content: space-between;
+    color: #cfc3af;
+    font-size: 0.66rem;
     font-weight: 500;
   }
 

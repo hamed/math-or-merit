@@ -115,7 +115,7 @@
   onMount(() => () => ticker.stop());
 </script>
 
-<div class="widget" aria-label="Time accelerates until a single circle holds everything">
+<div class="widget" aria-label="Time accelerates toward the one-owner limit">
   <p class="kicker">Time, accelerated</p>
 
   <div class="duo">
@@ -124,9 +124,9 @@
       {revision}
       {winner}
       height={320}
-      label="The room under accelerating time; the tail thins until one circle holds everything"
+      label="The room under accelerating time; the tail thins toward the one-owner limit"
     />
-    <!-- the room shows the ending; the curve shows that it never turns back -->
+    <!-- The room shows the ending; the curve preserves the finite path, including its wobbles. -->
     <div class="plot">
       <TimeSeries {world} {revision} />
     </div>
@@ -140,7 +140,8 @@
 
   <p class="caption" aria-live="polite">
     {#if finished}
-      One circle holds everything the pixels can show. Run a different room and chance chooses again — perhaps another circle, perhaps the same one. It is always someone. It is never no one.
+      One circle holds everything these pixels can distinguish. The finite run stops here;
+      the theorem supplies the rest. Try a different room and chance chooses again.
     {:else if running}
       Each second covers more trades than the last. Watch the counter, not the clock.
     {:else}
@@ -150,7 +151,7 @@
 
   <div class="toolbar">
     <button class="primary" type="button" onclick={run} disabled={running || finished}>
-      {finished ? 'It ended — as promised' : running ? 'Running…' : 'Let it run'}
+      {finished ? 'Close enough for pixels' : running ? 'Running…' : 'Let it run'}
     </button>
     <button type="button" onclick={differentRoom} disabled={running}>Try a different room</button>
   </div>

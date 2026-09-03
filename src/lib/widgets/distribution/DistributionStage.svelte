@@ -134,7 +134,7 @@
     room: 'The room, as the trading left it. Try to compare any two of them.',
     sorted: 'Smallest to largest. Better — but a line of sizes is still not a picture you can read at a glance.',
     binned:
-      'Every circle becomes one head in a pile. The bars are the people you just watched — and the winner needs the whole ruler while everyone else shares a sliver.',
+      'Every circle becomes one head in a pile. The richest circle sets the ruler; look at what that does to everybody else.',
     log: 'Change the ruler: every step now multiplies by ten. The crowd opens up — and a gap between dots means times more, not just more.',
   } as const;
 
