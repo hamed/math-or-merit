@@ -491,7 +491,7 @@
   });
 </script>
 
-<section bind:this={root} class="pin-scene" class:reduced class:over-art={overArt}>
+<section bind:this={root} class="pin-scene" class:reduced class:timed={driver === 'time'} class:over-art={overArt}>
   {@render children()}
 </section>
 
@@ -539,6 +539,22 @@
     block-size: 60svh;
     z-index: 2;
     background: linear-gradient(var(--paper) 88%, rgb(244 239 228 / 0%));
+  }
+
+  /* A reduced-motion timed scene has already sought its final pose and still
+     owns one viewport. The 60vh sticky treatment is for scroll-driven scenes
+     with captions below it; applying it to the opening crushes its title. */
+  .pin-scene.reduced.timed :global(.scene-art) {
+    position: absolute;
+    inset: 0;
+    block-size: auto;
+  }
+
+  /* The cast reserves 22vh beneath its plate for captions. In the reduced
+     60vh art surface, that leaves exactly 38vh for the SVG; sizing it from
+     width instead lets the next scene bleed upward into the opening. */
+  .pin-scene.reduced :global(.cast-stage svg) {
+    max-block-size: 38svh;
   }
 
   .pin-scene :global(.stage-caption) {

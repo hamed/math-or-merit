@@ -39,8 +39,8 @@ A real Reuters report, visibly dated June 14, 2026, says the world has its first
 trillionaire. The estimate is on paper and moves with asset prices. Musk is a familiar
 doorway, not a defendant the toy model claims to explain.
 
-The opening also makes the author visible: created and directed by Hamed. The cinematic
-opening remains skippable.
+The opening also makes the author visible: created and directed by Hamed, linked to his
+public GitHub profile. The cinematic opening remains skippable.
 
 **2. Merit, or math?**
 
@@ -197,8 +197,8 @@ Commercial entries render only when a real destination exists.
 ## Deferred work
 
 - Progressive taxation, pending a separate literature and mechanism review.
-- Final cow punchline, final conclusion, slogan, recurring motif payoffs, and complete
-  prose rewrite.
+- Final slogan, remaining motif payoffs, and the prose rewrite beyond Act I.
+- Additional social and contact destinations, pending their exact public URLs.
 - A scalar rank-mobility measure; near-zero rank churn can be misleading and its horizon
   needs validation. Existing individual trajectories remain exploratory.
 - Narration, text-to-speech, standalone video, Persian translation, and final RTL polish.

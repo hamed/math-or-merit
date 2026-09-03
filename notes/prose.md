@@ -25,9 +25,11 @@ Rules of the road:
 
 [open.headline] The world has its first trillionaire.
 
-[open.source] (Reuters)
+[open.source] (on paper · Reuters · June 14, 2026)
 
 [open.title] Merit or Math?
+
+[open.credit] Created & directed by Hamed
 
 [open.reel] Hard work · Luck · Talent · Family money · Connections · IQ ·
 Education · Grit · Class · Timing · Race · Charisma · God's will · Genes ·
@@ -46,12 +48,14 @@ Education · Grit · Class · Timing · Race · Charisma · God's will · Genes 
 > a physicist, then the cow as a sphere, then in a vacuum, then a football
 > pitch.
 
-[cow.bridge] Math.
-[cow.bridge2] Let me show you what I mean by that.
+[cow.bridge] I built a tiny machine / for one enormous argument:
 
-> the reel has just stopped on Math. Long pause, then the answer lands a second
-> time — big, alone, empty stage — and the second line, quieter, buys the joke
-> that follows.
+[cow.bridge2] Should we tax wealth? / Medicine — or poison?
+
+[cow.bridge3] First, a cow.
+
+> the reel has just stopped on Math. Three short cards name the political
+> question and then step sideways into the joke.
 
 [cow.once] Once upon a time, a farmer's cow stopped giving milk.
 
@@ -68,10 +72,8 @@ Education · Grit · Class · Timing · Race · Charisma · God's will · Genes 
 
 [cow.2] Then the chemist spoke of the molecule the cow was failing to produce.
 
-[cow.silence] Then silence, / More silence, / Even more silence.
-
-> the picture LEAVES and these three take its place, one per scroll, piling up
-> on an empty stage. They all go when the physicist breaks it.
+[cow.silence] No words. One gesture plays four panels over three seconds: the
+room waits, the cow looks at us, the cow answers, and Albert scratches his head.
 
 [cow.3] Then the physicist shouted "I have solved it!"
 
@@ -79,24 +81,23 @@ Education · Grit · Class · Timing · Race · Charisma · God's will · Genes 
 
 [cow.5] "In a vacuum and no gravity!"
 
-[cow.6] The spherical cow is a model.
-[cow.6b] All models are wrong,
-[cow.6c] but some of them are useful.
+[cow.6] A model throws almost everything away,
+[cow.6b] to see whether what remains
+[cow.6c] is enough.
 
 > three lines on the empty stage, arriving one after another.
 
 > the picture leaves again for this one — it is not about anything you can draw.
 
-[cow.7] If you cannot play football with a spherical cow,
+[cow.7] The spherical cow is still too heavy to kick.
 
-[cow.7b] you cannot play with the real one either.
+[cow.7b] The sphere alone answered this question. / Not every question. This one.
 
 > the football picture arrives under cow.7, then pushes into the ball as cow.7b
 > lands.
 
-! keep true: cow.7 is load-bearing. It only claims that a problem present in the
-simplest version survives into richer ones — not that richer models behave the
-same.
+! keep true: cow.7b is the model boundary. The minimal model answers one narrow
+question; it does not claim that every omitted detail is powerless.
 
 ---
 

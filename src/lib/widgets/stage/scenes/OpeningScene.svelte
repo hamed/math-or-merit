@@ -12,13 +12,13 @@
    * Nothing here pins, so a reader who scrolls immediately just leaves it
    * behind — the length is safe to be generous with.
    */
-  const BLINK_HOLD = 2;
-  const TYPE_HEAD = 3.2;
-  const TYPE_SRC = 0.9;
-  const PAUSE = 1;
-  const FADE = 2;
+  const BLINK_HOLD = 0.9;
+  const TYPE_HEAD = 2.2;
+  const TYPE_SRC = 0.55;
+  const PAUSE = 0.45;
+  const FADE = 0.65;
   /** How long the reel spins before "Math" is at rest (overshoot included). */
-  const SPIN = 8.5;
+  const SPIN = 5.4;
 
   export const BEATS: readonly BeatSpec[] = [
     // blink, type the headline, pause, type the source, pause
@@ -30,13 +30,16 @@
     { label: 'hint', length: FADE },
   ];
 
+  /** The complete cinematic opening before the reader takes over. */
+  export const OPENING_SECONDS = BEATS.reduce((sum, beat) => sum + beat.length, 0);
+
   /**
    * The dated hook (research/narrative-sources.md "Elon Musk trillionaire
-   * hook"): source name only, clickable, per the storyboard. The "on paper"
-   * qualifier returns in the ending beat.
+   * hook"): the dated source is clickable and the "on paper" qualifier sits
+   * beside it, where it cannot disappear if a later ending changes.
    */
   const HEADLINE = 'The world has its first trillionaire.';
-  const SOURCE = '(Reuters · June 14, 2026)';
+  const SOURCE = '(on paper · Reuters · June 14, 2026)';
   const SOURCE_URL =
     'https://www.investing.com/news/stock-market-news/spacex-ipo-makes-elon-musk-worlds-first-trillionaire-4741087';
 
@@ -108,6 +111,7 @@
   let reel: HTMLElement;
   let strip: HTMLElement;
   let qmark: HTMLElement;
+  let credit: HTMLElement;
   let hint: HTMLElement;
 
   const headlineChars = HEADLINE.split('');
@@ -206,7 +210,9 @@
         '>',
       );
 
-      // scroll hint arrives last and stays — the page is done talking, your move
+      // The signature and scroll hint arrive together: the page has named its
+      // director, finished talking, and handed the next move to the reader.
+      tl.fromTo(credit, { autoAlpha: 0 }, { autoAlpha: 1, duration: FADE, ease: 'none' }, 'hint');
       tl.fromTo(hint, { autoAlpha: 0 }, { autoAlpha: 1, duration: FADE, ease: 'none' }, 'hint');
     });
   });
@@ -237,6 +243,14 @@
       ><span bind:this={qmark} class="qmark">?</span>
     </p>
   </div>
+
+  <a
+    bind:this={credit}
+    class="credit"
+    href="https://github.com/hamed"
+    target="_blank"
+    rel="author noreferrer"
+  >Created &amp; directed by Hamed</a>
 
   <div bind:this={hint} class="hint" aria-hidden="true">
     <svg viewBox="0 0 24 24" width="26" height="26">
@@ -324,7 +338,10 @@
   .merit,
   .or,
   .math {
-    font-size: clamp(4rem, 13vw, 10rem);
+    /* Width makes the title cinematic; height keeps all three lines clear of
+       the scroll cue on shallow landscape screens. min() changes smoothly,
+       without introducing another breakpoint cliff. */
+    font-size: clamp(4rem, min(13vw, 18svh), 10rem);
   }
 
   .or {
@@ -414,6 +431,41 @@
     place-items: center;
     color: var(--ink-soft);
     animation: hint-bob 2.2s ease-in-out infinite;
+  }
+
+  .credit {
+    position: absolute;
+    inset-block-end: 6%;
+    inset-inline-end: clamp(1rem, 8%, 6rem);
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: clamp(0.72rem, 1.8vw, 0.95rem);
+    color: var(--ink-soft);
+    text-decoration-color: var(--line);
+  }
+
+  @media (max-width: 520px) and (orientation: portrait) {
+    .credit {
+      /* The scroll arrow owns the bottom centre on a narrow screen. */
+      inset-block-end: calc(6% + 2.5rem);
+    }
+  }
+
+  @media (max-height: 560px) and (orientation: landscape) {
+    .teletype {
+      inset-block-start: 4%;
+      font-size: clamp(0.65rem, 2.1vw, 1rem);
+    }
+
+    .title {
+      inset-block-start: 24%;
+    }
+
+    .merit,
+    .or,
+    .math {
+      font-size: clamp(2.8rem, 15svh, 4.5rem);
+    }
   }
 
   @keyframes hint-bob {

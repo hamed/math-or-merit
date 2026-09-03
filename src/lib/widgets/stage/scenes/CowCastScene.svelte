@@ -30,16 +30,10 @@
     { label: 'call', length: 1.0 },
     { label: 'darwin', length: 1.1 },
     { label: 'chemist', length: 1.1 },
-    // The silence, in four panels (owner's plates, 2026-08-27). It used to be
-    // an empty stage on purpose; it is now the same shot held while nothing
-    // happens, which is the same joke with a straight face — everyone waits,
-    // the cow turns and looks at US, the cow answers, and only then does
-    // Albert start to think. `scratch` carries no words: the picture is the
-    // beat.
-    { label: 'silence-1', length: 0.9 },
-    { label: 'silence-2', length: 0.9 },
-    { label: 'silence-3', length: 1.0 },
-    { label: 'scratch', length: 1.0 },
+    // One gesture plays the whole four-panel silence: everyone waits, the cow
+    // looks at US, the cow answers, and only then does Albert start to think.
+    // The long beat preserves the pause without charging four reader actions.
+    { label: 'silence', length: 3.1, restAt: 2.85 },
     { label: 'physicist', length: 1.2 },
     { label: 'sphere', length: 1.2 },
     { label: 'vacuum', length: 1.0 },
@@ -58,6 +52,8 @@
     readonly src: string;
     /** Beat label this plate cuts in on; must exist in BEATS. */
     readonly beat: string;
+    /** Offset inside a beat, for several panels played by one reader action. */
+    readonly offset?: number;
     /**
      * Beat label this plate cuts OUT on, when it must leave before the next
      * plate arrives. Normally a plate simply holds until the next one cuts in;
@@ -82,27 +78,20 @@
     /** Set the line at title scale — for a line that IS the answer, not prose. */
     big?: boolean;
   }[] = [
-    // The bridge from the title (owner's pick, 2026-08-26). The reel has just
-    // stopped on "Math" and the reader is holding a question with no reason yet
-    // to believe it. So the answer lands a second time, alone, and then the
-    // essay says plainly that it is about to explain itself — which buys the
-    // next ninety seconds, which are a joke about a cow.
-    // The promise, then the question it is for, then the handover. Naming the
-    // subject this early is deliberate: it is asked, not answered. All one
-    // size — the slides are a voice speaking, not a title card.
-    { text: 'I give you a simple tool,', beat: 'tool', until: 'question' },
-    { text: 'to answer hard questions,', beat: 'tool', until: 'question' },
-    { text: 'easily by yourself.', beat: 'tool', until: 'question' },
-    { text: 'like…', beat: 'tool', until: 'question' },
-    { text: 'Wealth tax,', beat: 'question', until: 'story' },
-    { text: 'Is it fair or unfair?', beat: 'question', until: 'story' },
-    { text: 'is it helpful or harmful?', beat: 'question', until: 'story' },
-    { text: 'let me tell you a story first…', beat: 'story', until: 'once-upon' },
+    // The reel has stopped on "Math". Three short cards now name the machine,
+    // the political question it will examine, and the sideways handoff into
+    // the cow. Wealth tax is asked about here, not answered. All one size: the
+    // cards are a voice speaking, not another title sequence.
+    { text: 'I built a tiny machine', beat: 'tool', until: 'question' },
+    { text: 'for one enormous argument:', beat: 'tool', until: 'question' },
+    { text: 'Should we tax wealth?', beat: 'question', until: 'story' },
+    { text: 'Medicine — or poison?', beat: 'question', until: 'story' },
+    { text: 'First, a cow.', beat: 'story', until: 'once-upon' },
     // Three lines, one card: they arrive in order inside the one beat rather
     // than costing three scroll steps, because it is one sentence of thought.
-    { text: 'The spherical cow is a model.', beat: 'model', until: 'football' },
-    { text: 'All models are wrong,', beat: 'model', until: 'football' },
-    { text: 'but some of them are useful.', beat: 'model', until: 'football' },
+    { text: 'A model throws almost everything away,', beat: 'model', until: 'football' },
+    { text: 'to see whether what remains', beat: 'model', until: 'football' },
+    { text: 'is enough.', beat: 'model', until: 'football' },
   ];
 
   /**
@@ -168,10 +157,10 @@
     { src: introduction, beat: 'once' },
     { src: darwin, beat: 'darwin' },
     { src: chemist, beat: 'chemist' },
-    { src: silence, beat: 'silence-1' },
-    { src: cowLooks, beat: 'silence-2' },
-    { src: cowMoos, beat: 'silence-3' },
-    { src: scratch, beat: 'scratch' },
+    { src: silence, beat: 'silence', offset: 0 },
+    { src: cowLooks, beat: 'silence', offset: 0.75 },
+    { src: cowMoos, beat: 'silence', offset: 1.5 },
+    { src: scratch, beat: 'silence', offset: 2.25 },
     { src: physicist, beat: 'physicist' },
     { src: spherical, beat: 'sphere' },
     { src: vacuum, beat: 'vacuum', until: 'model' },
@@ -250,14 +239,14 @@
         const el = plates[i];
         if (!el) return;
 
-        const show = startOf.get(frame.beat)!;
+        const show = startOf.get(frame.beat)! + (frame.offset ?? 0);
         // it leaves when it says so, else when the next plate arrives, else at
         // the end of the scene
         const next = FRAMES[i + 1];
         const hide = frame.until
           ? startOf.get(frame.until)!
           : next
-            ? startOf.get(next.beat)!
+            ? startOf.get(next.beat)! + (next.offset ?? 0)
             : Number.POSITIVE_INFINITY;
 
         tl.set(el, { autoAlpha: 0 }, 0);
