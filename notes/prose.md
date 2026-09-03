@@ -200,7 +200,13 @@ The largest shape holds [the measured result] of everything.
 
 Every trade was fair. No coin was loaded. Nobody cheated. Nobody was smarter.
 
-Chance chose who finished first. The process needed no difference in merit to make the gap.
+[run.after.first] Chance chose which shape finished first.
+
+[run.after.same] The same shape finished first again. A fair coin is allowed to repeat itself.
+
+[run.after.different] This time a different shape finished first.
+
+[run.after.shared] The process needed no difference in merit to make the gap.
 
 ! keep true: claims here are about one finite run. No "always", no distribution
 family, no naming a psychological bias.
