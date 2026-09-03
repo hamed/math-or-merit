@@ -338,7 +338,10 @@
   .merit,
   .or,
   .math {
-    font-size: clamp(4rem, 13vw, 10rem);
+    /* Width makes the title cinematic; height keeps all three lines clear of
+       the scroll cue on shallow landscape screens. min() changes smoothly,
+       without introducing another breakpoint cliff. */
+    font-size: clamp(4rem, min(13vw, 18svh), 10rem);
   }
 
   .or {

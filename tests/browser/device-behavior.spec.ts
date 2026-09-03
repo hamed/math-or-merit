@@ -36,16 +36,31 @@ test('the opening owns the phone viewport', async ({ page }) => {
   expect(landscape.credit.bottom).toBeLessThanOrEqual(390);
 
   // The full-height timed stage shifts the title lower than the ordinary
-  // reduced-motion stage. Keep the band just above phone landscape covered.
-  await page.setViewportSize({ width: 962, height: 527 });
-  await page.waitForTimeout(100);
-  const shallowLandscape = await page.locator('.opening').evaluate((opening) => {
-    const title = opening.querySelector('.title')!.getBoundingClientRect();
-    const credit = opening.querySelector('.credit')!.getBoundingClientRect();
-    return { titleBottom: title.bottom, creditTop: credit.top, creditBottom: credit.bottom };
-  });
-  expect(shallowLandscape.titleBottom).toBeLessThanOrEqual(shallowLandscape.creditTop);
-  expect(shallowLandscape.creditBottom).toBeLessThanOrEqual(527);
+  // reduced-motion stage. Check actual rectangles across the shallow and
+  // mid-height landscape bands instead of assuming vertically aligned items.
+  for (const viewport of [
+    { width: 962, height: 527 },
+    { width: 962, height: 580 },
+    { width: 1280, height: 720 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.waitForTimeout(100);
+    const geometry = await page.locator('.opening').evaluate((opening) => {
+      const title = opening.querySelector('.title')!.getBoundingClientRect();
+      const credit = opening.querySelector('.credit')!.getBoundingClientRect();
+      const hint = opening.querySelector('.hint svg path')!.getBoundingClientRect();
+      const overlaps = (a: DOMRect, b: DOMRect) =>
+        a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      return {
+        titleHitsCredit: overlaps(title, credit),
+        titleHitsHint: overlaps(title, hint),
+        creditBottom: credit.bottom,
+      };
+    });
+    expect(geometry.titleHitsCredit).toBe(false);
+    expect(geometry.titleHitsHint).toBe(false);
+    expect(geometry.creditBottom).toBeLessThanOrEqual(viewport.height);
+  }
 
   await page.setViewportSize({ width: 844, height: 390 });
   await page.waitForTimeout(100);
