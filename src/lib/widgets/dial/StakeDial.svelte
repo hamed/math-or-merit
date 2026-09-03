@@ -133,7 +133,9 @@
   </div>
 
   <p class="caption" aria-live="polite">
-    {#if halfAt !== null}
+    {#if beta === 0}
+      Zero is not a slower game. It is no game: nothing is at stake, so nothing moves.
+    {:else if halfAt !== null}
       At a {stakePercent}% stake, one circle passed half the room after {countTrades(halfAt)} trades — in this run.
     {:else if running}
       Watching for the half-the-room moment at {stakePercent}%…

@@ -19,10 +19,9 @@ export const REVEAL_BETA = 0.35;
 export const REVEAL_TRADES = 100_000;
 export const REVEAL_SEED = 332;
 
-/** The larger seeded population of beat 16. 2M trades gives the wall + tail. */
+/** The larger fresh population of beat 16. */
 export const CROWD_N = 1000;
 export const CROWD_BETA = 0.2;
-export const CROWD_SEED = 77;
 export const CROWD_TRADES = 2_000_000;
 
 /**

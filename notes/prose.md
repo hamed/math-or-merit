@@ -243,35 +243,57 @@ Remember the headline we started with? How many reasons did you add before seein
 [sort.head] Line them up
 
 [sort.body]
-A hundred circles, all different sizes, scattered around the room. You cannot read that. Nobody can.
+A hundred circles, all different sizes, scattered around the room. I can spot the winner. I cannot read the room.
 
-So sort them. Smallest to largest, and drop each one into a bin — a pile for the near-broke, a pile for the comfortable, a pile for the rich.
+So I cheat. First sort them. Then cut the wealth ruler into equal bins and drop one circle into the matching pile. Move the number of piles and watch the picture change. The fortunes do not.
 
 [sort.after]
-Now it is a shape: a chart whose bars are the people you just watched. (Where I cut the lines between the piles is a choice, not nature's — move them and the picture shifts a little.) And the shape leans hard: a crowd of the poor piled on one side, a thin tail reaching out the other — and far past everyone, alone, the winner.
+Now it is a histogram: the bars are the people you just watched. The cuts between bars are my choice, not nature's. That is why the slider matters.
 
-The linear chart has a problem, though: to fit the winner on screen, everyone else gets crushed into a sliver. So the last step changes the ruler — each step *multiplies* by ten instead of adding. The crowd opens up, and a gap between circles stops meaning how much more; it means how many *times* more.
+But the richest circle also owns the ruler. Fit it on a straight, adding scale and much of the room is squeezed against zero. So change the ruler. Each step now *multiplies* by ten. Equal distance means ten times the money; the hidden crowd opens up.
 
-(One honest catch: you cannot multiply your way up from zero, so a circle with nothing has no spot on that ruler. The truly empty sit in their own pile, off to the side.)
+Below one cent goes in the dust box. Exact zero belongs there too: zero has no position on a multiplying ruler. The new ruler reveals what the old one hid. It does not explain why the shape exists.
 
 ! keep true: the multiplying ruler only makes hidden values visible. It proves
 nothing about what kind of distribution this is.
 
 ---
 
-## 8 · One number for the whole room
+## 8 · Measure the room
 
 > picture: equal circles merging one by one into a straight line, then an
 > unequal room doing the same and sagging; the gap is hatched; then a slider
 > bends the curve.
 
-[gini.head] One number for the whole room
+[gini.head] Measure the room
 
 [gini.body]
-A histogram is a picture. Sometimes you need a single number instead — to compare two rooms, or to watch one room drift.
+A picture is excellent until I want to compare two rooms. Then I need a number.
+
+Start with Gini. I like it because you can watch the number being built.
 
 [gini.after]
-Zero: everyone holds the same. One: a single owner and everyone else at nothing. The room you ran earlier has its own number — and from here on you will see it on every meter.
+Zero means equal. One is the theoretical horizon: as a room grows, one owner and everybody else at nothing gets closer and closer to it.
+
+Useful. But the question I care about is plainer: how many people still carry enough economic weight to matter?
+
+### Four people. How many still matter?
+
+Four people enter with four coins each. Move the coins yourself. The people never leave. The black box watches only where the wealth goes.
+
+The box asks how many equal fortunes would be just as concentrated as this room. Four equal fortunes give 4. Split everything equally between two and it gives 2. Give every coin to one owner and it gives 1. In between, it can say 3.88 or 1.47.
+
+That is **effective participants**. Four bodies remain in the room. The number measures the field they have left.
+
+[participation.formula] Open the black box: write each person's share of the room as sᵢ. Square the shares, add them, then take the reciprocal: 1 / Σsᵢ². This is the inverse Herfindahl concentration index.
+
+### A million trades can move almost nothing
+
+The trade counter keeps racing after most people have almost nothing left to risk. A million crumbs still prints as a million trades.
+
+So I count the money that crossed between people. One **measurement round** is one trade per person on average. Add the stakes transferred in those ordinary trades and divide by all wealth in the room. That is **ordinary turnover**. A result of 0.30 roomfuls means wealth equal to 30% of the room changed hands during that round.
+
+Only trades count. Later, levies and shared returns get their own ledger. The remedy does not get to pad this number.
 
 ---
 
@@ -281,10 +303,12 @@ Zero: everyone holds the same. One: a single owner and everyone else at nothing.
 
 [crowd.head] More of them
 
-[crowd.body] You have seen it with a handful. Watch it with a crowd.
+[crowd.body] A small room is good for learning the instruments. Now invite a crowd: one thousand equal fortunes, two million fair trades, fresh luck.
 
 [crowd.after]
-Same rules. Same fair coin. Many more people. Read it yourself — the wall of the poor, the thinning tail, the one circle out past the edge. The crowd does not soften the result. It sharpens it.
+The histogram says where the people sit. Gini says how far the room bent from equality. Effective participants says how broad the field remains. Turnover says whether all those trades still move meaningful wealth.
+
+Do not ask one number to impersonate another. Read the room with all of them.
 
 ---
 
@@ -296,19 +320,16 @@ Same rules. Same fair coin. Many more people. Read it yourself — the wall of t
 [end.head] Where it ends
 
 [end.body]
-So where does this go, if no one ever stops it?
+That crowd was one run. A run can show you something. It cannot prove it.
 
-This part is a theorem, not just an animation. Keep the room finite. Keep every trade fair, every coin even. Then let it run — not a hundred thousand trades, but without end.
+Here mathematics says something stronger. Keep the room finite. Pick pairs at random. Use one fixed stake strictly between zero and one hundred percent, and an independent fair coin. Then continue without end. With probability one, wealth converges to a single owner.
 
 [end.after]
-With probability one, it ends with a single owner. Everyone else goes to zero. A different winner each time you run it — but always, in the end, exactly one.
+The animation is not the proof. It only lets the pixels chase the theorem.
 
-Two cautions, because they carry the honesty of the whole piece:
+"Without end" is doing serious work. This is a limit, not a date. At any finite time the room can be deeply concentrated without literally reaching one owner. The path can wobble, too: a poorer circle can win and the room can briefly grow fairer on the way.
 
-- "Without end" is doing the work. This is the limit, not a date. For any real number of trades you get deep concentration — not literally one owner. The time-lapse shows a destination, not a deadline.
-- The path can wobble. A poorer circle can win, and the room can briefly grow fairer, even as the whole process grinds toward the one.
-
-[end.citation] The finite-agent convergence result is proved in Börgers & Greengard (2023).
+[end.citation] For a fixed finite number of agents and a fixed stake fraction 0 < β < 1, the wealth vector converges almost surely to one of the room's one-owner states. “Almost surely” means probability one; it does not mean every imaginable sequence of coin tosses. The proof is in Börgers & Greengard (2023).
 
 ! keep true: the single-owner ending is a limit result, not a prediction of a
 date, and the citation stays.
@@ -322,20 +343,14 @@ date, and the citation stays.
 [stake.head] Your hand on the dial
 
 [stake.body]
-So that is the game as written: fair coin, fixed stake, one ending.
+You have seen the destination. Now put your hand on the clock.
 
-Now you get a knob.
-
-The stake — the slice each trade puts on the table — has been fixed this whole time. Take hold of it. Turn it down, and each trade risks almost nothing. Turn it up, and each trade is a gamble for a real chunk.
+The stake — the fraction of the poorer fortune placed on each toss — has been fixed until now. Turn it down. Turn it up. Every change starts a fresh room, so luck is allowed to heckle your comparison.
 
 [stake.after]
-Watch what changes — and what refuses to.
+Look for the pattern across runs, not a promise from one of them. Smaller stakes usually take longer to produce a dominant fortune. Larger stakes usually get there faster. I am not claiming an exact stopwatch law here.
 
-Turn the stake down and the collapse drags: the room looks fair for a long, comfortable while. Turn it up and the winner arrives fast and brutal. The speed is yours.
-
-The ending is not. Any stake above nothing, given enough time, still empties into a single circle. You can change how fast the room falls. You do not get to vote on whether it falls.
-
-(Set the stake to exactly zero and the room freezes — but only because then nobody is trading at all. Nothing at stake, nothing happens.)
+The theorem says every fixed positive stake has the same limiting destination. The dial changes the journey, not the limit. Exactly zero is not a very slow game. It switches the game off.
 
 ! keep true: the stake changes the speed, not the ending. Don't state a formula
 for how much faster.
@@ -461,4 +476,4 @@ Not prose. Edit only if a word annoys you.
 
 [ui.lorenz] Lorenz curve and Gini
 
-[ui.end] It ended — as promised
+[ui.end] Close enough for pixels
