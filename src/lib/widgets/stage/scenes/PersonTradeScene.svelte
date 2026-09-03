@@ -84,8 +84,10 @@
    * The game, in coins.
    *
    * Everything is counted in COINS, not in decimals, because that is what the
-   * reader sees: sixteen of them make one whole person, so half a fortune is
-   * eight and there is never a coin cut in half on the table.
+   * reader sees. The solitary fortune first opens into sixteen coins. When a
+   * second equal fortune enters, the two-person room is normalized to 8 + 8;
+   * its first half-stake is therefore four coins from each, with no coin cut
+   * in half on the table.
    *
    * They start EQUAL — that is the point of the opening. The first toss is what
    * makes one of them poorer, and only then does the rule need to say WHOSE

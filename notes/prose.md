@@ -105,56 +105,56 @@ question; it does not claim that every omitted detail is powerless.
 
 [human.head] Now, the spherical human
 
-[human.intro] Same trick. New subject.
+[human.intro] Same trick. More dangerous subject.
 
 > picture: the richest man, stripped detail by detail down to one circle; the
-> circle becomes fourteen gold coins and back; then a second, smaller circle
+> circle becomes sixteen gold coins and back; then a second, smaller circle
 > walks in and they trade.
 
 [human.0] Take the richest man in the world.
 
-[human.1] We'll do to him exactly what the physicist did to the cow.
+[human.1] I am not going to explain how he got rich.
 
-[human.2] We through away all the details.
+[human.2] I erase the face, the name, every difference.
 
-[human.3] Until we are left with nothing but a circle. 
+[human.3] Until one thing remains: wealth.
 
-[human.4] The area is his wealth.
+[human.4] Area is wealth. These coins are the same fortune.
 
-[human.5] You are your money and nothing else.
+[human.5] In this model, you are your money and nothing else.
 
 > big, but still under the circle — a verdict about the picture, not a card
 > replacing it.
 
-[human.7] Someone new walks in, with exactly as much.
+[human.7] Now someone else walks in with exactly as much.
 
 > they start EQUAL. The game is what makes one of them poorer, and the rule is
 > taught at the moment that starts to matter.
 
-[human.8] Both put up half of what they have.
+[human.8] Both stake half.
 
-> four gold coins out of each of them, stacked on the table below. Sixteen
-> coins make a whole person, so half a fortune is eight.
+> four gold coins out of each of them, stacked on the table below. At this
+> scale each fortune is eight coins, so four is half.
 
-[human.9] They toss the coin — one color on each side.
+[human.9] Fair coin. One color or the other.
 
-[human.10] Whichever color lands takes it all.
+[human.10] The color that lands takes both stakes.
 
-[human.11] They play again. Now one of them is poorer.
+[human.11] Again. Now one of them is poorer.
 
-[human.12] So the rule says it plainly: both put up half of what the *poorer* one has.
+[human.12] Same rule, sharper edge: half of what the *poorer* one has.
 
 [human.13] Toss.
 
-[human.14] This time the poorer one takes it.
+[human.14] The poorer one wins.
 
-[human.15] Again. Half of what the poorer one has.
+[human.15] Again: half the poorer fortune.
 
 [human.16] Toss.
 
-[human.17] And again it comes back.
+[human.17] The poorer one wins again.
 
-[human.18] They finish almost exactly where they began. No money was made, and none destroyed. That is the whole game, and it is fair.
+[human.18] Almost where they began. Same total. Fair coin. Fair rule. Remember this picture.
 
 > the numbers, in coins: 8-8, then 4-12, then 6-10, then 9-7. The poorer one
 > claws it back and they end up looking level — which is the illusion this
@@ -173,7 +173,7 @@ any real fortune.
 [guess.head] Your turn to guess
 
 [guess.body]
-Here is the setup, clean:
+Now remove the script. Put one hundred equal fortunes in the room.
 
 1. Everyone starts with the same money.
 2. Pick two people at random.
@@ -181,9 +181,7 @@ Here is the setup, clean:
 4. Toss for it. One wins, one loses. Fifty-fifty.
 5. Go back to 2.
 
-Now let it run for a hundred thousand trades.
-
-What does the room look like after a hundred thousand fair trades? Pick one before you scroll.
+After a hundred thousand fair trades, what survives? Pick one before the coin speaks.
 
 ---
 
@@ -195,15 +193,20 @@ What does the room look like after a hundred thousand fair trades? Pick one befo
 
 [run.head] Now run it
 
-[run.intro] A room full of shapes, the area shows the worth, the shapes and colors are just cosmetic.
+[run.intro] A hundred equal fortunes. The colors and corners are costumes. The game cannot see them.
 
 [run.after]
-One shape holds more than half of everything.
+The largest shape holds [the measured result] of everything.
 
-Every trade was fair. No coin was loaded. Nobody cheated.
-Nobody was smarter.
+Every trade was fair. No coin was loaded. Nobody cheated. Nobody was smarter.
 
-The winner is random. The winner-take-all is not. The trade was fair; the result is not.
+[run.after.first] Chance chose which shape finished first.
+
+[run.after.same] The same shape finished first again. A fair coin is allowed to repeat itself.
+
+[run.after.different] This time a different shape finished first.
+
+[run.after.shared] The process needed no difference in merit to make the gap.
 
 ! keep true: claims here are about one finite run. No "always", no distribution
 family, no naming a psychological bias.
@@ -218,14 +221,17 @@ family, no naming a psychological bias.
 [why.head] So why did they win?
 
 [why.body]
-The morning paper already knew why. Look at the headline it printed. 
-(we show the headline here, also. use its words for next sentence and its update every time.)
-Sharper. Rounder. Built to win. The story writes itself.
+The Morning Ledger has already found the secret of success:
 
-And it is a lie. The colors, the corners and the edges never touched the game.
-Run the room again: a new winner, a new trait, a new headline written with exactly the same confidence.
+(show the exact headline generated by the latest run here; update it after every rerun.)
 
-Remember the headline we started with?
+It sounds almost reasonable. That is how the trick works.
+
+The result came first. The explanation came second. Color, corners and edges never touched the game.
+
+Run it again. Maybe a new winner. Maybe the same one twice. The paper never prints “chance.” It simply finds another reason.
+
+Remember the headline we started with? How many reasons did you add before seeing the mechanism?
 
 ---
 

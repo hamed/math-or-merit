@@ -63,7 +63,8 @@ discarded because it overstates that inference.
 
 Reduce a recognizable person to one variable: wealth, drawn as circle area. “You are
 your money and nothing else” is intentionally brutal and defines the model boundary; it
-is not a claim about real people.
+is not a claim about real people. Say directly that this does not explain how the real
+person became rich, then erase every personal difference until only wealth remains.
 
 **5. Three teaching trades**
 
@@ -85,8 +86,10 @@ a legitimate event, not an error. A deliberate rerun receives fresh randomness.
 **7. The winner’s newspaper**
 
 Generate a confident success story from traits assigned before the run but never used
-by pairing, stake, or coin. Recall the opening headline. Show the habit of inventing
-winner mythology after the result; do not name a cognitive bias in the main narration.
+by pairing, stake, or coin. Repeat the exact generated headline in the prose after the
+room, and update it when a new room finishes. Recall the opening headline. Show the habit
+of inventing winner mythology after the result; do not name a cognitive bias in the main
+narration.
 
 ### Act III — Read the room
 
@@ -197,7 +200,7 @@ Commercial entries render only when a real destination exists.
 ## Deferred work
 
 - Progressive taxation, pending a separate literature and mechanism review.
-- Final slogan, remaining motif payoffs, and the prose rewrite beyond Act I.
+- Final slogan, remaining motif payoffs, and the prose rewrite beyond Act II.
 - Additional social and contact destinations, pending their exact public URLs.
 - A scalar rank-mobility measure; near-zero rank churn can be misleading and its horizon
   needs validation. Existing individual trajectories remain exploratory.

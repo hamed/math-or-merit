@@ -3,6 +3,7 @@
   import Caption from '$lib/widgets/stage/Caption.svelte';
   import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
   import RevealInterpretation from '$lib/widgets/reveal/RevealInterpretation.svelte';
+  import WinnerStory from '$lib/widgets/reveal/WinnerStory.svelte';
   import Deferred from '$lib/widgets/shared/Deferred.svelte';
   import Chapter from '$lib/nav/Chapter.svelte';
 </script>
@@ -92,7 +93,7 @@
 
 ## Now, the spherical human
 
-Same trick. New subject.
+Same trick. More dangerous subject.
 
 <!--
   REMARK(beat 5 via shared canvas): the Musk→circle morph happens ON THE SAME canvas as the
@@ -129,23 +130,23 @@ Same trick. New subject.
     <PinScene navigation="step" deferAssets>
       <PersonTradeScene />
       <Caption beat={0}>Take the richest man in the world.</Caption>
-      <Caption beat={1}>We'll do to him exactly what the physicist did to the cow.</Caption>
-      <Caption beat={2}>We throw away all the details.</Caption>
-      <Caption beat={3}>Until we are left with nothing but a circle.</Caption>
-      <Caption beat={4}>The area is his wealth.</Caption>
-      <Caption beat={5} big>You are your money and nothing else.</Caption>
-      <Caption beat={7}>Someone new walks in, with exactly as much.</Caption>
-      <Caption beat={8}>Both put up half of what they have.</Caption>
-      <Caption beat={9}>They toss the coin — one color on each side.</Caption>
-      <Caption beat={10}>Whichever color lands takes it all.</Caption>
-      <Caption beat={11}>They play again.<br />Now one of them is poorer.</Caption>
-      <Caption beat={12}>So the rule says it plainly:<br />both put up half of what the <em>poorer</em> one has.</Caption>
+      <Caption beat={1}>I am not going to explain how he got rich.</Caption>
+      <Caption beat={2}>I erase the face, the name, every difference.</Caption>
+      <Caption beat={3}>Until one thing remains: wealth.</Caption>
+      <Caption beat={4}>Area is wealth.<br />These coins are the same fortune.</Caption>
+      <Caption beat={5} big>In this model, you are your money and nothing else.</Caption>
+      <Caption beat={7}>Now someone else walks in with exactly as much.</Caption>
+      <Caption beat={8}>Both stake half.</Caption>
+      <Caption beat={9}>Fair coin.<br />One color or the other.</Caption>
+      <Caption beat={10}>The color that lands takes both stakes.</Caption>
+      <Caption beat={11}>Again.<br />Now one of them is poorer.</Caption>
+      <Caption beat={12}>Same rule, sharper edge:<br />half of what the <em>poorer</em> one has.</Caption>
       <Caption beat={13}>Toss.</Caption>
-      <Caption beat={14}>This time the poorer one takes it.</Caption>
-      <Caption beat={15}>Again.<br />Half of what the poorer one has.</Caption>
+      <Caption beat={14}>The poorer one wins.</Caption>
+      <Caption beat={15}>Again:<br />half the poorer fortune.</Caption>
       <Caption beat={16}>Toss.</Caption>
-      <Caption beat={17}>And again it comes back.</Caption>
-      <Caption beat={18}>They finish almost exactly where they began.<br />No money was made, and none destroyed.<br />That is the whole game, and it is fair.</Caption>
+      <Caption beat={17}>The poorer one wins again.</Caption>
+      <Caption beat={18}>Almost where they began.<br />Same total. Fair coin. Fair rule.<br />Remember this picture.</Caption>
     </PinScene>
   {/snippet}
 </Deferred>
@@ -155,7 +156,7 @@ Same trick. New subject.
 
 ## Your turn to guess
 
-Here is the setup, clean:
+Now remove the script. Put one hundred equal fortunes in the room.
 
 1. Everyone starts with the same money.
 2. Pick two people at random.
@@ -163,10 +164,7 @@ Here is the setup, clean:
 4. Toss for it. One wins, one loses. Fifty-fifty.
 5. Go back to 2.
 
-Now let it run for a hundred thousand trades.
-
-What does the room look like after a hundred thousand fair trades? Pick one before you
-scroll.
+After a hundred thousand fair trades, what survives? Pick one before the coin speaks.
 <!--
   WIDGET: Prediction — the reader commits to an outcome before the reveal; the choice is
   quoted back by the reveal widget. Stored locally only.
@@ -177,7 +175,7 @@ scroll.
 
 ## Now run it
 
-A room full of shapes, the area shows the money, the shapes are just cosmetic. 
+A hundred equal fortunes. The colors and corners are costumes. The game cannot see them.
 
 <!--
   WIDGET: RevealRun (R4, owner review 2026-07-08) — the real Yard-Sale rule, UNSEEDED
@@ -200,14 +198,20 @@ A room full of shapes, the area shows the money, the shapes are just cosmetic.
 
 ## So why did they win?
 
-The morning paper already knew why. Look at the headline it
-printed. Sharper. Rounder. Built to win. The story writes itself.
+The Morning Ledger has already found the secret of success:
 
-And it is a lie. The colors, the corners and the edges never touched the game.
-Run the room again. It may crown a different shape. It may crown the same one twice.
-Either way, the headline will explain the result with exactly the same confidence.
+<WinnerStory />
 
-Remember the headline we started with?
+It sounds almost reasonable. That is how the trick works.
+
+The result came first. The explanation came second. Color, corners and edges never touched
+the game.
+
+Run it again. Maybe a new winner. Maybe the same one twice. The paper never prints
+“chance.” It simply finds another reason.
+
+Remember the headline we started with? How many reasons did you add before seeing the
+mechanism?
 
 <Chapter id="line-them-up" label="Line them up" />
 
