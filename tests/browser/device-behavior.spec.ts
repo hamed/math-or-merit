@@ -546,7 +546,7 @@ test('the main run groups start, active reversal, completion, and interpretation
   await loadDeferred(page, 'main run', guided);
   await guided.evaluate((element) => element.scrollIntoView({ block: 'center' }));
 
-  const waiting = page.getByText('The room has not answered yet. Run it above; the interpretation can wait.');
+  const waiting = page.getByText('The room has not answered yet. Good. Prediction first.');
   await expect(waiting).toBeAttached();
 
   await page.keyboard.press('Space');
@@ -561,6 +561,8 @@ test('the main run groups start, active reversal, completion, and interpretation
   await page.keyboard.press('Space');
   await expect(guided.locator('output')).toHaveText('100,000 trades');
   await expect(page.getByText(/The largest shape in this run holds/)).toBeAttached();
+  const paperLabel = await guided.getByRole('dialog').getAttribute('aria-label');
+  await expect(page.locator('[data-winner-story] article')).toHaveAttribute('aria-label', paperLabel!);
   const firstShare = await guided.locator('.meter-label').textContent();
 
   // NewsFlash focuses its own button; guided keys still reach the page, while
@@ -570,6 +572,25 @@ test('the main run groups start, active reversal, completion, and interpretation
   await expect(guided.locator('output')).toHaveText('100,000 trades');
   await expect(guided.locator('.meter-label')).toHaveText(firstShare!);
   await expect.poll(() => page.evaluate(() => scrollY)).toBeLessThan(beforeReread);
+
+  const story = page.locator('[data-winner-story]');
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    expect(await story.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await guided.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  await guided.getByRole('button', { name: 'Run a new room' }).click();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press('Space');
+  await expect(guided.locator('output')).toHaveText('100,000 trades');
+  const nextPaperLabel = await guided.getByRole('dialog').getAttribute('aria-label');
+  expect(nextPaperLabel).not.toBe(paperLabel);
+  await expect(page.locator('[data-winner-story] article')).toHaveAttribute('aria-label', nextPaperLabel!);
 });
 
 test('one wheel gesture cannot both start and finish the main run', async ({ page }) => {

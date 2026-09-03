@@ -128,6 +128,7 @@
     finished = true;
     measureTop();
     const wealth = Float64Array.from(engine.state.wealth);
+    const runNumber = session.runs.length;
     logRun({
       seed: engine.config.seed ?? -1,
       beta: engine.config.beta,
@@ -138,7 +139,10 @@
     });
     history.push({ seed: engine.config.seed ?? -1, winner: winner ?? 0, topShare });
     newsSubject = winner ?? 0;
-    newsRun = history.length - 1;
+    // Global session index, not this component mount's local history: if the
+    // reader leaves and returns, the persistent callback below must quote the
+    // exact edition that appeared over this room.
+    newsRun = runNumber;
     newsOpen = true;
   }
 
@@ -294,7 +298,7 @@
 </script>
 
 <div bind:this={root} class="widget" data-guided-run aria-label="The main run: a hundred thousand fair trades, fresh dice every run">
-  <p class="kicker">The room, for real this time</p>
+  <p class="kicker">No script this time</p>
 
   <div class="room-frame" bind:clientWidth={roomW}>
     <RoomCanvas
@@ -333,17 +337,17 @@
 
   <p class="caption" aria-live="polite">
     {#if !finished && !running}
-      Everyone equal. Every trade fair. {guess ? `Your guess: ${guess.toLowerCase()}.` : 'You didn’t lock a guess — brave.'}
+      Everyone equal. Every trade fair. {guess ? `Your guess: ${guess.toLowerCase()}.` : 'No guess. Fine. The room will still answer.'}
     {:else if running}
-      No one is cheating. Watch the sizes.
+      Same rule, over and over. Watch who stays large enough to keep playing.
     {:else if history.length <= 1}
-      The winner — {winner !== null ? styleNoun(styles[winner]) : 'one of them'} — holds
-      <strong>{percent(topShare)}</strong> of everything there is.
+      After {countTrades(step)} trades, {winner !== null ? styleNoun(styles[winner]) : 'one of them'} holds
+      <strong>{percent(topShare)}</strong> of all wealth.
       {guess ? `You guessed: ${guess.toLowerCase()}.` : ''}
     {:else}
-      {history.length} runs, {distinctWinners}
-      {distinctWinners === 1 ? 'winner' : 'different winners'} — and a fresh headline every time.
-      The crown moves. The crowning doesn’t.
+      {history.length} rooms. {distinctWinners}
+      {distinctWinners === 1 ? 'shape finished' : 'different shapes finished'} first.
+      The paper found a reason every time.
     {/if}
   </p>
 
@@ -352,7 +356,7 @@
       {#if running}
         Trading…
       {:else}
-        {finished ? 'Run it again — new dice' : `Run ${countTrades(REVEAL_TRADES)} trades`}
+        {finished ? 'Run a new room' : `Run ${countTrades(REVEAL_TRADES)} trades`}
       {/if}
     </button>
     {#if finished}

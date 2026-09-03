@@ -8,9 +8,9 @@
 
 <div aria-live="polite">
   {#if result === null}
-    <p>The room has not answered yet. Run it above; the interpretation can wait.</p>
+    <p>The room has not answered yet. Good. Prediction first.</p>
   {:else}
-    <p>The largest shape in this run holds <strong>{percent(result.latest.topShare)}</strong> of everything.</p>
+    <p>The largest shape in this run holds <strong>{percent(result.latest.topShare)}</strong> of all wealth.</p>
 
     <p>Every trade was fair. No coin was loaded. Nobody cheated. Nobody was smarter.</p>
 
@@ -22,7 +22,7 @@
       {:else}
         Chance chose which shape finished first.
       {/if}
-      The process needed no difference in merit to produce the gap.
+      The process needed no difference in merit to make the gap.
     </p>
   {/if}
 </div>

@@ -44,7 +44,7 @@
 </script>
 
 <div class="widget" aria-label="Commit to a prediction before running the room">
-  <p class="kicker">Lock in a guess — before the room answers</p>
+  <p class="kicker">Before the coin speaks</p>
 
   <fieldset class="options">
     <legend class="visually-hidden">What does the room look like after a hundred thousand fair trades?</legend>
@@ -73,9 +73,9 @@
 
   <p class="caption" aria-live="polite">
     {#if session.prediction === null}
-      Pick one. There is no grade — but a guess you commit to is a guess you can be surprised by.
+      Pick one. Surprise needs a prediction.
     {:else}
-      Locked in: <strong>{PREDICTIONS.find((p) => p.id === session.prediction)?.label}</strong>. You can still change it — until you run the room.
+      Locked in: <strong>{PREDICTIONS.find((p) => p.id === session.prediction)?.label}</strong>. Change it if you mean it.
     {/if}
   </p>
 </div>
