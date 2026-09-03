@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { loadDeferred } from './helpers';
+import { loadDeferred, restoreSettled } from './helpers';
 
 test('the opening owns the phone viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -787,7 +787,7 @@ test('a restore that has finished leaves the reader in control of the page', asy
   await page.waitForTimeout(500);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2_500);
+  await restoreSettled(page);
   const restored = await page.evaluate(() => Math.round(scrollY));
   expect(restored).toBeGreaterThan(2_000);
 
