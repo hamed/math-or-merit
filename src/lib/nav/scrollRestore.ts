@@ -2,6 +2,14 @@ import { DEFERRED_MOUNT_NOW_EVENT, DEFERRED_MOUNTED_EVENT } from '$lib/deferredE
 
 export const SCROLL_KEY = 'merit-or-math:reading-place:v1';
 
+/**
+ * Whether the restore still owns the page, published on the root element.
+ * The walk is otherwise invisible from outside, which leaves anything waiting
+ * on it — a test, a future feature that must not fight it — guessing from
+ * timings. `restoring` while it holds the page, `settled` once it has let go.
+ */
+export const RESTORE_STATE_ATTRIBUTE = 'data-reading-place';
+
 /** How long we keep reaching for the remembered place before letting the reader be. */
 export const RESTORE_BUDGET_MS = 5000;
 
@@ -117,6 +125,9 @@ export function installScrollRestore(): () => void {
 
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
+  const publish = (state: 'restoring' | 'settled') =>
+    document.documentElement.setAttribute(RESTORE_STATE_ATTRIBUTE, state);
+
   let restoring = shouldRestore(location.hash, place, navigationType());
   const deadline = performance.now() + RESTORE_BUDGET_MS;
   let walking = 0;
@@ -178,12 +189,15 @@ export function installScrollRestore(): () => void {
   function release(): void {
     if (!restoring) return;
     restoring = false;
+    publish('settled');
     if (walking) cancelAnimationFrame(walking);
     walking = 0;
     document.removeEventListener(DEFERRED_MOUNTED_EVENT, step);
   }
 
   const releaseOnGesture = () => release();
+
+  publish(restoring ? 'restoring' : 'settled');
 
   if (restoring) {
     // Aim only once the page can reach its real height: deferred scenes above

@@ -16,3 +16,14 @@ export async function loadDeferred(page: Page, label: string, target: Locator): 
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
   }));
 }
+
+/**
+ * Wait for the reading-place restore to let go of the page.
+ *
+ * The walk may legally run for its whole budget, and its own release condition
+ * is longer than any interval worth sampling from out here, so this waits for
+ * the state the restore publishes rather than inferring one.
+ */
+export async function restoreSettled(page: Page): Promise<void> {
+  await expect(page.locator('html')).toHaveAttribute('data-reading-place', 'settled', { timeout: 15_000 });
+}

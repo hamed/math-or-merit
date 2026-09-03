@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { hasSettled, parsePlace, placeFor, shouldRestore, STABLE_FRAMES, targetFor } from './scrollRestore';
+import {
+  hasSettled,
+  parsePlace,
+  placeFor,
+  shouldRestore,
+  STABLE_FRAMES,
+  targetFor,
+} from './scrollRestore';
 
 const anchors = [
   { id: 'question', top: 1200 },
