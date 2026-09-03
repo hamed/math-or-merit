@@ -83,6 +83,26 @@ export function targetFor(anchorTop: number, offset: number, documentHeight: num
   return Math.max(0, Math.min(wanted, Math.round(documentHeight - viewportHeight)));
 }
 
+/**
+ * A scroll this far from where we last put the page did not come from us.
+ * Sub-pixel rounding and the browser's own adjustments stay well inside it.
+ */
+export const READER_MOVE_PX = 4;
+
+/**
+ * The gesture listeners cannot cover the whole restore: a wheel that lands
+ * before this script mounts fires into nothing. But with `scrollRestoration`
+ * already manual from the previous visit, the page loads at the top — so a
+ * page that has moved by the time we mount has been moved by the reader.
+ *
+ * Only the entry position can be judged this way. Once the walk is running,
+ * ScrollTrigger scrolls the page too, and position alone can no longer tell a
+ * reader from a library.
+ */
+export function movedBeforeMount(scrollY: number): boolean {
+  return scrollY > READER_MOVE_PX;
+}
+
 /** Frames the target must hold still before we accept it as the reader's place. */
 export const STABLE_FRAMES = 20;
 
@@ -118,6 +138,12 @@ export function installScrollRestore(): () => void {
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
   let restoring = shouldRestore(location.hash, place, navigationType());
+
+  // With `scrollRestoration` already manual from the previous visit, the page
+  // loads at the top. Anything below it means the reader moved before this
+  // script mounted — a wheel or a scrollbar drag during load — and that
+  // decision outranks the remembered place.
+  if (restoring && movedBeforeMount(window.scrollY)) restoring = false;
   const deadline = performance.now() + RESTORE_BUDGET_MS;
   let walking = 0;
   let writing = 0;

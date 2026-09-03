@@ -778,7 +778,7 @@ test('a reload deep in the essay returns the reader to the scene they were readi
   await expect(page.locator('.room-stage').first()).toBeVisible();
 });
 
-test('a reader who scrolls during a restore keeps the position they chose', async ({ page }) => {
+test('a restore that has finished leaves the reader in control of the page', async ({ page }) => {
   await page.setViewportSize({ width: 962, height: 527 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
@@ -787,9 +787,13 @@ test('a reader who scrolls during a restore keeps the position they chose', asyn
   await page.waitForTimeout(500);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.mouse.wheel(0, 10);
-  await page.evaluate(() => scrollTo(0, 0));
-  await page.waitForTimeout(2_000);
+  await page.waitForTimeout(2_500);
+  const restored = await page.evaluate(() => Math.round(scrollY));
+  expect(restored).toBeGreaterThan(2_000);
+
+  // Once the walk has let go, nothing pulls the page back to the saved place.
+  await page.evaluate(() => scrollTo(0, 400));
+  await page.waitForTimeout(1_500);
   expect(await page.evaluate(() => Math.round(scrollY))).toBeLessThan(2_000);
 });
 
