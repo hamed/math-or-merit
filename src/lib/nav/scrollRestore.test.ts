@@ -3,8 +3,6 @@ import {
   hasSettled,
   parsePlace,
   placeFor,
-  movedBeforeMount,
-  READER_MOVE_PX,
   shouldRestore,
   STABLE_FRAMES,
   targetFor,
@@ -73,15 +71,5 @@ describe('remembering the reader’s place', () => {
     expect(hasSettled(STABLE_FRAMES, 1)).toBe(false);
     expect(hasSettled(STABLE_FRAMES - 1, 0)).toBe(false);
     expect(hasSettled(STABLE_FRAMES, 0)).toBe(true);
-  });
-
-  it('treats a page that already moved as the reader having taken over', () => {
-    // Manual restoration means a reload starts at the top.
-    expect(movedBeforeMount(0)).toBe(false);
-    // Sub-pixel rounding and the browser's own nudges stay inside the margin.
-    expect(movedBeforeMount(READER_MOVE_PX)).toBe(false);
-    // A wheel or a scrollbar drag that landed before this script mounted.
-    expect(movedBeforeMount(READER_MOVE_PX + 1)).toBe(true);
-    expect(movedBeforeMount(4000)).toBe(true);
   });
 });

@@ -2,6 +2,14 @@ import { DEFERRED_MOUNT_NOW_EVENT, DEFERRED_MOUNTED_EVENT } from '$lib/deferredE
 
 export const SCROLL_KEY = 'merit-or-math:reading-place:v1';
 
+/**
+ * Whether the restore still owns the page, published on the root element.
+ * The walk is otherwise invisible from outside, which leaves anything waiting
+ * on it — a test, a future feature that must not fight it — guessing from
+ * timings. `restoring` while it holds the page, `settled` once it has let go.
+ */
+export const RESTORE_STATE_ATTRIBUTE = 'data-reading-place';
+
 /** How long we keep reaching for the remembered place before letting the reader be. */
 export const RESTORE_BUDGET_MS = 5000;
 
@@ -83,26 +91,6 @@ export function targetFor(anchorTop: number, offset: number, documentHeight: num
   return Math.max(0, Math.min(wanted, Math.round(documentHeight - viewportHeight)));
 }
 
-/**
- * A scroll this far from where we last put the page did not come from us.
- * Sub-pixel rounding and the browser's own adjustments stay well inside it.
- */
-export const READER_MOVE_PX = 4;
-
-/**
- * The gesture listeners cannot cover the whole restore: a wheel that lands
- * before this script mounts fires into nothing. But with `scrollRestoration`
- * already manual from the previous visit, the page loads at the top — so a
- * page that has moved by the time we mount has been moved by the reader.
- *
- * Only the entry position can be judged this way. Once the walk is running,
- * ScrollTrigger scrolls the page too, and position alone can no longer tell a
- * reader from a library.
- */
-export function movedBeforeMount(scrollY: number): boolean {
-  return scrollY > READER_MOVE_PX;
-}
-
 /** Frames the target must hold still before we accept it as the reader's place. */
 export const STABLE_FRAMES = 20;
 
@@ -137,13 +125,10 @@ export function installScrollRestore(): () => void {
 
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
-  let restoring = shouldRestore(location.hash, place, navigationType());
+  const publish = (state: 'restoring' | 'settled') =>
+    document.documentElement.setAttribute(RESTORE_STATE_ATTRIBUTE, state);
 
-  // With `scrollRestoration` already manual from the previous visit, the page
-  // loads at the top. Anything below it means the reader moved before this
-  // script mounted — a wheel or a scrollbar drag during load — and that
-  // decision outranks the remembered place.
-  if (restoring && movedBeforeMount(window.scrollY)) restoring = false;
+  let restoring = shouldRestore(location.hash, place, navigationType());
   const deadline = performance.now() + RESTORE_BUDGET_MS;
   let walking = 0;
   let writing = 0;
@@ -204,12 +189,15 @@ export function installScrollRestore(): () => void {
   function release(): void {
     if (!restoring) return;
     restoring = false;
+    publish('settled');
     if (walking) cancelAnimationFrame(walking);
     walking = 0;
     document.removeEventListener(DEFERRED_MOUNTED_EVENT, step);
   }
 
   const releaseOnGesture = () => release();
+
+  publish(restoring ? 'restoring' : 'settled');
 
   if (restoring) {
     // Aim only once the page can reach its real height: deferred scenes above
