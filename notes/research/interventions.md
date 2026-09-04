@@ -99,3 +99,24 @@ The square family remains worth measuring because redistribution is naturally co
 with transaction variance `beta²`. Any fitted curve must name its selected outcome,
 cadence, horizon, parameter range, and replicate count. It must never be called a
 critical frontier or universal policy rule.
+
+## Effective-participation map convergence check (2026-09-04)
+
+The guided protocol-v2 map uses `N = 100`, 200,000 trades, burn-in at 120,000,
+eight tail checkpoints, one levy per 100-trade measurement round, stakes `0.05…0.50`,
+levies `0…0.14`, and the explicitly chosen outcome of 50 effective participants.
+Deterministic research ensembles of four and eight nested seeds were compared before
+choosing the guided map's minimum count.
+
+- Median absolute change in cell means from four to eight runs: `0.141` effective
+  participants (acceptance limit: `2`).
+- Fitted coefficient: `0.4026` at four runs and `0.3992` at eight runs, a `0.835%`
+  relative change (acceptance limit: `5%`).
+- All ten stake columns crossed the selected outcome in both ensembles.
+
+Four independent runs per cell therefore passes the predeclared convergence gate for
+this finite protocol and parameter range. Reader runs remain fresh and join the same
+cell aggregate; completing the map tops under-sampled cells up to at least four runs.
+The contour remains a selected challenge and the fit remains descriptive, not a phase
+boundary, stationary claim, or policy prescription. The exact reproducible calculation
+lives in `scripts/participation-map-convergence.ts`.

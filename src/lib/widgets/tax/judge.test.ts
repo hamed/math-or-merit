@@ -1,20 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { judgeGame } from './judge';
+import { nextClosureDuration } from './judge';
 
-describe('judgeGame', () => {
-  it('fires only after effective participation stays below the line for the sustain window', () => {
-    const open = new Array(300).fill(30);
-    expect(judgeGame(open, 20, 180)).toBe(false);
+describe('nextClosureDuration', () => {
+  it('measures real time below the line instead of animation frames', () => {
+    expect(nextClosureDuration(0, 15, 1_000, 20)).toBe(1_000);
+    expect(nextClosureDuration(1_000, 15, 2_500, 20)).toBe(3_500);
+  });
 
-    const closed = new Array(300).fill(15);
-    expect(judgeGame(closed, 20, 180)).toBe(true);
+  it('resets as soon as participation recovers', () => {
+    expect(nextClosureDuration(3_900, 25, 100, 20)).toBe(0);
+  });
 
-    // A single recovery inside the window keeps the field open.
-    const recovery = new Array(300).fill(15);
-    recovery[250] = 25;
-    expect(judgeGame(recovery, 20, 180)).toBe(false);
-
-    // too little history: never a loss
-    expect(judgeGame(new Array(100).fill(1), 20, 180)).toBe(false);
+  it('does not run backward on a malformed negative frame delta', () => {
+    expect(nextClosureDuration(500, 15, -100, 20)).toBe(500);
   });
 });

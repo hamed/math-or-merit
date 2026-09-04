@@ -6,13 +6,13 @@
   import { measureWealth } from '$lib/research';
   import { assignStyles } from '../shared/agentStyle';
   import { SandboxWorld } from '../sandbox/SandboxWorld';
-  import { judgeGame } from './judge';
+  import { nextClosureDuration } from './judge';
   import { ROOM_BETA, ROOM_N, START_DOLLARS } from '../shared/presets';
 
   const TRADES_PER_FRAME = 26; // ≈ 1,500 trades per second at 60 fps
   const LEVY_RATE = 0.25;
   const MIN_EFFECTIVE_PARTICIPANTS = 20;
-  const LOSE_SUSTAIN = 240; // frames ≈ 4 s over the line = game over
+  const CLOSE_AFTER_MS = 4_000;
 
   // Difficulty = the room's stake, fixed for the whole game (owner decision
   // 2026-07-08: no mid-game escalation — taxing must not change the trade
@@ -52,7 +52,7 @@
   let taps = $state(0);
   let playMs = $state(0);
   let levied = $state(0);
-  let participationHistory: number[] = [];
+  let closingForMs = 0;
 
   function measure(): void {
     const metrics = measureWealth(world.wealth);
@@ -65,11 +65,8 @@
     world.step(TRADES_PER_FRAME);
     revision++;
     measure();
-    participationHistory.push(effectiveParticipants);
-    if (participationHistory.length > LOSE_SUSTAIN + 8) {
-      participationHistory = participationHistory.slice(-LOSE_SUSTAIN - 4);
-    }
-    if (judgeGame(participationHistory, MIN_EFFECTIVE_PARTICIPANTS, LOSE_SUSTAIN)) {
+    closingForMs = nextClosureDuration(closingForMs, effectiveParticipants, dt, MIN_EFFECTIVE_PARTICIPANTS);
+    if (closingForMs >= CLOSE_AFTER_MS) {
       running = false;
       gameOver = true;
       ticker.stop();
@@ -106,7 +103,7 @@
     taps = 0;
     playMs = 0;
     levied = 0;
-    participationHistory = [];
+    closingForMs = 0;
     revision++;
     measure();
   }

@@ -413,11 +413,11 @@ game off.
 
 ## Now you try to stop it
 
-Reading about it is one thing. Try to fix it yourself.
+Enough watching. Put your hand in the room.
 
-Here is a live room, falling the usual way. Your job is not to punish the largest holder.
-It is to keep participation open. Point at a large holder and collect a quarter of its
-wealth. Every dollar you collect returns to the room in equal shares.
+Keep at least twenty effective participants in the game. Tap a large fortune: one quarter
+of it goes into a common pool and returns in equal shares to all one hundred people. Choose
+the stake before you start. That changes the difficulty, not the rule.
 
 <!--
   WIDGET: TaxGame — the live room keeps trading while the reader taps; tapping a circle
@@ -428,76 +428,94 @@ wealth. Every dollar you collect returns to the room in equal shares.
   hand genuinely can hold the room (robot-player tuning notes in the build log). Whether a
   fast enough hand can keep a room fair is left as the real, open question the prose asks.
 -->
-As you play, watch the room keep trading while you work. Can a fast enough hand preserve broad
-participation, or does the room outpace the taps? The game will report what your attempt did.
+The room keeps trading while you work. Can your hand preserve the field, or will the game
+close around you? Nothing is locked behind winning. I want you to feel the job.
 
 <Deferred load={() => import('$lib/widgets/tax/TaxGame.svelte')} label="tax game" reserve="30rem" />
 
-Pointing is the game, so this intervention is targeted: you choose one holder. The rule
-coming next is not an automated version of your hand. It is a different rule. Nobody is
-selected. The same percentage applies to every fortune, the pieces enter one pool, and the
-pool returns equally to everyone.
+Whatever your score, notice what your hand did. It watched, chose one holder, reacted, and
+did it again. That is a targeted intervention.
+
+What comes next is not a robot finger. It is a different rule: nobody is selected. The same
+percentage applies to every fortune, the pieces enter one pool, and the pool returns equally
+to everyone.
 
 <!--
-  BUILD NOTE (2026-07-06, M8) — the formerly gated middle, now built to the storyboard with
+  BUILD NOTE (updated 2026-09-04) — the formerly gated middle, now built to the storyboard with
   claim discipline intact:
-    20  structural levy lesson: LevyLesson keeps trading off and follows the proportional
+    13  structural levy lesson: LevyLesson keeps trading off and follows the proportional
         collection, common pool, equal return, and net result as separate reversible states.
-    21  Gini — shipped in Chapter III (GiniStage), rooms-comparison only.
-    22  progressive levy designer — ships inside the sandbox (M9), as a toy, no empirical claim.
-    23  outcome map — finite-run grid + a chosen Gini-0.5 contour; the smooth curve is labeled
-        FITTED (τ ≈ c·β²). Neither the contour nor the fit is described as a phase boundary.
+    14  matched rooms: the same fresh trade script runs with and without levy plus equal return.
+    15  outcome map: protocol-v2 finite runs, effective participation as the primary field,
+        a chosen 50-of-100 challenge contour, and a descriptive fitted levy ≈ c·stake² curve.
+        Neither the contour nor the fit is described as a phase boundary or policy rule.
 -->
 
 <Chapter id="levy" label="Put the levy in the rules" />
 
 ## Put the levy in the rules
 
-Your hands were always going to tire. So put a structural rule in the room: a proportional
-wealth levy plus an equal social return, applied on its own clock.
+Your hand gets tired. A rule does not.
+
+Once per measurement round, collect the same percentage of every fortune. Put every piece
+in one pool. Return the pool equally. That complete loop — levy plus shared return — is the
+counterforce I am testing.
 
 First freeze the trading. Four fortunes are enough to see every piece move.
 
 <Deferred load={() => import('$lib/widgets/tax/LevyLesson.svelte')} label="levy lesson" reserve="42rem" />
 
-Collection alone would shrink every circle by the same proportion and leave every wealth
-share unchanged. The equal return is what changes the shares. Below-average fortunes receive
-more than they contributed; an exactly average fortune breaks even; above-average fortunes
+Do not skip the return. Collection alone shrinks every circle by the same proportion and
+leaves the shares unchanged. The equal return changes them: below-average fortunes receive
+more than they contributed, an average fortune breaks even, and above-average fortunes
 contribute net. The room keeps every coin.
 
-<Chapter id="tax-against-trade" label="Tax against trade" />
+Here the return is literal coins. Outside this room it could be a dividend or a universally
+shared service. This model does not choose a budget. It only tests the shared return.
 
-## Tax against trade
+<Chapter id="tax-against-trade" label="Trade and return together" />
 
-Now turn trading back on. To isolate the new rule, write one fresh random script of partners
-and coin tosses and give it to two rooms. One gets only the trades. The other gets the same
-trades plus the shared counterforce.
+## Trade and return together
+
+Now unfreeze trading. I refuse to compare two unrelated lucky stories and call the difference
+tax. Instead, write one fresh random script of partners and coin tosses, then photocopy it.
+One room gets only the trades. The other gets the exact same trades plus the shared rule.
 
 <Deferred load={() => import('$lib/widgets/tax/MatchedRooms.svelte')} label="matched room comparison" reserve="38rem" />
 
-That comparison says what happened under one disclosed finite protocol. It does not choose a
-real tax code, and it does not promise the same numbers on a fresh random run. It isolates one
-thing: what the levy plus equal return changed while luck stayed matched.
+One matched pair is still one finite experiment. Run another and the numbers move. But within
+each pair, luck is held still. The only changed ingredient is the levy plus equal return.
 
-One pair is evidence, not a landscape. So measure many. Put stake on one axis and levy rate
-on the other. Every point is one finite
-experiment under the same protocol; its color records the measured outcome. You fill in the
-map.
+### One pair is not a landscape
+
+Now vary both dials. Stake goes across. Levy per round goes up. Each fresh finite run enters
+one square, and color answers the question we learned to ask: how many effective participants
+remain?
 
 <!--
   WIDGET: PhaseDiagram (legacy component name) — the reader
-  runs live rooms (SandboxWorld, fresh dice, ~2.3 s each) with snap-to-grid stake/tax dials;
-  each independent finished room contributes its complete outcome bundle to the shared
-  evidence store and paints its cell with measured tail-mean Gini. After three
-  plays, "fill in the rest" completes the 10×13 grid live in-page (two fixed seeds per
-  remaining cell, chunked under a frame budget; cached per session). White contour = chosen
-  finite-run Gini 0.5 outcome. Dashed curve = FITTED τ ≈ c·β². Neither is phase evidence.
+  runs live rooms (SandboxWorld, fresh dice, ~2.3 s each) with snap-to-grid stake/levy dials;
+  every independent finished room contributes its complete outcome bundle to the shared
+  evidence store and updates its cell's effective-participant mean. Reader runs pulse into
+  the aggregate instead of becoming a permanent second layer. After three plays, "fill in
+  the rest" completes the 10×15 grid in-page with at least four independent runs per cell,
+  chunked under a frame budget and cached per session. White contour = the chosen 50-of-100
+  participation challenge. Dashed curve = FITTED τ ≈ c·β². Neither is phase evidence.
 -->
 <Deferred load={() => import('$lib/widgets/phase/PhaseDiagram.svelte')} label="outcome map" reserve="42rem" />
 
-If you fill the map, it adds a chosen Gini 0.5 contour and a square-law fit. The contour is
-not a border between two proven phases. The fit asks a narrower question: how does the levy
-needed for the same measured outcome change as the stake changes?
+Fifty effective participants is my challenge line, not a law of nature. If you fill the map,
+the pale line connects settings that reached that chosen finite-run outcome. It is not a
+border between two phases.
+
+The dashed fit follows `levy ≈ c × stake²` over this measured range. Double the stake and
+the fitted levy for the same target grows by roughly four. That is not a universal tax formula.
+It is the relationship this room asks us to notice: a shared levy numerically much smaller
+than the risk on each trade can preserve a broad field for risk-taking.
+
+Those percentages live on different clocks: stake is at risk in each trade; levy is applied
+once per measurement round of one hundred trades. The fit compares their measured effects.
+It does not say the displayed percentages are interchangeable.
 
 <Chapter id="verdict" label="So — merit, or math?" />
 
