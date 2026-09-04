@@ -3,17 +3,20 @@
   import { GINI_RAMP as RAMP } from '../shared/presets';
 
   /** Grid axes: stake (x) × flat levy rate per round (y). Calibrated so the
-   * Gini spans ~0.05–0.98 and the 0.5 contour crosses every column
-   * (scripts/phase-calibrate.ts, 2026-07-06). */
+   * chosen 50-effective-participant line crosses every column. This is a
+   * reader challenge target, not a natural boundary. */
   const BETAS = Array.from({ length: 10 }, (_, i) => 0.05 + i * 0.05);
-  const TAXES = Array.from({ length: 13 }, (_, i) => i * 0.01);
+  const TAXES = Array.from({ length: 15 }, (_, i) => i * 0.01);
   const N = GUIDED_OUTCOME_PROTOCOL.n;
   const TRADES = GUIDED_OUTCOME_PROTOCOL.trades;
-  const SEEDS = [11, 271];
+  const PARTICIPATION_TARGET = N / 2;
+  const FILL_RUNS_PER_CELL = 4;
+  const EXAMPLE_STAKE = 0.2;
 
-  // Session cache: plays and the completed map survive scrolling away.
+  // Session cache: measured cells survive scrolling away.
   let cachedGrid: number[][] | null = null;
-  let cachedPlays: { ix: number; iy: number }[] | null = null;
+  let cachedCounts: number[][] | null = null;
+  let cachedReaderRuns = 0;
   let cachedDone = false;
 </script>
 
@@ -25,7 +28,8 @@
   import { assignStyles } from '../shared/agentStyle';
   import { countTrades, percent } from '../shared/format';
   import StopSlider from '../sandbox/StopSlider.svelte';
-  import { addOutcome, loadPhaseData } from '../sandbox/phaseGrid.svelte';
+  import { addOutcome, loadPhaseData, metricPointsFor } from '../sandbox/phaseGrid.svelte';
+  import { hasMinimumRuns, runsToMinimum } from './outcomeMap';
 
   // Owner review 2026-07-08: the reader plays rooms with the two dials; each
   // finished room paints ITS cell of the map. "Fill in the rest" completes
@@ -45,13 +49,19 @@
   const stakeIdx = $derived(BETAS.indexOf(beta));
   const taxIdx = $derived(TAXES.indexOf(taxRate));
 
-  let grid = $state<number[][]>(cachedGrid ?? TAXES.map(() => BETAS.map(() => NaN)));
-  let plays = $state<{ ix: number; iy: number }[]>(cachedPlays ?? []);
+  const cacheFitsGrid = cachedGrid?.length === TAXES.length
+    && cachedGrid.every((row) => row.length === BETAS.length)
+    && cachedCounts?.length === TAXES.length
+    && cachedCounts.every((row) => row.length === BETAS.length);
+  let grid = $state<number[][]>(cacheFitsGrid && cachedGrid ? cachedGrid : TAXES.map(() => BETAS.map(() => NaN)));
+  let counts = $state<number[][]>(cacheFitsGrid && cachedCounts ? cachedCounts : TAXES.map(() => BETAS.map(() => 0)));
+  let readerRuns = $state(cachedReaderRuns);
+  let lastPlayed = $state<{ ix: number; iy: number; nonce: number } | null>(null);
   let done = $state(cachedDone);
   let filling = $state(false);
   let fillProgress = $state(0);
 
-  const seedsFor = (ix: number, iy: number) => SEEDS.map((seed) => seed + ix * 101 + iy * 13);
+  const freshSeed = () => Math.floor(Math.random() * 0x1_0000_0000);
 
   function newWorld(b: number, tax: number, seed: number): IncrementalOutcomeRun {
     return new IncrementalOutcomeRun({
@@ -62,54 +72,67 @@
     });
   }
 
-  let world = $state(newWorld(BETAS[3], TAXES[2], seedsFor(3, 2)[0]));
+  let world = $state(newWorld(BETAS[3], TAXES[2], freshSeed()));
   let revision = $state(0);
   let playing = $state(false);
-  let liveGini = $state(0);
+  let liveEffective = $state(N);
   let liveTrades = $state(0);
-  let runIndex = $state(0);
-  let ensembleSum = 0;
-  let activeSeeds = seedsFor(3, 2);
 
   const TRADES_PER_FRAME = 1500; // ≈ 2.3 s per 200k-trade room at 60 fps
 
+  function recordOutcome(ix: number, iy: number, value: number): void {
+    const count = counts[iy][ix];
+    grid[iy][ix] = count === 0 ? value : (grid[iy][ix] * count + value) / (count + 1);
+    counts[iy][ix] = count + 1;
+  }
+
+  function cacheGrid(): void {
+    cachedGrid = grid.map((row) => row.slice());
+    cachedCounts = counts.map((row) => row.slice());
+  }
+
+  function restoreStoredOutcomes(): void {
+    for (const point of metricPointsFor(N, 'effectiveParticipants', GUIDED_OUTCOME_PROTOCOL)) {
+      const ix = BETAS.findIndex((value) => Math.abs(value - point.stake) < 1e-9);
+      const iy = TAXES.findIndex((value) => Math.abs(value - point.tax) < 1e-9);
+      if (ix < 0 || iy < 0 || counts[iy][ix] > 0) continue;
+      grid[iy][ix] = point.value;
+      counts[iy][ix] = point.count;
+    }
+    done = hasMinimumRuns(counts, FILL_RUNS_PER_CELL);
+    cachedDone = done;
+    grid = grid.slice();
+    counts = counts.slice();
+    cacheGrid();
+  }
+
   const ticker = createFixedTicker(() => {
     world.step(TRADES_PER_FRAME);
-    liveTrades = runIndex * TRADES + world.trades;
+    liveTrades = world.trades;
     revision++;
-    liveGini = measureWealth(world.wealth).gini;
+    liveEffective = measureWealth(world.wealth).effectiveParticipants;
     if (world.done) {
       const outcome = world.result();
-      ensembleSum += outcome.gini;
       addOutcome(GUIDED_OUTCOME_PROTOCOL, beta, taxRate, outcome);
-      if (runIndex + 1 < activeSeeds.length) {
-        runIndex++;
-        world = newWorld(beta, taxRate, activeSeeds[runIndex]);
-        revision++;
-        return;
-      }
-
       ticker.stop();
       playing = false;
-      const g = ensembleSum / activeSeeds.length;
       const ix = stakeIdx;
       const iy = taxIdx;
-      grid[iy][ix] = g;
+      recordOutcome(ix, iy, outcome.effectiveParticipants);
       grid = grid.slice();
-      if (!plays.some((p) => p.ix === ix && p.iy === iy)) plays.push({ ix, iy });
-      cachedGrid = grid.map((r) => r.slice());
-      cachedPlays = plays.map((p) => ({ ...p }));
+      counts = counts.slice();
+      readerRuns++;
+      cachedReaderRuns = readerRuns;
+      lastPlayed = { ix, iy, nonce: (lastPlayed?.nonce ?? 0) + 1 };
+      cacheGrid();
     }
   });
 
   function playRoom(): void {
     if (playing || filling) return;
-    activeSeeds = seedsFor(stakeIdx, taxIdx);
-    runIndex = 0;
-    ensembleSum = 0;
-    world = newWorld(beta, taxRate, activeSeeds[0]);
+    world = newWorld(beta, taxRate, freshSeed());
     liveTrades = 0;
-    liveGini = 0;
+    liveEffective = N;
     revision++;
     playing = true;
     ticker.start();
@@ -118,56 +141,48 @@
   function fillRest(): void {
     if (filling || done) return;
     filling = true;
-    const cells: { ix: number; iy: number }[] = [];
-    for (let iy = 0; iy < TAXES.length; iy++) {
-      for (let ix = 0; ix < BETAS.length; ix++) {
-        if (Number.isNaN(grid[iy][ix])) cells.push({ ix, iy });
-      }
-    }
+    const runs = runsToMinimum(counts, FILL_RUNS_PER_CELL);
     let next = 0;
-    let seedIndex = 0;
-    let cellSum = 0;
     let run: IncrementalOutcomeRun | null = null;
     const work = () => {
       const budget = performance.now() + 12;
-      while (next < cells.length && performance.now() < budget) {
-        const { ix, iy } = cells[next];
-        const seeds = seedsFor(ix, iy);
-        run ??= newWorld(BETAS[ix], TAXES[iy], seeds[seedIndex]);
+      while (next < runs.length && performance.now() < budget) {
+        const { ix, iy } = runs[next];
+        run ??= newWorld(BETAS[ix], TAXES[iy], freshSeed());
         run.step(2_000);
         if (run.done) {
           const outcome = run.result();
-          cellSum += outcome.gini;
+          recordOutcome(ix, iy, outcome.effectiveParticipants);
           addOutcome(GUIDED_OUTCOME_PROTOCOL, BETAS[ix], TAXES[iy], outcome);
-          seedIndex++;
           run = null;
-        }
-        if (seedIndex === seeds.length) {
-          grid[iy][ix] = cellSum / seeds.length;
-          cellSum = 0;
-          seedIndex = 0;
           next++;
         }
       }
       grid = grid.slice();
-      fillProgress = cells.length === 0 ? 1 : (next + seedIndex / SEEDS.length) / cells.length;
-      if (next < cells.length) {
+      counts = counts.slice();
+      fillProgress = runs.length === 0 ? 1 : next / runs.length;
+      if (next < runs.length) {
         fillFrame = requestAnimationFrame(work);
       } else {
         filling = false;
         done = true;
-        cachedGrid = grid.map((row) => row.slice());
         cachedDone = true;
+        cacheGrid();
       }
     };
     fillFrame = requestAnimationFrame(work);
   }
 
   const finished = $derived(done ? grid : null);
-  const contour = $derived.by(() => (finished ? contourSegments(finished, BETAS, TAXES, 0.5) : []));
+  const contour = $derived.by(() => (
+    finished ? contourSegments(finished, BETAS, TAXES, PARTICIPATION_TARGET) : []
+  ));
   const fitted = $derived.by(() =>
-    finished ? fitSquareRelationship(finished, BETAS, TAXES, 0.5, 'decreases') : null,
+    finished
+      ? fitSquareRelationship(finished, BETAS, TAXES, PARTICIPATION_TARGET, 'increases')
+      : null,
   );
+  const exampleTax = $derived(fitted ? fitted.c * EXAMPLE_STAKE * EXAMPLE_STAKE : null);
 
   const xOf = (b: number) =>
     PLOT.x + ((b - BETAS[0]) / (BETAS[BETAS.length - 1] - BETAS[0])) * (PLOT.w - cellW) + cellW / 2;
@@ -185,13 +200,15 @@
     return pts.join(' ');
   });
 
-  function colorOf(gini: number): string {
-    return RAMP[Math.min(RAMP.length - 1, Math.max(0, Math.floor(gini * RAMP.length)))];
+  function colorOf(effectiveParticipants: number): string {
+    const concentration = 1 - (effectiveParticipants - 1) / (N - 1);
+    return RAMP[Math.min(RAMP.length - 1, Math.max(0, Math.floor(concentration * RAMP.length)))];
   }
 
   let fillFrame = 0;
   onMount(() => {
     loadPhaseData();
+    restoreStoredOutcomes();
     return () => {
       ticker.stop();
       cancelAnimationFrame(fillFrame);
@@ -213,9 +230,9 @@
       />
       <div class="meters">
         <output>{countTrades(liveTrades)} trades</output>
-        <div class="meter" role="img" aria-label={`Gini ${liveGini.toFixed(2)}`}>
-          <div class="meter-fill" style={`inline-size: ${Math.min(100, liveGini * 100)}%`}></div>
-          <span class="meter-label">Gini: {liveGini.toFixed(2)}</span>
+        <div class="meter" role="img" aria-label={`${liveEffective.toFixed(1)} effective participants out of ${N}`}>
+          <div class="meter-fill participation" style={`inline-size: ${Math.min(100, liveEffective)}%`}></div>
+          <span class="meter-label">effective participants: {liveEffective.toFixed(1)}</span>
         </div>
       </div>
     </div>
@@ -224,34 +241,36 @@
       class="map"
       viewBox={`0 0 ${MAP_W} ${MAP_H}`}
       role="img"
-      aria-label="Outcome map: stake across, levy up; each played cell colored by its finite-run Gini"
+      aria-label="Outcome map: stake across, levy up; each cell colored by its finite-run effective participants"
     >
       {#each TAXES as tax, iy}
         {#each BETAS as b, ix}
-          {@const g = grid[iy][ix]}
+          {@const effective = grid[iy][ix]}
           <rect
             class="cell"
             x={PLOT.x + ix * cellW}
             y={PLOT.y + PLOT.h - (iy + 1) * cellH}
             width={cellW - 1}
             height={cellH - 1}
-            fill={Number.isNaN(g) ? 'rgb(60 53 43 / 6%)' : colorOf(g)}
+            fill={Number.isNaN(effective) ? 'rgb(60 53 43 / 6%)' : colorOf(effective)}
           >
-            <title>stake {percent(b)} · tax {percent(tax, 1)} per round → Gini {Number.isNaN(g) ? 'not run yet' : g.toFixed(2)}</title>
+            <title>stake {percent(b)} · levy {percent(tax, 1)} per round → effective participants {Number.isNaN(effective) ? 'not run yet' : `${effective.toFixed(1)} (${counts[iy][ix]} independent ${counts[iy][ix] === 1 ? 'run' : 'runs'})`}</title>
           </rect>
         {/each}
       {/each}
 
-      <!-- rooms the reader ran personally -->
-      {#each plays as p (p.ix + '-' + p.iy)}
-        <rect
-          class="played"
-          x={PLOT.x + p.ix * cellW + 1}
-          y={PLOT.y + PLOT.h - (p.iy + 1) * cellH + 1}
-          width={cellW - 3}
-          height={cellH - 3}
-        />
-      {/each}
+      <!-- A reader run pulses once into the aggregate; it is not a permanent second layer. -->
+      {#if lastPlayed}
+        {#key lastPlayed.nonce}
+          <rect
+            class="played"
+            x={PLOT.x + lastPlayed.ix * cellW + 1}
+            y={PLOT.y + PLOT.h - (lastPlayed.iy + 1) * cellH + 1}
+            width={cellW - 3}
+            height={cellH - 3}
+          />
+        {/key}
+      {/if}
 
       <!-- where the dials point right now -->
       <rect
@@ -272,7 +291,7 @@
       {/if}
 
       <text class="axis-label" x={PLOT.x + PLOT.w / 2} y={PLOT.y + PLOT.h + 28} text-anchor="middle">stake per trade</text>
-      <text class="axis-label rotated" x={PLOT.x - 28} y={PLOT.y + PLOT.h / 2} text-anchor="middle">tax per round</text>
+      <text class="axis-label rotated" x={PLOT.x - 28} y={PLOT.y + PLOT.h / 2} text-anchor="middle">levy per round</text>
       <text class="tick" x={PLOT.x + cellW / 2} y={PLOT.y + PLOT.h + 13} text-anchor="middle">{percent(BETAS[0])}</text>
       <text class="tick" x={PLOT.x + PLOT.w - cellW / 2} y={PLOT.y + PLOT.h + 13} text-anchor="middle">{percent(BETAS[BETAS.length - 1])}</text>
       <text class="tick" x={PLOT.x - 5} y={PLOT.y + PLOT.h - cellH / 2 + 3} text-anchor="end">0%</text>
@@ -282,7 +301,7 @@
         {#each RAMP as color, k}
           <rect x={PLOT.x + k * 14} y={PLOT.y + PLOT.h + 36} width="13" height="8" fill={color} />
         {/each}
-        <text class="tick" x={PLOT.x} y={PLOT.y + PLOT.h + 54} text-anchor="start">equal</text>
+        <text class="tick" x={PLOT.x} y={PLOT.y + PLOT.h + 54} text-anchor="start">100 equal</text>
         <text class="tick" x={PLOT.x + RAMP.length * 14} y={PLOT.y + PLOT.h + 54} text-anchor="end">one owner</text>
       </g>
     </svg>
@@ -290,31 +309,38 @@
 
   <div class="dials">
     <StopSlider label="stake" bind:value={beta} stops={BETAS} format={(v) => percent(v)} disabled={playing} />
-    <StopSlider label="tax /round" bind:value={taxRate} stops={TAXES} format={(v) => percent(v, 1)} disabled={playing} />
+    <StopSlider label="levy / round" bind:value={taxRate} stops={TAXES} format={(v) => percent(v, 1)} disabled={playing} />
   </div>
 
   <p class="caption" aria-live="polite">
     {#if filling}
-      Running every remaining room, live — {Math.round(fillProgress * 100)}% of the map painted.
+      Bringing every square to at least {FILL_RUNS_PER_CELL} independent rooms — {Math.round(fillProgress * 100)}% complete.
     {:else if done}
-      Dark: higher finite-run Gini. Light: lower finite-run Gini. The pale line marks the chosen Gini 0.5 outcome — it is
-      not a phase boundary. The dashed curve is <em>fitted</em>: levy ≈ {fitted ? fitted.c.toFixed(2) : '…'} × stake².
+      Light: broader participation. Dark: fewer effective participants. The pale line is my chosen challenge — 50 of
+      100 — not a phase boundary. The dashed curve is <em>fitted</em>: levy ≈ {fitted ? fitted.c.toFixed(2) : '…'} × stake².
     {:else if playing}
-      Run {runIndex + 1} of {SEEDS.length} is trading your dials — {percent(beta)} stake against a {percent(taxRate, 1)} levy.
-    {:else if plays.length === 0}
-      Every point is one fixed-length experiment: stake across, levy up. Pick your dials, run the room, and its measured
-      outcome paints that square.
+      One fresh room is trading your dials — {percent(beta)} stake against a {percent(taxRate, 1)} levy per round.
+    {:else if readerRuns === 0}
+      Every square is a fixed-length finite experiment: stake across, levy up. Pick your dials, run one fresh room, and
+      its effective-participant result enters that square.
     {:else}
-      {plays.length} {plays.length === 1 ? 'room' : 'rooms'} run and painted. Try dials on the other side of the map —
-      or fill in the rest.
+      {readerRuns} independent {readerRuns === 1 ? 'run' : 'runs'} added. Try another part of the map — or fill in the rest.
     {/if}
   </p>
+
+  {#if done && fitted && exampleTax !== null}
+    <p class="finding">
+      Read the 20% stake column. On the fitted 50-participant line, the levy lands near
+      <strong>{percent(exampleTax, 1)} per round</strong>. The levy number is much smaller than the stake.
+      Different clocks, one measured balance: levy against stake².
+    </p>
+  {/if}
 
   <div class="toolbar">
     <button class="primary" type="button" onclick={playRoom} disabled={playing || filling}>
       {playing ? 'Trading…' : 'Run this room'}
     </button>
-    {#if plays.length >= 3 && !done}
+    {#if readerRuns >= 3 && !done}
       <button type="button" onclick={fillRest} disabled={filling || playing}>Fill in the rest of the map</button>
     {/if}
   </div>
@@ -348,6 +374,20 @@
     fill: none;
     stroke: var(--paper-bright);
     stroke-width: 1.6;
+    pointer-events: none;
+    animation: absorb-run 1.4s ease-out forwards;
+  }
+
+  @keyframes absorb-run {
+    0% {
+      opacity: 1;
+      stroke-width: 3.5;
+    }
+
+    100% {
+      opacity: 0;
+      stroke-width: 0.5;
+    }
   }
 
   .cursor {
@@ -423,6 +463,34 @@
     --meter-bg: var(--paper-bright);
     --meter-size: 1.4rem;
     --meter-label-size: 0.7rem;
+  }
+
+  .meter-fill.participation {
+    background: linear-gradient(90deg, rgb(233 201 106 / 65%), rgb(89 152 91 / 75%));
+  }
+
+  .finding {
+    max-inline-size: 38rem;
+    margin-block: 0.9rem 0;
+    padding-block: 0.8rem;
+    padding-inline: 1rem;
+    border-inline-start: 3px solid var(--accent);
+    color: var(--ink-soft);
+    background: rgb(255 252 245 / 58%);
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .finding strong {
+    color: var(--accent-deep);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .played {
+      opacity: 0;
+      animation: none;
+    }
   }
 
 </style>
