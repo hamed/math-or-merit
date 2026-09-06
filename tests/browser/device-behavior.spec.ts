@@ -225,8 +225,12 @@ test('a guided outcome remains available when the reader reaches the sandbox', a
   await page.goto('/#tax-against-trade', { waitUntil: 'domcontentloaded' });
   const guidedMap = page.locator('[aria-label^="Play rooms with a stake and a levy dial"]');
   await loadDeferred(page, 'outcome map', guidedMap);
+  await expect(guidedMap).toContainText('effective participants');
+  await expect(guidedMap).not.toContainText('Gini 0.5');
   await guidedMap.getByRole('button', { name: 'Run this room' }).click();
-  await expect(guidedMap.getByText(/1 room run and painted/)).toBeVisible({ timeout: 12_000 });
+  await expect(guidedMap.getByText(/1 independent run added/)).toBeVisible({ timeout: 12_000 });
+  await expect(guidedMap.locator('.cell title').filter({ hasText: '1 independent run' })).toHaveCount(1);
+  await expect(guidedMap.locator('.played')).toHaveCSS('opacity', '0', { timeout: 3_000 });
   await expect.poll(() => page.evaluate(() => {
     const raw = localStorage.getItem('merit-or-math:outcome-points:v2');
     return raw ? Object.keys(JSON.parse(raw).cells).length : 0;

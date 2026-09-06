@@ -365,18 +365,16 @@ for how much faster.
 [tax.head] Now you try to stop it
 
 [tax.body]
-Reading about it is one thing. Try to fix it yourself.
+Enough watching. Put your hand in the room.
 
-Here is a live room, falling the usual way. Your job: keep it from collapsing. Your tool is blunt and satisfying — point at a circle that has grown too fat, and tax it. Whatever you pull out is shared back across the room.
+Keep at least twenty effective participants in the game. Tap a large fortune: one quarter of it goes into a common pool and returns in equal shares to all one hundred people. Choose the stake before you start. That changes the difficulty, not the rule.
+
+The room keeps trading while you work. Can your hand preserve the field, or will the game close around you? Nothing is locked behind winning. I want you to feel the job.
 
 [tax.after]
-Go ahead. Chase the big ones. Tap, tap, tap.
+Whatever your score, notice what your hand did. It watched, chose one holder, reacted, and did it again. That is a targeted intervention.
 
-Notice how it feels. The room keeps trading while you work — you tax one giant, and two more are already swelling behind your back. It is like bailing a boat that refills itself.
-
-Maybe you can hold it. Maybe you cannot. That is genuinely worth finding out, so I will not pretend to know the answer for you: can a fast enough hand keep a room fair?
-
-(There is a quieter question hiding in here, too: the money you take — should it be split evenly across everyone, or handed straight to whoever has least? Those are different choices, and they teach different lessons. Hold that thought.)
+What comes next is not a robot finger. It is a different rule: nobody is selected. The same percentage applies to every fortune, the pieces enter one pool, and the pool returns equally to everyone.
 
 ! keep true: whether a fast hand can hold the room is genuinely open. The game
 is not rigged to make you lose.
@@ -391,29 +389,43 @@ is not rigged to make you lose.
 [rule.head] Put the levy in the rules
 
 [rule.body]
-Your hands were always going to tire. So take you out of it: make the levy part of the room's physics, not a hero's reflexes.
+Your hand gets tired. A rule does not.
+
+Once per measurement round, collect the same percentage of every fortune. Put every piece in one pool. Return the pool equally. That complete loop — levy plus shared return — is the counterforce I am testing.
 
 First, see the tool alone — freeze the trading.
 
+[rule.after] Do not skip the return. Collection alone shrinks every circle by the same proportion and leaves the shares unchanged. The equal return changes them: below-average fortunes receive more than they contributed, an average fortune breaks even, and above-average fortunes contribute net. The room keeps every coin.
+
+Here the return is literal coins. Outside this room it could be a dividend or a universally shared service. This model does not choose a budget. It only tests the shared return.
+
 ---
 
-## 14 · Tax against trade
+## 14 · Trade and return together
 
-> picture: an empty grid — stake on one axis, tax on the other. The reader runs
-> rooms and each one paints its own square, until the frontier appears.
+> picture: an empty grid — stake on one axis, levy on the other. The reader runs
+> rooms and each result enters its square until the selected participation contour appears.
 
-[phase.head] Tax against trade
+[phase.head] Trade and return together
 
 [phase.body]
-Now both rules run at once: every trade pushes the room toward one owner, every levy pulls it back toward equal. Who wins depends on the two dials.
+Now unfreeze trading. I refuse to compare two unrelated lucky stories and call the difference tax. Instead, write one fresh random script of partners and coin tosses, then photocopy it. One room gets only the trades. The other gets the exact same trades plus the shared rule.
 
-Physicists have a picture for questions like this: a *phase map*. One axis per dial; every point on the map is a possible world; the color says how that world ends. Water has one — pressure against temperature, ice against steam. Here is an empty one for our room: stake against tax. You fill it in.
+One matched pair is still one finite experiment. Run another and the numbers move. But within each pair, luck is held still. The only changed ingredient is the levy plus equal return.
+
+### One pair is not a landscape
+
+Now vary both dials. Stake goes across. Levy per round goes up. Each fresh finite run enters one square, and color answers the question we learned to ask: how many effective participants remain?
 
 [phase.after]
-One map, two regimes. Below the frontier, the stake outruns the levy and the room slides toward its single owner — slower, but surely. Above it, the levy holds. And the frontier itself is not a straight trade-off: double the stake and you need roughly *four times* the tax to stand still.
+Fifty effective participants is my challenge line, not a law of nature. If you fill the map, the pale line connects settings that reached that chosen finite-run outcome. It is not a border between two phases.
 
-! keep true: the frontier is measured and the curve through it is fitted, not a
-law. "Roughly four times" is as precise as we may get.
+The dashed fit follows `levy ≈ c × stake²` over this measured range. Double the stake and the fitted levy for the same target grows by roughly four. That is not a universal tax formula. It is the relationship this room asks us to notice: a shared levy numerically much smaller than the risk on each trade can preserve a broad field for risk-taking.
+
+Those percentages live on different clocks: stake is at risk in each trade; levy is applied once per measurement round of one hundred trades. The fit compares their measured effects. It does not say the displayed percentages are interchangeable.
+
+! keep true: effective participants is the primary field; 50 is a chosen target;
+the map is finite-run evidence; the square curve is fitted, not a phase boundary or law.
 
 ---
 

@@ -38,5 +38,5 @@ activity credited to it.
 - Aggregate counts mean independent rooms, not stable-looking windows.
 - Storage and CSV formats need versioned migration and protocol-aware keys.
 - A zero-tax cell is a finite-horizon outcome, not a stationary-state claim.
-- The measured `tax ≈ c × stake²` family may be fitted to a named continuous outcome,
+- The measured `levy ≈ c × stake²` family may be fitted to a named continuous outcome,
   but it is not a phase boundary or universal policy law.

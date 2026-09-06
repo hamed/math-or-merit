@@ -159,14 +159,18 @@ talent, effort, judgment, and risk-taking to matter.
 **15. The measured outcome map**
 
 Map stake against periodic levy using standardized independent runs. Color continuously
-by effective participants. A selected participation contour is a challenge target, not
-a critical phase boundary. Reader runs remain noisy and pulse into the aggregate rather
-than becoming a permanent second layer.
+by effective participants. The guided map uses 50 of 100 effective participants as an
+explicitly chosen challenge contour, not a critical phase boundary. Each reader action
+adds one fresh independent run and pulses into the aggregate rather than becoming a
+permanent second layer. Completing the map brings every cell to a disclosed minimum of
+four fresh independent runs and reports each cell's actual count.
 
-Use the map to discover the measured relationship `tax ≈ c × stake²` over its calibrated
+Use the map to discover the measured relationship `levy ≈ c × stake²` over its calibrated
 range. The natural comparison is redistribution intensity relative to transaction
 variance. The important interpretation is that a levy numerically much smaller than an
-individual stake can preserve broad participation.
+individual stake can preserve broad participation. Always disclose that stake is per
+trade while levy is per measurement round: the fitted comparison connects different
+clocks rather than equating the displayed percentages.
 
 ### Act V — The laboratory
 
@@ -204,7 +208,7 @@ Commercial entries render only when a real destination exists.
 ## Deferred work
 
 - Progressive taxation, pending a separate literature and mechanism review.
-- Final slogan, remaining motif payoffs, and the prose rewrite beyond Act II.
+- Final slogan and remaining motif payoffs.
 - Additional social and contact destinations, pending their exact public URLs.
 - A scalar rank-mobility measure; near-zero rank churn can be misleading and its horizon
   needs validation. Existing individual trajectories remain exploratory.
