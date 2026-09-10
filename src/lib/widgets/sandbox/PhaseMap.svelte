@@ -101,7 +101,7 @@
     hi: 1,
     ticks: axisTicks,
     format: percentNumber,
-    label: 'tax %',
+    label: 'levy %',
   });
 
   function handleMove(fx: number | null, fy: number | null): void {
@@ -114,7 +114,7 @@
   <PlotFrame
     x={xAxis}
     y={yAxis}
-    title={`measured ${shortMetricName} — ${n}`}
+    title={`${shortMetricName} map — ${n}`}
     description={`Each mark is one finite run under a versioned every-round levy protocol: stake across, levy up, color = measured ${metricName}. Hover to preview cross-sections; click to change the drawing style.`}
     sharedZero
     onBody={cycleMode}
@@ -138,7 +138,7 @@
             height="11"
             fill={rampColor(ramp, colorValue(p.value))}
           >
-            <title>stake {percent(p.stake)} · tax {percent(p.tax)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
+            <title>stake {percent(p.stake)} · levy {percent(p.tax)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
           </rect>
         {/each}
       {:else}
@@ -150,12 +150,12 @@
             r={3 + Math.min(3, Math.log2(p.count + 1))}
             fill={rampColor(ramp, colorValue(p.value))}
           >
-            <title>stake {percent(p.stake)} · tax {percent(p.tax)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
+            <title>stake {percent(p.stake)} · levy {percent(p.tax)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
           </circle>
         {/each}
       {/if}
 
-      <!-- the dial cross-sections the two Gini plots are cut along -->
+      <!-- the dial cross-sections the two outcome plots are cut along -->
       <line class="section" x1={frame.x} y1={yOf(ct)} x2={frame.x + frame.w} y2={yOf(ct)} />
       <line class="section" x1={xOf(cs)} y1={frame.y} x2={xOf(cs)} y2={frame.y + frame.h} />
 

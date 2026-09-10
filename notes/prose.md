@@ -393,7 +393,7 @@ Your hand gets tired. A rule does not.
 
 Once per measurement round, collect the same percentage of every fortune. Put every piece in one pool. Return the pool equally. That complete loop — levy plus shared return — is the counterforce I am testing.
 
-First, see the tool alone — freeze the trading.
+First freeze the trading. Four fortunes are enough to see every piece move.
 
 [rule.after] Do not skip the return. Collection alone shrinks every circle by the same proportion and leaves the shares unchanged. The equal return changes them: below-average fortunes receive more than they contributed, an average fortune breaks even, and above-average fortunes contribute net. The room keeps every coin.
 
@@ -429,7 +429,7 @@ the map is finite-run evidence; the square curve is fitted, not a phase boundary
 
 ---
 
-## 15 · The earned conclusion
+## 16 · The earned conclusion
 
 > picture: no new spectacle. The argument lands before the reader receives the
 > whole machine.
@@ -460,7 +460,7 @@ real person's wealth.
 
 ---
 
-## 16 · The sandbox
+## 17 · The sandbox
 
 > picture: the whole machine, every dial exposed, full screen. This is the last
 > guided destination; no narrative verdict follows it.

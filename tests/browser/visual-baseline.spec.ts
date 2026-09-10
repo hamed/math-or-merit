@@ -48,6 +48,16 @@ test('@visual sandbox at 844 × 390', async ({ page }) => {
   await expectSandboxScreenshot(sandbox, 'sandbox-844x390.png');
 });
 
+test('@visual sandbox at 390 × 844', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  await loadDeferred(page, 'sandbox', sandbox);
+  await alignSandboxCapture(sandbox);
+  await hideRandomRoom(sandbox);
+  await expectSandboxScreenshot(sandbox, 'sandbox-390x844.png');
+});
+
 test('@visual sandbox at 1440 × 900', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });

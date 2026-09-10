@@ -40,6 +40,8 @@
   });
 
   const metricName = $derived(metric === 'gini' ? 'Gini' : 'effective participants');
+  const shortMetricName = $derived(metric === 'gini' ? 'Gini' : 'participants');
+  const axisName = $derived(axis === 'tax' ? 'levy' : 'stake');
 
   const X_FLOOR = 0.001; // the smallest nonzero dial stop
   const yFloor = $derived.by(() => {
@@ -54,7 +56,7 @@
     hi: 1,
     ticks: xLog ? logTicks(X_FLOOR, 1, 4) : niceLinearTicks(0, 1),
     format: percentNumber,
-    label: `${axis} %`,
+    label: `${axisName} %`,
     onToggle: gatedClick(() => (xLog = !xLog)),
   });
 
@@ -78,15 +80,15 @@
     return d;
   }
 
-  const other = $derived(axis === 'tax' ? 'stake' : 'tax');
+  const other = $derived(axis === 'tax' ? 'stake' : 'levy');
 
-  // closed-form limits (the only ones that exist): no tax → the yard sale
+  // closed-form limits (the only ones that exist): no levy → the yard sale
   // condenses to one owner (Gini → 1); no trades → the room stays equal.
   const theory = $derived.by(() => {
     if (axis === 'stake' && fixedRequested === 0) {
       return metric === 'gini'
-        ? { y: 1, label: 'theory: no tax → one owner' }
-        : { y: 1, label: 'theory: no tax → one participant' };
+        ? { y: 1, label: 'theory: no levy → one owner' }
+        : { y: 1, label: 'theory: no levy → one participant' };
     }
     if (axis === 'tax' && fixedRequested === 0) {
       return metric === 'gini'
@@ -98,7 +100,7 @@
 
   let hovered = $state(false);
 
-  // hover insight: the Gini this cut predicts at the dial's exact position
+  // hover insight: the selected metric this cut estimates at the dial's exact position
   const atDial = $derived.by(() => {
     if (cut.points.length < 2) return null;
     let lower = cut.points[0];
@@ -117,11 +119,11 @@
   <PlotFrame
     x={xAxis}
     y={yAxis}
-    title={`${metricName} vs ${axis} — at ${cut.fixedUsed !== null ? percentNumber(cut.fixedUsed) + '% ' : 'your '}${other}`}
-    description={`A cut through the measured finite-run every-round levy outcomes: how ${metricName} responds to the ${axis} dial with the ${other} held fixed. Hover the map to preview other cuts.`}
+    title={`${shortMetricName} vs ${axisName}`}
+    description={`A cut through the measured finite-run every-round levy outcomes: how ${metricName} responds to the ${axisName} dial with the ${other} held fixed. Hover the map to preview other cuts.`}
     sharedZero={!xLog && !yLog}
     onHoverChange={(inside) => (hovered = inside)}
-    ariaLabel={`${metricName} as a function of the ${axis} dial, cut through the measured outcome points at ${other} ${percent(fixedRequested)}. Click an axis to toggle its scale.`}
+    ariaLabel={`${metricName} as a function of the ${axisName} dial, cut through the measured outcome points at ${other} ${percent(fixedRequested)}. Click an axis to toggle its scale.`}
   >
     {#snippet children({ xOf, yOf, frame })}
       {@const d = buildPath(xOf, yOf)}
@@ -139,7 +141,7 @@
         {#each cut.points as p (p.v)}
           {#if !(xLog && p.v <= 0) && !(yLog && p.value <= 0)}
             <circle class="pt" cx={xOf(p.v)} cy={yOf(p.value)} r="2">
-              <title>{axis} {percent(p.v)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
+              <title>{axisName} {percent(p.v)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
             </circle>
           {/if}
         {/each}
@@ -155,7 +157,7 @@
           {@const ix = xOf(Math.max(dial, xLog ? X_FLOOR : 0))}
           {@const iy = yOf(Math.max(atDial, yLog ? yFloor : 0))}
           <circle class="at-dot" cx={ix} cy={iy} r="2.6" />
-          <text class="at-label" x={ix + 5} y={iy - 4} text-anchor="start">measured near {atDial.toFixed(2)}</text>
+          <text class="at-label" x={ix + 5} y={iy - 4} text-anchor="start">measured near {atDial.toFixed(metric === 'gini' ? 2 : 1)}</text>
         {/if}
       </g>
     {/snippet}

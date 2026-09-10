@@ -279,7 +279,7 @@
 
   const plotLabel: Record<SandboxPlotId, string> = {
     phase: 'map',
-    gtax: 'tax cut',
+    gtax: 'levy cut',
     gstake: 'stake cut',
     hist: 'histogram',
     lorenz: 'Lorenz',
@@ -505,7 +505,7 @@
     {#if show.stats}
       <div class="stats">
         <output data-primary-metric>
-          {mapMetric === 'gini' ? `Gini ${gini.toFixed(2)}` : `${effectiveParticipants.toFixed(1)} of ${n} effective`}
+          {mapMetric === 'gini' ? `Gini ${gini.toFixed(2)}` : `effective participants ${effectiveParticipants.toFixed(1)} / ${n}`}
         </output>
         <output>{latestTurnover.toFixed(3)} roomfuls / round</output>
         <output>{countTrades(trades)} trades</output>
@@ -602,7 +602,7 @@
         />
       {/if}
       {#if ctl.clickTax}
-        <StopSlider label="tax per click" bind:value={clickRate} stops={RATE_STOPS} format={rateLabel} {expert} />
+        <StopSlider label="levy per click" bind:value={clickRate} stops={RATE_STOPS} format={rateLabel} {expert} />
       {/if}
     </div>
   </div>
@@ -613,7 +613,7 @@
       {#if ctl.clickTax || ctl.news}
         <fieldset>
           <legend>on click</legend>
-          {#each [['tax', 'tax'], ['press', '📸']] as [id, label]}
+          {#each [['tax', 'levy'], ['press', '📸']] as [id, label]}
             <button
               type="button"
               class:primary={game === id}
@@ -669,7 +669,7 @@
           type="button"
           class:primary={expert}
           aria-pressed={expert}
-          title="Raw numbers accept anything — negative tax included"
+          title="Raw numbers accept anything — negative levy included"
           onclick={() => (expert = !expert)}
         >{expert ? 'dials' : '123'}</button>
       </fieldset>
