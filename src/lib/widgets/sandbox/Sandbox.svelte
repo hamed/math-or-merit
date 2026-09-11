@@ -287,7 +287,7 @@
     time: 'history',
   };
 
-  /** Room clicks: the tax game levies; the press game takes a photo. */
+  /** Room clicks: the manual levy game levies; the press game takes a photo. */
   function tapAgent(index: number): void {
     if (game === 'press') {
       photograph(index);

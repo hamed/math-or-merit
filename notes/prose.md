@@ -401,7 +401,7 @@ Here the return is literal coins. Outside this room it could be a dividend or a 
 
 ---
 
-## 14 · Trade and return together
+## 14–15 · Trade and return together
 
 > picture: an empty grid — stake on one axis, levy on the other. The reader runs
 > rooms and each result enters its square until the selected participation contour appears.

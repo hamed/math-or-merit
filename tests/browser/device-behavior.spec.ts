@@ -460,7 +460,7 @@ test('the manual intervention game measures the field instead of punishing a win
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#stop-it', { waitUntil: 'domcontentloaded' });
   const game = page.locator('[aria-label="A live trading room where manual levies keep participation open"]');
-  await loadDeferred(page, 'tax game', game);
+  await loadDeferred(page, 'manual levy game', game);
 
   await expect(game.getByText(/effective participants:/)).toBeVisible();
   await expect(game.getByText('Gini:', { exact: false })).toHaveCount(0);
