@@ -10,6 +10,13 @@ Tone: prose-dominant educational essay with inline interactive widgets, in the s
 
 Core hook: a fair local exchange process can still produce extreme wealth concentration.
 
+## Current handoff
+
+Before starting a new development phase, read `notes/current-state.md`. It is the
+operational status and points to the authoritative narrative, prose, and research files.
+Update it when a phase merges, the published release changes, or the next workstream is
+chosen. Do not infer current work from historical decision logs alone.
+
 ## Stack
 
 * Vite
