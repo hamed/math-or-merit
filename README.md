@@ -8,6 +8,12 @@ This project turns that result into a prose-first interactive essay with small i
 
 The model sits in the tradition of econophysics and wealth-condensation models, with a visual and interactive style inspired by explorable explanations.
 
+## Development
+
+Start with the [current-state handoff](notes/current-state.md). It records the active
+branch and release status, the source-of-truth reading order, and the next development
+seams without turning historical decision logs into a second roadmap.
+
 ## Research
 
 The evidence ledger starts at [`notes/research.md`](notes/research.md). It distinguishes

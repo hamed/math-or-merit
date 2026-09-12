@@ -174,10 +174,14 @@ test('the sandbox opens as a fresh participation-first lab with one mobile plot 
   const sandbox = page.locator('.sandbox.full');
   await loadDeferred(page, 'sandbox', sandbox);
 
-  await expect(sandbox.locator('[data-primary-metric]')).toHaveText('100.0 of 100 effective');
+  await expect(sandbox.locator('[data-primary-metric]')).toHaveText('effective participants 100.0 / 100');
   await expect(sandbox.getByRole('slider', { name: 'levy every' })).toBeVisible();
+  await expect(sandbox.getByRole('slider', { name: 'levy per click' })).toBeVisible();
   await expect(sandbox.locator('.plot:visible')).toHaveCount(1);
   await expect(sandbox.getByRole('button', { name: 'map', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(sandbox.getByRole('button', { name: 'levy cut', exact: true })).toBeVisible();
+  await expect(sandbox.getByRole('button', { name: 'tax cut', exact: true })).toHaveCount(0);
+  await expect(sandbox.locator('.plot-phase')).toContainText('levy %');
 
   const phasePlot = sandbox.locator('.plot-phase');
   const beforeZoom = await phasePlot.boundingBox();
@@ -188,6 +192,7 @@ test('the sandbox opens as a fresh participation-first lab with one mobile plot 
   await phasePlot.getByRole('button', { name: 'Shrink the plot back' }).click();
 
   await sandbox.getByRole('button', { name: 'stake cut', exact: true }).click();
+  await expect(sandbox.locator('.plot-gstake')).toContainText('no levy');
   const theoryPosition = await sandbox.locator('.plot-gstake').evaluate((plot) => ({
     line: Number(plot.querySelector('.theory')?.getAttribute('y1')),
     label: Number(plot.querySelector('.theory-label')?.getAttribute('y')),
@@ -455,7 +460,7 @@ test('the manual intervention game measures the field instead of punishing a win
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/#stop-it', { waitUntil: 'domcontentloaded' });
   const game = page.locator('[aria-label="A live trading room where manual levies keep participation open"]');
-  await loadDeferred(page, 'tax game', game);
+  await loadDeferred(page, 'manual levy game', game);
 
   await expect(game.getByText(/effective participants:/)).toBeVisible();
   await expect(game.getByText('Gini:', { exact: false })).toHaveCount(0);

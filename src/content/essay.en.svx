@@ -431,7 +431,7 @@ the stake before you start. That changes the difficulty, not the rule.
 The room keeps trading while you work. Can your hand preserve the field, or will the game
 close around you? Nothing is locked behind winning. I want you to feel the job.
 
-<Deferred load={() => import('$lib/widgets/tax/TaxGame.svelte')} label="tax game" reserve="30rem" />
+<Deferred load={() => import('$lib/widgets/tax/TaxGame.svelte')} label="manual levy game" reserve="30rem" />
 
 Whatever your score, notice what your hand did. It watched, chose one holder, reacted, and
 did it again. That is a targeted intervention.

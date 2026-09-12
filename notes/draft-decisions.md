@@ -1,5 +1,10 @@
 # Draft decisions — opening essay slice
 
+> Historical provenance: this log preserves intermediate and superseded decisions. For
+> current product, branch, release, and next-work status, start with
+> [`current-state.md`](current-state.md). `outline.md` remains the narrative source of
+> truth.
+
 Running log of decisions and open items for the prose draft in
 [`src/content/essay.en.svx`](../src/content/essay.en.svx). It records where the draft
 **departs** from `outline.md` and `research/chapters-1-3-brief.md`, why, and what is
