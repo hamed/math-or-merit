@@ -28,8 +28,42 @@ State of the work, by the brief's own plan (Part 9):
   (pile counts on demand; the same decade marks on both rulers, sliding from
   crowded to even) and `EffectiveParticipantsStage` (exact square; an emptied
   holder stays visible as a dashed ring).
-- **Phases 2–6: gated** on the owner's answers — ADR-017 yes/no, the reveal's
-  stake (0.35 vs "half of the poorer"), the reel word lists, the cow cut.
+- **Owner's answers (2026-09-24):** ADR-017 yes, with Paraglide; reveal at 0.5;
+  Red on the left is permanent; agent picks the reel lists; the cow keeps every
+  plate and loses text where it can. Recorded in D19.
+- **Phases 2–4: done, on `feat/step-stage`** (stacked on the groundwork PR, #19):
+  - *Words:* Paraglide 2, locales en + fa (fa empty, falls back to English).
+    `scripts/prose-to-messages.ts` generates `messages/en.json` from prose.md;
+    `src/lib/content/prose.test.ts` refuses a stale file and enforces bubble
+    limits. `src/lib/i18n.ts` is the seam (`say(key, values)`, locale digits,
+    the one `dir`). **After any prose.md edit, run the script.**
+  - *The player:* `stage/steps.ts` (headless machine, holds, restore) and
+    `stage/StepStage.svelte` (engagement, one input rule, arrival, auto steps).
+    `stage/Bubble.svelte`, `stage/SpeakerText.svelte`, `stage/ambient.ts`.
+  - *Costumes:* `PROTAGONISTS` and `RESERVED_CIRCLE_PAIRS` in `agentStyle.ts`,
+    measured by `shared/cvd.ts` (Machado 2009 + CIEDE2000). Exact-pair
+    reservation was not enough for CVD readers; circles now avoid 12 pairs.
+  - *The pair stage:* `stage/scenes/pair/` — `script.ts` (79 steps as data, each
+    with the POSE it leaves: tests prove every spoken number is the number on
+    screen), `crowd.ts` (the authored bites, rule-shaped, ending exactly 15/1),
+    `layout.ts`, `game.ts` (ROUNDS/HOLDINGS, moved unchanged), `PairScene.svelte`.
+    Mounted at the top of the essay in place of the timed opening.
+  - *Branches:* `stage/Branch.svelte` + `stage/branch.ts`. B1 is CowCastScene
+    with its bridge/model beats removed and five captions; B2 is
+    `PersonTradeScene part="reduction"`. The old spherical-human chapter and
+    its narrated trade are gone from the main flow.
+- **Verified (2026-09-24):** 319 tests; build 0 warnings; wheel sweep reaches
+  both ends at 1280 px, 390 px and reduced motion with 0 stalls and 0 console
+  errors (the sweep performs the two holds itself, as a reader must);
+  keyboard-only through both holds; restore on reload; under the `fa` locale
+  MATH/Red stay left and MERIT/Blue right while everything else mirrors;
+  skipped branches download 0 plates.
+- **Phases 5–6: not started** — Scene 15 (prediction + bet), Scene 16 (the reveal
+  with Blue and Red in the room), and chapters 7.1–7.8 as dialogue.
+- **Proposed deletions, not done (each costs nothing on screen):** the trade half
+  of `PersonTradeScene` (no longer mounted); `OpeningScene.svelte` and its tests
+  (no longer mounted); `WinnerStory` (a second copy of the paper `NewsFlash`
+  prints — costs its one receipt line).
 
 **Two things the brief assumes that are not true of the code:** (1) A2's locale
 machinery does not exist — no Paraglide, no `dir`, nothing reads a locale (see
@@ -550,6 +584,29 @@ Screenshot beats and LOOK at them. Calibration scripts: `npx vite-node
 scripts/phase-calibrate.ts` / `phase-stability.ts`.
 
 ## GSAP + Svelte gotchas (each cost a bug this session)
+
+- **`npm run build` only compiles what is imported.** A new component nobody
+  mounts yet can carry errors and warnings the build never reports. Compile it
+  directly (`svelte/compiler`'s `compile`) until it is wired in.
+- **A local named `state` beside the `$state` rune** is a store/rune conflict
+  in Svelte 5. Name it anything else.
+- **`bind:this` inside `{#if}`** trips `non_reactive_update` for every bound
+  element. When a part is only sometimes needed, keep it rendered and hide it
+  (`style:display`) instead.
+- **A GSAP tween's target cannot be a function.** Make the objects to be
+  tweened before the timeline is built (hidden if need be), so the timeline owns
+  every tween it plays and `kill()` stops them all.
+- **Focus scrolls the page.** Tabbing onto a control near the foot of a
+  viewport-tall stage (inside `scroll-padding-block`) moved the page 416px and
+  silently disengaged the stage. `StepStage` realigns on `focusin`. Anything
+  invisible but still in the DOM (a cleared title's links) must be `inert`, or
+  the tab order walks through things nobody can see.
+- **The wheel sweep must wait out the gesture window** before calling a step a
+  stall: inside a step stage one gesture is one step by design, so a probe
+  wheel 80ms after the last one is swallowed on purpose.
+- **Scroll to lazily loaded content only after it mounts** (listen for
+  `DEFERRED_MOUNTED_EVENT`): aiming at the placeholder lands the reader
+  hundreds of pixels off once the pin it creates moves the page.
 
 - **A pinned scene inside a flex container loses its scroll length.** GSAP
   inserts its pin-spacer as a child of the parent; as a flex item its height
