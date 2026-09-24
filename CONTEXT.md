@@ -4,7 +4,46 @@ Read `AGENTS.md` first (architecture law) and `MEMORY.md` (durable lessons and
 owner preferences). This file is the *state* snapshot: what is built, what was
 decided, how to verify, what remains. Written 2026-07-06 after the scrollytelling
 rebuild; last updated 2026-08-26 after the prose pass and the opening/trade
-rounds (R16–R28).
+rounds (R16–R28). **2026-09-24: see "The dialogue brief" directly below — the
+essay's direction changed, and it overrides older notes here where they
+disagree.** PRs #9–#17 (phases 4–10) merged after 2026-08-27 and are not
+written up in this file; trust `git log` and `notes/outline.md` for them.
+
+## The dialogue brief (2026-09-24) — READ THIS FIRST
+
+The owner's design brief `inbox/2026-09-24 note.md` (v3) turns the essay from a
+narrator into a dialogue: **Blue** ("the richest man in this world", on the
+right, under MERIT) and **Red** ("the poorest man in this world", a physicist,
+on the left, under MATH) argue from the title to the sandbox, and the reader
+decides. Decision record: `notes/draft-decisions.md` D19 (supersedes D8).
+
+State of the work, by the brief's own plan (Part 9):
+
+- **Phase 0 — decisions and words: done, on `feat/dialogue-groundwork`.**
+  ADR-017 (the step stage) is drafted and **PROPOSED, not accepted — nothing is
+  built until the owner says yes.** `notes/prose.md` now holds the whole
+  dialogue script and LEADS the build; the narrator's lines wait, word for
+  word, under its "Retiring" appendix until their replacement ships.
+- **Phase 1 — no-decision fixes: done, same branch.** `DistributionStage`
+  (pile counts on demand; the same decade marks on both rulers, sliding from
+  crowded to even) and `EffectiveParticipantsStage` (exact square; an emptied
+  holder stays visible as a dashed ring).
+- **Phases 2–6: gated** on the owner's answers — ADR-017 yes/no, the reveal's
+  stake (0.35 vs "half of the poorer"), the reel word lists, the cow cut.
+
+**Two things the brief assumes that are not true of the code:** (1) A2's locale
+machinery does not exist — no Paraglide, no `dir`, nothing reads a locale (see
+ADR-017's sub-decision); (2) the brief was written against `main` and does not
+know `feat/circle-overture`.
+
+**`feat/circle-overture` (3 commits, 2026-09-21…23, NOT merged):** built the
+earlier 2026-09-20 note — circles behind the title, a coin payout, bites via
+`applyYardSaleTrade`, two survivors named red (rich) and blue (poor), the cow
+and the reduction as side trips, the trade entered at the seated pair. The brief
+reverses its roles and colours and replaces its three-section structure with one
+step stage, so **do not merge it as it stands.** Raw material worth taking:
+`circleField.ts` (tested headless physics), the reel helper and the one-line
+title pose in `OpeningScene`, `SideTrip.svelte`, `scripts/opening-calibrate.ts`.
 
 ## Where things stand
 
@@ -511,6 +550,13 @@ Screenshot beats and LOOK at them. Calibration scripts: `npx vite-node
 scripts/phase-calibrate.ts` / `phase-stability.ts`.
 
 ## GSAP + Svelte gotchas (each cost a bug this session)
+
+- **A pinned scene inside a flex container loses its scroll length.** GSAP
+  inserts its pin-spacer as a child of the parent; as a flex item its height
+  stopped contributing to the page, and a 16-beat scene played inside one
+  viewport of scroll (found on `feat/circle-overture`, 2026-09-23). A full
+  `ScrollTrigger.refresh()` does not fix it because nothing is wrong with the
+  trigger. Any wrapper around a `PinScene` is `display: block`.
 
 - gsap reads an SVG `transform="translate(x y)"` attr into its x/y — tweens are
   ABSOLUTE. `fromTo(el, {y: -14}, {y: 0})` sends the element to the viewBox top;
