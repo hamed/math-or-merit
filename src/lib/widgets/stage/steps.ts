@@ -1,0 +1,193 @@
+/**
+ * The step stage's contract and its state machine (ADR-017).
+ *
+ * A stage is a list of steps, as data. The player that drives it never names a
+ * scene and never branches on one (ADR-005, ADR-013's guard): what a step LOOKS
+ * like lives in the scene; what a step IS lives here. This file is headless —
+ * no DOM, no Svelte, no GSAP — so every rule about moving through a stage is a
+ * unit test rather than a screenshot.
+ */
+
+export type Speaker = 'blue' | 'red';
+
+/** How a step lets go. */
+export type Wait =
+  /** The default: the reader's next input advances. */
+  | { readonly kind: 'reader' }
+  /** Advances by itself (the teletype, the reels, the crowd). */
+  | { readonly kind: 'auto'; readonly ms: number }
+  /** Holds until the scene reports the reader has done the thing (8 and 8). */
+  | { readonly kind: 'action' };
+
+export interface LineSpec {
+  readonly who: Speaker | null;
+  /** A message key from messages/{locale}.json — never literal words (A2). */
+  readonly message: string;
+}
+
+export interface StepSpec {
+  /** Unique within the stage. Also what a hold is released by. */
+  readonly id: string;
+  readonly lines?: readonly LineSpec[];
+  readonly wait: Wait;
+}
+
+export const READER: Wait = { kind: 'reader' };
+export const HOLD: Wait = { kind: 'action' };
+export const auto = (ms: number): Wait => ({ kind: 'auto', ms });
+
+/** Sanity-checkable at data level, like `validateBeats`. */
+export function validateSteps(steps: readonly StepSpec[]): string[] {
+  const problems: string[] = [];
+  if (steps.length === 0) problems.push('a stage needs at least one step');
+  const seen = new Set<string>();
+  for (const step of steps) {
+    if (seen.has(step.id)) problems.push(`duplicate step id "${step.id}"`);
+    seen.add(step.id);
+    if (step.wait.kind === 'auto' && !(step.wait.ms > 0)) {
+      problems.push(`step "${step.id}" waits a non-positive time`);
+    }
+  }
+  return problems;
+}
+
+/**
+ * What an input did.
+ *
+ * `moved`  — the stage is on a new step.
+ * `held`   — forward was asked for at a hold the reader has not released yet.
+ * `end`    — forward past the last step: the gesture belongs to the page.
+ * `start`  — back before the first step: the gesture belongs to the page.
+ */
+export type StepResult = 'moved' | 'held' | 'end' | 'start';
+
+export interface StepSnapshot {
+  readonly index: number;
+  readonly released: readonly string[];
+}
+
+export class StepMachine {
+  readonly steps: readonly StepSpec[];
+  private current = 0;
+  /** Holds, once released, stay released: stepping back never asks again. */
+  private readonly released = new Set<string>();
+
+  constructor(steps: readonly StepSpec[]) {
+    const problems = validateSteps(steps);
+    if (problems.length > 0) throw new RangeError(problems.join('; '));
+    this.steps = steps;
+  }
+
+  get index(): number {
+    return this.current;
+  }
+
+  get step(): StepSpec {
+    return this.steps[this.current];
+  }
+
+  get atFirst(): boolean {
+    return this.current === 0;
+  }
+
+  get atLast(): boolean {
+    return this.current === this.steps.length - 1;
+  }
+
+  /** Whether the reader is being waited on right now. */
+  get holding(): boolean {
+    return this.step.wait.kind === 'action' && !this.released.has(this.step.id);
+  }
+
+  isReleased(id: string): boolean {
+    return this.released.has(id);
+  }
+
+  next(): StepResult {
+    if (this.holding) return 'held';
+    if (this.atLast) return 'end';
+    this.current++;
+    return 'moved';
+  }
+
+  back(): StepResult {
+    if (this.atFirst) return 'start';
+    this.current--;
+    return 'moved';
+  }
+
+  /**
+   * The scene reports a hold is done. Releasing the CURRENT step also moves on:
+   * the reader just did what was asked, and making them ask again is friction.
+   * Returns what happened to the position.
+   */
+  release(id: string): StepResult | 'noted' {
+    if (!this.steps.some((step) => step.id === id)) return 'noted';
+    const wasCurrent = this.step.id === id && this.holding;
+    this.released.add(id);
+    return wasCurrent ? this.next() : 'noted';
+  }
+
+  /** Jump — for restore, and for arriving at a stage from below. */
+  seek(index: number): void {
+    this.current = Math.max(0, Math.min(this.steps.length - 1, Math.trunc(index)));
+  }
+
+  snapshot(): StepSnapshot {
+    return { index: this.current, released: [...this.released] };
+  }
+
+  /**
+   * Restore a snapshot, trusting none of it: an unknown hold id is dropped and
+   * an index is clamped, because a stale session entry from an older build
+   * must never strand a reader mid-stage.
+   */
+  restore(snapshot: unknown): boolean {
+    if (typeof snapshot !== 'object' || snapshot === null) return false;
+    const { index, released } = snapshot as Partial<StepSnapshot>;
+    if (typeof index !== 'number' || !Number.isFinite(index)) return false;
+    const ids = new Set(this.steps.map((step) => step.id));
+    if (Array.isArray(released)) {
+      for (const id of released) if (typeof id === 'string' && ids.has(id)) this.released.add(id);
+    }
+    // Never restore onto a step beyond an unreleased hold: that would skip the
+    // thing the stage exists to make the reader do.
+    let target = Math.max(0, Math.min(this.steps.length - 1, Math.trunc(index)));
+    for (let i = 0; i < target; i++) {
+      const step = this.steps[i];
+      if (step.wait.kind === 'action' && !this.released.has(step.id)) {
+        target = i;
+        break;
+      }
+    }
+    this.current = target;
+    return true;
+  }
+}
+
+/**
+ * What a scene implements. The player decides WHEN; the scene decides WHAT.
+ *
+ * `play` animates into a step from the one before it, in time. `settle` jumps
+ * to a step's authored end state with no motion, and must be idempotent — it
+ * is what stepping back, reduced motion, restore and arriving from below all
+ * use, so it is the scene's real definition of each step.
+ */
+export interface StepScene {
+  play(index: number, from: number): void;
+  settle(index: number): void;
+  /** Forward was asked for at a hold: show the reader what is being waited on. */
+  nudge?(index: number): void;
+}
+
+export interface StepStageContext {
+  attach(steps: readonly StepSpec[], scene: StepScene): void;
+  /** The scene reports a hold is done (both clicked, 8 and 8). */
+  release(id: string): void;
+  /** Reactive: the step on screen. */
+  readonly index: number;
+  /** Reactive: the reader asked for no motion. */
+  readonly reduced: boolean;
+}
+
+export const STEP_STAGE_CONTEXT = 'merit-or-math.step-stage';
