@@ -3,11 +3,14 @@
  * narrated promises hold numerically (seed scans recorded in the build notes):
  *
  * - `ROOM_BETA = 0.2` is the room default (game, crowd, stake dial baseline);
- * - `REVEAL_BETA = 0.35` is the first dramatic run's aggressive stake (owner
- *   review 2026-07-08: "one huge one in a shorter time"). Calibrated over 120
- *   unseeded runs at 100k trades, N = 100: median top share 75%, p5 47%,
- *   p95 93%, min 40% — so the essay's claim stays distributional ("in most
- *   runs, more than half");
+ * - `REVEAL_BETA = 0.5` is the reveal's stake: exactly "half of what the
+ *   poorer one has", the rule the two-person game teaches, so the words and
+ *   the run agree (owner, 2026-09-24: "sooner, bigger, more drama"). It was
+ *   0.35 until then, which made the taught rule a false line. Measured by
+ *   `scripts/reveal-calibrate.ts` — 120 unseeded runs at 100k trades, N = 100,
+ *   twice: median top share 93–95%, p5 61–67%, p95 99–100%, min 51–53%, over
+ *   half in 240 of 240. The claim still stays distributional ("in most runs,
+ *   more than half"); a finite scan licenses no "always";
  * - seed 332 is the curated fallback room at ROOM_BETA (top share 71%,
  *   runner-up 8.8%), used by the distribution stages when the reader hasn't
  *   run a room. Styles are display-only and never enter the simulation
@@ -15,7 +18,7 @@
  */
 export const ROOM_N = 100;
 export const ROOM_BETA = 0.2;
-export const REVEAL_BETA = 0.35;
+export const REVEAL_BETA = 0.5;
 export const REVEAL_TRADES = 100_000;
 export const REVEAL_SEED = 332;
 

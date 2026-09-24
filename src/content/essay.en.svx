@@ -179,8 +179,9 @@ A hundred equal fortunes. The colors and corners are costumes. The game cannot s
 
 <!--
   WIDGET: RevealRun (R4, owner review 2026-07-08) — the real Yard-Sale rule, UNSEEDED
-  ("do not use seed, or even bother its concept"). Aggressive REVEAL_BETA = 0.35 so one
-  giant appears fast: calibrated median top share 75%, p5 47% over 120 runs. The interpretation
+  ("do not use seed, or even bother its concept"). REVEAL_BETA = 0.5 (2026-09-24, was 0.35):
+  exactly the half-of-the-poorer rule the game teaches, and one giant appears fast —
+  median top share 93–95%, p5 61–67% over 2×120 runs (scripts/reveal-calibrate.ts). The interpretation
   below waits for the run and reads its actual top share. When a run finishes, the widget prints
   a morning-paper card with the winner's portrait and a machine-confident headline about
   their inert traits (folds the old WinnerStory beat in; the separate rerun widget was

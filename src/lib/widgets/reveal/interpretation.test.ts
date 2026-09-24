@@ -4,7 +4,7 @@ import { interpretRuns } from './interpretation';
 
 const run = (winner: number, topShare: number): LoggedRun => ({
   seed: winner + 10,
-  beta: 0.35,
+  beta: 0.5,
   trades: 100_000,
   wealth: new Float64Array([topShare, 1 - topShare]),
   winner,
