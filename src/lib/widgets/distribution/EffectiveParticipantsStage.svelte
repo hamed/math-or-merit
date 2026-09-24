@@ -26,12 +26,26 @@
   let suppressedClick = -1;
 
   const metrics = $derived(pairingMetrics(owners));
+  /** The coin on its way somewhere, however it was picked up. */
+  const movingCoin = $derived(selectedCoin ?? (dragMoved ? draggingCoin : null));
   const participationPosition = $derived(
     ((metrics.effectiveParticipants - 1) / (PARTICIPATION_HOLDERS - 1)) * 100,
   );
   const wealth = $derived(Float64Array.from(metrics.holdings, (holding) => holding / PARTICIPATION_COINS));
   const roomMargin = $derived(width * 0.12);
-  const positions = $derived(roomPositions(PARTICIPATION_HOLDERS, width, width, roomMargin));
+  /**
+   * An exact square, not the room's usual jitter: the words under this room
+   * promise "four people at the corners of a square room", and a jittered
+   * four reads as a mistake rather than as a crowd. The shared jitter is
+   * untouched — this room alone asks for zero.
+   */
+  const positions = $derived(roomPositions(PARTICIPATION_HOLDERS, width, width, roomMargin, 0));
+  /**
+   * Someone holding no coins has zero area and would vanish — and a reader
+   * cannot hand a coin back to a person they cannot see. A dashed ring marks
+   * where they stand; the fill inside stays exactly what they own.
+   */
+  const presenceRadius = $derived(Math.max(14, ((width - 2 * roomMargin) / 2) * 0.12));
   const coinRadius = $derived(Math.max(8.5, Math.min(13, width / 42)));
   const coinStep = $derived(coinRadius * 2.15);
   const dropRadius = $derived(Math.max(40, width * 0.14));
@@ -175,6 +189,8 @@
         {revision}
         height={width}
         margin={roomMargin}
+        jitter={0}
+        {presenceRadius}
         label="Four people at the corners of a square room; circle area shows each share of sixteen coins"
       />
 
@@ -225,7 +241,7 @@
 
         {#each positions as position, holder}
           <circle
-            class:destination={selectedCoin !== null && owners[selectedCoin] !== holder}
+            class:destination={movingCoin !== null && owners[movingCoin] !== holder}
             class="drop-target"
             cx={position.x}
             cy={position.y}
