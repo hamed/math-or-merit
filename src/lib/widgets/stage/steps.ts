@@ -184,6 +184,8 @@ export interface StepStageContext {
   attach(steps: readonly StepSpec[], scene: StepScene): void;
   /** The scene reports a hold is done (both clicked, 8 and 8). */
   release(id: string): void;
+  /** Whether a hold has already been done — `settle` on a hold still waiting shows the reader's own progress. */
+  isReleased(id: string): boolean;
   /** Reactive: the step on screen. */
   readonly index: number;
   /** Reactive: the reader asked for no motion. */

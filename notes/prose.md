@@ -18,6 +18,7 @@ Rules of the road:
   glued from pieces — word order changes in other languages.
 - `~ adapt:` is a note for translators on wordplay: replace the idea, not the
   words.
+- ` / ` inside a line is a line break on screen.
 - `> picture:` tells you what is on screen while that line is read. Never
   displayed. `[ACTION]`, `[HOLD]` and `[CHOICE]` inside it say what happens and
   what waits for the reader.
@@ -26,12 +27,13 @@ Rules of the road:
   be wrong; the essay may not** — when Blue says something false, a later line
   or the picture corrects it.
 
-> STATUS (2026-09-24). This file now LEADS the build: it holds the dialogue
-> script from the design brief (`inbox/2026-09-24 note.md`, decision D19). The
-> live essay still shows the narrator until the step stage lands (ADR-017,
-> awaiting your yes). The narrator's own lines are at the bottom, under
-> "Retiring" — deleted by default, kept there so nothing is lost silently.
-> Tell me any of them you wrote; those survive.
+> STATUS (2026-09-24). This file LEADS the build: it holds the dialogue script
+> from the design brief (`inbox/2026-09-24 note.md`, decision D19), and
+> `messages/en.json` is generated from it — after editing, run
+> `npx vite-node scripts/prose-to-messages.ts` (a test refuses a stale file).
+> BUILT so far: Scenes 1–14 on the pair stage, and both branches (B1, B2).
+> Still the narrator on screen: Scene 15 onward. Those lines are at the bottom,
+> under "Retiring" — each goes when the scene replacing it ships.
 
 ---
 
@@ -241,6 +243,13 @@ Nothing here is shown true until the game shows it.
 
 [equal.ask] BLUE: (draft) Go on, then. Move my coins to him until we're even.
 
+[equal.take] (draft) Take a coin from {name}. {name} has {count}.
+
+[equal.give] (draft) Give the coin to {name}.
+
+> not bubbles: what a screen reader hears on the two circles while coins are
+> being moved, and the keyboard path through Scene 9.
+
 [equal.first] BLUE: (draft) Ouch.
 
 > after the first coin moves.
@@ -397,7 +406,9 @@ taught random pairing, and every room after this one uses it.
 
 [more.joke] RED: (draft) Of course it is. Want to hear a joke first?
 
-> [CHOICE] Tell me · Not now — "Tell me" opens the cow (B1).
+[more.choice] (draft) Tell me · Not now
+
+> [CHOICE] — "Tell me" opens the cow (B1); "Not now" moves on.
 
 ---
 
@@ -406,22 +417,39 @@ taught random pairing, and every room after this one uses it.
 > picture: your illustrated cast, exactly as it stands. Offered by choice from
 > Scene 14.
 
+[cow.offer] (draft) A joke about a cow, and why this model is so simple
+
+> the collapsed branch: this line on a button, where the cow would be. Red's
+> "Tell me" opens it too.
+
+> the joke, cut to what it needs — your call, 2026-09-24: every plate stays,
+> the text goes wherever the joke survives without it. These five are what
+> is left; the rest retired with the narrator.
+
+[cow.once] Once upon a time, / a farmer's cow stopped giving milk.
+
+[cow.0b] A biologist, a chemist, and a physicist.
+
+[cow.4] "Assume a spherical cow."
+
+[cow.5] "In a vacuum and no gravity!"
+
+[cow.7b] The sphere alone answered this question. / Not every question. This one.
+
+> after the pitch beat, the two of them close the joke:
+
 [cow.frame.you] BLUE: (draft) That's you. That's exactly you.
 
 [cow.frame.mine] RED: (draft) And this game is my spherical cow. Simple on purpose.
 
 [cow.frame.next] RED: (draft) Want to see how a person becomes a circle?
 
-> after the pitch beat. [CHOICE] Show me · Skip — "Show me" opens B2.
+[cow.choice] (draft) Show me · Skip
+
+> after the pitch beat. [CHOICE] — "Show me" opens B2.
 
 ~ adapt: "spherical cow" is a physicists' joke. Keep a cow and a sphere; the
 exact phrase may not exist in your language.
-
-> OPEN — the cut is yours to confirm. Keep only what the joke needs and let the
-> plates carry the rest. My proposal: keep [cow.once], [cow.0b], [cow.4],
-> [cow.5] and [cow.7b]; retire the bridge cards and [cow.0], [cow.1], [cow.2],
-> [cow.3], [cow.6]–[cow.6c], [cow.7]. All of them are below under "Retiring",
-> word for word.
 
 ! keep true: the minimal model answers one narrow question; it does not claim
 that every omitted detail is powerless. (Today [cow.7b] carries this.)
@@ -432,6 +460,10 @@ that every omitted detail is powerless. (Today [cow.7b] carries this.)
 
 > picture: the reduction plates, split out of the old merged scene — the
 > richest man stripped detail by detail down to one circle.
+
+[human.offer] (draft) How a person becomes a circle
+
+> the collapsed branch: this line on a button. The cow's "Show me" opens it too.
 
 [human.1] I am not going to explain how he got rich.
 
@@ -770,80 +802,9 @@ replacing it ships.
 
 Every `! keep true:` these lines carried has already moved up into the script.
 
-## Cow — bridge cards and captions
-
-[cow.bridge] I built a tiny machine / for one enormous argument:
-
-[cow.bridge2] Should we tax wealth? / Medicine — or poison?
-
-[cow.bridge3] First, a cow.
-
-[cow.once] Once upon a time, a farmer's cow stopped giving milk.
-
-[cow.0] He called in three scientists.
-
-[cow.0b] A biologist, a chemist, and a physicist.
-
-[cow.1] The biologist explained where cows come from.
-
-[cow.2] Then the chemist spoke of the molecule the cow was failing to produce.
-
-[cow.silence] No words. One gesture plays four panels over three seconds: the
-room waits, the cow looks at us, the cow answers, and Albert scratches his head.
-
-[cow.3] Then the physicist shouted "I have solved it!"
-
-[cow.4] "Assume a spherical cow."
-
-[cow.5] "In a vacuum and no gravity!"
-
-[cow.6] A model throws almost everything away,
-[cow.6b] to see whether what remains
-[cow.6c] is enough.
-
-[cow.7] The spherical cow is still too heavy to kick.
-
-[cow.7b] The sphere alone answered this question. / Not every question. This one.
-
-## The spherical human and the first trade
-
-[human.head] Now, the spherical human
-
-[human.intro] Same trick. More dangerous subject.
-
-[human.0] Take the richest man in the world.
-
-[human.2] I erase the face, the name, every difference.
-
-[human.3] Until one thing remains: wealth.
-
-[human.4] Area is wealth. These coins are the same fortune.
-
-[human.5] In this model, you are your money and nothing else.
-
-[human.7] Now someone else walks in with exactly as much.
-
-[human.8] Both stake half.
-
-[human.9] Fair coin. One color or the other.
-
-[human.10] The color that lands takes both stakes.
-
-[human.11] Again. Now one of them is poorer.
-
-[human.12] Same rule, sharper edge: half of what the *poorer* one has.
-
-[human.13] Toss.
-
-[human.14] The poorer one wins.
-
-[human.15] Again: half the poorer fortune.
-
-[human.16] Toss.
-
-[human.17] The poorer one wins again.
-
-[human.18] Almost where they began. Same total. Fair coin. Fair rule. Remember this picture.
+> Gone from the build 2026-09-24: the cow's bridge cards and every caption the
+> owner's cut left out, and the spherical human's narration and its trade —
+> Blue and Red play that game on the pair stage now.
 
 ## Your turn to guess
 

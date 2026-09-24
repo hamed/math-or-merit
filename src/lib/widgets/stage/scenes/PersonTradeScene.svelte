@@ -1,5 +1,10 @@
 <script lang="ts" module>
   import type { BeatSpec } from '../contract';
+  import {
+    HOLDINGS as GAME_HOLDINGS,
+    ROUNDS as GAME_ROUNDS,
+    UNITS as GAME_UNITS,
+  } from './pair/game';
 
   import figure from './person/00-figure.webp';
   import head01 from './person/01-head.webp';
@@ -53,6 +58,16 @@
     { label: 'crowd', length: 1.3, restAt: 1.05, artBottom: 0.95 },
   ];
 
+  /**
+   * Branch B2 (2026-09-24, D19): the person reduced to one circle, and no
+   * further. The two-person game moved into the pair stage, where Blue and Red
+   * play it; this scene keeps the owner's plates and the reduction they draw.
+   */
+  export const REDUCTION_BEATS: readonly BeatSpec[] = BEATS.slice(
+    0,
+    BEATS.findIndex((beat) => beat.label === 'one') + 1,
+  );
+
   export const PLATES: readonly { src: string; beat: string }[] = [
     { src: figure, beat: 'person' },
     { src: head01, beat: 'face' },
@@ -104,26 +119,10 @@
    * takes it away. Nothing is rigged in the RULE; these outcomes are authored
    * (presets.ts honesty note), and any sequence of tosses is possible.
    */
-  export const UNITS = 16;
-  export const ROUNDS: readonly { stake: number; winner: 'A' | 'B' }[] = [
-    { stake: 4, winner: 'B' },
-    { stake: 2, winner: 'A' },
-    { stake: 3, winner: 'A' },
-  ];
-
-  /** Coins held after each stage of the game, A and B. Index 0 is the start. */
-  export const HOLDINGS = (() => {
-    const out: { a: number; b: number }[] = [{ a: UNITS / 2, b: UNITS / 2 }];
-    for (const r of ROUNDS) {
-      const last = out[out.length - 1];
-      const pot = r.stake * 2;
-      out.push({
-        a: last.a - r.stake + (r.winner === 'A' ? pot : 0),
-        b: last.b - r.stake + (r.winner === 'B' ? pot : 0),
-      });
-    }
-    return out;
-  })();
+  // Moved to pair/game.ts, unchanged, so the pair stage plays the same game.
+  export const UNITS = GAME_UNITS;
+  export const ROUNDS = GAME_ROUNDS;
+  export const HOLDINGS = GAME_HOLDINGS;
 
   /** The largest ante, which is how many coin slots each side needs. */
   const ANTE_MAX = Math.max(...ROUNDS.map((r) => r.stake));
@@ -192,6 +191,14 @@
 
   const stage = getContext<StageContext | undefined>(STAGE_CONTEXT);
 
+  interface Props {
+    /** `reduction` is branch B2: plates down to one circle, no game. */
+    part?: 'whole' | 'reduction';
+  }
+  let { part = 'whole' }: Props = $props();
+  const reductionOnly = $derived(part === 'reduction');
+  const beats = $derived(reductionOnly ? REDUCTION_BEATS : BEATS);
+
   const styles = assignStyles(RING_N);
   const [styleA, styleB] = styles;
 
@@ -241,7 +248,7 @@
   let lattice: SVGGElement;
 
   onMount(() => {
-    stage?.attach(BEATS, (tl) => {
+    stage?.attach(beats, (tl) => {
       const sA = (w: number) => Math.sqrt(w / W_A);
       const sB = (w: number) => Math.sqrt(w / W_B);
       const coinEls = lattice.querySelectorAll<SVGGElement>('.lattice-coin');
@@ -252,7 +259,7 @@
       const startOf = new Map<string, number>();
       {
         let t = 0;
-        for (const beat of BEATS) {
+        for (const beat of beats) {
           startOf.set(beat.label, t);
           t += beat.length;
         }
@@ -298,7 +305,7 @@
       // pentagon is not the centroid the path is drawn around, so it displaces
       // them off their ring slots. They only ever scale on their entrance and
       // finish at 1, so the origin never shows.
-      tl.set([agentA, agentB], { transformOrigin: '50% 50%' }, 0);
+      tl.set([agentA, agentB].filter(Boolean), { transformOrigin: '50% 50%' }, 0);
 
       // The circle spends the whole reduction parked at HOME, wearing the size
       // it will have as the leftover. It only takes its seat at 'slide'.
@@ -343,6 +350,9 @@
         'one',
       );
       tl.to(agentA, { autoAlpha: 1, duration: 0.3 }, 'one+=0.3');
+
+      // ---- the game: not part of branch B2 --------------------------------
+      if (reductionOnly) return;
 
       // ---- the first trade -----------------------------------------------
 
@@ -492,7 +502,9 @@
 
 <figure
   class="scene-art room-stage"
-  aria-label="A person simplified step by step to a circle, which becomes money, then takes a seat as a second circle joins it to trade; finally the room fills"
+  aria-label={reductionOnly
+    ? 'A person simplified step by step to a circle, which becomes money and back'
+    : 'A person simplified step by step to a circle, which becomes money, then takes a seat as a second circle joins it to trade; finally the room fills'}
 >
   <svg bind:this={svgEl} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} role="img">
     {#each PLATES as plate, i}
@@ -516,7 +528,8 @@
         vector-effect="non-scaling-stroke"
       />
     </g>
-    <g bind:this={groupB} transform={`translate(${B_POS.x} ${B_POS.y})`}>
+    <!-- The game's parts stay in the DOM on branch B2, hidden and never animated. -->
+    <g bind:this={groupB} transform={`translate(${B_POS.x} ${B_POS.y})`} style:display={reductionOnly ? 'none' : undefined}>
       <path
         bind:this={agentB}
         class="agent"
@@ -541,7 +554,7 @@
       never merged into a pot — the pile on the table stays two piles until it
       belongs to somebody.
     -->
-    <g class="antes">
+    <g class="antes" style:display={reductionOnly ? 'none' : undefined}>
       {#each ['A', 'B'] as const as who}
         {#each { length: ANTE_MAX } as _, i}
           <g bind:this={anteCoins[who][i]} class="ante">
@@ -551,7 +564,7 @@
       {/each}
     </g>
 
-    <g bind:this={flipG} class="flip" transform={`translate(${FLIP.x} ${FLIP.y})`}>
+    <g bind:this={flipG} class="flip" transform={`translate(${FLIP.x} ${FLIP.y})`} style:display={reductionOnly ? 'none' : undefined}>
       <!--
         The decider is the same coin as the money — the one we already have —
         with each side painted in a trader's colour. So there is no second kind
@@ -564,7 +577,7 @@
       </g>
     </g>
 
-    <g bind:this={crowd} class="crowd">
+    <g bind:this={crowd} class="crowd" style:display={reductionOnly ? 'none' : undefined}>
       {#each crowdSlots as { p, slot }, k}
         {@const style = styles[k + 2]}
         <g transform={`translate(${p.x} ${p.y})`} data-slot={slot}>

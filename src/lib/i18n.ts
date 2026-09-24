@@ -8,8 +8,9 @@
  * named value.
  */
 import { getLocale, getTextDirection } from '../paraglide/runtime.js';
+import { m } from '../paraglide/messages.js';
 
-export { m } from '../paraglide/messages.js';
+export { m };
 export { getLocale, getTextDirection };
 
 /** A whole number or a plain decimal, in the active locale's digits. */
@@ -26,4 +27,22 @@ export function formatNumber(value: number, options?: Intl.NumberFormatOptions):
 export function applyLocaleToDocument(root: HTMLElement = document.documentElement): void {
   root.lang = getLocale();
   root.dir = getTextDirection();
+}
+
+type Message = (inputs?: Record<string, string>) => string;
+
+/**
+ * A line by its message key, with live values formatted for the locale. The
+ * stage addresses lines by key (data), so it looks them up here rather than
+ * importing each function; an unknown key comes back as itself, visibly, rather
+ * than as a blank bubble.
+ */
+export function say(key: string, values: Record<string, number | string> = {}): string {
+  const message = (m as unknown as Record<string, Message | undefined>)[key];
+  if (!message) return key;
+  const inputs: Record<string, string> = {};
+  for (const [name, value] of Object.entries(values)) {
+    inputs[name] = typeof value === 'number' ? formatNumber(value) : value;
+  }
+  return message(inputs);
 }

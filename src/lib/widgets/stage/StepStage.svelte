@@ -60,6 +60,9 @@
       if (result === 'moved') show(from, 'forward');
       else remember();
     },
+    isReleased(stepId) {
+      return machine?.isReleased(stepId) ?? false;
+    },
     get index() {
       return live.index;
     },

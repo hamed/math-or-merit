@@ -1,7 +1,13 @@
 <script>
   import PinScene from '$lib/widgets/stage/PinScene.svelte';
   import Caption from '$lib/widgets/stage/Caption.svelte';
-  import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
+  import StepStage from '$lib/widgets/stage/StepStage.svelte';
+  import PairScene from '$lib/widgets/stage/scenes/pair/PairScene.svelte';
+  import { say } from '$lib/i18n';
+  import Branch from '$lib/widgets/stage/Branch.svelte';
+  import SpeakerText from '$lib/widgets/stage/SpeakerText.svelte';
+  import ChoiceRow from '$lib/widgets/stage/ChoiceRow.svelte';
+  import { openBranch } from '$lib/widgets/stage/branch';
   import RevealInterpretation from '$lib/widgets/reveal/RevealInterpretation.svelte';
   import WinnerStory from '$lib/widgets/reveal/WinnerStory.svelte';
   import Deferred from '$lib/widgets/shared/Deferred.svelte';
@@ -44,27 +50,34 @@
 -->
 <Chapter id="question" label="The question" />
 
-<PinScene driver="time">
-  <OpeningScene />
-</PinScene>
+<!--
+  THE PAIR STAGE (ADR-017; dialogue brief Scenes 1–14). One step stage carries
+  the title, the crowd, Blue and Red, their argument, the reader making them
+  equal, the three rounds, the challenge and the room. It replaces the timed
+  opening and — once Phase 4 lands — the merged PersonTradeScene in the main
+  flow. Every word it speaks is a message generated from notes/prose.md.
+-->
+<StepStage id="pair" label={say('open_title')}>
+  <PairScene />
+</StepStage>
 
 <!--
-  BUILD NOTE (2026-08-25, R13 per owner): the joke is now the author's illustrated cast
-  (CowCastScene, plates in scenes/cast/) instead of the drawn SVG morph. The experts fail
-  in order of increasing abstraction — biologist, chemist, physicist — which is the spine
-  of the joke: each answers in his own model and none of them produces milk. Then sphere,
-  vacuum, and the pitch.
+  BRANCHES (A4, D19, 2026-09-24). The cow and the person who becomes a circle
+  are no longer the way in: they are offered by choice — Red's "Want to hear a
+  joke first?" opens the cow, and the cow's "Want to see how a person becomes a
+  circle?" opens the reduction. Collapsed, each is one line on a button; nothing
+  inside loads until it opens.
 
-  The uphill push was REPLACED, not supplemented: it argued the same a fortiori point as
-  the football beat, and the essay cannot close on both. Football was chosen because the
-  whole essay is a fair game with a lopsided outcome, so the metaphor family matches the
-  subject; the hill's Sisyphus framing did not. The old SVG choreography is archived
-  under archive/scenes-pre-r13/ if this ever needs reverting.
+  B1 keeps every one of the owner's plates and only the five lines the joke
+  needs (owner: "keep the images, cut the text if must"). Beat indices refer to
+  CowCastScene.BEATS, which lost its bridge and model beats with their cards.
 
-  Beat indices refer to CowCastScene.BEATS. One gesture plays the four silent reaction
-  panels; the visuals carry the pause without four compulsory advances. The football ending
-  makes the limited model-literacy claim: the sphere answers this question, not every question.
+  B2 is PersonTradeScene with part="reduction": the plates down to one circle,
+  and the guard that it never explains how anyone got rich. The two-person game
+  that used to follow is played by Blue and Red on the pair stage now.
 -->
+<Branch id="cow" offer={say('cow_offer')}>
+
 <Chapter id="cow" label="The cow" />
 
 <Deferred
@@ -75,82 +88,46 @@
   {#snippet content(CowCastScene)}
     <PinScene pace={0.75} navigation="step" deferAssets>
       <CowCastScene />
-      <Caption beat={3} display>Once upon a time,<br />a farmer's cow stopped giving milk.</Caption>
-      <Caption beat={4}>He called in three scientists.</Caption>
-      <Caption beat={5}>A biologist, a chemist, and a physicist.</Caption>
-      <Caption beat={6}>The biologist explained where cows come from.</Caption>
-      <Caption beat={7}>Then the chemist spoke of the molecule<br />the cow was failing to produce.</Caption>
-      <Caption beat={9}>Then the physicist shouted "I have solved it!"</Caption>
-      <Caption beat={10}>"Assume a spherical cow."</Caption>
-      <Caption beat={11}>"In a vacuum and no gravity!"</Caption>
-      <Caption beat={13}>The spherical cow is still too heavy to kick.</Caption>
-      <Caption beat={14}>The sphere alone answered this question.<br />Not every question. This one.</Caption>
+      <Caption beat={0} display>{#each say('cow_once').split(' / ') as part, i}{#if i}<br />{/if}{part}{/each}</Caption>
+      <Caption beat={2}>{say('cow_0b')}</Caption>
+      <Caption beat={7}>{say('cow_4')}</Caption>
+      <Caption beat={8}>{say('cow_5')}</Caption>
+      <Caption beat={10}>{#each say('cow_7b').split(' / ') as part, i}{#if i}<br />{/if}{part}{/each}</Caption>
     </PinScene>
   {/snippet}
 </Deferred>
 
+<SpeakerText speaker="blue" name={say('name_blue')} text={say('cow_frame_you')} />
+<SpeakerText speaker="red" name={say('name_red')} text={say('cow_frame_mine')} />
+<SpeakerText speaker="red" name={say('name_red')} text={say('cow_frame_next')} />
+
+<ChoiceRow
+  options={[
+    { label: say('cow_choice_1'), act: () => openBranch('human') },
+    { label: say('cow_choice_2'), act: () => document.getElementById('guess')?.scrollIntoView({ behavior: 'smooth' }) },
+  ]}
+/>
+
+</Branch>
+
+<Branch id="human" offer={say('human_offer')}>
+
 <Chapter id="spherical-human" label="Now, the spherical human" />
 
-## Now, the spherical human
-
-Same trick. More dangerous subject.
-
-<!--
-  REMARK(beat 5 via shared canvas): the Musk→circle morph happens ON THE SAME canvas as the
-  cow — the place stays, the occupant changes. Causal-claim guard kept in the words ("we are
-  not going to explain how he got it"); brief §4. Logged in notes/draft-decisions.md (D5).
--->
-<!--
-  BUILD NOTE (2026-08-25, R15 per owner): the reduction and the first trade are ONE
-  pinned scene (PersonTradeScene), not two. As two sections the first unpinned and
-  scrolled off the top while the second scrolled up from the bottom, so the circle left
-  the screen and an identical one arrived — a swap the reader notices and learns nothing
-  from. Merged, there is one timeline and one circle ELEMENT: the person reduces onto it,
-  it becomes money and back, then it slides aside and a second circle walks in from the
-  right. Trader A is not a redraw of the person's circle, it IS that circle. Beat indices
-  refer to PersonTradeScene.BEATS; beat 6 ('slide') carries no caption on purpose.
-
-  M4 note, still true: OneTrade + ScriptedRounds are one scrub-reversible teaching
-  sequence. Numbers come from the real trade rule with authored outcomes only (presets.ts
-  honesty note). The two-sided coin wears the traders' fill colors: no heads/tails to
-  remember, the color that lands wins (storyboard p5–6).
--->
-<!--
-  REMARK(reduction line): authored, crude, UNATTRIBUTED; "money" not "net worth" (jargon).
-  See notes/draft-decisions.md D6. The area-honesty lesson rides the 'coins' beat caption.
-  TEST(Study A, reader-study.md): can readers rank circles and judge rough ratios from
-  area alone? Revisit if area is misread as radius.
--->
 <Deferred
   load={() => import('$lib/widgets/stage/scenes/PersonTradeScene.svelte')}
-  label="trade scene"
+  label="the spherical human"
   reserve="100svh"
 >
   {#snippet content(PersonTradeScene)}
     <PinScene navigation="step" deferAssets>
-      <PersonTradeScene />
-      <Caption beat={0}>Take the richest man in the world.</Caption>
-      <Caption beat={1}>I am not going to explain how he got rich.</Caption>
-      <Caption beat={2}>I erase the face, the name, every difference.</Caption>
-      <Caption beat={3}>Until one thing remains: wealth.</Caption>
-      <Caption beat={4}>Area is wealth.<br />These coins are the same fortune.</Caption>
-      <Caption beat={5} big>In this model, you are your money and nothing else.</Caption>
-      <Caption beat={7}>Now someone else walks in with exactly as much.</Caption>
-      <Caption beat={8}>Both stake half.</Caption>
-      <Caption beat={9}>Fair coin.<br />One color or the other.</Caption>
-      <Caption beat={10}>The color that lands takes both stakes.</Caption>
-      <Caption beat={11}>Again.<br />Now one of them is poorer.</Caption>
-      <Caption beat={12}>Same rule, sharper edge:<br />half of what the <em>poorer</em> one has.</Caption>
-      <Caption beat={13}>Toss.</Caption>
-      <Caption beat={14}>The poorer one wins.</Caption>
-      <Caption beat={15}>Again:<br />half the poorer fortune.</Caption>
-      <Caption beat={16}>Toss.</Caption>
-      <Caption beat={17}>The poorer one wins again.</Caption>
-      <Caption beat={18}>Almost where they began.<br />Same total. Fair coin. Fair rule.<br />Remember this picture.</Caption>
+      <PersonTradeScene part="reduction" />
+      <Caption beat={1}>{say('human_1')}</Caption>
     </PinScene>
   {/snippet}
 </Deferred>
 
+</Branch>
 
 <Chapter id="guess" label="Your turn to guess" />
 

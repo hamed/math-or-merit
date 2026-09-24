@@ -14,17 +14,11 @@
   import football from './cast/10-football.webp';
 
   const BEAT_LENGTHS: readonly BeatSpec[] = [
-    // The bridge from the title, then the fable opens on words alone — no
-    // picture yet. The cast arrives after.
-    //
-    // The three slides after the title (owner's copy, 2026-08-27): the promise,
-    // the hard question it is for, and the handover to the fable. One beat
-    // each, so one press of space is one slide. The lone "Math." that used to
-    // open this scene is GONE at the owner's call — the reel already landed on
-    // it, and saying it twice spent the moment rather than doubling it.
-    { label: 'tool', length: 2.2 },
-    { label: 'question', length: 1.7 },
-    { label: 'story', length: 1.1 },
+    // Branch B1 now (2026-09-24, D19): the cow is the joke Red offers at the
+    // end of the pair stage, opened by choice. The three bridge slides that
+    // led here from the title are gone with the rest of the narrator's cards —
+    // Red's "Want to hear a joke first?" is the bridge now. The owner kept
+    // every plate and let the text go wherever the joke survives without it.
     { label: 'once-upon', length: 1.1 },
     { label: 'once', length: 1.0 },
     { label: 'call', length: 1.0 },
@@ -37,11 +31,6 @@
     { label: 'physicist', length: 1.2 },
     { label: 'sphere', length: 1.2 },
     { label: 'vacuum', length: 1.0 },
-    // The picture leaves again for the lesson itself — the sentence about
-    // models is not about anything you can draw. 1.7, not 1.4: a three-line
-    // card needs TEXT_LEAD + 2 gaps + TEXT_FADE + TEXT_EXIT of room, and at
-    // 1.4 the third line started leaving before it had finished arriving.
-    { label: 'model', length: 1.7 },
     // The pitch is full-bleed and then pushed into, so its ink runs to the
     // edge of the frame — the studio plates' transparent margin is not there.
     { label: 'football', length: 1.4, artBottom: 1 },
@@ -78,20 +67,9 @@
     /** Set the line at title scale — for a line that IS the answer, not prose. */
     big?: boolean;
   }[] = [
-    // The reel has stopped on "Math". Three short cards now name the machine,
-    // the political question it will examine, and the sideways handoff into
-    // the cow. Wealth tax is asked about here, not answered. All one size: the
-    // cards are a voice speaking, not another title sequence.
-    { text: 'I built a tiny machine', beat: 'tool', until: 'question' },
-    { text: 'for one enormous argument:', beat: 'tool', until: 'question' },
-    { text: 'Should we tax wealth?', beat: 'question', until: 'story' },
-    { text: 'Medicine — or poison?', beat: 'question', until: 'story' },
-    { text: 'First, a cow.', beat: 'story', until: 'once-upon' },
-    // Three lines, one card: they arrive in order inside the one beat rather
-    // than costing three scroll steps, because it is one sentence of thought.
-    { text: 'A model throws almost everything away,', beat: 'model', until: 'football' },
-    { text: 'to see whether what remains', beat: 'model', until: 'football' },
-    { text: 'is enough.', beat: 'model', until: 'football' },
+    // Empty since 2026-09-24. The bridge cards and the card about models were
+    // narrator's words; the dialogue carries their job now (D19). The mechanism
+    // stays — a line here is the scene's own art on a beat with no picture.
   ];
 
   /**
@@ -163,7 +141,7 @@
     { src: scratch, beat: 'silence', offset: 2.25 },
     { src: physicist, beat: 'physicist' },
     { src: spherical, beat: 'sphere' },
-    { src: vacuum, beat: 'vacuum', until: 'model' },
+    { src: vacuum, beat: 'vacuum' },
     { src: football, beat: 'football' },
   ];
 </script>
