@@ -2,8 +2,9 @@
   import { roomPositions } from '../shared/layout';
   import { completedRoomRun } from '../shared/roomRun';
   import { latestRun } from '../shared/runLog.svelte';
-  import { dollars } from '../shared/format';
+  import { dollarsCompact } from '../shared/format';
   import { linearBins, toDollars } from './binning';
+  import { decadeEdges, keepLabels, type RulerLabel } from './rulerLabels';
   import { assignStyles } from '../shared/agentStyle';
   import { DUST_DOLLARS, REVEAL_SEED, REVEAL_TRADES, ROOM_N, START_DOLLARS } from '../shared/presets';
 
@@ -12,7 +13,9 @@
   const styles = assignStyles(ROOM_N);
 
   const VIEW_W = 480;
-  const VIEW_H = 330;
+  // 336, not 330: the ruler hint sits at BASELINE + 38 and its descenders
+  // were being cut off by the bottom of the box
+  const VIEW_H = 336;
   const BASELINE = 292;
   const PLOT_X = 24;
   const PLOT_W = VIEW_W - 2 * PLOT_X;
@@ -101,13 +104,101 @@
   const dustCount = $derived(logPlaced.filter((p) => p.dust).length);
   const dustBoxH = $derived(Math.ceil(dustCount / 5) * CELL + 12);
 
-  const logTicks = $derived.by(() => {
-    const ticks: { x: number; label: string }[] = [];
-    for (let edge = DUST_DOLLARS; edge <= topEdge * 1.0001; edge *= 10) {
-      const x = logXOf(edge);
-      if (x !== null) ticks.push({ x, label: dollars(edge) });
+  /**
+   * One set of decade marks for BOTH rulers, keyed so the same elements move
+   * when the ruler changes: on the ordinary ruler the small decades pile into
+   * the first few pixels, and on the multiplying one they spread out evenly.
+   * Watching them slide is the lesson, so they are never redrawn in between.
+   */
+  const decades = $derived(decadeEdges(DUST_DOLLARS, topEdge));
+  const linearTop = $derived(binning.edges[binCount]);
+  // 11px type in a 480-unit box; an estimate that errs wide only hides a label
+  const CHAR_W = 6.4;
+  const LABEL_GAP = 5;
+
+  function linearXOf(amount: number): number {
+    return PLOT_X + (Math.min(amount, linearTop) / linearTop) * PLOT_W;
+  }
+
+  const ruler = $derived.by(() => {
+    const onLog = phase === 'log';
+    const marks = decades.map((value, k) => ({
+      key: `decade-${k}`,
+      value,
+      text: dollarsCompact(value),
+      x: onLog ? (logXOf(value) ?? LOG_X) : linearXOf(value),
+      // a decade past the ordinary ruler's end waits, invisible, at the end;
+      // it slides into place when the multiplying ruler arrives
+      onRuler: onLog || value <= linearTop * 1.0001,
+    }));
+    const candidates: RulerLabel[] = [];
+    if (!onLog) {
+      candidates.push({ key: 'zero', x: PLOT_X, text: '$0', priority: 0, anchor: 'start' });
+      candidates.push({
+        key: 'end',
+        x: PLOT_X + PLOT_W,
+        text: dollarsCompact(linearTop),
+        priority: 1,
+        anchor: 'end',
+      });
     }
-    return ticks;
+    // Largest decade first: on the ordinary ruler those are the only ones
+    // with room, and they are the ones that make the crowding visible.
+    const onScale = marks.filter((mark) => mark.onRuler);
+    onScale.forEach((mark, index) =>
+      candidates.push({
+        key: mark.key,
+        x: mark.x,
+        text: mark.text,
+        priority: 2 + (onScale.length - 1 - index),
+        anchor: 'middle',
+      }),
+    );
+    return { marks, shown: keepLabels(candidates, CHAR_W, LABEL_GAP) };
+  });
+
+  /**
+   * Pile counts are read on demand, not printed under every bar: a row of
+   * numbers along the baseline reads as the axis, which it is not.
+   */
+  let activeBin = $state<number | null>(null);
+
+  function pileTop(bin: number): number {
+    const count = binning.counts[bin];
+    const colW = PLOT_W / binCount;
+    const dotR = stacked.dotR;
+    const perRow = Math.max(3, Math.floor((colW - 8) / (2 * dotR + 1.6)));
+    const rows = Math.ceil(count / perRow);
+    const dotsTop = BASELINE - 1.5 - dotR * 2 - Math.max(0, rows - 1) * (2 * dotR + 1.6);
+    const barTop = BASELINE - Math.max(2, count * 2.2);
+    return Math.min(dotsTop, barTop);
+  }
+
+  function pileLabel(bin: number): string {
+    const count = binning.counts[bin];
+    const from = dollarsCompact(binning.edges[bin]);
+    const to = dollarsCompact(binning.edges[bin + 1]);
+    return `${count} ${count === 1 ? 'person' : 'people'} from ${from} to ${to}`;
+  }
+
+  function togglePile(bin: number): void {
+    activeBin = activeBin === bin ? null : bin;
+  }
+
+  function pileKey(event: KeyboardEvent, bin: number): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      togglePile(bin);
+    } else if (event.key === 'Escape') {
+      activeBin = null;
+    }
+  }
+
+  $effect(() => {
+    // a count left showing from another ruler would label the wrong pile
+    void phase;
+    void binCount;
+    activeBin = null;
   });
 
   function dotTransform(i: number): string {
@@ -161,7 +252,7 @@
 
   <svg
     viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-    role="img"
+    role="group"
     aria-label="One hundred circles sorted, stacked into wealth bins, then spread on a multiplying ruler"
   >
     {#if phase === 'binned'}
@@ -175,19 +266,31 @@
           height={Math.max(2, count * 2.2)}
           opacity="0.35"
         />
-        {#if count > 0}
-          <text class="count" x={PLOT_X + b * colW + colW / 2} y={BASELINE + 16} text-anchor="middle">{count}</text>
-        {/if}
       {/each}
-      <text class="tick" x={PLOT_X} y={BASELINE + 32} text-anchor="start">$0</text>
-      <text class="tick" x={PLOT_X + PLOT_W} y={BASELINE + 32} text-anchor="end">{dollars(binning.edges[binCount])}</text>
+      <text class="tick" class:hidden={!ruler.shown.has('zero')} x={PLOT_X} y={BASELINE + 20} text-anchor="start"
+        >$0</text
+      >
+      <text
+        class="tick"
+        class:hidden={!ruler.shown.has('end')}
+        x={PLOT_X + PLOT_W}
+        y={BASELINE + 20}
+        text-anchor="end">{dollarsCompact(linearTop)}</text
+      >
+    {/if}
+
+    {#if phase === 'binned' || phase === 'log'}
+      {#each ruler.marks as mark (mark.key)}
+        <g class="decade" class:off-ruler={!mark.onRuler} style={`transform: translateX(${mark.x}px)`}>
+          <line class="tickline" x1="0" y1={BASELINE} x2="0" y2={BASELINE + 6} />
+          <text class="tick" class:hidden={!ruler.shown.has(mark.key)} x="0" y={BASELINE + 20} text-anchor="middle"
+            >{mark.text}</text
+          >
+        </g>
+      {/each}
     {/if}
 
     {#if phase === 'log'}
-      {#each logTicks as tick (tick.label)}
-        <line class="tickline" x1={tick.x} y1={BASELINE} x2={tick.x} y2={BASELINE + 6} />
-        <text class="tick" x={tick.x} y={BASELINE + 20} text-anchor="middle">{tick.label}</text>
-      {/each}
       <text class="hint" x={LOG_X + LOG_W / 2} y={BASELINE + 38} text-anchor="middle">each step to the right: ten times the money</text>
       <g class="dust-pile">
         <rect x="8" y={BASELINE - dustBoxH} width={5 * CELL + 16} height={dustBoxH} rx="8" />
@@ -209,6 +312,38 @@
         r={dotRadius(i)}
       />
     {/each}
+
+    {#if phase === 'binned'}
+      {#each binning.counts as count, b}
+        {@const colW = PLOT_W / binCount}
+        <rect
+          class="pile-hit"
+          x={PLOT_X + b * colW}
+          y="8"
+          width={colW}
+          height={BASELINE - 8}
+          role="button"
+          tabindex="0"
+          aria-label={pileLabel(b)}
+          aria-pressed={activeBin === b}
+          onpointerenter={(event) => {
+            if (event.pointerType === 'mouse') activeBin = b;
+          }}
+          onpointerleave={(event) => {
+            if (event.pointerType === 'mouse' && activeBin === b) activeBin = null;
+          }}
+          onclick={() => togglePile(b)}
+          onkeydown={(event) => pileKey(event, b)}
+          onfocus={() => (activeBin = b)}
+          onblur={() => {
+            if (activeBin === b) activeBin = null;
+          }}
+        />
+        {#if activeBin === b}
+          <text class="count" x={PLOT_X + b * colW + colW / 2} y={pileTop(b) - 6} text-anchor="middle">{count}</text>
+        {/if}
+      {/each}
+    {/if}
   </svg>
 
   <p class="caption" aria-live="polite">{captions[phase]}</p>
@@ -235,6 +370,8 @@
   }
 
   .dot {
+    /* the pile columns take the pointer; a dot must not steal a hover */
+    pointer-events: none;
     stroke-width: 1;
     fill-opacity: 0.8;
     transition:
@@ -265,15 +402,52 @@
   }
 
   .count {
-    fill: #756c5d;
-    font-size: 10.5px;
+    fill: #3c352b;
+    font-size: 12px;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
+    pointer-events: none;
   }
 
   .tick {
     fill: #756c5d;
     font-size: 11px;
     font-variant-numeric: tabular-nums;
+    transition: opacity 0.35s ease;
+  }
+
+  .tick.hidden {
+    opacity: 0;
+  }
+
+  /* same easing as the dots, so ruler and people move as one */
+  .decade {
+    transition:
+      transform 0.8s cubic-bezier(0.45, 0, 0.2, 1),
+      opacity 0.4s ease;
+  }
+
+  .decade.off-ruler {
+    opacity: 0;
+  }
+
+  .pile-hit {
+    fill: transparent;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .pile-hit:focus-visible {
+    stroke: #3c352b;
+    stroke-width: 1.2;
+    stroke-dasharray: 3 3;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .decade,
+    .tick {
+      transition: none;
+    }
   }
 
   .hint {
