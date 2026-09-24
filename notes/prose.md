@@ -58,18 +58,25 @@ Rules of the road:
 > MERIT and Blue on the right — in every language, Farsi included (the one
 > deliberate exception to mirroring).
 
-[open.reel.merit] OPEN — yours to write. A starting point: Hard work · Talent ·
-Grit · IQ · Education · Charisma — landing on **Merit**.
+[open.title.or] or
 
-[open.reel.math] OPEN — yours to write. A starting point: Luck · Family money ·
-Connections · Class · Timing — landing on **Math**.
+[open.title.mark] ?
 
-[open.reel.silly] OPEN — both reels open on a funny wrong word or two: Blue eyes
-· Horoscope · Coffee · Socks.
+~ adapt: [open.title.mark] is the language's own question mark ("؟" in Farsi).
 
-> careful: once the reels split left and right, some words start taking
-> political sides (Race, Genes, God's will, Class). Place them on purpose, or
-> keep them off both reels.
+[open.reel.merit] (draft) Blue eyes · Coffee · Hard work · Talent · Grit · IQ · Education · Charisma · **Merit** · Horoscope · Socks
+
+[open.reel.math] (draft) Horoscope · Lucky socks · Timing · Connections · Family money · Luck · **Math** · Coffee · Blue eyes
+
+> my pick, to be tuned (2026-09-24). Each reel opens on two funny wrong words,
+> passes the serious answers, lands on its word — always the THIRD FROM LAST —
+> and the last two are the two wrong words it overshoots onto before settling
+> back. MERIT's list is the explanations about the person; MATH's is the ones
+> that are not. Race, Genes, God's will and Class are kept off both reels:
+> split left and right, they start taking political sides.
+
+~ adapt: translate each word as the everyday explanation, not literally; keep
+the answer third from last and the two after it wrong.
 
 [open.credit] Created & directed by Hamed
 
@@ -115,6 +122,13 @@ game's own rule — the stake is half of the smaller fortune. It ends at 15 and 
 
 > picture: on each click the circle takes its colours with a small pop. Blue:
 > blue fill, red outline. Red: red fill, blue outline.
+
+[name.blue] Blue
+
+[name.red] Red
+
+> the names themselves. A screen reader says the name before each of that
+> character's lines, and it labels his circle.
 
 [intro.blue] BLUE: I'm Blue. The richest man in this world. ★
 
@@ -308,12 +322,14 @@ still read plainly — the winner of the toss takes both stakes.
 8-8, then 4-12, then 6-10, then 9-7. The total never changes, and every stake
 is half of the poorer fortune.
 
-[rules.line] (draft · proposed — first to cut) Both bet half. Flip. The color
-that lands takes both. / Both bet half of what the poorer one has. / …and two
-people are picked at random each time.
+[rules.1] (draft · proposed — first to cut) Both bet half. Flip. The color that lands takes both.
 
-> a small frameless line of type that grows as the rules arrive — the first part
-> after Scene 10, the second after Scene 11, the third before Scene 15. Built
+[rules.2] (draft · proposed — first to cut) Both bet half of what the poorer one has.
+
+[rules.3] (draft · proposed — first to cut) …and two people are picked at random each time.
+
+> a small frameless line of type that grows as the rules arrive — [rules.1]
+> after Scene 10, [rules.2] after Scene 11, [rules.3] before Scene 15. Built
 > last, and only if a screenshot shows it is missing.
 
 ---

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 
@@ -12,7 +13,19 @@ const base = process.env.BASE_PATH ?? '/';
 
 export default defineConfig({
   base,
-  plugins: [svelte()],
+  plugins: [
+    // Every reader-facing word of the dialogue is a message (ADR-017, A2).
+    // `notes/prose.md` stays the owner's surface; `scripts/prose-to-messages.ts`
+    // carries it into messages/en.json. The locale is only ever chosen on
+    // purpose (localStorage), never from the browser: a Farsi browser must not
+    // land in an untranslated right-to-left page.
+    paraglideVitePlugin({
+      project: './project.inlang',
+      outdir: './src/paraglide',
+      strategy: ['localStorage', 'baseLocale'],
+    }),
+    svelte(),
+  ],
   resolve: {
     alias: {
       $lib: resolve(__dirname, 'src/lib'),
