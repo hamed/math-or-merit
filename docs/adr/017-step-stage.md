@@ -1,7 +1,7 @@
 # ADR-017 — The step stage: a third section kind, stepped in time
 
 Date: 2026-09-24
-Status: **PROPOSED — awaiting the owner. Not accepted. Nothing is built.**
+Status: **ACCEPTED 2026-09-24 by the owner, with Paraglide for A2** (proposed the same day).
 Amends ADR-013 (adds a section kind). Serves ADR-015. Source: dialogue brief v3, A1–A3.
 
 ## Context
@@ -35,7 +35,7 @@ The scrub machinery also carries costs that exist only because of scrub:
 `TEXT_EXIT`), per-beat `artBottom`, parking mid-tween, and the wall-clock versus
 scroll-clock fights every ambient animation has had to route around.
 
-## Decision (proposed)
+## Decision
 
 Add a third section kind: the **step stage**.
 
@@ -108,7 +108,7 @@ the same GSAP quarantine: `stage/gsap.ts` stays the only file importing
 `gsap`. `PinScene` is untouched and keeps serving the cow until — and only if —
 the cow moves over (see Consequences).
 
-## Sub-decision the owner must make: where the words live (A2)
+## Sub-decision: where the words live (A2) — Paraglide
 
 A2 is decided: every word is content, lines with live values are full-sentence
 messages with named variables and plurals, numbers go through
@@ -124,13 +124,14 @@ Two ways to meet A2, both preserving ADR-013's "the document is the manifest":
    (`{blue} coins`, the bet, the reveal) go through a message module.
 2. **All dialogue in a per-locale message file**, the svx holding only step ids.
 
-Recommendation: **(1)**, with a small in-house message module (typed messages
-per locale, `Intl.PluralRules`, `Intl.NumberFormat`, no dependency) shaped so
-that moving to Paraglide later is mechanical. It keeps the owner's words in the
-document where he can read them in order, and adds no dependency before the
-first non-English locale needs one. **Installing Paraglide now is the
-alternative** — `AGENTS.md` already sanctions it — and costs a build-time
-compiler step for one language.
+Recommendation at proposal time was (1) with a small in-house message module.
+
+**Owner's decision (2026-09-24): Paraglide.** Install `@inlang/paraglide-js`
+now, as `AGENTS.md` already names it. Messages live in the inlang project's
+per-locale files; dialogue lines are addressed by message id, and lines with
+live values use Paraglide's named variables. Numbers still go through
+`Intl.NumberFormat` for the active locale. The ordering of the owner's words
+remains readable in `notes/prose.md`, which stays his editing surface.
 
 ## Consequences
 
@@ -147,8 +148,10 @@ compiler step for one language.
 - **Reverse is no longer free.** Scrub gave exact reverse by construction; a
   step stage gives it by `settle`, which each stage must implement. `settle` is
   unit-testable per step without a DOM, which scrub never was.
-- **No-JS** renders the dialogue as text in reading order (the `<Line>`
-  children are real text), as captions are today.
+- **No-JS** renders nothing for the stage, as it renders nothing for the rest of
+  this Vite SPA today (a known limit, CONTEXT.md). Reduced motion, not no-JS, is
+  the working accessibility fallback — and every line is also mirrored into
+  accessible text (brief 4.3).
 
 ## Alternatives rejected
 

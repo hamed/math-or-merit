@@ -474,13 +474,26 @@ Sagredo.
   readable, overshoot by two wrong words and come back. Never stacked, on any
   screen. The owner writes the two word lists.
 
-**Proposed, awaiting a yes:** ADR-017, the step stage (A1).
+**Answered by the owner, 2026-09-24 (same day):**
 
-**Open:** the two reel lists and where the politically loaded words go; which
-cow captions the joke still needs; whether B2's real-person plates next to a
-Blue who is only *like* one need more framing; the stake the reveal runs at
-(0.35 today vs "half of the poorer" in the rules — see the brief, Part 8); the
-ending and the payoff of both bets; A6 after the first pass.
+- **ADR-017 accepted — the step stage — with Paraglide** for A2.
+- **The reveal runs at 0.5**, exactly the "half of the poorer" rule the game
+  teaches ("sooner, bigger, more drama; fits the teaching round"). Was 0.35.
+- **Red on the left, the colour of the left, is FINAL and permanent.** Not to be
+  reopened by any later note or brief.
+- **Reel word lists:** the agent picks sensible ones now; tuned later.
+- **The cow:** keep every plate; cut its text wherever the joke survives
+  without it.
+- **Which narrator lines are his:** he does not know. So none is claimed, and
+  each retires when the scene replacing it ships.
+- **B2's framing:** he does not know. Keep the guard ("I am not going to
+  explain how he got rich") and leave the framing as a hook.
+- **The top-k participation view** overlaps the existing four-coin stage and
+  points the same way. It goes in the effective-participants chapter, built on
+  the reader's own last run, with the four-coin stage kept for whoever wants to
+  dig further (as in the 2026-09-20 note).
+
+**Still open:** the ending and the payoff of both bets; A6 after the first pass.
 
 **Consequence for `feat/circle-overture` (2026-09-21…23, unmerged):** it
 implemented the 2026-09-20 note, which this brief supersedes — red was rich,

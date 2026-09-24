@@ -447,10 +447,8 @@ real fortune.
 
 [guess.percent] RED: (draft · proposed — first to cut) One percent. Careful. That's how it starts.
 
-> STAKE MISMATCH — needs your call before this scene ships. The reveal runs at a
-> 35% stake, but Red says "Same bet" (half of the poorer). Either the reveal
-> runs at 50% and its claim is re-measured, or the words change to 35% and
-> teach it.
+> the reveal runs at exactly half of the poorer fortune — the same bet Red
+> names (settled 2026-09-24; it used to be 35%).
 
 ---
 
@@ -751,8 +749,8 @@ Not prose. Edit only if a word annoys you.
 
 Deleted by default (D19): the essay is a dialogue now. They stay here, word for
 word, until the scene that replaces them ships, so nothing disappears silently.
-**Tell me any you wrote, and those survive.** §1–3 were rewritten with you line
-by line in August, so some of these may well be yours.
+Nobody has claimed any of them (2026-09-24), so each one goes when the scene
+replacing it ships.
 
 Every `! keep true:` these lines carried has already moved up into the script.
 
