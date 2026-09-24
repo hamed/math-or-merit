@@ -282,6 +282,24 @@
     }
   }
 
+  // ---- focus ---------------------------------------------------------------
+  //
+  // A reader tabbing to a control inside the stage must not be scrolled out of
+  // it. The browser reveals a focused element by scrolling — the credit link at
+  // the stage's foot sits inside the page's scroll padding, and focusing it
+  // moved the page 416px, which disengaged the stage and turned the next Space
+  // into a page-down. Everything inside a viewport-tall stage is already in
+  // view, so put the stage back where it fills the screen.
+
+  function onFocusIn(): void {
+    requestAnimationFrame(() => {
+      const t = top();
+      if (Math.abs(t) > ENGAGED_PX && Math.abs(t) < window.innerHeight) {
+        window.scrollTo({ top: window.scrollY + t, behavior: 'auto' });
+      }
+    });
+  }
+
   // ---- a tap on empty stage ----------------------------------------------
 
   function onClick(e: MouseEvent): void {
@@ -339,6 +357,7 @@
   aria-roledescription="stage"
   data-step={live.index}
   onclick={onClick}
+  onfocusin={onFocusIn}
 >
   {@render children()}
 </section>

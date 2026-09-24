@@ -702,7 +702,9 @@
 </script>
 
 <div class="pair-scene" bind:this={host}>
-  <div class="words" style={`opacity:${view.titleOn}; transform: translateY(${view.lift}px)`}>
+  <!-- Once the stage is cleared (Scene 8) its words are gone, so their links
+       must not stay in the tab order, invisible. -->
+  <div class="words" style={`opacity:${view.titleOn}; transform: translateY(${view.lift}px)`} inert={view.titleOn < 0.5}>
     <div class="teletype-slot">
       <Teletype
         headline={say('open_headline')}
