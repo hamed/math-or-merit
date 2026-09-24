@@ -77,16 +77,77 @@ export interface AgentStyle {
 }
 
 /**
+ * The two people the whole essay follows (D19, brief 4.2). Existing tokens
+ * only: Blue wears the blue fill with the RED stroke, Red the red fill with the
+ * BLUE stroke — the crossed stroke is what separates Red's pastel from the
+ * neutral rose-brown wash. Both are circles.
+ */
+export const PROTAGONISTS: Readonly<Record<'blue' | 'red', AgentStyle>> = Object.freeze({
+  blue: { fill: FILLS.blue, stroke: STROKES.red, fillName: 'blue', strokeName: 'red', shape: 'circle' },
+  red: { fill: FILLS.red, stroke: STROKES.blue, fillName: 'red', strokeName: 'blue', shape: 'circle' },
+});
+
+/**
+ * Colour pairs (fill/stroke) a CIRCLE in a crowd may not wear (A5).
+ *
+ * The brief reserves the protagonists' colours in crowds. Reserving only the
+ * exact pairs is not enough for a reader with colour-vision deficiency: to a
+ * protanope a violet circle with a red edge IS Blue (CIEDE2000 1.1), and to a
+ * deuteranope a green circle with a blue edge IS Red (0.3). These are every pair
+ * within ΔE 10 of a protagonist under normal, protan, deutan or tritan vision —
+ * 10 being the palette's own documented worst pair — measured by `cvd.ts` and
+ * pinned by a test that recomputes them. Only circles are held to it: shape is
+ * the palette's secondary encoding, so a violet TRIANGLE with a red edge is
+ * never mistaken for Blue.
+ */
+export const RESERVED_CIRCLE_PAIRS: ReadonlySet<string> = new Set([
+  'red/blue',
+  'red/violet',
+  'blue/red',
+  'green/red',
+  'green/blue',
+  'green/violet',
+  'violet/red',
+  'teal/red',
+  'teal/blue',
+  'teal/violet',
+  'pink/red',
+  'pink/blue',
+]);
+
+/**
+ * Skip on collision: a circle that would wear a reserved pair moves to the next
+ * stroke that is safe. Only that agent changes — no other index moves.
+ */
+function safeStroke(fillIdx: number, strokeIdx: number, shape: AgentShape): number {
+  if (shape !== 'circle') return strokeIdx;
+  const hues = COLOR_NAMES.length;
+  for (let step = 0; step < hues; step++) {
+    const candidate = (strokeIdx + step) % hues;
+    if (candidate === fillIdx) continue;
+    if (!RESERVED_CIRCLE_PAIRS.has(`${COLOR_NAMES[fillIdx]}/${COLOR_NAMES[candidate]}`)) return candidate;
+  }
+  return strokeIdx;
+}
+
+/**
  * Deterministic style table: fill cycles the 6 hues; the stroke sits 1–5 hue
  * slots away (never the fill's own hue); shapes cycle the 5 kinds. The cycle
- * lengths are coprime, so 30 consecutive agents show 30 distinct fill/stroke
- * pairs — a "unique mix" without randomness.
+ * lengths are coprime, so 30 consecutive agents wear 30 distinct costumes
+ * (fill, stroke, shape) — a "unique mix" without randomness. Three of every
+ * thirty (0, 5, 20) are circles that would have looked like a protagonist; they
+ * take the next safe stroke instead (A5).
  */
 export function assignStyles(n: number): AgentStyle[] {
   const styles: AgentStyle[] = [];
   for (let i = 0; i < n; i++) {
     const fillIdx = i % COLOR_NAMES.length;
-    const strokeIdx = (fillIdx + 1 + (i % (COLOR_NAMES.length - 1))) % COLOR_NAMES.length;
+    const shape = AGENT_SHAPES[i % AGENT_SHAPES.length];
+    const strokeIdx = safeStroke(
+      fillIdx,
+      (fillIdx + 1 + (i % (COLOR_NAMES.length - 1))) % COLOR_NAMES.length,
+      shape,
+    );
     const fillName = COLOR_NAMES[fillIdx];
     const strokeName = COLOR_NAMES[strokeIdx];
     styles.push({
@@ -94,7 +155,7 @@ export function assignStyles(n: number): AgentStyle[] {
       stroke: STROKES[strokeName],
       fillName,
       strokeName,
-      shape: AGENT_SHAPES[i % AGENT_SHAPES.length],
+      shape,
     });
   }
   return styles;
@@ -109,7 +170,9 @@ export function randomStyles(n: number, rand: () => number = Math.random): Agent
   const styles: AgentStyle[] = [];
   for (let i = 0; i < n; i++) {
     const fillIdx = Math.floor(rand() * COLOR_NAMES.length);
-    const strokeIdx = (fillIdx + 1 + Math.floor(rand() * (COLOR_NAMES.length - 1))) % COLOR_NAMES.length;
+    const drawnStroke = (fillIdx + 1 + Math.floor(rand() * (COLOR_NAMES.length - 1))) % COLOR_NAMES.length;
+    const shape = EXTENDED_SHAPES[Math.floor(rand() * EXTENDED_SHAPES.length)];
+    const strokeIdx = safeStroke(fillIdx, drawnStroke, shape);
     const fillName = COLOR_NAMES[fillIdx];
     const strokeName = COLOR_NAMES[strokeIdx];
     styles.push({
@@ -117,7 +180,7 @@ export function randomStyles(n: number, rand: () => number = Math.random): Agent
       stroke: STROKES[strokeName],
       fillName,
       strokeName,
-      shape: EXTENDED_SHAPES[Math.floor(rand() * EXTENDED_SHAPES.length)],
+      shape,
     });
   }
   return styles;

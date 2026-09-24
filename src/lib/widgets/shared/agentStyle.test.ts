@@ -29,9 +29,11 @@ describe('assignStyles', () => {
     expect(new Set(styles.map((s) => s.strokeName))).toEqual(new Set(COLOR_NAMES));
   });
 
-  it('gives 30 consecutive agents 30 distinct fill/stroke pairs', () => {
-    const pairs = new Set(assignStyles(30).map((s) => `${s.fillName}/${s.strokeName}`));
-    expect(pairs.size).toBe(30);
+  it('gives 30 consecutive agents 30 distinct costumes (fill, stroke, shape)', () => {
+    // Not 30 distinct colour PAIRS any more: three circles in every thirty take
+    // the next safe stroke so no crowd circle can pass for a protagonist (A5).
+    const costumes = assignStyles(30).map((s) => `${s.fillName}/${s.strokeName}/${s.shape}`);
+    expect(new Set(costumes).size).toBe(30);
   });
 
   it('resolves names to the documented palette hexes', () => {
