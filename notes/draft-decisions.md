@@ -136,7 +136,7 @@ Originally dropped to avoid causal-claim risk. Reinstated 2026-06-23 — see D5.
   a second, equally confident headline about a different winner. Guards unchanged (inert traits,
   no named bias).
 
-## D8 — Writing stance: narration is voiceover to a stage (architecture NOT fixed) — **stance (2026-06-23)**
+## D8 — Writing stance: narration is voiceover to a stage (architecture NOT fixed) — **SUPERSEDED by D19 (2026-09-24)**
 
 - **What this is:** a *writing* stance, not an architecture decision. The user explicitly does
   not want the presentation model fixed yet; the prose should be written AWARE of it instead.
@@ -423,3 +423,68 @@ unlisted. It does not stay for the public launch.
   that as well as GA does.
 - **Not now.** While the copy is unlisted GA is fine, and it is already counting
   our own visits — filter those before reading anything into the numbers.
+
+## D19 — The essay becomes a dialogue (2026-09-24)
+
+Owner's call, from the design session recorded in `inbox/2026-09-24 note.md`
+(the dialogue brief, v3). **Reverses D8.** The narrator is gone; two characters
+argue and the reader decides — Galileo's *Dialogue*, with the reader as
+Sagredo.
+
+**Decided:**
+
+- **Blue and Red carry the whole essay**, title to sandbox. Blue is "the richest
+  man in this world" — *like* a tech billionaire, never a real person, never
+  quoting one (D1 stands). Red is "the poorest man in this world", a physicist.
+  A fair fight: Blue gets strong lines and is sometimes right; the math beats
+  him, never the script.
+- **The reader takes part** — makes the pair equal, predicts, bets, runs the
+  experiments — and their answers are paid off later.
+- **Narrator words are deleted by default.** A line survives only if it is ★
+  (owner-approved) or the owner confirms he wrote it, or if it carries a
+  `! keep true:` claim — and then the CLAIM survives, moved into dialogue or a
+  claim note, not the wording. Qualifiers are never deleted with their cards.
+- **Characters may be wrong; the essay may not.** Every false thing Blue says is
+  corrected later by a line or by the picture. Every number in dialogue equals
+  the number on screen.
+- **A2 — everything is translatable, Farsi included.** Words are content, never
+  code; live values are full-sentence messages with named variables; bubbles are
+  HTML over the stage, not SVG text; numbers through `Intl.NumberFormat`.
+  **One deliberate exception to ADR-006:** the title words and the two
+  protagonists use PHYSICAL left/right, because the political association is
+  spatial — MATH and Red stay on the left in Farsi too. Wordplay lines carry a
+  `~ adapt:` note in `prose.md`.
+- **A3 — the title merges into the stage.** Teletype, both reels and the crowd
+  are the stage's first automatic steps.
+- **A4 — the cow and the spherical human are optional branches**, offered by
+  choice. How they blend in, and any references system, the owner designs later.
+- **A5 — protagonist colours are reserved in crowds.** Skip on collision, so no
+  other agent's index moves.
+- **A6 — outside a bubble, a line is set in its speaker's colour**:
+  `--agent-stroke-blue` / `--agent-stroke-red` (6.9:1 and 6.1:1 on paper; the
+  fills are never text). Colour is never the only cue: the speaker's name is
+  there as visually hidden text. Revisit after the first pass.
+- **Protagonist costumes (4.2), existing tokens only:** Blue = blue fill, RED
+  stroke; Red = red fill, BLUE stroke; both circles. Neutral classic wash until
+  the introductions. A minimum visible radius so neither vanishes when poor. The
+  dashed winner halo is NOT a speaker marker — it already means "the richest".
+- **Title (4.5):** "Math or Merit?" — MATH and Red on the left, MERIT and Blue on
+  the right. MERIT arrives first, through its own reel; then "or"; then MATH
+  through its reel; then "?". Both reels start on funny wrong words, stay
+  readable, overshoot by two wrong words and come back. Never stacked, on any
+  screen. The owner writes the two word lists.
+
+**Proposed, awaiting a yes:** ADR-017, the step stage (A1).
+
+**Open:** the two reel lists and where the politically loaded words go; which
+cow captions the joke still needs; whether B2's real-person plates next to a
+Blue who is only *like* one need more framing; the stake the reveal runs at
+(0.35 today vs "half of the poorer" in the rules — see the brief, Part 8); the
+ending and the payoff of both bets; A6 after the first pass.
+
+**Consequence for `feat/circle-overture` (2026-09-21…23, unmerged):** it
+implemented the 2026-09-20 note, which this brief supersedes — red was rich,
+the title read "Merit or Math?", and the two protagonists had same-hue strokes.
+Its front half is not to be merged as it stands. Its circle physics, reel code,
+one-line title pose and side-trip wrapper are raw material for the stage.
+
