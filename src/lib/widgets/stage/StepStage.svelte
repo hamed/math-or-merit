@@ -1,8 +1,4 @@
 <script lang="ts" module>
-  /** How close the stage's top must be to count as filling the viewport, px. */
-  const ENGAGED_PX = 2;
-  /** How much of a viewport away an approaching stage pulls the reader in. */
-  const ARRIVE_FRACTION = 0.5;
   /** Where a touch or scrollbar scroll that comes to rest near the stage is pulled in. */
   const SETTLE_FRACTION = 0.3;
   /** Controls inside the stage: a press on one of these never steps. */
@@ -21,14 +17,19 @@
    */
   import { onMount, setContext, type Snippet } from 'svelte';
   import {
+    ARRIVE_FRACTION,
+    ENGAGED_PX,
     STEP_STAGE_CONTEXT,
     StepMachine,
+    claim,
+    type Claim,
     type StepResult,
     type StepScene,
     type StepSpec,
     type StepStageContext,
   } from './steps';
   import { motionOk } from './motion';
+  import { STAGE_STATE_ATTRIBUTE } from '$lib/deferredEvents';
   import { SWIPE_MIN_PX, WHEEL_GESTURE_REST_MS, keyDirection, keyIsClaimed } from '../shared/gesture';
 
   interface Props {
@@ -87,7 +88,12 @@
     autoTimer = undefined;
   }
 
-  /** Auto steps run only while the stage is being looked at, and never under reduced motion. */
+  /**
+   * Auto steps run only while the stage is being looked at, never under reduced
+   * motion, and only when the reader arrived going FORWARD. A reader stepping
+   * back into the title or a toss is reviewing it; a timer there pushed them
+   * forward again, so walking back through two auto steps never got past them.
+   */
   function scheduleAuto(): void {
     clearAuto();
     if (!machine || live.reduced) return;
@@ -113,7 +119,16 @@
     if (how === 'forward' && to === from + 1 && !live.reduced) scene.play(to, from);
     else scene.settle(to);
     remember();
-    scheduleAuto();
+    if (how === 'forward') scheduleAuto();
+    else clearAuto();
+    publish();
+  }
+
+  function publish(): void {
+    const el = document.documentElement;
+    const state = !machine || !engaged() ? null : autoTimer !== undefined ? 'playing' : 'reading';
+    if (state === null) el.removeAttribute(STAGE_STATE_ATTRIBUTE);
+    else if (el.getAttribute(STAGE_STATE_ATTRIBUTE) !== state) el.setAttribute(STAGE_STATE_ATTRIBUTE, state);
   }
 
   function step(direction: 1 | -1): StepResult {
@@ -138,23 +153,59 @@
   }
 
   /**
+   * Whether the reader is IN the stage: stepped, arrived or aligned since they
+   * last left past an end or scrolled far away. A stage a few pixels off is
+   * then a stage that slid, not one being arrived at (see `claim`).
+   */
+  let inside = false;
+
+  function claimFor(direction: 1 | -1, busy: boolean): Claim {
+    if (!machine) return 'pass';
+    return claim({ top: top(), viewport: window.innerHeight, inside, busy }, direction, machine);
+  }
+
+  /** Carry a claim out. True when the gesture was the stage's. */
+  function act(what: Claim, direction: 1 | -1): boolean {
+    switch (what) {
+      case 'pass':
+        // handing an end to the page is leaving the stage
+        if (engaged()) inside = false;
+        return false;
+      case 'swallow':
+        return true;
+      case 'align':
+        align();
+        return true;
+      case 'arrive':
+        arrive(direction);
+        return true;
+      case 'step': {
+        inside = true;
+        const result = step(direction);
+        return result === 'moved' || result === 'held';
+      }
+    }
+  }
+
+  /**
    * Bring the stage to fill the viewport. From below, the reader is walking
    * back through the essay, so the stage shows its END state and stepping back
    * walks it in reverse.
    */
   function arrive(direction: 1 | -1): void {
     if (!machine) return;
-    if (direction < 0 && !machine.atLast) {
+    if (direction < 0 && !inside && !machine.atLast) {
       machine.seek(machine.steps.length - 1);
       show(machine.index, 'jump');
     }
+    inside = true;
     window.scrollTo({ top: window.scrollY + top(), behavior: live.reduced ? 'auto' : 'smooth' });
   }
 
-  function approaching(direction: 1 | -1): boolean {
-    const t = top();
-    const reach = window.innerHeight * ARRIVE_FRACTION;
-    return direction > 0 ? t > ENGAGED_PX && t < reach : t < -ENGAGED_PX && t > -reach;
+  /** The page slid under a reader who never left: put it back, on the same step. */
+  function align(): void {
+    inside = true;
+    window.scrollTo({ top: window.scrollY + top(), behavior: 'auto' });
   }
 
   // ---- wheel -------------------------------------------------------------
@@ -169,33 +220,23 @@
   function onWheel(e: WheelEvent): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-    if (Math.abs(delta) < 2) return;
+    if (delta === 0) return;
     const direction: 1 | -1 = delta > 0 ? 1 : -1;
-
-    if (!engaged()) {
-      // The inertial tail of the gesture that just arrived stays swallowed.
-      if (wheelLock !== undefined && inView()) {
-        e.preventDefault();
-        lockWheel();
-        return;
-      }
-      if (approaching(direction)) {
-        e.preventDefault();
-        lockWheel();
-        arrive(direction);
-      }
+    const busy = wheelLock !== undefined;
+    const what = claimFor(direction, busy);
+    if (what === 'pass') {
+      act(what, direction);
       return;
     }
-
-    if (wheelLock !== undefined) {
-      e.preventDefault();
-      lockWheel();
-      return;
-    }
-    const result = step(direction);
-    // Past either end the gesture is the page's: no preventDefault, no lock.
-    if (result === 'end' || result === 'start') return;
     e.preventDefault();
+    // A trackpad's tail thins to fractions of a pixel. It is still the stage's —
+    // letting it through slid the page off the stage, after which flicks
+    // scrolled straight past it — but too faint to act on, or to start a gesture.
+    if (Math.abs(delta) < 2) {
+      if (busy) lockWheel();
+      return;
+    }
+    act(what, direction);
     lockWheel();
   }
 
@@ -206,15 +247,7 @@
     if (direction === 0 || e.repeat) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (keyIsClaimed(document.activeElement)) return;
-    if (engaged()) {
-      const result = step(direction);
-      if (result === 'moved' || result === 'held') e.preventDefault();
-      return;
-    }
-    if (approaching(direction)) {
-      e.preventDefault();
-      arrive(direction);
-    }
+    if (act(claimFor(direction, false), direction)) e.preventDefault();
   }
 
   // ---- touch -------------------------------------------------------------
@@ -233,6 +266,7 @@
     const leaving = dy > 0 ? machine.atLast && !machine.holding : machine.atFirst;
     if (leaving) {
       touchStartY = null;
+      inside = false;
       return;
     }
     if (e.cancelable) e.preventDefault();
@@ -245,6 +279,7 @@
     const end = e.changedTouches[0]?.clientY;
     if (end === undefined || Math.abs(start - end) < SWIPE_MIN_PX) return;
     if (e.cancelable) e.preventDefault();
+    inside = true;
     step(start > end ? 1 : -1);
   }
 
@@ -265,7 +300,10 @@
     const y = window.scrollY;
     if (y !== lastScrollY) travel = y > lastScrollY ? 1 : -1;
     lastScrollY = y;
-    if (Math.abs(top()) > window.innerHeight * SETTLE_FRACTION) settleArmed = true;
+    const t = Math.abs(top());
+    if (t > window.innerHeight * SETTLE_FRACTION) settleArmed = true;
+    if (t >= window.innerHeight * ARRIVE_FRACTION) inside = false;
+    publish();
     if (settleTimer !== undefined) window.clearTimeout(settleTimer);
     settleTimer = window.setTimeout(maybeSettle, 160);
   }
@@ -295,6 +333,7 @@
     requestAnimationFrame(() => {
       const t = top();
       if (Math.abs(t) > ENGAGED_PX && Math.abs(t) < window.innerHeight) {
+        inside = true;
         window.scrollTo({ top: window.scrollY + t, behavior: 'auto' });
       }
     });
@@ -304,11 +343,11 @@
 
   function onClick(e: MouseEvent): void {
     if ((e.target as Element | null)?.closest(CONTROL)) return;
-    if (!engaged()) {
-      arrive(top() > 0 ? 1 : -1);
-      return;
-    }
-    step(1);
+    if (engaged()) {
+      inside = true;
+      step(1);
+    } else if (inside) align();
+    else arrive(top() > 0 ? 1 : -1);
   }
 
   onMount(() => {
@@ -327,6 +366,8 @@
     scheduleAuto();
 
     lastScrollY = window.scrollY;
+    inside = engaged();
+    publish();
     window.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('keydown', onKey);
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -343,6 +384,7 @@
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('scroll', onScroll);
+      document.documentElement.removeAttribute(STAGE_STATE_ATTRIBUTE);
     };
   });
 </script>

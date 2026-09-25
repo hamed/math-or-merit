@@ -165,6 +165,60 @@ export class StepMachine {
   }
 }
 
+/** How close the stage's top must be to count as filling the viewport, px. */
+export const ENGAGED_PX = 2;
+/** How much of a viewport away the stage still answers a gesture aimed at it. */
+export const ARRIVE_FRACTION = 0.5;
+/**
+ * How far the page can slide under a reader who is in the stage and still be
+ * put back as a slip. A trackpad's sub-pixel tail slides it a few pixels; a
+ * stage leaving on purpose (a choice that scrolls on) passes this in a frame.
+ */
+export const SLIP_FRACTION = 0.08;
+
+/**
+ * Who owns a reading gesture (wheel, key, tap), and what it does.
+ *
+ * `step`    — the stage fills the viewport: move one step.
+ * `swallow` — the tail of a gesture that already acted: eat it, do nothing.
+ * `align`   — the reader is inside the stage but the page slipped a few pixels
+ *             (a trackpad's tiny tail, a scrollbar nudge): put it back, as is.
+ * `arrive`  — the reader is coming to the stage from outside: bring it in.
+ * `pass`    — the page's gesture: past either end, or nowhere near the stage.
+ *
+ * `align` and `arrive` look alike on screen and differ in one thing that
+ * matters: arriving from below shows the stage's END, so a stage that had only
+ * slid treated as an arrival jumped the whole dialogue to its last line.
+ */
+export type Claim = 'step' | 'swallow' | 'align' | 'arrive' | 'pass';
+
+export interface Whereabouts {
+  /** The stage's top edge against the viewport's, px: positive when it is below. */
+  readonly top: number;
+  readonly viewport: number;
+  /** Stepped, arrived or aligned since the reader last left past an end or scrolled far away. */
+  readonly inside: boolean;
+  /** A gesture that already acted is still running (its inertial tail). */
+  readonly busy: boolean;
+}
+
+export function claim(
+  where: Whereabouts,
+  direction: 1 | -1,
+  stage: { readonly atFirst: boolean; readonly atLast: boolean; readonly holding: boolean },
+): Claim {
+  const leaving = direction > 0 ? stage.atLast && !stage.holding : stage.atFirst;
+  if (Math.abs(where.top) <= ENGAGED_PX) {
+    if (where.busy) return 'swallow';
+    return leaving ? 'pass' : 'step';
+  }
+  if (Math.abs(where.top) >= where.viewport * ARRIVE_FRACTION) return 'pass';
+  if (where.busy) return 'swallow';
+  if (where.inside && Math.abs(where.top) <= where.viewport * SLIP_FRACTION) return 'align';
+  const toward = (where.top > 0 && direction > 0) || (where.top < 0 && direction < 0);
+  return toward ? 'arrive' : 'pass';
+}
+
 /**
  * What a scene implements. The player decides WHEN; the scene decides WHAT.
  *
