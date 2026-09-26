@@ -23,8 +23,10 @@
   import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
   import { CALLS, PAIR_STEPS, REACTIONS, RUN_MS, indexOf, panelStart, valuesFor, type Pose } from './script';
   import { createRun } from './run.svelte';
-  import { BIG, COINS, CROWD, FALL, RAIN, RAINED, RAIN_GAP, SMALL } from './crowd';
+  import { BIG, COINS, CROWD, RAINED, SMALL } from './crowd';
+  import { FALL, hopsFor, noise, planRain } from './rain';
   import { deciderFace, pairLayout, pile } from './layout';
+  import type { Point } from '../../../shared/layout';
   import { bubbleLines, bubbleWords, chatColumn, stackChat, type BubbleChoice } from '../../bubbles';
   import {
     CLASSIC_AGENT_FILL,
@@ -124,6 +126,9 @@
     alpha: number;
     /** 1 — holds nothing: an empty ring, visible but with no area. */
     empty: number;
+    /** Squash and stretch, about the point where they touch the ground. */
+    sx: number;
+    sy: number;
   }
   interface Token {
     x: number;
@@ -142,9 +147,9 @@
     compact: 0,
     titleOn: 1,
     lift: 0,
-    people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1, empty: 1 })) as Person[],
+    people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1, empty: 1, sx: 1, sy: 1 })) as Person[],
     /** The room's other ninety-eight (Scene 10), each on its way in or in place. */
-    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, alpha: 0 })),
+    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, alpha: 0, sx: 1, sy: 1 })),
     paint: { blue: 0, red: 0 },
     coinsOn: 0,
     held: { blue: 15, red: 1 },
@@ -188,19 +193,24 @@
   /** Where each of the sixteen is, and how big, in a pose. */
   function people(pose: Pose): Person[] {
     const nobody = L.presence;
+    const still = { alpha: 1, sx: 1, sy: 1 };
     return L.crowdHomes.map((home, i) => {
       const who = whoIs(i);
       switch (pose.crowd) {
         case 'away':
-          return { ...L.crowdEntries[i], r: nobody, alpha: 1, empty: 1 };
+          return { ...L.crowdEntries[i], r: nobody, empty: 1, ...still };
         case 'idle':
-          return { ...home, r: nobody, alpha: 1, empty: 1 };
-        case 'paid':
-          return RAINED[i] > 0 ? { ...home, r: L.radius(RAINED[i]), alpha: 1, empty: 0 } : { ...home, r: nobody, alpha: 1, empty: 1 };
+          return { ...home, r: nobody, empty: 1, ...still };
+        case 'paid': {
+          const at = rainPlan.finals[i] ?? home;
+          return RAINED[i] > 0
+            ? { x: at.x, y: at.y, r: L.radius(RAINED[i]), empty: 0, ...still }
+            : { x: at.x, y: at.y, r: nobody, empty: 1, ...still };
+        }
         default: {
-          if (!who) return { ...L.crowdExits[i], r: nobody, alpha: 0, empty: 1 };
+          if (!who) return { ...L.crowdExits[i], r: nobody, empty: 1, ...still, alpha: 0 };
           const spot = pairSpot(pose, who);
-          return { x: spot.x, y: spot.y, r: pairRadius(pose, who), alpha: 1, empty: 0 };
+          return { x: spot.x, y: spot.y, r: pairRadius(pose, who), empty: 0, ...still };
         }
       }
     });
@@ -210,9 +220,8 @@
   function roomPeople(pose: Pose) {
     const w = L.width;
     return L.room.positions.map((p, i) => {
-      if (pose.place === 'room') return { x: p.x, y: p.y, alpha: 1 };
-      const side = i % 3 === 0 ? { x: p.x, y: L.height + L.room.radius * 4 } : { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y };
-      return { ...side, alpha: 0 };
+      if (pose.place === 'room') return { x: p.x, y: p.y, alpha: 1, sx: 1, sy: 1 };
+      return { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y, alpha: 0, sx: 1, sy: 1 };
     });
   }
 
@@ -293,6 +302,7 @@
     cardOpen = PAIR_STEPS[index].pose.cardOpen;
     stopBanter();
     banterShown = Infinity;
+    dropPaper();
     if (PAIR_STEPS[index].pose.ran) run.ended();
     else run.clear();
     draw(poseAt(index));
@@ -312,12 +322,17 @@
     cardOpen = step.pose.cardOpen;
     stopBanter();
     banterShown = Infinity;
+    dropPaper();
     if (step.action === 'run') {
       if (stage?.reduced) {
         run.start();
         run.finish();
         logReady = true;
-      } else run.start(() => (logReady = true));
+      } else
+        run.start(() => {
+          logReady = true;
+          printPaper();
+        });
     } else if (step.pose.ran) run.ended();
     else run.clear();
     if (step.id === 'run.banter') playBanter();
@@ -336,6 +351,10 @@
 
   function hurry(index: number): boolean {
     const id = PAIR_STEPS[index].id;
+    if (bigPaper) {
+      shrinkPaper();
+      return true;
+    }
     if (id === 'run' && run.state.running) {
       run.finish();
       return true;
@@ -426,6 +445,51 @@
       edition,
     );
     return { masthead: page.paper, text: page.text, source: page.source, style };
+  }
+
+  /**
+   * The front page lands big over the room first — the headline is the news —
+   * then shrinks into its line in the talk (owner review 2026-09-26).
+   */
+  let bigPaper = $state<Said['paper'] | null>(null);
+  let bigEl = $state<HTMLElement>();
+  let paperTimer: number | undefined;
+
+  function dropPaper(): void {
+    if (paperTimer !== undefined) window.clearTimeout(paperTimer);
+    paperTimer = undefined;
+    if (bigEl) gsap.killTweensOf(bigEl);
+    bigPaper = null;
+  }
+
+  function printPaper(): void {
+    dropPaper();
+    if (stage?.reduced) return;
+    bigPaper = frontPage();
+    paperTimer = window.setTimeout(shrinkPaper, 3800);
+  }
+
+  /** Into the talk: the big page flies to where its line already waits, unseen. */
+  function shrinkPaper(): void {
+    if (paperTimer !== undefined) window.clearTimeout(paperTimer);
+    paperTimer = undefined;
+    const target = host?.querySelector<HTMLElement>('.bubble.paper');
+    if (!bigPaper || !bigEl || !target) {
+      bigPaper = null;
+      return;
+    }
+    const a = bigEl.getBoundingClientRect();
+    const b = target.getBoundingClientRect();
+    gsap.to(bigEl, {
+      x: b.left - a.left,
+      y: b.top - a.top,
+      scaleX: b.width / a.width,
+      scaleY: b.height / a.height,
+      transformOrigin: '0 0',
+      duration: 0.75,
+      ease: 'power2.inOut',
+      onComplete: () => (bigPaper = null),
+    });
   }
 
   /** Who finished richest, as far as the banter goes. */
@@ -682,9 +746,10 @@
   const region = $derived.by(() => {
     const pose = poseAt(current);
     const top = pose.cleared ? Math.max(height * 0.05, pose.cards.length > 0 ? 68 : 0) : height * 0.03 + titleFont * 1.2 * COMPACT + 12;
+    // in the room the talk floats over the crowd, down to just above the two
     const tops =
       pose.place === 'room'
-        ? [L.room.top, ...(runShown && run.state.winner >= 0 ? [roomSpot(run.state.winner).y - roomR(run.state.winner) - 8] : [])]
+        ? [L.room.positions[L.room.blue].y - L.room.radius * 3.2]
         : PAIR.map((who) => pairSpot(pose, who).y - Math.max(pairRadius(pose, who), L.minRadius));
     // on a narrow stage an open card sits over the talk's space: start below it
     const card = cardOpen && width < 760 && cardHeight > 0 ? 12.8 + 44 + 8 + cardHeight + 10 : 0;
@@ -707,6 +772,7 @@
     stackChat(
       said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null })),
       column,
+      PAIR_STEPS[current].pose.place === 'room' ? 4 : 6,
     ),
   );
 
@@ -801,125 +867,146 @@
     }
   }
 
-  /** A deterministic wobble per person, so every visit bounces the same way. */
-  const jitter = (i: number, k: number) => {
-    const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
-    return x - Math.floor(x);
-  };
-
-  /** Across to `to` in three hops, each lower than the last, landing where it belongs. */
-  function bounce(tl: ReturnType<typeof gsap.timeline>, who: { x: number; y: number }, to: { x: number; y: number }, at: number, duration: number, height: number): void {
-    tl.to(who, { x: to.x, duration, ease: 'none' }, at);
-    const hops = [1, 0.42, 0.16];
-    const piece = duration / (hops.length * 2);
-    hops.forEach((k, n) => {
-      const t = at + n * piece * 2;
-      tl.to(who, { y: to.y - height * k, duration: piece, ease: 'power1.out' }, t);
-      tl.to(who, { y: to.y, duration: piece, ease: 'power1.in' }, t + piece);
-    });
-  }
-
-  /** Scene 2 begins: people bounce in from every side and settle where they like. */
-  function arrive(tl: ReturnType<typeof gsap.timeline>): void {
-    const hop = L.radius(1) * 1.4;
-    view.people.forEach((person, i) => {
-      tl.set(person, { ...L.crowdEntries[i], r: L.presence, empty: 1, alpha: 1 }, 0);
-      bounce(tl, person, L.crowdHomes[i], 0.3 + jitter(i, 1) * 2.8, 1.1 + jitter(i, 2) * 0.5, hop);
-    });
+  type Timeline = ReturnType<typeof gsap.timeline>;
+  interface Hopper {
+    x: number;
+    y: number;
+    sx: number;
+    sy: number;
   }
 
   /**
-   * Coins pop out of the MATH reel and fall; the crowd runs and jumps for them
-   * (owner, 2026-09-26). Each coin's catcher gets under it and jumps to meet it;
-   * whoever stands nearest jumps too, and misses. One catches a lot, one very
-   * little — those two stay.
+   * Small hops from `from` to `to`, leaving at `depart` and landing for good at
+   * `arrive` — the Pixar lamp, not a cannonball (owner review 2026-09-26):
+   * crouch, stretch into the air, squash on landing, and no two hops alike.
+   * Nobody flies: a long way is many small hops, never one big arc.
    */
-  function payout(tl: ReturnType<typeof gsap.timeline>): void {
+  function hopAlong(tl: Timeline, p: Hopper, from: Point, to: Point, depart: number, arrive: number, height: number, key: number): void {
+    const n = hopsFor(Math.hypot(to.x - from.x, to.y - from.y), L.radius(1) * 2.2);
+    if (n === 0 || arrive <= depart) return;
+    const weights = Array.from({ length: n }, (_, k) => 0.8 + noise(key, k) * 0.55);
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    let t = depart;
+    for (let k = 0; k < n; k++) {
+      const dur = ((arrive - depart) * weights[k]) / total;
+      const a = { x: from.x + ((to.x - from.x) * k) / n, y: from.y + ((to.y - from.y) * k) / n };
+      const b = { x: from.x + ((to.x - from.x) * (k + 1)) / n, y: from.y + ((to.y - from.y) * (k + 1)) / n };
+      const h = height * (0.6 + noise(key, k + 50) * 0.7);
+      const crouch = dur * 0.16;
+      const air = dur * 0.62;
+      const land = dur * 0.22;
+      tl.to(p, { sx: 1.16, sy: 0.82, duration: crouch, ease: 'power1.out' }, t);
+      tl.to(p, { sx: 0.9, sy: 1.13, duration: air * 0.4, ease: 'power1.out' }, t + crouch);
+      tl.to(p, { x: b.x, duration: air, ease: 'none' }, t + crouch);
+      tl.to(p, { y: Math.min(a.y, b.y) - h, duration: air / 2, ease: 'power2.out' }, t + crouch);
+      tl.to(p, { y: b.y, duration: air / 2, ease: 'power2.in' }, t + crouch + air / 2);
+      tl.to(p, { sx: 1, sy: 1, duration: air * 0.3 }, t + crouch + air * 0.45);
+      tl.to(p, { sx: 1.2, sy: 0.8, duration: land * 0.4, ease: 'power1.out' }, t + crouch + air);
+      tl.to(p, { sx: 1, sy: 1, duration: land * 0.6, ease: 'back.out(3)' }, t + crouch + air + land * 0.4);
+      t += dur;
+    }
+  }
+
+  /** A jump on the spot whose top is at `peak`: crouch, up, down, squash. */
+  function jumpAt(tl: Timeline, p: Hopper, spot: Point, peak: number, height: number): void {
+    tl.to(p, { sx: 1.18, sy: 0.8, duration: 0.09, ease: 'power1.out' }, peak - 0.27);
+    tl.to(p, { sx: 0.88, sy: 1.16, y: spot.y - height, duration: 0.18, ease: 'power2.out' }, peak - 0.18);
+    tl.to(p, { sx: 1, sy: 1, y: spot.y, duration: 0.2, ease: 'power2.in' }, peak);
+    tl.to(p, { sx: 1.22, sy: 0.78, duration: 0.06, ease: 'power1.out' }, peak + 0.2);
+    tl.to(p, { sx: 1, sy: 1, duration: 0.16, ease: 'back.out(3)' }, peak + 0.26);
+  }
+
+  /** Scene 2 begins: people hop in from the nearer side, each at their own pace, and settle. */
+  function arrive(tl: Timeline): void {
+    const one = L.radius(1);
+    view.people.forEach((person, i) => {
+      tl.set(person, { ...L.crowdEntries[i], r: L.presence, empty: 1, alpha: 1, sx: 1, sy: 1 }, 0);
+      const from = L.crowdEntries[i];
+      const to = L.crowdHomes[i];
+      const hops = hopsFor(Math.hypot(to.x - from.x, to.y - from.y), one * 2.2);
+      const depart = 0.15 + noise(i, 1) * 1.4;
+      // everyone has settled before the title's first word lands
+      const arrive = Math.min(4.3, depart + hops * (0.26 + noise(i, 2) * 0.12) + noise(i, 3) * 0.5);
+      hopAlong(tl, person, from, to, depart, arrive, one * (0.7 + noise(i, 4) * 0.5), i * 7 + 1);
+    });
+  }
+
+  /** Where the crowd ends the rain: the scramble, planned once for this stage's size. */
+  const rainPlan = $derived(planRain(L.crowdHomes, L.crowdBand, L.radius(1)));
+
+  /**
+   * Coins pop out of the MATH reel and rain down, and everyone scrambles for
+   * them (owner, 2026-09-26): each drop's owner hops under it and jumps to meet
+   * it; the nearest one or two go for it too and arrive a beat late. One
+   * catches a lot, one very little — those two stay.
+   */
+  function payout(tl: Timeline): void {
     const hostBox = host.getBoundingClientRect();
     const reelBox = mathReel.getBoundingClientRect();
     const from = { x: reelBox.left - hostBox.left + reelBox.width / 2, y: reelBox.top - hostBox.top + reelBox.height / 2 };
-    const caught = new Array<number>(CROWD).fill(0);
     const one = L.radius(1);
-    const homes = L.crowdHomes;
+    const caught = new Array<number>(CROWD).fill(0);
     tl.to(view, { markOn: 1, duration: 0.5, ease: 'none' }, 0);
-    RAIN.forEach((who, k) => {
-      const token = view.payout[k];
-      const person = view.people[who];
-      const at = 0.2 + k * RAIN_GAP;
-      const before = caught[who];
-      caught[who] += 1;
+    let token = 0;
+    for (const c of rainPlan.catches) {
+      const person = view.people[c.who];
+      hopAlong(tl, person, c.from, c.spot, c.depart, c.land - 0.28, one * 0.8, c.drop * 13 + 3);
+      const before = caught[c.who];
+      caught[c.who] += c.count;
       const r = before > 0 ? L.radius(before) : L.presence;
-      // where it comes down: near the catcher, never quite where he stands
-      const spot = { x: homes[who].x + (jitter(who, k + 5) - 0.5) * one * 3, y: homes[who].y };
-      const jump = Math.max(one * 1.2, r * 0.5);
-      const meet = at + FALL;
-      tl.to(person, { x: spot.x, duration: FALL * 0.75, ease: 'power2.out' }, at);
-      tl.to(person, { y: spot.y - jump, duration: 0.16, ease: 'power2.out' }, meet - 0.16);
-      tl.to(person, { y: spot.y, duration: 0.22, ease: 'bounce.out' }, meet);
-      // the nearest other jumps for it too, and comes down with nothing
-      const rival = nearestTo(who);
-      if (rival >= 0) {
-        tl.to(view.people[rival], { y: homes[rival].y - one * 0.9, duration: 0.16, ease: 'power2.out' }, meet - 0.18);
-        tl.to(view.people[rival], { y: homes[rival].y, duration: 0.22, ease: 'bounce.in' }, meet - 0.02);
+      jumpAt(tl, person, c.spot, c.land, Math.max(one * 1.1, r * 0.45));
+      for (let k = 0; k < c.count; k++) {
+        const coin = view.payout[token++];
+        const off = (k - (c.count - 1) / 2) * L.coinRadius * 1.3;
+        tl.set(coin, { x: from.x, y: from.y, on: 1 }, c.land - FALL + k * 0.04);
+        tl.to(coin, { x: c.spot.x + off, duration: FALL, ease: 'power1.out' }, c.land - FALL + k * 0.04);
+        tl.to(coin, { y: c.spot.y - one * 1.1 - r, duration: FALL, ease: 'power2.in' }, c.land - FALL + k * 0.04);
+        tl.set(coin, { on: 0 }, c.land + k * 0.04);
       }
-      tl.set(token, { x: from.x, y: from.y, on: 1 }, at);
-      tl.to(token, { x: spot.x, duration: FALL, ease: 'power1.out' }, at);
-      tl.to(token, { y: spot.y - jump - r, duration: FALL, ease: 'power2.in' }, at);
-      tl.set(token, { on: 0 }, meet);
-      tl.set(person, { empty: 0 }, meet);
-      tl.to(person, { r: L.radius(caught[who]), duration: 0.25, ease: 'back.out(3)' }, meet);
-    });
-    // everyone wanders back to where they were standing
-    const end = 0.2 + RAIN.length * RAIN_GAP + FALL + 0.15;
-    view.people.forEach((person, i) => tl.to(person, { x: homes[i].x, y: homes[i].y, duration: 0.5, ease: 'power2.inOut' }, end));
+      tl.set(person, { empty: 0 }, c.land);
+      tl.to(person, { r: L.radius(caught[c.who]), duration: 0.25, ease: 'back.out(3)' }, c.land);
+    }
+    for (const [k, c] of rainPlan.chases.entries()) {
+      hopAlong(tl, view.people[c.who], c.from, c.to, c.depart, c.arrive, one * 0.7, k * 17 + 5);
+    }
   }
 
-  /** Who stands closest to someone at home, other than the two who stay. */
-  function nearestTo(who: number): number {
-    const home = L.crowdHomes[who];
-    let best = -1;
-    let bestD = Infinity;
-    L.crowdHomes.forEach((h, i) => {
-      if (i === who || whoIs(i)) return;
-      const d = Math.hypot(h.x - home.x, h.y - home.y);
-      if (d < bestD) {
-        bestD = d;
-        best = i;
-      }
-    });
-    return best;
-  }
-
-  /** Everyone with nothing bounces off the stage; the two glide under their words. */
-  function leave(pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
+  /** Everyone else hops off the stage with what they caught; the two hop under their words. */
+  function leave(pose: Pose, tl: Timeline): void {
     const targets = people(pose);
-    const hop = L.radius(1) * 1.2;
+    const one = L.radius(1);
     view.people.forEach((person, i) => {
+      const from = { x: person.x, y: person.y };
       if (whoIs(i)) {
-        tl.to(person, { ...targets[i], duration: 1.3, ease: 'power2.inOut' }, 0.5);
+        const to = { x: targets[i].x, y: targets[i].y };
+        hopAlong(tl, person, from, to, 0.4, 2.1, Math.max(one * 0.6, person.r * 0.25), i * 5 + 2);
+        tl.to(person, { r: targets[i].r, duration: 0.5 }, 1.6);
         return;
       }
-      const at = jitter(i, 3) * 0.9;
-      bounce(tl, person, L.crowdExits[i], at, 1.2, hop);
-      tl.to(person, { alpha: 0, duration: 0.3 }, at + 1.0);
+      const depart = noise(i, 3) * 0.7;
+      const exit = L.crowdExits[i];
+      const hops = hopsFor(Math.abs(exit.x - from.x), one * 2.2);
+      hopAlong(tl, person, from, { x: exit.x, y: from.y }, depart, depart + hops * 0.22, one * 0.6, i * 11 + 4);
+      tl.set(person, { alpha: 0 }, depart + hops * 0.22);
     });
   }
 
   /**
    * Scene 10: the camera pulls back about the middle — the two shrink and keep
-   * their places relative to each other — while ninety-eight people bounce in
-   * one by one from every side (brief 3.6).
+   * their places relative to each other — while ninety-eight people hop in one
+   * by one from both sides (brief 3.6).
    */
-  function fillRoom(pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
+  function fillRoom(pose: Pose, tl: Timeline): void {
     const t = target(pose);
     tl.to(view, { roomOn: 1, coinsOn: t.coinsOn, flipOn: t.flipOn, duration: 0.3 }, 0);
     people(pose).forEach((p, i) => tl.to(view.people[i], { ...p, duration: 1.1, ease: 'power2.inOut' }, 0));
-    const hop = L.room.radius * 2.2;
+    const w = L.width;
     L.room.positions.forEach((spot, i) => {
       if (i === L.room.blue || i === L.room.red) return;
-      const at = 0.6 + (i / L.room.positions.length) * 2.4 + jitter(i, 4) * 0.25;
-      tl.set(view.room[i], { alpha: 1 }, at);
-      bounce(tl, view.room[i], spot, at, 0.8, hop);
+      const entry = { x: spot.x < w / 2 ? -L.room.radius * 3 : w + L.room.radius * 3, y: spot.y };
+      const depart = 0.4 + (i / L.room.positions.length) * 2.2 + noise(i, 4) * 0.3;
+      tl.set(view.room[i], { ...entry, alpha: 1, sx: 1, sy: 1 }, depart);
+      hopAlong(tl, view.room[i], entry, spot, depart, depart + 0.9 + noise(i, 5) * 0.4, L.room.radius * 1.3, i * 3 + 9);
     });
     tl.call(() => {
       view.held = t.held;
@@ -1224,19 +1311,29 @@
     return p > 0 && p < 1 ? 1 + Math.sin(p * Math.PI) * 0.12 : 1;
   }
 
+  /** Squash and stretch about the bottom of a shape of radius `r`, where it meets the ground. */
+  function squash(r: number, sx: number, sy: number): string {
+    if (Math.abs(sx - 1) < 1e-3 && Math.abs(sy - 1) < 1e-3) return '';
+    return `translate(0 ${r.toFixed(2)}) scale(${sx.toFixed(3)} ${sy.toFixed(3)}) translate(0 ${(-r).toFixed(2)})`;
+  }
+
   /** Breath for the pair, a hop and a jiggle for the crowd — ambient, on the inner group only. */
   function life(i: number): string {
     if (stage?.reduced) return '';
     const b = breath(seconds, i);
     const crowdPhase = PAIR_STEPS[current]?.pose.crowd;
     let hop = 0;
-    if (crowdPhase === 'idle' || crowdPhase === 'paid') {
+    let tremble = 0;
+    if ((crowdPhase === 'idle' || crowdPhase === 'paid') && !timeline?.isActive()) {
+      // each at their own rhythm: now and then a little hop, and never quite still
       const r = view.people[i].r;
-      hop = Math.max(0, Math.sin(seconds * 2.1 + i * 1.3)) ** 6 * r * 0.9;
+      const rate = 0.45 + noise(i, 30) * 0.7;
+      hop = Math.max(0, Math.sin(seconds * rate * Math.PI * 2 + noise(i, 31) * 6)) ** 14 * r * (0.5 + noise(i, 32) * 0.6);
+      tremble = Math.sin(seconds * (3 + noise(i, 33) * 4) + i) * 0.6 + Math.sin(seconds * (9 + noise(i, 34) * 5) + 2 * i) * 0.3;
     }
     let shake = 0;
     if (wiggling && whoIs(i) === wiggling.who && seconds < wiggling.until) shake = Math.sin(seconds * 42) * 4;
-    return `translate(${(b.dx + shake).toFixed(2)} ${(b.dy - hop).toFixed(2)}) scale(${(b.scale * pop(i)).toFixed(4)})`;
+    return `translate(${(b.dx + shake + tremble).toFixed(2)} ${(b.dy - hop).toFixed(2)}) scale(${(b.scale * pop(i)).toFixed(4)})`;
   }
 
 
@@ -1263,6 +1360,7 @@
       stopCalls();
       stopReveal();
       stopBanter();
+      dropPaper();
       run.stop();
     };
   });
@@ -1324,7 +1422,7 @@
             {#if i !== L.room.blue && i !== L.room.red && spot.alpha > 0.01 && roomStyles[i]}
               <path
                 d={svgShapePath(roomStyles[i].shape, runShown ? roomR(i) : L.room.radius)}
-                transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)})`}
+                transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`}
                 fill={roomStyles[i].fill}
                 stroke={roomStyles[i].stroke}
                 fill-opacity="0.75"
@@ -1339,6 +1437,7 @@
       {#each view.people as person, i (i)}
         {#if person.alpha > 0.01 && person.r > 0.05}
           <g transform={`translate(${person.x.toFixed(2)} ${person.y.toFixed(2)})`} opacity={person.alpha}>
+            <g transform={squash(person.r, person.sx, person.sy)}>
             <g transform={life(i)}>
               <circle
                 r={runShown && whoIs(i) ? roomR(whoIs(i) === 'blue' ? L.room.blue : L.room.red) : person.r}
@@ -1358,6 +1457,7 @@
                 </g>
               {/if}
             </g>
+            </g>
           </g>
         {/if}
       {/each}
@@ -1365,15 +1465,15 @@
       {#if runShown && run.state.winner >= 0}
         {@const spot = roomSpot(run.state.winner)}
         <!-- the dashed ring means "the richest", as everywhere in the essay -->
-        <circle
+        <path
           class="halo"
-          cx={spot.x}
-          cy={spot.y}
-          r={roomR(run.state.winner) + 5}
+          d={svgShapePath(styleOfRoom(run.state.winner).shape, roomR(run.state.winner) + 6)}
+          transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)})`}
           fill="none"
           stroke="var(--ink-mid)"
           stroke-width="1.4"
           stroke-dasharray="4 4"
+          stroke-linejoin="round"
         />
       {/if}
 
@@ -1458,6 +1558,7 @@
             kind={bubble.kind}
             coin={bubble.coin}
             paper={bubble.paper}
+            hidden={bubble.kind === 'paper' && bigPaper !== null}
             maxWidth={bubbleWidth}
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
@@ -1469,6 +1570,21 @@
         {/if}
       {/each}
     </div>
+
+    {#if bigPaper}
+      <article class="big-paper" bind:this={bigEl} aria-hidden="true">
+        <p class="big-masthead">{bigPaper.masthead}</p>
+        <div class="big-spread">
+          <svg class="big-photo" viewBox="-14 -14 28 28">
+            <path d={svgShapePath(bigPaper.style.shape, 10)} fill={bigPaper.style.fill} stroke={bigPaper.style.stroke} stroke-width="1.4" />
+          </svg>
+          <div>
+            <p class="big-headline">{bigPaper.text}</p>
+            <p class="big-source">{bigPaper.source}</p>
+          </div>
+        </div>
+      </article>
+    {/if}
 
     <CardStack
       {cards}
@@ -1567,6 +1683,73 @@
   }
 
   /* in the top bar, beside the card deck: never under the talk */
+  /* the morning paper as it lands: the headline is the news */
+  .big-paper {
+    position: absolute;
+    z-index: 6;
+    inset-block-start: 22%;
+    left: calc(50% - min(17rem, 46vw));
+    inline-size: min(34rem, 92vw);
+    padding: 0.9rem 1.2rem 1rem;
+    border: 1px solid #c9bca5;
+    border-radius: 0.6rem;
+    background: #fffdf8;
+    box-shadow: 0 1.2rem 3rem rgb(65 50 29 / 24%);
+    color: var(--ink);
+    font-family: var(--font-serif);
+    animation: land 520ms cubic-bezier(0.2, 1.3, 0.4, 1) both;
+  }
+
+  .big-masthead {
+    margin: 0 0 0.6rem;
+    padding-block-end: 0.4rem;
+    border-block-end: 3px solid var(--ink);
+    font-size: clamp(0.95rem, 1.6vw, 1.2rem);
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .big-spread {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .big-photo {
+    flex: none;
+    inline-size: clamp(4rem, 9vw, 6.5rem);
+    block-size: clamp(4rem, 9vw, 6.5rem);
+    padding: 0.35rem;
+    border: 1px solid #d8cdb9;
+    background: var(--paper-bright);
+    transform: rotate(-3deg);
+  }
+
+  .big-headline {
+    margin: 0;
+    font-size: clamp(1.6rem, 3.4vw, 2.6rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+
+  .big-source {
+    margin: 0.45rem 0 0;
+    color: var(--ink-soft);
+    font-family: var(--font-sans);
+    font-size: clamp(0.78rem, 1.2vw, 0.9rem);
+    line-height: 1.35;
+  }
+
+  @keyframes land {
+    from {
+      opacity: 0;
+      transform: scale(1.25) rotate(-4deg);
+    }
+  }
+
   .readout {
     position: absolute;
     z-index: 3;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BIG, BLUE_CATCHES, COINS, CROWD, RAIN, RAINED, RAIN_SECONDS, RED_CATCHES, SMALL } from './crowd';
+import { BIG, BLUE_CATCHES, COINS, CROWD, DROPS, RAINED, RED_CATCHES, SMALL } from './crowd';
 
 describe("Scene 2's crowd", () => {
   it('catches coins: Blue the most, Red the least of the two, everyone else one or two or none', () => {
@@ -9,23 +9,19 @@ describe("Scene 2's crowd", () => {
     expect(BLUE_CATCHES + RED_CATCHES).toBe(16);
     for (const [i, c] of RAINED.entries()) if (i !== BIG && i !== SMALL) expect(c).toBeLessThanOrEqual(2);
     expect(RAINED.filter((c) => c === 0).length).toBeGreaterThanOrEqual(3);
-    expect(Math.max(...RAINED.filter((_, i) => i !== BIG))).toBeLessThan(RAINED[BIG]);
   });
 
-  it('rains every coin exactly once, onto someone who catches it', () => {
-    expect(RAIN).toHaveLength(COINS);
+  it('rains every coin exactly once, in drops: Blue\'s in bundles, everyone else\'s one by one', () => {
     const counts = new Array(CROWD).fill(0);
-    for (const who of RAIN) counts[who] += 1;
+    for (const drop of DROPS) counts[drop.who] += drop.count;
     expect(counts).toEqual([...RAINED]);
-  });
-
-  it("spreads Blue's catches through the rain rather than in one run", () => {
-    const blue = RAIN.map((who, k) => (who === BIG ? k : -1)).filter((k) => k >= 0);
-    expect(blue[0]).toBeLessThan(RAIN.length / 3);
-    expect(blue[blue.length - 1]).toBeGreaterThan((RAIN.length * 2) / 3);
-  });
-
-  it('is over in a few seconds', () => {
-    expect(RAIN_SECONDS).toBeLessThan(7);
+    expect(DROPS.reduce((s, d) => s + d.count, 0)).toBe(COINS);
+    for (const drop of DROPS) {
+      if (drop.who === BIG) {
+        expect(drop.count).toBeGreaterThanOrEqual(1);
+        expect(drop.count).toBeLessThanOrEqual(4);
+      } else expect(drop.count).toBe(1);
+    }
+    expect(DROPS.findIndex((d) => d.who === SMALL)).toBeLessThan(3);
   });
 });

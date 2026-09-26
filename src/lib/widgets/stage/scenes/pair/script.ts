@@ -19,7 +19,8 @@
  * in `game.ts`.
  */
 import { HOLDINGS, ROUNDS } from './game';
-import { BIG, RAIN_SECONDS, SMALL } from './crowd';
+import { BIG, DROPS, SMALL } from './crowd';
+import { DROP_GAP, FALL } from './rain';
 import { CHAT, HOLD, READER, auto, type LineSpec, type StepSpec, type Wait } from '../../steps';
 
 /** Scene 2: not here yet · bounced in · coins caught · only the two left. */
@@ -135,6 +136,9 @@ const staked = (round: number): Coins => ({ blue: ROUNDS[round].stake, red: ROUN
 const minus = (a: Coins, b: Coins): Coins => ({ blue: a.blue - b.blue, red: a.red - b.red });
 const NOTHING: Coins = { blue: 0, red: 0 };
 
+/** How long the rain step lasts: every drop, the last fall, and a moment to stand still. */
+export const RAIN_WAIT_MS = Math.round((0.4 + DROPS.length * DROP_GAP + FALL + 2.4) * 1000);
+
 /** How long the run takes on screen, ms: slow enough to see it happen (brief Scene 13). */
 export const RUN_MS = 16_000;
 
@@ -146,7 +150,7 @@ const DRAFTS: Draft[] = [
   { id: 'title.math', wait: auto(3800), action: 'reel-math', pose: { math: true } },
 
   // ---- Scene 2: the crowd ----------------------------------------------
-  { id: 'crowd.payout', wait: auto(Math.round(RAIN_SECONDS * 1000) + 500), action: 'payout', pose: { crowd: 'paid', mark: true } },
+  { id: 'crowd.payout', wait: auto(RAIN_WAIT_MS), action: 'payout', pose: { crowd: 'paid', mark: true } },
   { id: 'crowd.two', wait: auto(2600), action: 'gather', pose: { crowd: 'two' } },
 
   // ---- Scene 3: meeting them — Red calls, then Blue (holds: a click each) --
@@ -240,7 +244,7 @@ const DRAFTS: Draft[] = [
 
   // ---- Scene 13: the run, in the same room ---------------------------------
   red('run.go', 'run_go', { panel: true }),
-  { id: 'run', wait: auto(RUN_MS + 4000), action: 'run', log: 'log_run', pose: { ran: true } },
+  { id: 'run', wait: auto(RUN_MS + 5500), action: 'run', log: 'log_run', pose: { ran: true } },
   { id: 'run.banter', wait: CHAT },
   red('run.again', 'run_again'),
 

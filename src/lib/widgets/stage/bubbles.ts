@@ -103,8 +103,11 @@ export function tailToward(box: { x: number; y: number; w: number; h: number }, 
   return { edge: below ? 'top' : 'bottom', base, tip: { x: base + ux * TAIL_LENGTH, y: edgeY + uy * TAIL_LENGTH } };
 }
 
-/** Lay the column out. `items` in time order, oldest first. */
-export function stackChat(items: readonly ChatItem[], column: Column): Placed[] {
+/**
+ * Lay the column out. `items` in time order, oldest first. Only the newest
+ * `keep` stay: the talk is context, not a transcript (owner review 2026-09-26).
+ */
+export function stackChat(items: readonly ChatItem[], column: Column, keep = Infinity): Placed[] {
   const laid: { x: number; y: number; onLeft: boolean }[] = [];
   let y = 0;
   for (const item of items) {
@@ -125,7 +128,8 @@ export function stackChat(items: readonly ChatItem[], column: Column): Placed[] 
     const top = p.y + shift;
     const item = items[i];
     const tail = item.anchor ? tailToward({ x: p.x, y: top, w: item.w, h: item.h }, item.anchor, p.onLeft) : null;
-    return { x: p.x, y: top, gone: i < laid.length - 1 && top < column.top - 1, tail };
+    const old = i < laid.length - keep;
+    return { x: p.x, y: top, gone: i < laid.length - 1 && (old || top < column.top - 1), tail };
   });
 }
 

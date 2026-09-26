@@ -63,6 +63,12 @@ describe('the talk, as a chat window', () => {
     for (const p of laid.filter((q) => !q.gone)) expect(p.y).toBeGreaterThanOrEqual(COLUMN.top - 1);
   });
 
+  it('keeps only the newest few when asked to', () => {
+    const many = Array.from({ length: 6 }, (_, i) => said(200, 40, i % 2 ? RED : BLUE));
+    const laid = stackChat(many, { ...COLUMN, top: -10_000 }, 4);
+    expect(laid.map((p) => p.gone)).toEqual([true, true, false, false, false, false]);
+  });
+
   it('keeps every bubble on the stage, on a phone too', () => {
     const phone = chatColumn([{ x: 117, y: 600, r: 70 }, { x: 273, y: 600, r: 20 }], 390, 80, 500);
     const laid = stackChat([{ w: 300, h: 50, anchor: { x: 117, y: 600, r: 70 } }, { w: 300, h: 50, anchor: { x: 273, y: 600, r: 20 } }], phone);

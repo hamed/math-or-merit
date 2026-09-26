@@ -45,28 +45,35 @@ export const RAINED: readonly number[] = othersCatches();
 /** How many coins fall. */
 export const COINS = RAINED.reduce((sum, c) => sum + c, 0);
 
-/**
- * Who catches each coin, in the order they fall: shuffled, so Blue's catches
- * come all through the rain and Red's one comes early.
- */
-function rainOrder(): number[] {
-  const random = createRandomSource(SEED + 1);
-  const order: number[] = [];
-  RAINED.forEach((count, who) => {
-    if (who !== SMALL) for (let k = 0; k < count; k++) order.push(who);
-  });
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(random.next() * (i + 1));
-    [order[i], order[j]] = [order[j], order[i]];
-  }
-  order.splice(2, 0, SMALL);
-  return order;
+/** One drop from MATH: `count` coins falling together, and who ends up with them. */
+export interface Drop {
+  readonly who: number;
+  readonly count: number;
 }
 
-export const RAIN: readonly number[] = rainOrder();
+/**
+ * The rain, in the order it falls. Everyone else's coins fall one at a time;
+ * Blue's come in bundles of two to four — he keeps turning up where the coins
+ * come down thickest — and Red's one coin comes early.
+ */
+function drops(): Drop[] {
+  const random = createRandomSource(SEED + 1);
+  const out: Drop[] = [];
+  let left = RAINED[BIG];
+  while (left > 0) {
+    const count = Math.min(left, 2 + Math.floor(random.next() * 3));
+    out.push({ who: BIG, count });
+    left -= count;
+  }
+  RAINED.forEach((count, who) => {
+    if (who !== BIG && who !== SMALL) for (let k = 0; k < count; k++) out.push({ who, count: 1 });
+  });
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(random.next() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  out.splice(1, 0, { who: SMALL, count: RED_CATCHES });
+  return out;
+}
 
-/** Seconds between one falling coin and the next, and one coin's fall. */
-export const RAIN_GAP = 0.15;
-export const FALL = 0.7;
-/** How long the rain takes, seconds. */
-export const RAIN_SECONDS = 0.2 + RAIN.length * RAIN_GAP + FALL + 0.3;
+export const DROPS: readonly Drop[] = drops();

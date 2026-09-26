@@ -49,6 +49,8 @@
     choices?: readonly BubbleChoice[];
     /** The pointer is resting on it: chit-chat waits. */
     onrest?: (on: boolean) => void;
+    /** Laid out and measured, but not seen yet (the paper while its big front page shows). */
+    hidden?: boolean;
     reduced?: boolean;
   }
 
@@ -69,6 +71,7 @@
     onsize,
     choices,
     onrest,
+    hidden = false,
     reduced = false,
   }: Props = $props();
 
@@ -107,7 +110,7 @@
   class:gone
   class:still={reduced}
   data-speaker={speaker ?? 'none'}
-  style={`left:${x}px; top:${y}px; max-inline-size:${maxWidth}px; --ink:${tone.ink}; visibility:${w > 0 ? 'visible' : 'hidden'}`}
+  style={`left:${x}px; top:${y}px; max-inline-size:${maxWidth}px; --ink:${tone.ink}; visibility:${w > 0 && !hidden ? 'visible' : 'hidden'}`}
   bind:clientWidth={w}
   bind:clientHeight={h}
   onpointerenter={() => onrest?.(true)}
@@ -215,8 +218,9 @@
     filter: drop-shadow(0 1px 2px rgb(40 37 31 / 10%));
   }
 
+  /* a little see-through, so the crowd underneath still shows (owner, 2026-09-26) */
   .outline .paper {
-    fill: var(--paper-bright);
+    fill: rgb(255 250 240 / 84%);
   }
 
   /* the morning paper, printed into the talk: newsprint, not a voice */
@@ -225,7 +229,7 @@
     padding: 0.55rem 0.75rem 0.6rem;
     border: 1px solid #c9bca5;
     border-radius: 0.5rem;
-    background: #fffdf8;
+    background: rgb(255 253 248 / 92%);
     box-shadow: 0 0.5rem 1.4rem rgb(65 50 29 / 16%);
     color: var(--ink);
     font-family: var(--font-serif);

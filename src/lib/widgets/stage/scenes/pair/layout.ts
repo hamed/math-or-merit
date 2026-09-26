@@ -48,6 +48,8 @@ export interface PairLayout {
   readonly crowdExits: readonly Point[];
   /** The size of someone with nothing: visible, but no area (drawn as an empty ring). */
   readonly presence: number;
+  /** Where the crowd stands and scrambles, under the title. */
+  readonly crowdBand: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
   readonly ground: number;
   /** One coin's radius: money is one size everywhere. */
   readonly coinRadius: number;
@@ -74,9 +76,8 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
   // the lower part of the stage, under the title; scattered at random, no rows
   const band = { x: w * 0.06, y: h * 0.6, w: w * 0.88, h: h * 0.3 };
   const crowdHomes = scatter(CROWD, band, one * 2.7, 7);
-  const crowdEntries = crowdHomes.map((home, i) =>
-    i % 3 === 0 ? { x: home.x, y: h + one * 3 } : { x: home.x < w / 2 ? -one * 3 : w + one * 3, y: home.y },
-  );
+  // everyone comes in from the nearer side, on the ground — nobody drops in from the sky
+  const crowdEntries = crowdHomes.map((home) => ({ x: home.x < w / 2 ? -one * 2 : w + one * 2, y: home.y }));
   const crowdExits = crowdHomes.map((home) => ({ x: home.x < w / 2 ? -one * 4 : w + one * 4, y: home.y }));
 
   // low on the stage: the talk needs the room above them (iteration 2, 3.1)
@@ -84,8 +85,9 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
   const seatY = portrait ? h * 0.66 : h * 0.64;
   const left = portrait ? 0.3 : 0.33;
 
-  // the crowd keeps to the lower part, leaving room above for the talk (3.6)
-  const roomBox = { x: w * 0.04, y: h * 0.62, w: w * 0.92, h: h * 0.355 };
+  // most of the stage: the talk floats over the crowd's upper half, see-through
+  // (owner review 2026-09-26: "the room is too down, and too small")
+  const roomBox = { x: w * 0.04, y: h * 0.3, w: w * 0.92, h: h * 0.66 };
   const roomRadius = radiusScale(roomSize, roomBox.w, roomBox.h) * Math.sqrt(1 / roomSize);
   // The camera pulls back about the middle as the room fills: the two keep
   // their places relative to each other, and everyone else scatters around.
@@ -127,6 +129,7 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
     crowdEntries: crowdEntries.map(flipX),
     crowdExits: crowdExits.map(flipX),
     presence: one * 0.55,
+    crowdBand: band,
     ground,
     coinRadius: whole * Math.sqrt(COIN_DENSITY / UNITS),
     room: {
