@@ -808,6 +808,8 @@ is not the proof. Börgers & Greengard (2023), https://arxiv.org/abs/2308.01485.
 
 [dial.stake] (draft) Stake: {stake}
 
+[dial.name] (draft) stake
+
 [dial.zero] RED: (draft) Zero: nothing moves. / That's no game at all.
 
 [dial.slow] RED: (draft) {stake}: slower. / The richest holds {share}.

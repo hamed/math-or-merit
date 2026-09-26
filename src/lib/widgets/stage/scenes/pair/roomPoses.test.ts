@@ -168,6 +168,10 @@ describe('the line keeps everyone\'s size, under a square plot', () => {
         expect(pose.spots[b].x - pose.radii[b]).toBeGreaterThanOrEqual(pose.spots[a].x + pose.radii[a] - 1e-6);
       }
       expect(pose.order[99]).toBe(42);
+      // the walk's circle ends as one circle holding everyone's area
+      const area = pose.radii.reduce((sum, r) => sum + r * r, 0);
+      expect(pose.eaten[100] ** 2).toBeCloseTo(area, 6);
+      expect(pose.rank[42]).toBe(99);
       const last = pose.order[99];
       expect(pose.spots[last].x + pose.radii[last]).toBeLessThanOrEqual(pose.frame.x + pose.frame.w + 1);
     });

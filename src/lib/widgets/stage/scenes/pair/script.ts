@@ -340,7 +340,7 @@ const DRAFTS: Draft[] = [
 
   // ---- Scene 15: line them up — the histogram, in the room -----------------
   red('sort.ask', 'sort_ask', { panel: true, aside: true }),
-  { id: 'sort.piles', wait: auto(2600), action: 'arrange', pose: { roomMode: 'piles' } },
+  { id: 'sort.piles', wait: auto(4800), action: 'arrange', pose: { roomMode: 'piles' } },
   blue('sort.real', 'sort_real'),
   red('sort.edge', 'sort_edge'),
   blue('sort.where', 'sort_where', { wait: CHAT }),

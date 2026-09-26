@@ -225,6 +225,7 @@
   "card_limit_3": "Proof: Börgers & Greengard, 2023.",
   "dial_ask": "Your turn. / Pick a stake, from nothing to everything.",
   "dial_stake": "Stake: {stake}",
+  "dial_name": "stake",
   "dial_zero": "Zero: nothing moves. / That's no game at all.",
   "dial_slow": "{stake}: slower. / The richest holds {share}.",
   "dial_fast": "{stake}: faster. / The richest holds {share}.",

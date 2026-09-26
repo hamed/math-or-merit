@@ -74,6 +74,14 @@ export interface LinePose {
   readonly diagonal: readonly [Point, Point];
   /** Who stands at each place in the row, poorest first. */
   readonly order: readonly number[];
+  /** Everyone's place in the row. */
+  readonly rank: readonly number[];
+  /**
+   * The walk's circle after eating the first k in the row: the radius whose
+   * area is all of theirs together (index k, 0…n) — at the end, one circle
+   * holding everything.
+   */
+  readonly eaten: readonly number[];
   /** Where the population axis's label sits: under the plot's ticks, over the row. */
   readonly labelY: number;
 }
@@ -275,6 +283,8 @@ export function line(amounts: ArrayLike<number>, box: Box, radii?: ArrayLike<num
       { x: frame.x + frame.w, y: frame.y },
     ],
     order,
+    rank: order.reduce((out, i, k) => ((out[i] = k), out), new Array<number>(n)),
+    eaten: order.reduce((out, i) => (out.push(Math.sqrt(out[out.length - 1] ** 2 + r(i) ** 2)), out), [0]),
     labelY: frame.y + frame.h + BELOW - 8,
   };
 }

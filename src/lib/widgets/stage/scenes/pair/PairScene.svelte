@@ -46,6 +46,7 @@
   import { compactNumber, niceLinearTicks } from '../../../sandbox/ticks';
   import StageAxes from './StageAxes.svelte';
   import TurnoverPlot from './TurnoverPlot.svelte';
+  import StopSlider, { RATE_STOPS } from '../../../sandbox/StopSlider.svelte';
   import { createRun } from './run.svelte';
   import { BIG, COINS, CROWD, RAINED, SMALL } from './crowd';
   import { FALL, hopsFor, noise, planRain } from './rain';
@@ -180,8 +181,9 @@
     turnDraw: 0,
     /** How much of the Lorenz curve is drawn, 0–1 (Scene 16's walk). */
     lorenzDraw: 0,
-    /** Scene 23's mirror room, 0–1. */
+    /** Scene 23's mirror room, 0–1, and how far its copy has slid out of the room, 0–1. */
     mirrorOn: 0,
+    mirrorShift: 1,
     /** How much of Scene 24's map has filled in, 0–1. */
     mapOn: 0,
     /** The ruler's marks, keyed so a decade slides from the ordinary ruler to the multiplying one. */
@@ -246,7 +248,9 @@
         default: {
           if (!who) return { ...L.crowdExits[i], r: nobody, empty: 1, ...still, alpha: 0 };
           const spot = pairSpot(pose, who);
-          return { x: spot.x, y: spot.y, r: pairRadius(pose, who), empty: 0, ...still };
+          // in the line, the two are eaten by the walk's circle like everyone else
+          const alpha = pose.place === 'room' && pose.roomMode === 'line' ? (spot as { alpha?: number }).alpha ?? 1 : 1;
+          return { x: spot.x, y: spot.y, r: pairRadius(pose, who), empty: 0, ...still, alpha };
         }
       }
     });
@@ -304,6 +308,7 @@
 
   /** Draw a pose at once. */
   function draw(pose: Pose): void {
+    view.lorenzDraw = pose.roomMode === 'line' && pose.lorenz >= 1 ? 1 : 0;
     const t = target(pose);
     view.type = t.type;
     view.meritOn = t.meritOn;
@@ -330,6 +335,7 @@
     view.lorenzDraw = pose.roomMode === 'line' && pose.lorenz >= 1 ? 1 : 0;
     view.turnDraw = pose.roomMode === 'turnover' ? 1 : 0;
     view.mirrorOn = pose.roomMode === 'matched' ? 1 : 0;
+    view.mirrorShift = 1;
     view.mapOn = pose.map > 0 ? 1 : 0;
   }
 
@@ -503,6 +509,17 @@
     dialRun.start(undefined, undefined, DIAL_MS);
     if (stage?.reduced) dialRun.finish();
   }
+
+  /** The sandbox's slider, stop by stop: the room restarts once the hand rests. */
+  let dialTimer: number | undefined;
+  function nudgeDial(stake: number): void {
+    dialThumb = stake;
+    if (dialTimer !== undefined) window.clearTimeout(dialTimer);
+    dialTimer = window.setTimeout(() => turnDial(stake), 250);
+  }
+
+  /** A stake the way the sandbox writes it: 0.1%, 25%, 99.99%. */
+  const stakeLabel = (v: number) => `${formatNumber(Number((v * 100).toPrecision(4)))}%`;
 
   /** Scene 23: both rooms on one seed, played side by side. */
   function startMatch(atOnce = false): void {
@@ -753,14 +770,15 @@
     return view.room[i];
   }
 
-  /** The room member nearest the middle of the room, other than those in `not`. */
-  function nearMiddle(not: readonly number[]): number {
+  /** The room member nearest the middle of the room, other than those in `not`; a circle, when asked. */
+  function nearMiddle(not: readonly number[], circle = false): number {
     const box = L.room.box;
     const c = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
     let best = 0;
     let bestD = Infinity;
     L.room.positions.forEach((p, i) => {
       if (not.includes(i)) return;
+      if (circle && roomStyles[i]?.shape !== 'circle') return;
       const d = Math.hypot(p.x - c.x, p.y - c.y);
       if (d < bestD) {
         bestD = d;
@@ -770,11 +788,15 @@
     return best;
   }
 
-  /** Who Scene 17 empties, who gets that money, and the two who join Blue and Red in the four. */
+  /**
+   * Who Scene 17 empties, who gets that money, and the two who join Blue and
+   * Red in the four — circles, like the two (owner review 2026-09-26: coins
+   * sit best in a circle).
+   */
   const cast = $derived.by(() => {
     const pair = [L.room.blue, L.room.red];
-    const emptied = nearMiddle(pair);
-    const given = nearMiddle([...pair, emptied]);
+    const emptied = nearMiddle(pair, true);
+    const given = nearMiddle([...pair, emptied], true);
     const third = nearMiddle([...pair, emptied, given]);
     const fourth = nearMiddle([...pair, emptied, given, third]);
     const medianX = [...L.room.positions].map((p) => p.x).sort((a, b) => a - b)[50];
@@ -900,7 +922,8 @@
       case 'ruler':
         return at(rulerPose.spots[i].x, rulerPose.spots[i].y, rulerPose.marker);
       case 'line':
-        return at(linePose.spots[i].x, linePose.spots[i].y, linePose.radii[i]);
+        // the walk's circle eats everyone it has added up (owner review 2026-09-26)
+        return at(linePose.spots[i].x, linePose.spots[i].y, linePose.radii[i], linePose.rank[i] < walker.k ? 0 : 1);
       case 'equal':
       case 'zero':
       case 'double':
@@ -984,17 +1007,44 @@
     const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => modeTarget(mode, a).x - modeTarget(mode, b).x);
     const slow = mode === 'ruler' ? 1.5 : 1;
     let end = 0;
-    order.forEach((i, k) => {
-      const v = agentView(i);
-      const t = modeTarget(mode, i);
-      const at = inPlace ? noise(i, 60) * 0.3 : (0.05 + (k / n) * 1.1 + noise(i, 60) * 0.3) * slow;
-      const dur = (0.8 + noise(i, 61) * 0.5) * slow;
-      tl.to(v, { x: t.x, duration: dur, ease: 'power1.inOut' }, at);
-      tl.to(v, { y: t.y, duration: dur, ease: mode === 'piles' ? 'power2.in' : 'power2.inOut' }, at);
-      tl.to(v, { r: t.r, alpha: t.alpha, duration: Math.min(0.7, dur), ease: 'power1.inOut' }, at);
-      tl.set(v, { empty: t.empty ? 1 : 0 }, t.empty ? at + Math.min(0.7, dur) : at);
-      end = Math.max(end, at + dur);
-    });
+    // into piles: first to above their own pile at their own size, and only
+    // then, all at once, one size each, dropping into place (owner review
+    // 2026-09-26: "first move them to above respective bins, then change their sizes")
+    if (mode === 'piles') {
+      const settleAt = 0.05 + 1.1 + 0.3 + 1.3 + 0.35;
+      order.forEach((i, k) => {
+        const v = agentView(i);
+        const t = modeTarget(mode, i);
+        const pile = pilesPose.piles[pilesPose.pileOf[i]];
+        const box = L.room.box;
+        const above = {
+          x: pile.x0 + (pile.x1 - pile.x0) * (0.2 + noise(i, 62) * 0.6),
+          y: Math.max(box.y + v.r, Math.min(pile.top, t.y) - v.r - 10 - noise(i, 63) * 26),
+        };
+        const at = 0.05 + (k / n) * 1.1 + noise(i, 60) * 0.3;
+        const dur = 0.8 + noise(i, 61) * 0.5;
+        tl.to(v, { x: above.x, duration: dur, ease: 'power1.inOut' }, at);
+        tl.to(v, { y: above.y, duration: dur, ease: 'power2.inOut' }, at);
+        tl.to(v, { alpha: t.alpha, duration: 0.4 }, at);
+        const drop = settleAt + noise(i, 64) * 0.35;
+        tl.to(v, { r: t.r, duration: 0.45, ease: 'power2.inOut' }, drop);
+        tl.to(v, { x: t.x, y: t.y, duration: 0.6, ease: 'power2.in' }, drop + 0.2);
+        tl.set(v, { empty: t.empty ? 1 : 0 }, drop);
+        end = Math.max(end, drop + 0.8);
+      });
+    } else {
+      order.forEach((i, k) => {
+        const v = agentView(i);
+        const t = modeTarget(mode, i);
+        const at = inPlace ? noise(i, 60) * 0.3 : (0.05 + (k / n) * 1.1 + noise(i, 60) * 0.3) * slow;
+        const dur = (0.8 + noise(i, 61) * 0.5) * slow;
+        tl.to(v, { x: t.x, duration: dur, ease: 'power1.inOut' }, at);
+        tl.to(v, { y: t.y, duration: dur, ease: 'power2.inOut' }, at);
+        tl.to(v, { r: t.r, alpha: t.alpha, duration: Math.min(0.7, dur), ease: 'power1.inOut' }, at);
+        tl.set(v, { empty: t.empty ? 1 : 0 }, t.empty ? at + Math.min(0.7, dur) : at);
+        end = Math.max(end, at + dur);
+      });
+    }
     // the ruler's marks: a decade on both rulers slides; the rest fade
     const next = Object.fromEntries(ticksFor(mode).map((t) => [t.key, t]));
     for (const [key, state] of Object.entries(view.ticks)) {
@@ -1025,6 +1075,17 @@
     const point = linePose.curve[k];
     const share = 1 - (point.y - linePose.frame.y) / Math.max(1, linePose.frame.h);
     return { k, point, people: k / n, share };
+  });
+
+  /** The walk's circle: everyone added up so far, rolling along the floor after the last one it ate. */
+  const eater = $derived.by(() => {
+    const k = walker.k;
+    if (k === 0) return null;
+    const r = linePose.eaten[k];
+    const last = linePose.spots[linePose.order[k - 1]];
+    const f = linePose.frame;
+    const x = Math.max(f.x + r, Math.min(last.x, f.x + f.w - r));
+    return { x, y: last.y + linePose.radii[linePose.order[k - 1]] - r, r };
   });
 
   /** A share as a percent, for the plots' axes and readings. */
@@ -1592,6 +1653,8 @@
     if (!newest || newest.id === lastSpoken || !newest.at || stage?.reduced) return;
     lastSpoken = newest.id;
     const a = anchorOf(newest.at);
+    // only where the eye needs it: a speaker who is a dot among a hundred (owner review 2026-09-26: "too distracting")
+    if (PAIR_STEPS[current].pose.place !== 'room' || view.people[WHO[newest.at]].r > 12) return;
     const id = ++rippleId;
     ripples = [...ripples, { id, x: a.x, y: a.y, r: a.r, ink: PROTAGONISTS[newest.at].stroke }];
     window.setTimeout(() => (ripples = ripples.filter((q) => q.id !== id)), 1500);
@@ -1664,6 +1727,10 @@
 
   function anchorOf(who: Speaker) {
     const p = view.people[WHO[who]];
+    // eaten by the walk's circle: they are in it
+    if (PAIR_STEPS[current].pose.roomMode === 'line' && eater && linePose.rank[WHO[who] === BIG ? L.room.blue : L.room.red] < walker.k) {
+      return { x: eater.x, y: eater.y, r: eater.r };
+    }
     return { x: p.x, y: p.y, r: Math.max(p.r, L.minRadius) };
   }
 
@@ -1767,9 +1834,13 @@
         levyCoins(pose, tl);
         return;
       case 'match':
+        // the room shrinks to one side; an exact copy lifts off it and slides
+        // to the other — the same room twice (owner review 2026-09-26: "somehow
+        // apparent that it is the same")
         arrange(pose, tl);
-        tl.fromTo(view, { mirrorOn: 0 }, { mirrorOn: 1, duration: 0.8, ease: 'power1.inOut' }, 1.2);
-        tl.call(startMatch, [], 2.1);
+        tl.set(view, { mirrorOn: 1, mirrorShift: 0 }, 1.5);
+        tl.to(view, { mirrorShift: 1, duration: 1.2, ease: 'power2.inOut' }, 1.75);
+        tl.call(startMatch, [], 3.2);
         return;
       case 'map':
         arrange(pose, tl);
@@ -2339,18 +2410,10 @@
 {/snippet}
 
 {#snippet stakeDial()}
-  <label class="stake-dial">
-    <span>{say('dial_stake', { stake: formatNumber(dialThumb, { style: 'percent' }) })}</span>
-    <input
-      type="range"
-      min="0"
-      max="100"
-      step="5"
-      value={Math.round(dialThumb * 100)}
-      oninput={(e) => (dialThumb = Number(e.currentTarget.value) / 100)}
-      onchange={(e) => turnDial(Number(e.currentTarget.value) / 100)}
-    />
-  </label>
+  <!-- the sandbox's own slider and stops: 0.1% to 99.99% (owner review 2026-09-26) -->
+  <div class="stake-dial">
+    <StopSlider label={say('dial_name')} value={dialThumb} stops={RATE_STOPS} format={stakeLabel} onChange={nudgeDial} />
+  </div>
 {/snippet}
 
 {#snippet giniToy()}
@@ -2432,7 +2495,19 @@
       {#if view.mirrorOn > 0.01 && PAIR_STEPS[current].pose.roomMode === 'matched'}
         {@const w = mirror.wealth}
         {@const sized = mirror.sized}
-        <g class="mirror" opacity={view.mirrorOn}>
+        {@const slide = (1 - view.mirrorShift) * (matchBox.lefts[0] - matchBox.lefts[1])}
+        <!-- both rooms framed alike; the copy's frame travels with it -->
+        <rect class="room-frame" x={matchBox.lefts[0] - 8} y={matchBox.top - 8} width={matchBox.w + 16} height={matchBox.h + 16} rx="12" opacity={view.mirrorOn} />
+        <rect
+          class="room-frame"
+          x={matchBox.lefts[1] - 8 + slide}
+          y={matchBox.top - 8}
+          width={matchBox.w + 16}
+          height={matchBox.h + 16}
+          rx="12"
+          opacity={view.mirrorOn}
+        />
+        <g class="mirror" opacity={view.mirrorOn} transform={`translate(${slide.toFixed(1)} 0)`}>
           {#each L.room.positions as p, i (i)}
             {@const at = matchedAt(1, p)}
             {@const r = Math.max(0.5, (sized ? L.room.radius * Math.sqrt(Math.max(0, w[i]) * 100) : L.room.radius) * matchBox.scale)}
@@ -2447,7 +2522,7 @@
             />
           {/each}
         </g>
-        <g class="match-labels">
+        <g class="match-labels" opacity={view.mirrorShift}>
           {#each [0, 1] as side (side)}
             {@const label = say(side === 0 ? 'match_left' : 'match_right', { levy: formatNumber(MATCH_LEVY, { style: 'percent' }) })}
             <!-- a label wider than its room breaks after its first comma -->
@@ -2498,6 +2573,11 @@
             >
           {/if}
         </g>
+      {/if}
+
+      {#if PAIR_STEPS[current].pose.roomMode === 'line' && eater && !arranging}
+        <!-- the running total as one circle: its area is everyone it has eaten -->
+        <circle class="eater" cx={eater.x} cy={eater.y} r={eater.r} />
       {/if}
 
       {#each view.people as person, i (i)}
@@ -2632,9 +2712,8 @@
                reached and read off both axes (owner review 2026-09-26: the
                running total must not eat the line) -->
           {@const f = linePose.frame}
-          {@const added = agentView(linePose.order[walker.k - 1])}
           <g class="walker">
-            <circle class="added" cx={added.x} cy={added.y} r={added.r + 4} />
+
             {#each linePose.curve.slice(1, walker.k + 1) as p, k (k)}
               <circle class="dot" cx={p.x} cy={p.y} r="1.8" />
             {/each}
@@ -2699,7 +2778,6 @@
 
       {#each ripples as ripple (ripple.id)}
         <circle class="ripple" cx={ripple.x} cy={ripple.y} r={ripple.r} style={`--ink:${ripple.ink}`} />
-        <circle class="ripple late" cx={ripple.x} cy={ripple.y} r={ripple.r} style={`--ink:${ripple.ink}`} />
       {/each}
 
       {#each view.payout as token, i (i)}
@@ -2735,7 +2813,10 @@
     </svg>
 
     {#if !L.column && runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run') && !inPicture}
-      <div class="dial phone">{@render player([shown])}</div>
+      <div class="dial phone">
+        {@render player([shown])}
+        {#if PAIR_STEPS[current].pose.source === 'dial' && PAIR_STEPS[current].pose.control !== 'stake'}{@render stakeDial()}{/if}
+      </div>
     {/if}
 
     {#if PAIR_STEPS[current].pose.control === 'tax' && (game.playing || game.result)}
@@ -2890,6 +2971,7 @@
             {#if shown.state.done && shown.state.frames > 1}
               <div class="dial">{@render player([shown])}</div>
             {/if}
+            {#if pose.source === 'dial' && pose.control !== 'stake'}{@render stakeDial()}{/if}
           </section>
         {/if}
         {#if !APART.includes(pose.roomMode) && pose.thumbs.length > 0}
@@ -3106,10 +3188,10 @@
     stroke-width: 1.5;
   }
 
-  .walker .added {
-    fill: none;
+  .eater {
+    fill: rgb(139 63 43 / 16%);
     stroke: var(--accent);
-    stroke-width: 2;
+    stroke-width: 1.6;
   }
 
   .walker .guide {
@@ -3153,19 +3235,12 @@
 
   /* Scene 20: the stake dial, inside Red's bubble */
   .stake-dial {
-    display: grid;
-    gap: 0.2rem;
     margin-block-start: 0.5rem;
-    font-family: var(--font-sans);
-    font-size: 0.85rem;
-    font-weight: 600;
+    min-inline-size: 11rem;
   }
 
-  .stake-dial input {
-    inline-size: 100%;
-    min-inline-size: 11rem;
-    accent-color: var(--accent);
-    cursor: pointer;
+  .stake-dial :global(.dial) {
+    font-size: 0.8rem;
   }
 
   /* Scene 21: the game's meter and clock, and the room under the reader's finger */
@@ -3244,6 +3319,13 @@
     font-size: 13px;
   }
 
+  .room-frame {
+    fill: none;
+    stroke: var(--ink-soft);
+    stroke-width: 1.2;
+    stroke-dasharray: 5 4;
+  }
+
   /* Scene 24: the outcome map */
   .map .fit {
     fill: none;
@@ -3269,24 +3351,20 @@
   .ripple {
     fill: none;
     stroke: var(--ink);
-    stroke-width: 2.4;
+    stroke-width: 1.4;
     transform-box: fill-box;
     transform-origin: center;
     animation: ripple 1100ms ease-out both;
   }
 
-  .ripple.late {
-    animation-delay: 280ms;
-  }
-
   @keyframes ripple {
     from {
-      opacity: 0.9;
+      opacity: 0.55;
       transform: scale(1);
     }
     to {
       opacity: 0;
-      transform: scale(2.6);
+      transform: scale(2.2);
     }
   }
 

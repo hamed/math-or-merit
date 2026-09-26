@@ -30,7 +30,24 @@ export interface RunOptions {
   readonly remember?: boolean;
   /** Log finished runs for the chapters after the stage; the main run only. */
   readonly log?: boolean;
+  /** Trades a second when the player plays on past the end (owner review 2026-09-26: "it will continue run"). */
+  readonly pace?: number;
 }
+
+/** A run, and more rounds played on after it, as one recording. */
+function joined(first: Recording, more: Recording): Recording {
+  const done = first.trades[first.trades.length - 1];
+  return {
+    seed: first.seed,
+    settings: first.settings,
+    frames: [...first.frames, ...more.frames.slice(1)],
+    trades: [...first.trades, ...more.trades.slice(1).map((t) => t + done)],
+    turnover: [...first.turnover, ...more.turnover.slice(1)],
+  };
+}
+
+/** A run played on stops somewhere: two million trades is hours of watching. */
+const PLAY_ON_CAP = 2_000_000;
 
 export interface RunState {
   /** Bumped whenever what is on screen changes; read it to redraw. */
@@ -77,6 +94,8 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
   let from = 0;
   /** The live room (Scene 21), while it trades. */
   let live: Recorder | null = null;
+  /** Playing on past the end: what was recorded before the live rounds. */
+  let before: Recording | null = null;
 
   function show(frame: number): void {
     if (!recording) return;
@@ -153,7 +172,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
   /** The live room, shown as it stands this instant. */
   function showLive(): void {
     if (!live) return;
-    state.trades = live.trades;
+    state.trades = live.trades + (before ? before.trades[before.trades.length - 1] : 0);
     const top = richest(live.wealth);
     state.winner = top.index;
     state.share = top.share;
@@ -172,7 +191,10 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
     const rounds = state.frames;
     live.play(count);
     const kept = live.trades > 0 ? live.recording() : null;
-    if (kept && kept.frames.length !== rounds) adopt(kept);
+    if (kept && (before ? before.frames.length + kept.frames.length - 1 : kept.frames.length) !== rounds) {
+      adopt(before ? joined(before, kept) : kept);
+      state.frame = state.frames - 1;
+    }
     showLive();
     liveTick?.(dt);
     if (live?.done) endLive();
@@ -182,12 +204,30 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
   function endLive(): void {
     if (!live) return;
     liveTicker.stop();
-    adopt(live.recording());
+    adopt(before ? joined(before, live.recording()) : live.recording());
     live = null;
+    before = null;
     liveTick = null;
     state.running = false;
+    state.playing = false;
     state.done = true;
     show(recording!.frames.length - 1);
+    remember();
+  }
+
+  /** Play on from the last round, trading live with fresh dice, until paused. */
+  function playOn(): void {
+    if (!recording) return;
+    const last = recording.trades[recording.trades.length - 1];
+    if (last >= PLAY_ON_CAP) return;
+    before = recording;
+    const settings: RunSettings = { ...recording.settings, stop: { kind: 'trades', trades: PLAY_ON_CAP - last }, cap: PLAY_ON_CAP - last };
+    live = recorder(settings, freshSeed(), recording.frames[recording.frames.length - 1]);
+    owed = 0;
+    livePerSecond = options.pace ?? 1_000;
+    liveTick = null;
+    state.playing = true;
+    liveTicker.start();
   }
 
   function stopAll(): void {
@@ -195,6 +235,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
     replayer.stop();
     liveTicker.stop();
     live = null;
+    before = null;
     liveTick = null;
     state.playing = false;
   }
@@ -303,21 +344,29 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
     },
     /** The time player: show the run as it stood at frame `frame`. */
     scrub(frame: number): void {
+      if (before) endLive();
       if (!recording || state.running || live) return;
       replayer.stop();
       state.playing = false;
       show(frame);
     },
-    /** Play the finished run again from where the player stands (from the start, if at the end). */
+    /**
+     * Play the finished run again from where the player stands — or, at its
+     * end, play on: the same room keeps trading, live, until paused.
+     */
     play(): void {
       if (!recording || state.running || live) return;
-      if (state.frame >= recording.frames.length - 1) show(0);
+      if (state.frame >= recording.frames.length - 1) {
+        playOn();
+        return;
+      }
       replayAt = state.frame;
       state.playing = true;
       replayer.start();
     },
     pause(): void {
       replayer.stop();
+      if (before) endLive();
       state.playing = false;
     },
     /** Before any run: everyone equal. */
