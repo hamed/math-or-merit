@@ -38,7 +38,7 @@ describe('the pair stage as data', () => {
   it('speaks every scripted line of Scenes 3–11 somewhere, in script order', () => {
     // what a character SAYS in these scenes — not the buttons and labels
     const scripted = parseProse(readFileSync('notes/prose.md', 'utf8'))
-      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess|run|why)\./.test(line.tag))
+      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess|run|why|sort|gini|eff)\./.test(line.tag))
       .flatMap((line) => (line.parts ? line.parts.map((_, i) => `${line.key}_${i + 1}`) : [line.key]));
     const spoken = new Set([
       ...PAIR_STEPS.flatMap((s) => s.lines?.map((l) => l.message) ?? []),
@@ -103,6 +103,19 @@ describe('the pair stage as data', () => {
     expect(step('run').action).toBe('run');
     expect(step('run').wait.kind).toBe('auto');
     for (const [i, s] of PAIR_STEPS.entries()) expect(s.pose.ran, s.id).toBe(i >= run);
+  });
+
+  it('builds each concept on the same room, and leaves a picture and a card for each', () => {
+    expect(step('sort.piles').pose.roomMode).toBe('piles');
+    expect(step('sort.log').pose.roomMode).toBe('ruler');
+    expect(step('gini.line').pose.roomMode).toBe('line');
+    expect(step('eff.equal').pose.roomMode).toBe('equal');
+    expect(step('eff.one').pose.roomMode).toBe('one');
+    for (const id of ['sort.home', 'gini.home', 'eff.room']) expect(step(id).pose.roomMode, id).toBe('free');
+    const last = PAIR_STEPS[PAIR_STEPS.length - 1].pose;
+    expect(last.thumbs).toEqual(['histogram', 'gini', 'participants']);
+    expect(last.cards).toEqual(['rule', 'histogram', 'gini', 'participants']);
+    for (const s of PAIR_STEPS) expect(s.pose.place === 'room' || s.pose.roomMode === 'free', s.id).toBe(true);
   });
 
   it('lets every step belong to a panel that starts with a clear', () => {

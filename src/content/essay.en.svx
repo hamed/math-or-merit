@@ -145,118 +145,15 @@
   logs every run into the same session the chapters below read.
 -->
 
-<Chapter id="line-them-up" label="Line them up" />
-
-## Line them up
-
-A hundred circles, all different sizes, scattered around the room. I can spot the winner.
-I cannot read the room.
-
-So I cheat. First sort them. Then cut the wealth ruler into equal bins and drop one circle
-into the matching pile. Move the number of piles and watch the picture change. The fortunes
-do not.
-
 <!--
-  WIDGET: DistributionStage (R5, owner review 2026-07-08: "one stage for both sorting and
-  log scale") — BinsStage + AxisStage merged into one stepper: room → sorted → binned →
-  multiplying ruler. Built FROM the same circles the reader watched trade (latest logged
-  run; the seeded reveal room as fallback). Bin width is a reader-visible choice, not
-  nature's. Original circle coloring; no shape vocabulary needed here.
+  LINE THEM UP, MEASURE THE ROOM, HOW MANY STILL COUNT (iteration 2, Scenes
+  15–17, 2026-09-26) are acts on the stage's own room now: the same hundred
+  sort into piles on an ordinary ruler, then a multiplying one; step into a
+  line for the Lorenz curve and the Gini; imagine everyone equal and one owner
+  of everything; each concept leaves a thumbnail in the side rail and a card.
+  The Gini toy and the four-person room open as optional panels on the stage.
+  Turnover is cut (D20). DistributionStage and the narrator's text are retired.
 -->
-<Deferred
-  load={() => import('$lib/widgets/distribution/DistributionStage.svelte')}
-  label="distribution stage"
-  reserve="34rem"
-/>
-
-Now it is a histogram: the bars are the people you just watched. The cuts between bars are
-my choice, not nature's. That is why the slider matters.
-
-But the richest circle also owns the ruler. Fit it on a straight, adding scale and much of
-the room is squeezed against zero. So change the ruler. Each step now *multiplies* by ten.
-Equal distance means ten times the money; the hidden crowd opens up.
-
-Below one cent goes in the dust box. Exact zero belongs there too: zero has no position on
-a multiplying ruler. The new ruler reveals what the old one hid. It does not explain why
-the shape exists.
-
-<!-- TEST(Study B, reader-study.md): histogram vs cumulative/Lorenz as the first distribution view; choose by comprehension, not familiarity. -->
-<!--
-  GATE(no power law): the log view only reveals values a linear scale hid. It does NOT show or
-  prove a power-law / heavy-tailed distribution family — omit "power law" from the baseline arc
-  entirely (research.md; narrative-sources.md log note). A fit + goodness-of-fit + model
-  comparison would be required first.
-  TEST(Study C, reader-study.md): does a side-by-side linear↔log transform plus a comprehension
-  check leave readers able to read ratios? A bare label is not enough (Ryan & Evers).
--->
-
-<Chapter id="gini" label="Measure the room" />
-
-## Measure the room
-
-A picture is excellent until I want to compare two rooms. Then I need a number.
-
-Start with Gini. I like it because you can watch the number being built.
-
-<!--
-  WIDGET: GiniStage (R5, owner storyboard 2026-07-08) — the Gini built from first
-  principles: equal circles merge one by one into a running total (the diagonal); keep the
-  graph, deal an unequal teaching room (Gini ≈ 0.5), sort, merge again (the sagging Lorenz
-  curve); hatch the gap; then a slider bends parametric Lorenz curves (L = x^k) for
-  intuition. Axes are the same scale, exactly square. TOY discipline: slider rooms are
-  parametric, not simulation output; the number shown is the discrete Gini of the twelve
-  on-screen circles. Beat 21 discipline: introduced only for comparing whole rooms; no
-  per-trade Gini claims (C5).
--->
-<Deferred
-  load={() => import('$lib/widgets/distribution/GiniStage.svelte')}
-  label="Gini stage"
-  reserve="34rem"
-/>
-
-Zero means equal. One is the theoretical horizon: as a room grows, one owner and everybody
-else at nothing gets closer and closer to it.
-
-Useful. But the question I care about is plainer: how many people still carry enough
-economic weight to matter?
-
-### Four people. How many still matter?
-
-Four people enter with four coins each. Move the coins yourself. The people never leave.
-The black box watches only where the wealth goes.
-
-<Deferred
-  load={() => import('$lib/widgets/distribution/EffectiveParticipantsStage.svelte')}
-  label="effective participants stage"
-  reserve="48rem"
-/>
-
-The box asks how many equal fortunes would be just as concentrated as this room. Four equal
-fortunes give 4. Split everything equally between two and it gives 2. Give every coin to
-one owner and it gives 1. In between, it can say 3.88 or 1.47.
-
-That is **effective participants**. Four bodies remain in the room. The number measures the
-field they have left.
-
-<details class="claim-note">
-  <summary>Open the black box</summary>
-  <p>Write each person's share of the room as <em>sᵢ</em>. Square the shares, add them,
-  then take the reciprocal: <em>1 / Σsᵢ²</em>. This is the inverse Herfindahl
-  concentration index.</p>
-</details>
-
-### A million trades can move almost nothing
-
-The trade counter keeps racing after most people have almost nothing left to risk. A
-million crumbs still prints as a million trades.
-
-So I count the money that crossed between people. One **measurement round** is one trade
-per person on average. Add the stakes transferred in those ordinary trades and divide by
-all wealth in the room. That is **ordinary turnover**. A result of 0.30 roomfuls means
-wealth equal to 30% of the room changed hands during that round.
-
-Only trades count. Later, levies and shared returns get their own ledger. The remedy does
-not get to pad this number.
 
 <Chapter id="crowd" label="More of them" />
 

@@ -55,8 +55,10 @@ export interface PairLayout {
   readonly coinRadius: number;
   /** The room of Scene 10: positions, everyone's radius, and the pair's seats in it. */
   readonly room: {
-    /** The room's top edge: the talk stays above it. */
+    /** The room's top edge. */
     readonly top: number;
+    /** The room's whole box: where the concept acts draw their pictures. */
+    readonly box: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
     readonly positions: readonly Point[];
     readonly radius: number;
     readonly red: number;
@@ -134,6 +136,7 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
     coinRadius: whole * Math.sqrt(COIN_DENSITY / UNITS),
     room: {
       top: roomBox.y,
+      box: roomBox,
       positions: room,
       radius: roomRadius,
       blue: blueSeatInRoom,

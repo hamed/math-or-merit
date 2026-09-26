@@ -106,9 +106,24 @@ State of the work, by the brief's own plan (Part 9):
   14 argues over the paper (the bias described, never named). Retired:
   RevealRun, RevealInterpretation, WinnerStory, their guidance/interpretation
   modules, and the "Now run it" / "So why did they win?" sections.
-- **Next:** Phase 4 — histogram, Gini, effective participants as acts on the
-  same room (side rail thumbnails, concept cards). Then the levy acts, the
-  sandbox (brief Part 6).
+- **Owner review of Phase 3, done:** the room fills most of the stage and the
+  talk floats over it, see-through, newest four lines only; the paper lands
+  big then shrinks into the talk; the richest's dashed outline takes its
+  shape; the crowd hops like the Pixar lamp (squash and stretch, no one flies);
+  the rain is a planned scramble (`pair/rain.ts`, pure, tested).
+- **Phase 4 done:** the room's poses (`pair/roomPoses.ts`, pure, tested) —
+  `piles` (histogram, round ticks, counts above), `ruler` (multiplying, dust
+  box, decade marks keyed to slide), `line` (poorest first, Lorenz curve drawn
+  by walking, diagonal, gap, Gini), and imagined `equal` / `one` rooms for
+  effective participants. Every one of the hundred, Blue and Red included,
+  moves between poses (`arrange`, staggered, uneven). Side rail thumbnails
+  (HistoMini, LorenzMini, the count), cards for each concept, the Gini toy and
+  the four-person room as optional panels (Red reads the four-person number
+  out). Retired: DistributionStage and the three chapters' narration; turnover
+  cut.
+- **Next:** Phase 5 — the levy acts (5.5–5.9: the dial, the tax game, the
+  levy lesson, matched rooms, the outcome map) with full-range dials; the
+  theorem line and "Run it longer?" (5.4). Then the sandbox (5.10).
 - **Stage input rules** (2026-09-26, `claim()` in `steps.ts`): while the reader
   is in the stage every wheel event is the stage's, sub-pixel ones included —
   letting a trackpad's tail through slid the page and every later flick went

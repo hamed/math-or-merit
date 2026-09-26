@@ -65,7 +65,20 @@ export interface Pose {
   readonly cardOpen: string | null;
   /** Scene 13 onward: the room has been run, and shows how the last run ended. */
   readonly ran: boolean;
+  /** How the room stands (Scenes 15–17). */
+  readonly roomMode: RoomMode;
+  /** How much of the Lorenz picture is drawn: 0 none · 1 the curve · 2 and the diagonal · 3 and the gap. */
+  readonly lorenz: 0 | 1 | 2 | 3;
+  /** Small pictures of concepts already built, in the side rail (brief 5.3). */
+  readonly thumbs: readonly string[];
 }
+
+/**
+ * How the room stands (ADR-018 room poses): scattered as people · dropped into
+ * piles on an ordinary ruler · on a multiplying ruler · in a line, poorest
+ * first · imagined all equal · imagined with one owner of everything.
+ */
+export type RoomMode = 'free' | 'piles' | 'ruler' | 'line' | 'equal' | 'one';
 
 /** What a step does on the way in, for the scene's choreography. */
 export type Action =
@@ -80,7 +93,9 @@ export type Action =
   | 'ante'
   | 'toss'
   | 'room'
-  | 'run';
+  | 'run'
+  | 'arrange'
+  | 'walk';
 
 export interface PairStep extends StepSpec {
   readonly pose: Pose;
@@ -113,6 +128,9 @@ const START: Pose = {
   cards: [],
   cardOpen: null,
   ran: false,
+  roomMode: 'free',
+  lorenz: 0,
+  thumbs: [],
 };
 
 interface Draft {
@@ -252,6 +270,57 @@ const DRAFTS: Draft[] = [
   blue('why.paper', 'why_paper'),
   { id: 'why.after', wait: READER },
   red('why.once', 'why_once'),
+
+  // ---- Scene 15: line them up — the histogram, in the room -----------------
+  red('sort.ask', 'sort_ask', { panel: true }),
+  { id: 'sort.piles', wait: auto(2600), action: 'arrange', pose: { roomMode: 'piles' } },
+  blue('sort.real', 'sort_real'),
+  red('sort.edge', 'sort_edge'),
+  blue('sort.where', 'sort_where', { wait: CHAT }),
+  { id: 'sort.there', wait: CHAT },
+  blue('sort.squeeze', 'sort_squeeze'),
+  red('sort.ruler', 'sort_ruler'),
+  { id: 'sort.log', wait: auto(3400), action: 'arrange', pose: { roomMode: 'ruler' } },
+  red('sort.times', 'sort_times'),
+  blue('sort.even', 'sort_even', { wait: CHAT }),
+  red('sort.dust', 'sort_dust'),
+  red('sort.back', 'sort_back'),
+  {
+    id: 'sort.home',
+    wait: auto(2000),
+    action: 'arrange',
+    pose: { roomMode: 'free', thumbs: ['histogram'], cards: ['rule', 'histogram'] },
+  },
+
+  // ---- Scene 16: measure the room — the Gini, built from the line ----------
+  blue('gini.ask', 'gini_ask', { panel: true }),
+  red('gini.line', 'gini_line', { action: 'arrange', pose: { roomMode: 'line' } }),
+  red('gini.add', 'gini_add', { action: 'walk', pose: { lorenz: 1 } }),
+  red('gini.equal', 'gini_equal', { pose: { lorenz: 2 } }),
+  red('gini.gap', 'gini_gap', { pose: { lorenz: 3 } }),
+  { id: 'gini.value', wait: READER },
+  red('gini.toy', 'gini_toy'),
+  {
+    id: 'gini.home',
+    wait: auto(2000),
+    action: 'arrange',
+    pose: { roomMode: 'free', lorenz: 0, thumbs: ['histogram', 'gini'], cards: ['rule', 'histogram', 'gini'] },
+  },
+
+  // ---- Scene 17: how many still count? — effective participants -------------
+  blue('eff.ask', 'eff_ask', { panel: true }),
+  red('eff.equal', 'eff_equal', { action: 'arrange', pose: { roomMode: 'equal' } }),
+  red('eff.one', 'eff_one', { action: 'arrange', pose: { roomMode: 'one' } }),
+  { id: 'eff.room', wait: READER, action: 'arrange', pose: { roomMode: 'free' } },
+  red('eff.try', 'eff_try'),
+  {
+    id: 'eff.end',
+    wait: READER,
+    pose: {
+      thumbs: ['histogram', 'gini', 'participants'],
+      cards: ['rule', 'histogram', 'gini', 'participants'],
+    },
+  },
 ];
 
 function build(): PairStep[] {
@@ -319,6 +388,17 @@ export const REACTIONS = {
     ],
   },
   runChoices: ['run_choice_1', 'run_choice_2'],
+  /** Scenes 15–17: lines whose words carry what the room on screen shows. */
+  sortThere: { who: 'red', message: 'sort_there' },
+  giniValue: { who: 'red', message: 'gini_value' },
+  effRoom: { who: 'red', message: 'eff_room' },
+  effReadout: { who: 'red', message: 'eff_readout' },
+  effEnd: { who: 'blue', message: 'eff_end' },
+  /** Scenes 15–17: the one-link choices, and the yes/no offers of a toy. */
+  links: { 'sort.ask': 'sort_do', 'sort.ruler': 'sort_ruler_do', 'sort.back': 'sort_back_do' },
+  giniToy: ['gini_toy_choice_1', 'gini_toy_choice_2'],
+  effTry: ['eff_try_choice_1', 'eff_try_choice_2'],
+  effDone: 'eff_done',
   /** Scene 14: Red's answer to the paper — after one run, or after several. */
   whyAfter: { who: 'red', message: 'why_after' },
   whyAgain: { who: 'red', message: 'why_again' },

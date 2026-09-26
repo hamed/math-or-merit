@@ -21,7 +21,11 @@
   import Reel from './Reel.svelte';
   import Teletype from './Teletype.svelte';
   import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
-  import { CALLS, PAIR_STEPS, REACTIONS, RUN_MS, indexOf, panelStart, valuesFor, type Pose } from './script';
+  import { CALLS, PAIR_STEPS, REACTIONS, RUN_MS, indexOf, panelStart, valuesFor, type Pose, type RoomMode } from './script';
+  import { line, piles, ruler, type Tick } from './roomPoses';
+  import { toDollars } from '../../../distribution/binning';
+  import HistoMini from '../../../shared/HistoMini.svelte';
+  import LorenzMini from '../../../shared/LorenzMini.svelte';
   import { createRun } from './run.svelte';
   import { BIG, COINS, CROWD, RAINED, SMALL } from './crowd';
   import { FALL, hopsFor, noise, planRain } from './rain';
@@ -149,7 +153,11 @@
     lift: 0,
     people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1, empty: 1, sx: 1, sy: 1 })) as Person[],
     /** The room's other ninety-eight (Scene 10), each on its way in or in place. */
-    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, alpha: 0, sx: 1, sy: 1 })),
+    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, r: 0, alpha: 0, sx: 1, sy: 1 })),
+    /** How much of the Lorenz curve is drawn, 0–1 (Scene 16's walk). */
+    lorenzDraw: 0,
+    /** The ruler's marks, keyed so a decade slides from the ordinary ruler to the multiplying one. */
+    ticks: {} as Record<string, { x: number; alpha: number }>,
     paint: { blue: 0, red: 0 },
     coinsOn: 0,
     held: { blue: 15, red: 1 },
@@ -180,13 +188,13 @@
   }
 
   function pairSpot(pose: Pose, who: Speaker) {
-    if (pose.place === 'room') return L.room.positions[who === 'blue' ? L.room.blue : L.room.red];
+    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red);
     if (pose.place === 'seats') return who === 'blue' ? L.seatBlue : L.seatRed;
     return who === 'blue' ? L.markBlue : L.markRed;
   }
 
   function pairRadius(pose: Pose, who: Speaker): number {
-    if (pose.place === 'room') return L.room.radius;
+    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red).r;
     return Math.max(L.minRadius, L.radius(pose.holdings[who]));
   }
 
@@ -220,8 +228,8 @@
   function roomPeople(pose: Pose) {
     const w = L.width;
     return L.room.positions.map((p, i) => {
-      if (pose.place === 'room') return { x: p.x, y: p.y, alpha: 1, sx: 1, sy: 1 };
-      return { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y, alpha: 0, sx: 1, sy: 1 };
+      if (pose.place === 'room') return { ...modeTarget(pose.roomMode, i), alpha: 1, sx: 1, sy: 1 };
+      return { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y, r: L.room.radius, alpha: 0, sx: 1, sy: 1 };
     });
   }
 
@@ -287,6 +295,8 @@
     view.roomOn = t.roomOn;
     people(pose).forEach((p, i) => Object.assign(view.people[i], p));
     roomPeople(pose).forEach((p, i) => Object.assign(view.room[i], p));
+    view.ticks = Object.fromEntries(ticksFor(pose.roomMode).map((t) => [t.key, { x: t.x, alpha: t.shown ? 1 : 0 }]));
+    view.lorenzDraw = pose.roomMode === 'line' && pose.lorenz >= 1 ? 1 : 0;
   }
 
   // ---- the player's verbs ----------------------------------------------------
@@ -303,6 +313,9 @@
     stopBanter();
     banterShown = Infinity;
     dropPaper();
+    arranging = false;
+    sheet = null;
+    fourCoins = null;
     if (PAIR_STEPS[index].pose.ran) run.ended();
     else run.clear();
     draw(poseAt(index));
@@ -323,6 +336,9 @@
     stopBanter();
     banterShown = Infinity;
     dropPaper();
+    arranging = false;
+    sheet = null;
+    fourCoins = null;
     if (step.action === 'run') {
       if (stage?.reduced) {
         run.start();
@@ -351,7 +367,7 @@
 
   function hurry(index: number): boolean {
     const id = PAIR_STEPS[index].id;
-    if (bigPaper) {
+    if (bigPaper && paperTimer !== undefined) {
       shrinkPaper();
       return true;
     }
@@ -372,6 +388,8 @@
   function readingTime(index: number): number {
     const step = PAIR_STEPS[index];
     if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readingMs(bubbleWords(line.text)), 0);
+    const concept = conceptLine(step.id);
+    if (concept) return readingMs(bubbleWords(concept.text));
     const dynamic = step.id === 'guess.react' && session.bet ? REACTIONS.betLines[session.bet].message : null;
     const line = step.lines?.[0];
     if (!line && !dynamic) return readingMs(0);
@@ -421,6 +439,122 @@
     if (i === L.room.red) return PROTAGONISTS.red;
     return roomStyles[i];
   }
+
+  // ---- Scenes 15–17: the room's poses ------------------------------------------
+
+  /** What everyone holds, in the room's dollars (everyone started with $100). */
+  const amounts = $derived.by(() => {
+    void run.state.revision;
+    return toDollars(run.wealth(), START_DOLLARS);
+  });
+  const pilesPose = $derived(piles(amounts, L.room.box));
+  const rulerPose = $derived(ruler(amounts, L.room.box));
+  const linePose = $derived(line(amounts, L.room.box));
+  const metrics = $derived.by(() => {
+    void run.state.revision;
+    return measureWealth(run.wealth());
+  });
+
+  /** Room member `i`'s circle on the stage: Blue and Red are their own. */
+  function agentView(i: number): { x: number; y: number; r: number } {
+    if (i === L.room.blue) return view.people[BIG];
+    if (i === L.room.red) return view.people[SMALL];
+    return view.room[i];
+  }
+
+  /** Where room member `i` stands, and how big, in a room pose. */
+  function modeTarget(mode: RoomMode, i: number): { x: number; y: number; r: number } {
+    const free = L.room.positions[i];
+    switch (mode) {
+      case 'piles':
+        return { ...pilesPose.spots[i], r: pilesPose.marker };
+      case 'ruler':
+        return { ...rulerPose.spots[i], r: rulerPose.marker };
+      case 'line':
+        return { ...linePose.spots[i], r: linePose.marker };
+      case 'equal':
+        return { x: free.x, y: free.y, r: L.room.radius };
+      case 'one':
+        return { x: free.x, y: free.y, r: i === Math.max(0, run.state.winner) ? L.room.radius * 10 : L.room.radius * 0.15 };
+      default:
+        return { x: free.x, y: free.y, r: runShown ? roomR(i) : L.room.radius };
+    }
+  }
+
+  function ticksFor(mode: RoomMode): readonly Tick[] {
+    if (mode === 'piles') return pilesPose.ticks;
+    if (mode === 'ruler') return rulerPose.ticks;
+    return [];
+  }
+
+  /** While the room is rearranging, sizes come from the tween, not from the run. */
+  let arranging = $state(false);
+
+  // during the run the sizes follow the money, live
+  $effect(() => {
+    void run.state.revision;
+    const pose = PAIR_STEPS[current].pose;
+    if (!runShown || arranging || pose.place !== 'room' || pose.roomMode !== 'free') return;
+    for (let i = 0; i < L.room.positions.length; i++) agentView(i).r = roomR(i);
+  });
+
+  /**
+   * The room moves into its next picture: everyone makes their own way, a
+   * little early or late, a little faster or slower — people sorting
+   * themselves, not a slide (brief 5.1).
+   */
+  function arrange(pose: Pose, tl: Timeline): void {
+    arranging = true;
+    const mode = pose.roomMode;
+    const n = L.room.positions.length;
+    const inPlace = mode === 'equal' || mode === 'one' || PAIR_STEPS[current - 1]?.pose.roomMode === 'equal' || PAIR_STEPS[current - 1]?.pose.roomMode === 'one';
+    const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => modeTarget(mode, a).x - modeTarget(mode, b).x);
+    const slow = mode === 'ruler' ? 1.5 : 1;
+    let end = 0;
+    order.forEach((i, k) => {
+      const v = agentView(i);
+      const t = modeTarget(mode, i);
+      const at = inPlace ? noise(i, 60) * 0.25 : (0.05 + (k / n) * 1.1 + noise(i, 60) * 0.3) * slow;
+      const dur = (0.8 + noise(i, 61) * 0.5) * slow;
+      tl.to(v, { x: t.x, duration: dur, ease: 'power1.inOut' }, at);
+      tl.to(v, { y: t.y, duration: dur, ease: mode === 'piles' ? 'power2.in' : 'power2.inOut' }, at);
+      tl.to(v, { r: t.r, duration: Math.min(0.7, dur), ease: 'power1.inOut' }, at);
+      end = Math.max(end, at + dur);
+    });
+    // the ruler's marks: a decade on both rulers slides; the rest fade
+    const next = Object.fromEntries(ticksFor(mode).map((t) => [t.key, t]));
+    for (const [key, state] of Object.entries(view.ticks)) {
+      const to = next[key];
+      if (to && Number.isFinite(to.x)) tl.to(state, { x: to.x, alpha: to.shown ? 1 : 0, duration: 1.8 * slow, ease: 'power2.inOut' }, 0.1);
+      else tl.to(state, { alpha: 0, duration: 0.4 }, 0);
+    }
+    for (const t of ticksFor(mode)) {
+      if (view.ticks[t.key] || !Number.isFinite(t.x)) continue;
+      view.ticks[t.key] = { x: t.x, alpha: 0 };
+      tl.to(view.ticks[t.key], { alpha: t.shown ? 1 : 0, duration: 0.6 }, end * 0.6);
+    }
+    if (mode !== 'line') tl.to(view, { lorenzDraw: 0, duration: 0.4 }, 0);
+    tl.call(() => (arranging = false), [], end + 0.05);
+  }
+
+  /** Scene 16: walking along the line, the running total draws itself. */
+  function walk(tl: Timeline): void {
+    tl.fromTo(view, { lorenzDraw: 0 }, { lorenzDraw: 1, duration: 3.2, ease: 'none' });
+  }
+
+  // ---- the side rail, the sheets (optional toys) --------------------------------
+
+  /** An optional toy open over the stage (brief 5.2, 5.3): the Gini toy, the four-person room. */
+  let sheet = $state<'gini-toy' | 'four-coins' | null>(null);
+  let fourCoins = $state<number | null>(null);
+
+  function closeSheet(): void {
+    sheet = null;
+    fourCoins = null;
+    stage?.advance();
+  }
+
+  const RAIL_W = $derived(width < 760 ? 96 : 150);
 
   /** The morning paper on whoever finished richest — the sandbox's own newsroom. */
   function frontPage(): Said['paper'] | null {
@@ -580,6 +714,11 @@
         out.push(...banterLines().slice(0, i === current ? banterShown : Infinity));
         continue;
       }
+      const dynamic = conceptLine(step.id);
+      if (dynamic) {
+        out.push(dynamic);
+        continue;
+      }
       if (step.id === 'why.after') {
         const line = run.state.finished > 1 ? REACTIONS.whyAgain : REACTIONS.whyAfter;
         out.push({ id: `${step.id}:${line.message}`, who: line.who, at: line.who, text: say(line.message) });
@@ -609,8 +748,13 @@
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
     const last = out[out.length - 1];
-    const choices = choicesAt(current);
+    // an open toy has its own Done: the offer's links go while it is open
+    const choices = sheet ? null : choicesAt(current);
     if (last && choices) out[out.length - 1] = { ...last, choices };
+    if (sheet === 'four-coins' && fourCoins !== null) {
+      const line = REACTIONS.effReadout;
+      out.push({ id: `eff.readout:${fourCoins}`, who: line.who, at: line.who, text: say(line.message, { count: formatNumber(fourCoins, { maximumFractionDigits: 2 }) }) });
+    }
     return out;
   });
 
@@ -645,6 +789,29 @@
     return [];
   }
 
+  /** Scenes 15–17: the lines whose words are what the room shows right now. */
+  function conceptLine(id: string): Said | null {
+    const said = (line: { who: Speaker; message: string }, values: Record<string, string | number>): Said => ({
+      id: `${id}:${JSON.stringify(values)}`,
+      who: line.who,
+      at: line.who,
+      text: say(line.message, values),
+    });
+    const count = formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 });
+    switch (id) {
+      case 'sort.there':
+        return said(REACTIONS.sortThere, { count: pilesPose.piles[pilesPose.pileOf[L.room.blue]].count - 1 });
+      case 'gini.value':
+        return said(REACTIONS.giniValue, { gini: formatNumber(metrics.gini, { maximumFractionDigits: 2 }) });
+      case 'eff.room':
+        return said(REACTIONS.effRoom, { count });
+      case 'eff.end':
+        return said(REACTIONS.effEnd, { count });
+      default:
+        return null;
+    }
+  }
+
   /** The reader's choices, set inside the current speaker's bubble. */
   function choicesAt(index: number): readonly BubbleChoice[] | null {
     const id = PAIR_STEPS[index].id;
@@ -652,6 +819,15 @@
       return [
         { label: say('more_choice_1'), act: tellMe },
         { label: say('more_choice_2'), act: () => stage?.advance() },
+      ];
+    }
+    const link = (REACTIONS.links as Record<string, string>)[id];
+    if (link) return [{ label: say(link), act: () => stage?.advance() }];
+    if (id === 'gini.toy' || id === 'eff.try') {
+      const [yes, no] = id === 'gini.toy' ? REACTIONS.giniToy : REACTIONS.effTry;
+      return [
+        { label: say(yes), act: () => (sheet = id === 'gini.toy' ? 'gini-toy' : 'four-coins') },
+        { label: say(no), act: () => stage?.advance() },
       ];
     }
     if (id === 'run.again') {
@@ -691,6 +867,12 @@
 
   /** The rule card reads the rule that is running: the live stake, never typed in. */
   function cardFor(id: string): Card | null {
+    const lines = (key: string, count: number) => Array.from({ length: count }, (_, k) => say(`${key}_${k + 1}`));
+    if (id === 'histogram') return { id, title: say('card_histogram_title'), lines: lines('card_histogram', 3) };
+    if (id === 'gini') return { id, title: say('card_gini_title'), lines: lines('card_gini', 2) };
+    if (id === 'participants') {
+      return { id, title: say('card_participants_title'), lines: [...lines('card_participants', 2), say('participation_formula')] };
+    }
     if (id !== 'rule') return null;
     const stake = formatNumber(REVEAL_BETA, { style: 'percent' });
     return {
@@ -746,22 +928,30 @@
   const region = $derived.by(() => {
     const pose = poseAt(current);
     const top = pose.cleared ? Math.max(height * 0.05, pose.cards.length > 0 ? 68 : 0) : height * 0.03 + titleFont * 1.2 * COMPACT + 12;
-    // in the room the talk floats over the crowd, down to just above the two
+    // in the room the talk floats over the crowd, down to just above the two;
+    // over a picture, it stops above the picture
+    const chartTop: Record<string, number> = {
+      piles: Math.min(...pilesPose.piles.map((p) => p.top)) - 22,
+      ruler: Math.min(...rulerPose.spots.map((p) => p.y)) - rulerPose.marker - 20,
+      line: L.room.box.y + L.room.box.h * 0.5,
+    };
     const tops =
       pose.place === 'room'
-        ? [L.room.positions[L.room.blue].y - L.room.radius * 3.2]
+        ? [chartTop[pose.roomMode] ?? L.room.positions[L.room.blue].y - L.room.radius * 3.2]
         : PAIR.map((who) => pairSpot(pose, who).y - Math.max(pairRadius(pose, who), L.minRadius));
     // on a narrow stage an open card sits over the talk's space: start below it
     const card = cardOpen && width < 760 && cardHeight > 0 ? 12.8 + 44 + 8 + cardHeight + 10 : 0;
     const start = Math.max(top, card);
-    const bottom = Math.max(start + 90, Math.min(...tops) - 6);
+    // on a narrow stage an open toy takes the lower two thirds: talk above it
+    const toy = sheet && width < 760 ? [height * 0.34 - 10] : [];
+    const bottom = Math.max(start + 90, Math.min(...tops, ...toy) - 6);
     return { top: start, bottom, left: 16, right: width - 16 };
   });
 
   const column = $derived(
     chatColumn(
       PAIR.map((who) => anchorOf(who)),
-      width,
+      width - (PAIR_STEPS[current].pose.thumbs.length > 0 ? RAIL_W + 8 : 0),
       region.top,
       region.bottom,
     ),
@@ -861,6 +1051,12 @@
         return;
       case 'room':
         fillRoom(pose, tl);
+        return;
+      case 'arrange':
+        arrange(pose, tl);
+        return;
+      case 'walk':
+        walk(tl);
         return;
       default:
         tweenTo(pose, tl, 0, 0.6);
@@ -1421,7 +1617,7 @@
             {@const spot = view.room[i]}
             {#if i !== L.room.blue && i !== L.room.red && spot.alpha > 0.01 && roomStyles[i]}
               <path
-                d={svgShapePath(roomStyles[i].shape, runShown ? roomR(i) : L.room.radius)}
+                d={svgShapePath(roomStyles[i].shape, Math.max(0.6, spot.r))}
                 transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`}
                 fill={roomStyles[i].fill}
                 stroke={roomStyles[i].stroke}
@@ -1440,7 +1636,7 @@
             <g transform={squash(person.r, person.sx, person.sy)}>
             <g transform={life(i)}>
               <circle
-                r={runShown && whoIs(i) ? roomR(whoIs(i) === 'blue' ? L.room.blue : L.room.red) : person.r}
+                r={person.r}
                 fill={person.empty > 0.5 ? 'none' : costumeFill(i)}
                 stroke={costumeStroke(i)}
                 stroke-dasharray={person.empty > 0.5 ? '3 3' : undefined}
@@ -1462,12 +1658,12 @@
         {/if}
       {/each}
 
-      {#if runShown && run.state.winner >= 0}
+      {#if runShown && run.state.winner >= 0 && PAIR_STEPS[current].pose.roomMode === 'free' && !arranging}
         {@const spot = roomSpot(run.state.winner)}
         <!-- the dashed ring means "the richest", as everywhere in the essay -->
         <path
           class="halo"
-          d={svgShapePath(styleOfRoom(run.state.winner).shape, roomR(run.state.winner) + 6)}
+          d={svgShapePath(styleOfRoom(run.state.winner).shape, agentView(run.state.winner).r + 6)}
           transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)})`}
           fill="none"
           stroke="var(--ink-mid)"
@@ -1475,6 +1671,68 @@
           stroke-dasharray="4 4"
           stroke-linejoin="round"
         />
+      {/if}
+
+      {#if PAIR_STEPS[current].pose.place === 'room'}
+        {@const pose = PAIR_STEPS[current].pose}
+        {@const box = L.room.box}
+        {#if pose.roomMode === 'piles' || pose.roomMode === 'ruler' || Object.values(view.ticks).some((t) => t.alpha > 0.01)}
+          {@const axisY = pose.roomMode === 'ruler' ? rulerPose.axisY : pilesPose.axisY}
+          <g class="ruler">
+            <line x1={box.x} x2={box.x + box.w} y1={axisY} y2={axisY} />
+            {#each Object.entries(view.ticks) as [key, tick] (key)}
+              {#if tick.alpha > 0.01 && Number.isFinite(tick.x)}
+                {@const label = [...pilesPose.ticks, ...rulerPose.ticks].find((t) => t.key === key)?.label ?? ''}
+                <g opacity={tick.alpha} transform={`translate(${tick.x.toFixed(1)} ${axisY})`}>
+                  <line y1="0" y2="5" />
+                  <text y="18" text-anchor={key === 'round-0' ? 'start' : 'middle'}>{label}</text>
+                </g>
+              {/if}
+            {/each}
+          </g>
+        {/if}
+        {#if pose.roomMode === 'piles' && !arranging}
+          <g class="counts">
+            {#each pilesPose.piles as pile, b (b)}
+              {#if pile.count > 0}
+                <text x={(pile.x0 + pile.x1) / 2} y={pile.top} text-anchor="middle">{formatNumber(pile.count)}</text>
+              {/if}
+            {/each}
+          </g>
+        {/if}
+        {#if pose.roomMode === 'ruler' && !arranging && rulerPose.dust.count > 0}
+          <g class="dust">
+            <rect x={rulerPose.dust.x} y={rulerPose.dust.y} width={rulerPose.dust.w} height={rulerPose.dust.h} rx="5" />
+            <text x={rulerPose.dust.x + rulerPose.dust.w / 2} y={rulerPose.dust.y - 6} text-anchor="middle">
+              {`< ${formatNumber(0.01, { style: 'currency', currency: 'USD' })}: ${formatNumber(rulerPose.dust.count)}`}
+            </text>
+          </g>
+        {/if}
+        {#if pose.roomMode === 'line' && view.lorenzDraw > 0}
+          {@const curve = linePose.curve.map((p, k) => `${k ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')}
+          <g class="lorenz">
+            {#if pose.lorenz >= 3}
+              {@const [d0, d1] = linePose.diagonal}
+              <path
+                class="gap"
+                d={`M${d0.x} ${d0.y} L${d1.x} ${d1.y} ${linePose.curve
+                  .slice()
+                  .reverse()
+                  .map((p) => `L${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+                  .join(' ')} Z`}
+              />
+            {/if}
+            {#if pose.lorenz >= 2}
+              <line class="diagonal" x1={linePose.diagonal[0].x} y1={linePose.diagonal[0].y} x2={linePose.diagonal[1].x} y2={linePose.diagonal[1].y} />
+            {/if}
+            <path class="curve" d={curve} pathLength="1" stroke-dasharray="1" stroke-dashoffset={(1 - view.lorenzDraw).toFixed(4)} />
+            {#if pose.lorenz >= 3}
+              <text class="gini" x={linePose.frame.x + linePose.frame.w * 0.62} y={linePose.frame.y + linePose.frame.h * 0.62}>
+                {`Gini ${formatNumber(metrics.gini, { maximumFractionDigits: 2 })}`}
+              </text>
+            {/if}
+          </g>
+        {/if}
       {/if}
 
       {#each view.payout as token, i (i)}
@@ -1509,7 +1767,7 @@
       {/if}
     </svg>
 
-    {#if runShown}
+    {#if runShown && current <= indexOf('why.once')}
       <p class="readout" aria-live="off">
         {say('run_readout', {
           trades: formatNumber(run.state.trades),
@@ -1584,6 +1842,38 @@
           </div>
         </div>
       </article>
+    {/if}
+
+    {#if PAIR_STEPS[current].pose.thumbs.length > 0}
+      <div class="rail" style={`inline-size:${RAIL_W}px`}>
+        {#each PAIR_STEPS[current].pose.thumbs as thumb (thumb)}
+          <div class="thumb">
+            {#if thumb === 'histogram'}
+              <HistoMini wealth={run.wealth()} startDollars={START_DOLLARS} revision={run.state.revision} />
+            {:else if thumb === 'gini'}
+              <LorenzMini wealth={run.wealth()} revision={run.state.revision} />
+            {:else}
+              <p class="count">{`≈ ${formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
+              <p class="of">{say('card_participants_title')}</p>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    {#if sheet}
+      <section class="sheet" aria-label={sheet === 'gini-toy' ? say('card_gini_title') : say('card_participants_title')}>
+        {#if sheet === 'gini-toy'}
+          {#await import('../../../distribution/GiniStage.svelte') then toy}
+            <toy.default />
+          {/await}
+        {:else}
+          {#await import('../../../distribution/EffectiveParticipantsStage.svelte') then toy}
+            <toy.default onmeasure={(n: number) => (fourCoins = n)} />
+          {/await}
+        {/if}
+        <button type="button" class="done" onclick={closeSheet}>{say(REACTIONS.effDone)}</button>
+      </section>
     {/if}
 
     <CardStack
@@ -1680,6 +1970,145 @@
   .hit:focus-visible {
     outline: 2px dashed var(--accent);
     outline-offset: 3px;
+  }
+
+  .ruler line {
+    stroke: var(--ink-mid);
+    stroke-width: 1.2;
+  }
+
+  .ruler text,
+  .counts text,
+  .dust text,
+  .lorenz text {
+    fill: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .counts text {
+    fill: var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .dust rect {
+    fill: none;
+    stroke: var(--line);
+    stroke-dasharray: 3 3;
+  }
+
+  .lorenz .curve {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.4;
+    stroke-linejoin: round;
+  }
+
+  .lorenz .diagonal {
+    stroke: var(--ink-soft);
+    stroke-width: 1.2;
+    stroke-dasharray: 5 5;
+  }
+
+  .lorenz .gap {
+    fill: rgb(139 63 43 / 12%);
+    stroke: none;
+  }
+
+  .lorenz .gini {
+    fill: var(--accent-deep);
+    font-size: 16px;
+    font-weight: 750;
+  }
+
+  /* concepts already built, small, on the far side */
+  .rail {
+    position: absolute;
+    z-index: 4;
+    inset-block-start: 3.4rem;
+    inset-inline-end: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .thumb {
+    padding: 0.3rem;
+    border: 1px solid var(--line);
+    border-radius: 0.45rem;
+    background: rgb(255 250 240 / 88%);
+    animation: drop 380ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  }
+
+  .thumb :global(svg) {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+  }
+
+  .thumb .count {
+    margin: 0;
+    color: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 1.3rem;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .thumb .of {
+    margin: 0;
+    color: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 0.68rem;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  /* an optional toy, opened over the stage */
+  .sheet {
+    position: absolute;
+    z-index: 6;
+    inset-block-start: 11%;
+    inset-inline-start: 1rem;
+    inline-size: min(34rem, 46vw);
+    max-block-size: 82%;
+    overflow: auto;
+    padding: 0.6rem 0.8rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 0.7rem;
+    background: var(--paper-bright);
+    box-shadow: 0 0.8rem 2rem rgb(65 50 29 / 18%);
+  }
+
+  .sheet .done {
+    margin-block-start: 0.4rem;
+    padding: 0.2rem 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font-family: var(--font-hand);
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  @media (max-width: 760px) {
+    .sheet {
+      inset-block-start: 34%;
+      inset-inline: 0.5rem;
+      inline-size: auto;
+      max-block-size: 64%;
+    }
+  }
+
+  @keyframes drop {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
   }
 
   /* in the top bar, beside the card deck: never under the talk */

@@ -11,6 +11,13 @@
     transferCoin,
   } from './participation';
 
+  interface Props {
+    /** Hears the four-person number whenever a coin moves (Red reads it out on the stage). */
+    onmeasure?: (effective: number) => void;
+  }
+
+  let { onmeasure }: Props = $props();
+
   let room: HTMLDivElement;
   let width = $state(0);
   let owners = $state([...EQUAL_COIN_OWNERS]);
@@ -26,6 +33,7 @@
   let suppressedClick = -1;
 
   const metrics = $derived(pairingMetrics(owners));
+  $effect(() => onmeasure?.(metrics.effectiveParticipants));
   /** The coin on its way somewhere, however it was picked up. */
   const movingCoin = $derived(selectedCoin ?? (dragMoved ? draggingCoin : null));
   const participationPosition = $derived(

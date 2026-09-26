@@ -568,93 +568,130 @@ the explanation second; colour, corners and edges never touch the game.
 
 ---
 
-## 17 · Line them up (chapter `line-them-up`)
+## 15 · Line them up — Scene 15 (inside the stage)
 
-> picture: the same circles you watched trade — scattered, sorted, dropped into
-> piles, then the ruler switches to multiplying by ten. On the ordinary ruler
-> the decade marks (1¢ … $1k …) crowd into the first few pixels; on the
-> multiplying ruler they slide apart into even steps.
+> picture: the same room. The people drop and sort into piles by how much they
+> hold, keeping their costumes; the count is written above each pile; the ruler
+> is ordinary, its ticks round. Then the ruler changes to multiplying by ten, a
+> touch slower, so the labels can be seen moving. Then everyone goes back.
 
-[sort.1] RED: (draft) Too many circles to count. Let's sort them into piles.
+[sort.ask] RED: (draft) A hundred people. / Too many to read at a glance.
 
-[sort.2] BLUE: (draft) Most have almost nothing. A few have a lot. That's just real life.
+[sort.do] (draft) Sort them
 
-[sort.3] RED: (draft) It's also this world. And here, nobody had an edge.
+[sort.real] BLUE: (draft) Most have almost nothing. A few have a lot. / That's just real life.
 
-[sort.4] RED: (draft) The piles are my choice. Move the slider. The fortunes don't change.
+[sort.edge] RED: (draft) It's also this room. / And here, nobody had an edge.
 
-[sort.5] BLUE: (draft) This chart is useless, though. Everyone is squeezed into one corner.
+[sort.where] BLUE: (draft) Where am I?
 
-[sort.6] RED: (draft) Then let's change the ruler.
+[sort.there] RED: (draft) There. With {count} others.
 
-[sort.7] RED: (draft) Now each step means ten times more, not ten more.
+> {count} is how many others share Blue's pile, off the screen.
 
-[sort.8] BLUE: (draft) One, ten, a hundred, a thousand. Even steps. Huh.
+[sort.squeeze] BLUE: (draft) This chart is useless, though. / Everyone is squeezed into one corner.
 
-[sort.9] RED: (draft) Less than a cent goes in the dust box. Zero has no place on this ruler.
+[sort.ruler] RED: (draft) Then let's change the ruler.
+
+[sort.ruler.do] (draft) Change the ruler
+
+[sort.times] RED: (draft) Now each step means ten times more, / not ten more.
+
+[sort.even] BLUE: (draft) One, ten, a hundred, a thousand. / Even steps. Huh.
+
+[sort.dust] RED: (draft) Less than a cent goes in the dust box. / Zero has no place on this ruler.
+
+[sort.back] RED: (draft) That's a histogram. / Back to the room?
+
+[sort.back.do] (draft) Put them back
 
 ! keep true: the multiplying ruler only makes hidden values visible. It proves
 nothing about what kind of distribution this is.
 
+[card.histogram.title] (draft) Histogram
+
+[card.histogram.1] (draft) Sort everyone into piles by how much they have.
+
+[card.histogram.2] (draft) A pile's height is how many people are in it.
+
+[card.histogram.3] (draft) A multiplying ruler shows what an ordinary one squeezes into a corner.
+
 ---
 
-## 18 · Measure the room (chapter `gini`)
+## 16 · Measure the room — Scene 16 (inside the stage)
 
-[gini.1] BLUE: (draft) Economists love a single number. What's ours?
+> picture: everyone steps into a line, poorest first. Walking along the line,
+> their money is added up as it goes: the running total climbs as a curve above
+> them. Equal shares would climb the straight diagonal. The gap between the two
+> is the Gini.
 
-[gini.2] RED: (draft) Watch it being built. Zero means everyone has the same.
+[gini.ask] BLUE: (draft) Economists love a single number. / What's ours?
 
-[gini.3] RED: (draft) One is the far edge: one owner, everyone else at nothing.
+[gini.line] RED: (draft) Line everyone up, poorest first.
 
-### Effective participants
+[gini.add] RED: (draft) Now walk along the line / and add up their money as you go.
 
-> picture: four people on the corners of a square, four coins each. The reader
-> moves coins; someone with none stays visible as a dashed ring.
+[gini.equal] RED: (draft) If everyone had the same, / the total would climb this straight line.
 
-[eff.1] BLUE: (draft) A hundred players. That's a lot of competition.
+[gini.gap] RED: (draft) The gap between them is the Gini. / Zero: all the same. One: a single owner.
 
-[eff.2] RED: (draft) Is it? Start with four. Move the coins yourself.
+[gini.value] RED: (draft) This room: {gini}.
 
-[eff.equal] BLUE: (draft) Four people, four players. Fair.
+[gini.toy] RED: (draft) Want to see the equal case / and play with it?
 
-> when all four are equal.
+[gini.toy.choice] (draft) Yes · Not now
 
-[eff.one] BLUE: (draft) Four people, one player. Me, I hope.
+> [CHOICE] "Yes" opens the old Gini toy in a panel on the stage; its Done
+> link, or "Not now", goes on.
 
-> when one holds everything.
+[card.gini.title] (draft) Gini
 
-[eff.3] RED: (draft) Four bodies still in the room. The number counts the field they have left.
+[card.gini.1] (draft) Line everyone up, poorest first, and add up their money as you go.
+
+[card.gini.2] (draft) 0: everyone has the same. 1: one owner, nothing for the rest.
+
+---
+
+## 17 · How many still count? — Scene 17 (inside the stage)
+
+> picture: the room itself imagines the two ends — everyone the same, then one
+> person with everything — and comes back to how it really is.
+
+[eff.ask] BLUE: (draft) A hundred players. / That's a lot of competition.
+
+[eff.equal] RED: (draft) If all hundred had the same, / all hundred would count.
+
+[eff.one] RED: (draft) If one had everything, / only one would count.
+
+[eff.room] RED: (draft) This room? / About {count}.
+
+> {count} is 1 / Σsᵢ² of the room on screen, rounded to one decimal.
+
+[eff.try] RED: (draft) Want to try it with four people?
+
+[eff.try.choice] (draft) Yes · Not now
+
+[eff.readout] RED: (draft) Four people. {count} of them count.
+
+> Red, beside the four-person toy, reading it out as the reader moves coins.
+
+[eff.done] (draft) Done
+
+[eff.end] BLUE: (draft) A hundred people. / About {count} players.
 
 [participation.formula] Open the black box: write each person's share of the
 room as sᵢ. Square the shares, add them, then take the reciprocal: 1 / Σsᵢ².
 This is the inverse Herfindahl concentration index.
 
-> a claim note (the fold-out "Open the black box"), not dialogue.
+> a claim note (the fold-out "Open the black box"), not dialogue — on the card.
 
-> OPEN — your top-k view: sort the people biggest first, and after each one
-> compute 1/Σsᵢ² with sᵢ as each person's share WITHIN that top group — so the
-> top one alone gives exactly 1, the top two 1.8 or so, and the count flattens
-> far below k. Reading confirmed with you on 2026-09-22 (and proved to always
-> rise and to end exactly on the whole-room number). Where it goes is still
-> yours to say — the crowd chapter?
+[card.participants.title] (draft) Effective participants
 
-### Turnover
+[card.participants.1] (draft) How many equal fortunes would be just as concentrated as this room.
 
-[turn.1] RED: (draft) The trade counter keeps racing. But most people have almost nothing left to bet.
+[card.participants.2] (draft) Everyone equal: all of them. One owner: 1.
 
-[turn.2] BLUE: (draft) So a million trades can move almost nothing.
-
-[turn.3] RED: (draft) Right. So we count the money that actually changes hands.
-
-[turn.def] (draft) One measurement round is one trade per person on average.
-Ordinary turnover adds the stakes that crossed between people in that round and
-divides by all the wealth in the room. 0.30 roomfuls means wealth equal to 30%
-of the room changed hands.
-
-> a claim note, not dialogue — the definition every later turnover readout leans on.
-
-! keep true: only trades count as turnover. Levies and shared returns are kept
-in their own ledger; the remedy never pads this number.
+> Turnover is cut from the main flow (owner, 2026-09-26, D20 answer 8).
 
 ---
 
@@ -831,53 +868,9 @@ Every `! keep true:` these lines carried has already moved up into the script.
 > Gone 2026-09-26: "Your turn to guess" and its five-step rule list — the guess
 > happens inside the stage now (Scene 12), and the rule lives on the rule card.
 > Gone the same day: "Now run it" and "So why did they win?" — the run and the
-> paper happen in the stage (Scenes 13–14).
-
-## Line them up
-
-[sort.head] Line them up
-
-[sort.body]
-A hundred circles, all different sizes, scattered around the room. I can spot the winner. I cannot read the room.
-
-So I cheat. First sort them. Then cut the wealth ruler into equal bins and drop one circle into the matching pile. Move the number of piles and watch the picture change. The fortunes do not.
-
-[sort.after]
-Now it is a histogram: the bars are the people you just watched. The cuts between bars are my choice, not nature's. That is why the slider matters.
-
-But the richest circle also owns the ruler. Fit it on a straight, adding scale and much of the room is squeezed against zero. So change the ruler. Each step now *multiplies* by ten. Equal distance means ten times the money; the hidden crowd opens up.
-
-Below one cent goes in the dust box. Exact zero belongs there too: zero has no position on a multiplying ruler. The new ruler reveals what the old one hid. It does not explain why the shape exists.
-
-## Measure the room
-
-[gini.head] Measure the room
-
-[gini.body]
-A picture is excellent until I want to compare two rooms. Then I need a number.
-
-Start with Gini. I like it because you can watch the number being built.
-
-[gini.after]
-Zero means equal. One is the theoretical horizon: as a room grows, one owner and everybody else at nothing gets closer and closer to it.
-
-Useful. But the question I care about is plainer: how many people still carry enough economic weight to matter?
-
-Four people. How many still matter?
-
-Four people enter with four coins each. Move the coins yourself. The people never leave. The black box watches only where the wealth goes.
-
-The box asks how many equal fortunes would be just as concentrated as this room. Four equal fortunes give 4. Split everything equally between two and it gives 2. Give every coin to one owner and it gives 1. In between, it can say 3.88 or 1.47.
-
-That is **effective participants**. Four bodies remain in the room. The number measures the field they have left.
-
-A million trades can move almost nothing
-
-The trade counter keeps racing after most people have almost nothing left to risk. A million crumbs still prints as a million trades.
-
-So I count the money that crossed between people. One **measurement round** is one trade per person on average. Add the stakes transferred in those ordinary trades and divide by all wealth in the room. That is **ordinary turnover**. A result of 0.30 roomfuls means wealth equal to 30% of the room changed hands during that round.
-
-Only trades count. Later, levies and shared returns get their own ledger. The remedy does not get to pad this number.
+> paper happen in the stage (Scenes 13–14); and "Line them up", "Measure the
+> room" and turnover — the histogram, the Gini and effective participants are
+> acts on the same room (Scenes 15–17), turnover is cut (D20).
 
 ## More of them
 
