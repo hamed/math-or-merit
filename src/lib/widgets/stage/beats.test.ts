@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateBeats, type BeatSpec } from './contract';
 import * as CowCastScene from './scenes/CowCastScene.svelte';
-import * as OpeningScene from './scenes/OpeningScene.svelte';
 import * as PersonTradeScene from './scenes/PersonTradeScene.svelte';
 
 const {
@@ -20,36 +19,14 @@ const {
   textLineOffset: (index: number) => number;
 };
 
-const {
-  BEATS: OPENING_BEATS,
-  SLOTS: REEL_SLOTS,
-  LAND: REEL_LAND,
-  OPENING_SECONDS,
-} = OpeningScene as unknown as {
-  BEATS: readonly BeatSpec[];
-  SLOTS: readonly string[];
-  LAND: number;
-  OPENING_SECONDS: number;
-};
-
-const {
-  BEATS: ROOM_BEATS,
-  PLATES: ROOM_PLATES,
-  ROUNDS,
-  HOLDINGS,
-  UNITS,
-} = PersonTradeScene as unknown as {
+const { BEATS: ROOM_BEATS, PLATES: ROOM_PLATES } = PersonTradeScene as unknown as {
   BEATS: readonly BeatSpec[];
   PLATES: readonly { src: string; beat: string }[];
-  ROUNDS: readonly { winner: 'A' | 'B'; stake: number }[];
-  HOLDINGS: readonly { a: number; b: number }[];
-  UNITS: number;
 };
 
 /** Every scene's beat table, checked at data level (no DOM mounting). */
 const SCENES: Record<string, readonly BeatSpec[]> = {
   CowCastScene: CAST_BEATS,
-  OpeningScene: OPENING_BEATS,
   PersonTradeScene: ROOM_BEATS,
 };
 
@@ -127,29 +104,6 @@ describe('CowCastScene frames', () => {
   });
 });
 
-describe('OpeningScene reel', () => {
-  it('keeps the cinematic opening under fifteen seconds', () => {
-    expect(OPENING_SECONDS).toBeGreaterThan(12);
-    expect(OPENING_SECONDS).toBeLessThanOrEqual(15);
-  });
-
-  it('lands on Math', () => {
-    expect(REEL_SLOTS[REEL_LAND]).toBe('Math');
-  });
-
-  it('keeps a symbol behind Math so the overshoot never shows empty page', () => {
-    expect(REEL_LAND).toBeLessThan(REEL_SLOTS.length - 1);
-  });
-
-  it('never spins Merit — it is already on the line above', () => {
-    expect(REEL_SLOTS).not.toContain('Merit');
-  });
-
-  it('has room to blur: the spin passes many symbols before it lands', () => {
-    expect(REEL_LAND).toBeGreaterThan(12);
-  });
-});
-
 describe('PersonTradeScene plates', () => {
   const labels = new Set(ROOM_BEATS.map((b) => b.label));
 
@@ -171,44 +125,6 @@ describe('PersonTradeScene plates', () => {
 
   it('ends on the circle beat, where the plates hand over to the circle', () => {
     expect(ROOM_PLATES[ROOM_PLATES.length - 1].beat).toBe('circle');
-  });
-});
-
-describe('PersonTradeScene game', () => {
-  it('starts the two of them equal', () => {
-    expect(HOLDINGS[0].a).toBe(UNITS / 2);
-    expect(HOLDINGS[0].b).toBe(UNITS / 2);
-  });
-
-  it('makes and destroys no money', () => {
-    for (const h of HOLDINGS) expect(h.a + h.b).toBe(UNITS);
-  });
-
-  it('stakes half of what the poorer one has, in whole coins', () => {
-    ROUNDS.forEach((round, r) => {
-      const { a, b } = HOLDINGS[r];
-      expect(round.stake).toBe(Math.floor(Math.min(a, b) / 2));
-      expect(round.stake).toBeGreaterThan(0);
-    });
-  });
-
-  it('has a beat trio for every round', () => {
-    const labels = new Set(ROOM_BEATS.map((b) => b.label));
-    ROUNDS.forEach((_, r) => {
-      for (const stage of ['ante', 'toss', 'take']) {
-        expect(labels.has(`${stage}-${r + 1}`), `no beat "${stage}-${r + 1}"`).toBe(true);
-      }
-    });
-  });
-
-  it('ends close enough to level to sell the illusion', () => {
-    const last = HOLDINGS[HOLDINGS.length - 1];
-    expect(Math.abs(last.a - last.b)).toBeLessThanOrEqual(UNITS / 4);
-  });
-
-  it('gives the first round to one of them and the rest to the other', () => {
-    expect(ROUNDS[0].winner).not.toBe(ROUNDS[1].winner);
-    expect(ROUNDS[1].winner).toBe(ROUNDS[2].winner);
   });
 });
 

@@ -19,7 +19,7 @@
  * in `game.ts`.
  */
 import { HOLDINGS, ROUNDS } from './game';
-import { BIG, DROPS, SMALL } from './crowd';
+import { DROPS } from './crowd';
 import { DROP_GAP, FALL } from './rain';
 import { CHAT, HOLD, READER, auto, type LineSpec, type StepSpec, type Wait } from '../../steps';
 
@@ -492,9 +492,6 @@ function build(): PairStep[] {
 export const PAIR_STEPS: readonly PairStep[] = build();
 
 export const indexOf = (id: string): number => PAIR_STEPS.findIndex((step) => step.id === id);
-
-/** The crowd index each protagonist grew out of. */
-export const CROWD_INDEX = { blue: BIG, red: SMALL } as const;
 
 /** Live values a line needs, taken from the pose on screen — never typed in. */
 export function valuesFor(step: PairStep): Record<string, number> {

@@ -1,10 +1,6 @@
 <script lang="ts" module>
   import type { BeatSpec } from '../contract';
-  import {
-    HOLDINGS as GAME_HOLDINGS,
-    ROUNDS as GAME_ROUNDS,
-    UNITS as GAME_UNITS,
-  } from './pair/game';
+  import { HOLDINGS, UNITS } from './pair/game';
 
   import figure from './person/00-figure.webp';
   import head01 from './person/01-head.webp';
@@ -19,54 +15,24 @@
   import head10 from './person/10-head.webp';
 
   /**
-   * The person's reduction and the first trade are ONE scene, deliberately.
-   *
-   * They used to be two pinned sections, and no amount of matching geometry
-   * could hide the seam: the first section unpins and scrolls off the top while
-   * the second scrolls up from the bottom, so the circle left the screen and an
-   * identical one arrived. The reader sees a swap and learns nothing from it.
-   *
-   * Here there is one timeline and, more importantly, ONE circle element. The
-   * person reduces onto it, it becomes money and back, then it slides aside to
-   * open a seat and a second circle walks in from the right. It is the same
-   * path node the whole way through — trader A is not a redraw of the person's
-   * circle, it IS the person's circle.
+   * Branch B2 (2026-09-24, D19): a person reduced, plate by plate, to one
+   * circle, which becomes money and back — and no further. The two-person
+   * game that used to follow moved into the pair stage, where Blue and Red
+   * play it (`pair/game.ts`); its half of this scene was deleted 2026-09-27.
+   * The circle is ONE element the whole way: the last plate shrinks onto it
+   * and hands over.
    */
   export const BEATS: readonly BeatSpec[] = [
     // artBottom: where the ink ends in this beat, so the caption sits one line
-    // under it. The plates fill the frame; the circle, the coins and the trade
-    // live in the middle of it; the ring at the end reaches low and wide again.
+    // under it. The plates fill the frame; the circle and the coins live in
+    // the middle of it.
     { label: 'person', length: 1.1, artBottom: 0.97 },
     { label: 'face', length: 0.9, artBottom: 0.97 },
     { label: 'strip', length: 1.6, restAt: 1.4, artBottom: 0.97 },
     { label: 'circle', length: 0.9, restAt: 0.86, artBottom: 0.78 },
     { label: 'coins', length: 1.2, restAt: 0.93, artBottom: 0.75 },
     { label: 'one', length: 1, restAt: 0.65, artBottom: 0.75 },
-    { label: 'slide', length: 0.9, restAt: 0.65, artBottom: 0.78 },
-    { label: 'meet', length: 1, restAt: 0.7, artBottom: 0.78 },
-    { label: 'ante-1', length: 1.0, restAt: 0.63 },
-    { label: 'toss-1', length: 1.1, restAt: 0.69 },
-    { label: 'take-1', length: 0.9, restAt: 0.73 },
-    { label: 'again', length: 0.9 },
-    { label: 'ante-2', length: 0.9, restAt: 0.51 },
-    { label: 'toss-2', length: 1.0, restAt: 0.69 },
-    { label: 'take-2', length: 0.9, restAt: 0.65 },
-    { label: 'ante-3', length: 0.9, restAt: 0.57 },
-    { label: 'toss-3', length: 1.0, restAt: 0.69 },
-    { label: 'take-3', length: 0.9, restAt: 0.65 },
-    { label: 'fair', length: 1.0, restAt: 0.25 },
-    { label: 'crowd', length: 1.3, restAt: 1.05, artBottom: 0.95 },
   ];
-
-  /**
-   * Branch B2 (2026-09-24, D19): the person reduced to one circle, and no
-   * further. The two-person game moved into the pair stage, where Blue and Red
-   * play it; this scene keeps the owner's plates and the reduction they draw.
-   */
-  export const REDUCTION_BEATS: readonly BeatSpec[] = BEATS.slice(
-    0,
-    BEATS.findIndex((beat) => beat.label === 'one') + 1,
-  );
 
   export const PLATES: readonly { src: string; beat: string }[] = [
     { src: figure, beat: 'person' },
@@ -83,7 +49,7 @@
   ];
 
   /**
-   * The stage is 480x300 — the trade layout's box. The person plates are cut to
+   * The stage is 480x300 — the box the trade used to need. The person plates are cut to
    * 480:280, so they sit in a rect inset by PLATE_Y, which is what keeps them
    * centred here.
    */
@@ -95,67 +61,15 @@
   /** Where the person's circle rests before it takes its seat. */
   const HOME = { x: 240, y: 150 + PLATE_Y, r: 62 };
 
-  /**
-   * The game, in coins.
-   *
-   * Everything is counted in COINS, not in decimals, because that is what the
-   * reader sees. The solitary fortune first opens into sixteen coins. When a
-   * second equal fortune enters, the two-person room is normalized to 8 + 8;
-   * its first half-stake is therefore four coins from each, with no coin cut
-   * in half on the table.
-   *
-   * They start EQUAL — that is the point of the opening. The first toss is what
-   * makes one of them poorer, and only then does the rule need to say WHOSE
-   * half is on the table. So the rule is taught at the moment it starts to
-   * matter, on a room the reader has already watched become unequal.
-   *
-   *   start        A 8   B 8
-   *   round 1  stake 4 each (half of what they have) → B wins → A 4,  B 12
-   *   round 2  stake 2 each (half of the poorer)     → A wins → A 6,  B 10
-   *   round 3  stake 3 each (half of the poorer)     → A wins → A 9,  B 7
-   *
-   * The poorer one claws most of it back and they finish looking about level —
-   * which is the illusion this scene is here to hand the reader before the room
-   * takes it away. Nothing is rigged in the RULE; these outcomes are authored
-   * (presets.ts honesty note), and any sequence of tosses is possible.
-   */
-  // Moved to pair/game.ts, unchanged, so the pair stage plays the same game.
-  export const UNITS = GAME_UNITS;
-  export const ROUNDS = GAME_ROUNDS;
-  export const HOLDINGS = GAME_HOLDINGS;
-
-  /** The largest ante, which is how many coin slots each side needs. */
-  const ANTE_MAX = Math.max(...ROUNDS.map((r) => r.stake));
-
+  /** The circle's fortune: half the coins, as the game's first seat had it. */
   const W_A = HOLDINGS[0].a / UNITS;
-  const W_B = HOLDINGS[0].b / UNITS;
 
   /** radius = K·√wealth so area = wealth (the essay's honest encoding). */
   const K = 60;
   const R_A = K * Math.sqrt(W_A);
-  const R_B = K * Math.sqrt(W_B);
 
-  const A_POS = { x: 150, y: 158 };
-  const B_POS = { x: 330, y: 158 };
-  /** The table sits BELOW the two of them: the stake is money leaving their
-   *  bodies and landing in front of them, and neither pile should touch a
-   *  circle. */
-  const TABLE = { x: 240, y: 214 };
-  const FLIP = { x: 240, y: 64 };
-
-  /** The decider is drawn bigger than the antes: it is the thing being watched,
-   *  not a token of wealth, so the one-size law for money does not apply. */
-  const FLIP_R = 24;
-
-  /** Ring layout shared with the crowd beat (13 agents incl. the pair). */
-  const RING_N = 13;
-  const RING = Array.from({ length: RING_N }, (_, i) => {
-    const angle = (i / RING_N) * Math.PI * 2 - Math.PI / 2;
-    return { x: 240 + Math.cos(angle) * 195, y: 158 + Math.sin(angle) * 118 };
-  });
-  const A_SLOT = 10;
-  const B_SLOT = 3;
-  const CROWD_R = 23;
+  /** The palette the scene has always drawn its circle's colours from. */
+  const PALETTE_N = 13;
 
   /**
    * Honeycomb lattice of UNITS identical coins whose total area equals the r=62
@@ -164,9 +78,6 @@
    * count is what the antes are cut from, so half a fortune is eight of these.
    */
   const LATTICE_R = HOME.r / Math.sqrt(UNITS);
-  /** The ante is made of the SAME coins the fortune was made of — one size for
-   *  money everywhere in this scene. */
-  const COIN_R = LATTICE_R;
 
   const COIN_GRID: { cx: number; cy: number }[] = [];
   {
@@ -191,28 +102,14 @@
 
   const stage = getContext<StageContext | undefined>(STAGE_CONTEXT);
 
-  interface Props {
-    /** `reduction` is branch B2: plates down to one circle, no game. */
-    part?: 'whole' | 'reduction';
-  }
-  let { part = 'whole' }: Props = $props();
-  const reductionOnly = $derived(part === 'reduction');
-  const beats = $derived(reductionOnly ? REDUCTION_BEATS : BEATS);
-
-  const styles = assignStyles(RING_N);
-  const [styleA, styleB] = styles;
-
-  // crowd agents 2..12 fill the ring slots the pair doesn't take
-  const crowdSlots = RING.map((p, slot) => ({ p, slot })).filter(
-    ({ slot }) => slot !== A_SLOT && slot !== B_SLOT,
-  );
+  const [styleA] = assignStyles(PALETTE_N);
 
   /** The leftover circle's colour before it becomes an agent. */
   const NEUTRAL = { fill: '#f6ead2', stroke: '#3c352b' };
 
   /**
    * The last plate has to land exactly on the circle, because everything after
-   * it — the coin lattice, the seat, the ring — is built around that circle.
+   * it — the coin lattice and back — is built around that circle.
    *
    * A plate is 1543x900 drawn into a 480x280 rect inset by PLATE_Y, so one
    * plate pixel is 480/1543 units. Measured there the drawn circle sits at
@@ -233,24 +130,11 @@
 
   let plates: SVGImageElement[] = [];
   let agentA: SVGPathElement;
-  let agentB: SVGPathElement;
   let groupA: SVGGElement;
-  let groupB: SVGGElement;
-  /** Ante coin wrappers, per side, indexed by slot. */
-  const anteCoins: { A: SVGGElement[]; B: SVGGElement[] } = { A: [], B: [] };
-  let svgEl: SVGSVGElement;
-  let flipG: SVGGElement;
-  /** The squashing group; the two sides live inside it. */
-  let flipFace: SVGGElement;
-  let flipA: SVGGElement;
-  let flipB: SVGGElement;
-  let crowd: SVGGElement;
   let lattice: SVGGElement;
 
   onMount(() => {
-    stage?.attach(beats, (tl) => {
-      const sA = (w: number) => Math.sqrt(w / W_A);
-      const sB = (w: number) => Math.sqrt(w / W_B);
+    stage?.attach(BEATS, (tl) => {
       const coinEls = lattice.querySelectorAll<SVGGElement>('.lattice-coin');
 
       // Absolute timeline positions, not label arithmetic: 'label+=-0.025' is
@@ -259,7 +143,7 @@
       const startOf = new Map<string, number>();
       {
         let t = 0;
-        for (const beat of beats) {
+        for (const beat of BEATS) {
           startOf.set(beat.label, t);
           t += beat.length;
         }
@@ -293,22 +177,13 @@
         if (i + 1 < PLATES.length) tl.set(el, { autoAlpha: 0 }, showAt[i + 1]);
       });
 
-      // gsap owns the transform origin for the two traders, set once here
-      // rather than left to CSS. `transform-box: fill-box` is not reliably
-      // honoured by gsap's matrix path (the lesson the stage notes already
-      // record), and the symptom was specific: they scaled about their bounding
-      // box corner, so they drifted up and left as they shrank through the ante
-      // and the flips instead of staying put.
-      //
-      // Only these two. The crowd's shapes must NOT be given a percentage
-      // origin: '50% 50%' is the bounding box centre, which for a triangle or a
-      // pentagon is not the centroid the path is drawn around, so it displaces
-      // them off their ring slots. They only ever scale on their entrance and
-      // finish at 1, so the origin never shows.
-      tl.set([agentA, agentB].filter(Boolean), { transformOrigin: '50% 50%' }, 0);
+      // gsap owns the circle's transform origin, set once here rather than left
+      // to CSS: `transform-box: fill-box` is not reliably honoured by gsap's
+      // matrix path, and a circle scaled about its bounding box corner drifts.
+      tl.set(agentA, { transformOrigin: '50% 50%' }, 0);
 
       // The circle spends the whole reduction parked at HOME, wearing the size
-      // it will have as the leftover. It only takes its seat at 'slide'.
+      // it has as the leftover.
       tl.set(groupA, { x: HOME.x, y: HOME.y }, 0);
       tl.set(agentA, { scale: HOME.r / R_A, ...NEUTRAL }, 0);
 
@@ -350,163 +225,15 @@
         'one',
       );
       tl.to(agentA, { autoAlpha: 1, duration: 0.3 }, 'one+=0.3');
-
-      // ---- the game: not part of branch B2 --------------------------------
-      if (reductionOnly) return;
-
-      // ---- the first trade -----------------------------------------------
-
-      // slide — the circle steps aside to open a seat, settling at the radius
-      // its wealth earns. Nothing leaves the screen: it is the same node, and
-      // the next beat simply adds a second circle beside it.
-      tl.to(groupA, { x: A_POS.x, y: A_POS.y, duration: 0.55, ease: 'power1.inOut' }, 'slide+=0.1');
-      tl.to(agentA, { scale: 1, duration: 0.55, ease: 'power1.inOut' }, 'slide+=0.1');
-
-      // meet — the second trader walks in from the right, exactly as big:
-      // they start EQUAL, and the game is what makes one of them poorer
-      // (gsap reads the g's translate attr, so x/y are absolute coordinates)
-      tl.fromTo(
-        groupB,
-        { x: B_POS.x + 240, autoAlpha: 0 },
-        { x: B_POS.x, autoAlpha: 1, duration: 0.5, ease: 'power2.out' },
-        'meet+=0.2',
-      );
-
-      // ---- three rounds ---------------------------------------------------
-      //
-      // One loop, driven by ROUNDS. Every round is the same four moves: the
-      // stake comes out of both fortunes and onto the table as coins, the coin
-      // spins, one colour lands, and everything on the table goes to whoever
-      // that colour belongs to. Nothing here knows which round it is — the only
-      // difference between them is the stake and who wins, and both are data.
-      const agentOf = { A: agentA, B: agentB };
-      const scaleOf = { A: sA, B: sB };
-      const posOf = { A: A_POS, B: B_POS };
-      const sideOf = { A: flipA, B: flipB };
-
-      // A's side of the coin starts face up
-      tl.set(flipB, { autoAlpha: 0 }, 0);
-      tl.set(flipFace, { transformOrigin: '50% 50%' }, 0);
-
-      // the decider arrives once, before the first round, and leaves at the end
-      tl.fromTo(
-        flipG,
-        { autoAlpha: 0, y: FLIP.y - 14 },
-        { autoAlpha: 1, y: FLIP.y, duration: 0.25 },
-        'ante-1',
-      );
-
-      ROUNDS.forEach((round, r) => {
-        const before = HOLDINGS[r];
-        const after = HOLDINGS[r + 1];
-        const ante = `ante-${r + 1}`;
-        const toss = `toss-${r + 1}`;
-        const take = `take-${r + 1}`;
-        const loser = round.winner === 'A' ? 'B' : 'A';
-
-        // The stake leaves both fortunes and lands on the table, one coin at a
-        // time, from each side. The circles shrink by exactly what they staked
-        // — the area is the money, so this is the same subtraction twice.
-        (['A', 'B'] as const).forEach((who) => {
-          const from = posOf[who];
-          const dir = who === 'A' ? -1 : 1;
-          for (let i = 0; i < round.stake; i++) {
-            const el = anteCoins[who][i];
-            if (!el) continue;
-            // Laid out from the middle of the table outwards, each coin
-            // half-covering the one before it — a stack seen from above, not a
-            // row of tokens. Four of them then fit inside the gap between the
-            // two traders.
-            const slot = dir * (COIN_R + 1 + i * COIN_R);
-            tl.fromTo(
-              el,
-              { autoAlpha: 0, x: from.x - TABLE.x, y: from.y - TABLE.y },
-              { autoAlpha: 1, x: slot, y: 0, duration: 0.3, ease: 'power2.out' },
-              `${ante}+=${(0.15 + i * 0.06).toFixed(2)}`,
-            );
-          }
-          tl.to(
-            agentOf[who],
-            { scale: scaleOf[who]((before[who === 'A' ? 'a' : 'b'] - round.stake) / UNITS), duration: 0.3 },
-            `${ante}+=0.2`,
-          );
-        });
-
-        // The toss. The coin squashes about its own vertical axis and the two
-        // sides trade places at each squash — which is the whole trick: there
-        // is no third state to draw, so the flip is two pictures and timing.
-        const squashes = 3;
-        tl.to(
-          flipFace,
-          {
-            keyframes: Array.from({ length: squashes * 2 }, (_, i) =>
-              i % 2 === 0 ? { scaleX: 0.08, duration: 0.09 } : { scaleX: 1, duration: 0.09 },
-            ),
-            ease: 'none',
-          },
-          `${toss}+=0.15`,
-        );
-        for (let i = 0; i < squashes; i++) {
-          // each squash midpoint shows the other side; the last one has to land
-          // on the winner, so the sequence is read backwards from there
-          const up = (squashes - 1 - i) % 2 === 0 ? round.winner : loser;
-          const down = up === 'A' ? 'B' : 'A';
-          const at = `${toss}+=${(0.15 + 0.09 + i * 0.18).toFixed(2)}`;
-          tl.set(sideOf[up], { autoAlpha: 1 }, at);
-          tl.set(sideOf[down], { autoAlpha: 0 }, at);
-        }
-
-        // Everything on the table goes to the winner, and the winner grows by
-        // the whole pot. The loser does not shrink here — they already paid.
-        const table = [...anteCoins.A.slice(0, round.stake), ...anteCoins.B.slice(0, round.stake)];
-        tl.to(
-          table,
-          {
-            x: posOf[round.winner].x - TABLE.x,
-            y: posOf[round.winner].y - TABLE.y,
-            autoAlpha: 0,
-            duration: 0.35,
-            ease: 'power2.in',
-            stagger: 0.04,
-          },
-          `${take}+=0.1`,
-        );
-        tl.to(
-          agentOf[round.winner],
-          {
-            scale: scaleOf[round.winner](after[round.winner === 'A' ? 'a' : 'b'] / UNITS),
-            duration: 0.3,
-          },
-          `${take}+=0.35`,
-        );
-      });
-
-      // fair — the coin bows out; they stand almost exactly where they began
-      tl.to(flipG, { autoAlpha: 0, y: FLIP.y - 10, duration: 0.25 }, 'fair');
-
-      // crowd — the pair joins the ring; the room fills with styled agents
-      tl.to(agentA, { scale: CROWD_R / R_A, duration: 0.5, ease: 'power2.inOut' }, 'crowd');
-      tl.to(agentB, { scale: CROWD_R / R_B, duration: 0.5, ease: 'power2.inOut' }, 'crowd');
-      tl.to(groupA, { x: RING[A_SLOT].x, y: RING[A_SLOT].y, duration: 0.5, ease: 'power2.inOut' }, 'crowd');
-      tl.to(groupB, { x: RING[B_SLOT].x, y: RING[B_SLOT].y, duration: 0.5, ease: 'power2.inOut' }, 'crowd');
-      const crowdEls = crowd.querySelectorAll<SVGPathElement>('path');
-      tl.fromTo(
-        crowdEls,
-        { autoAlpha: 0, scale: 0.4 },
-        { autoAlpha: 1, scale: 1, duration: 0.3, stagger: 0.04 },
-        'crowd+=0.35',
-      );
     });
   });
 </script>
 
 <figure
   class="scene-art room-stage"
-  aria-label={reductionOnly
-    ? 'A person simplified step by step to a circle, which becomes money and back'
-    : 'A person simplified step by step to a circle, which becomes money, then takes a seat as a second circle joins it to trade; finally the room fills'}
+  aria-label="A person simplified step by step to a circle, which becomes money and back"
 >
-  <svg bind:this={svgEl} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} role="img">
+  <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} role="img">
     {#each PLATES as plate, i}
       <image
         bind:this={plates[i]}
@@ -519,7 +246,7 @@
       />
     {/each}
 
-    <!-- ONE circle for the person and for trader A. Never two. -->
+    <!-- ONE circle for the person, the plates shrinking onto it. Never two. -->
     <g bind:this={groupA} transform={`translate(${HOME.x} ${HOME.y})`}>
       <path
         bind:this={agentA}
@@ -528,65 +255,11 @@
         vector-effect="non-scaling-stroke"
       />
     </g>
-    <!-- The game's parts stay in the DOM on branch B2, hidden and never animated. -->
-    <g bind:this={groupB} transform={`translate(${B_POS.x} ${B_POS.y})`} style:display={reductionOnly ? 'none' : undefined}>
-      <path
-        bind:this={agentB}
-        class="agent"
-        d={svgShapePath('circle', R_B)}
-        style={`fill:${styleB.fill}; stroke:${styleB.stroke};`}
-        vector-effect="non-scaling-stroke"
-      />
-    </g>
-
     <g bind:this={lattice} class="coins">
       {#each COIN_GRID as c, i}
         <g class="lattice-coin" data-dx={HOME.x - c.cx} data-dy={HOME.y - c.cy}>
           <!-- faces alternate so the pile reads as loose change, not a decal -->
           <Coin cx={c.cx} cy={c.cy} r={LATTICE_R} face={i % 2 === 0 ? 'front' : 'back'} />
-        </g>
-      {/each}
-    </g>
-
-    <!--
-      The antes. Each side has as many coin slots as the biggest stake needs;
-      a round shows the ones it uses and sends them to the winner. They are
-      never merged into a pot — the pile on the table stays two piles until it
-      belongs to somebody.
-    -->
-    <g class="antes" style:display={reductionOnly ? 'none' : undefined}>
-      {#each ['A', 'B'] as const as who}
-        {#each { length: ANTE_MAX } as _, i}
-          <g bind:this={anteCoins[who][i]} class="ante">
-            <Coin cx={TABLE.x} cy={TABLE.y} r={COIN_R} face={i % 2 === 0 ? 'front' : 'back'} />
-          </g>
-        {/each}
-      {/each}
-    </g>
-
-    <g bind:this={flipG} class="flip" transform={`translate(${FLIP.x} ${FLIP.y})`} style:display={reductionOnly ? 'none' : undefined}>
-      <!--
-        The decider is the same coin as the money — the one we already have —
-        with each side painted in a trader's colour. So there is no second kind
-        of coin to explain, and no heads-or-tails to remember: the colour that
-        lands wins.
-      -->
-      <g bind:this={flipFace} class="flip-face">
-        <g bind:this={flipA}><Coin r={FLIP_R} face="front" tint={styleA.fill} /></g>
-        <g bind:this={flipB}><Coin r={FLIP_R} face="back" tint={styleB.fill} /></g>
-      </g>
-    </g>
-
-    <g bind:this={crowd} class="crowd" style:display={reductionOnly ? 'none' : undefined}>
-      {#each crowdSlots as { p, slot }, k}
-        {@const style = styles[k + 2]}
-        <g transform={`translate(${p.x} ${p.y})`} data-slot={slot}>
-          <path
-            class="agent"
-            d={svgShapePath(style.shape, CROWD_R)}
-            style={`fill:${style.fill}; stroke:${style.stroke};`}
-            vector-effect="non-scaling-stroke"
-          />
         </g>
       {/each}
     </g>
@@ -603,9 +276,7 @@
   .scene-art.room-stage svg {
     /* Sparse vector art inside a 480x300 box: nothing is drawn in the bottom
        tenth, so the caption would sit a whole empty band away. */
-    /* Where the drawing actually ends, as a fraction of this box. The trade
-       beats use the middle of the frame; the ring at the end reaches much
-       lower, so the timeline retunes this for that beat (below). */
+    /* Where the drawing actually ends, as a fraction of this box. */
     --art-bottom: 0.72;
     inline-size: min(100%, 62rem);
     max-block-size: calc(68svh * 300 / 280);
@@ -617,24 +288,5 @@
   .agent {
     stroke-width: 1.8;
     fill-opacity: 0.75;
-  }
-
-  .ante {
-    opacity: 0;
-  }
-
-  .flip {
-    opacity: 0;
-  }
-
-  /* No CSS transform-box here: gsap owns the origin, or the spin pivots off
-     the coin's edge instead of its central vertical axis. */
-  /* both sides sit in the same place; the timeline shows one at a time */
-  .flip-face > :global(g) {
-    transform-box: fill-box;
-  }
-
-  .crowd .agent {
-    opacity: 0;
   }
 </style>

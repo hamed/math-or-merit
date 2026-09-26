@@ -158,19 +158,6 @@ export function record(settings: RunSettings, seed: number, start?: ArrayLike<nu
   return r.recording();
 }
 
-/** The frame showing the room after `trades` trades (the last one at or before it). */
-export function frameAt(recording: Recording, trades: number): number {
-  const t = recording.trades;
-  let lo = 0;
-  let hi = t.length - 1;
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2);
-    if (t[mid] <= trades) lo = mid;
-    else hi = mid - 1;
-  }
-  return lo;
-}
-
 /** The richest's index and share in a frame. */
 export function richest(frame: ArrayLike<number>): { index: number; share: number } {
   let index = 0;

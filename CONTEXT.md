@@ -211,10 +211,15 @@ State of the work, by the brief's own plan (Part 9):
   letting a trackpad's tail through slid the page and every later flick went
   past; a stage that only slipped is aligned, never "arrived at" (which jumps
   to the end); auto steps run only when reached going forward.
-- **Proposed deletions, not done (each costs nothing on screen):** the trade half
-  of `PersonTradeScene` (no longer mounted); `OpeningScene.svelte` and its tests
-  (no longer mounted); `WinnerStory` (a second copy of the paper `NewsFlash`
-  prints — costs its one receipt line).
+- **Dead code removed (2026-09-27, nothing on screen changed — the person
+  branch pixel-compared identical at 16 scroll positions, desktop and phone):**
+  the trade half of `PersonTradeScene` (its `part` prop with it; the coin
+  game's checks moved to `pair/game.test.ts`), `OpeningScene` and its tests,
+  `EffectiveParticipantsStage` + `participation.ts`, `HistoMini`, `LorenzMini`
+  + `lorenzPath.ts`, `BaselineWorlds`, `roomRun.ts` (its `LoggedRun` type moved
+  to `runLog`), `scripts/reveal-calibrate.ts`, the reveal/crowd presets, and
+  unread exports (`dollarsPow10`, `giniRampColor`, `predictionLabel`,
+  `latestRun`, `frameAt`, `CROWD_INDEX`, `linearBins`, `logBins`).
 
 **Two things the brief assumes that are not true of the code:** (1) A2's locale
 machinery does not exist — no Paraglide, no `dir`, nothing reads a locale (see
@@ -815,69 +820,63 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 
 ## Open items (the real backlog)
 
-1. Progressivity dial: owner-promised parametric rate ~ log wealth, ONE slider;
-   the dummy slider and the `endRound` seam are waiting for it.
-2. Phase map default display style: cells / dots / shade all live (map body
-   click cycles) — owner hasn't picked; also consider stamping the reader's own
-   run-dots onto any future backdrop.
-2b. **PhaseDiagram onto the shared `phaseGrid` record** (the R30 item that was
-   priced and deferred). The prize is continuity: the rooms the reader plays at
-   beat 9 are still on the finale's map, persisted and CSV-exportable. The
-   blocker is that `phaseGrid` keys points by n, and `PEOPLE_STOPS` has no 100.
-   Fixing it means N 100→128, `LEVY_EVERY` 100→128, and re-running
-   `phase-calibrate.ts` + `phase-stability.ts` — which MOVES the printed fitted
-   c ≈ 0.37. A calibration job under claim discipline, not a refactor.
-2c. **CrowdRun's histogram**, if `Histogram` ever grows a floor/dust option.
-   See R30 for why the plain swap fails. Even then it is a judgement call: the
-   bespoke chart also prints per-decade counts.
-2e. **"Looks like an embedded image until it gets to stage, then snapped."**
-   The owner asked for this and I could not tell what he is seeing — the pinned
-   sections already scroll up in normal flow and pin at top-top. Ask him what
-   is on screen when it looks wrong (blank paper, or art in the wrong place)
-   before building anything.
-2f. **The figure that sometimes does not appear** (`person/00-figure.webp`).
-   NOT reproduced in six controlled runs including heavy throttling; the plate
-   show/hide fired correctly every time. `PinScene` now decodes plates before
-   refreshing, which is the best remaining candidate. R31 also added 1.1MB of
-   cast plates, which makes the suspected cause MORE likely, not less. If it
-   recurs, get the browser and the position, and consider loading each scene's
-   plates only as the reader approaches it.
-2d. `LorenzPlot`, `CcdfChart`, `GiniCurve` and `PhaseMap` still have no
-   importer outside `sandbox/`. Checked in R30, and that is the right answer
-   for now: `GiniStage` is an explainer rather than a plot, the 10rem sidebars
-   are too small for a 170-unit square, no beat shows a CCDF, and `GiniCurve`
-   measures a different quantity from StakeDial's observations list. Do not
-   force these in for tidiness.
-3. Turn earlier beats into `Sandbox` presets (`layout="column"` +
-   `panels`/`controls`) — the seam exists. R29 did the invisible half (they all
-   run on `SandboxWorld` now); the visible half is still unbuilt and needs the
-   owner, because it replaces the mini charts, the sliders and the toolbars.
-4. Ending scene: owner said "not clear about it" — still the old ClosingScene.
-5. Reader studies A–D (`notes/research/reader-study.md`) — widgets exist.
-6. Redistribute-to-poorest fork (beat 19 parenthetical still flags it).
-7. Full language pass (owner-deferred; rounds added prose — all flagged). R13–R15
-   added three lines that are NOT his: the biologist caption, "Keep going. Take
-   the face too.", and the football line's tightening.
-8. Three build warnings, all shipping in the live build: two a11y in
-   `PlotFrame.svelte` (axis-toggle `<rect>`, no key handler) and one unused CSS
-   selector in `PinScene.svelte`.
-9. CI logs a Node 20 deprecation for `actions/checkout@v4` and friends.
-10. Trader entrance/exit shapes scale about their bbox corner in the crowd
-    entrance (pre-existing, cosmetic, ends at scale 1 so it never rests wrong).
-11. Deferred seams unchanged: Rust/WASM core, Persian/RTL, audio.
-12. Title layout variants (`stack`/`center`) still one word away in
-    `essay.en.svx`.
-13. Analytics: swap GA4 for a cookieless counter before the site is public, and
+Pruned 2026-09-27 after iteration 2: items about widgets the one-stage essay
+retired (PhaseDiagram's map record, CrowdRun's histogram, Sandbox presets for
+earlier beats, the old ClosingScene, the crowd entrance, title layout variants)
+and the three build warnings (gone: `npm run build` prints none) are removed.
+
+**The stage (iteration 2)**
+
+1. **The wording pass.** Every scene exists; most lines are `(draft)` in
+   `notes/prose.md`, including the ending. Open inside it: the payoff of the
+   bets — Blue and Red's (Scene 9) and the reader's guess and bet (Scene 12) —
+   which the ending never cashes.
+2. **Owner decisions postponed (2026-09-27):** the "All the dials" workshop
+   (tidy it into the stage's style, port its extras into the stage's deck, or
+   leave it as the expert corner); Blue and Red equal at the verdict or at
+   their run's sizes; acts as chapters in the index (ADR-018 — needs a stage
+   chapter kind in `src/lib/nav`, plus a deep link per act).
+3. **Histogram as single-file stacks** — the owner's "point 2", deferred by him.
+4. **The outcome map's interactions (brief 5.9):** a click on a square sets
+   the dials and resizes Blue and Red to that square's outcome; a Gini ↔
+   effective-participants toggle. Today it is a picture that fills in.
+5. **A screen-reader transcript** of each act's lines (ADR-018 accessibility);
+   today the talk is only announced as it appears.
+6. **Delete the debug panel** (`?debug=1`: `pair/DebugPanel.svelte`,
+   `pair/tuning.svelte.ts`) once the owner finishes tuning.
+7. **Split `PairScene.svelte`** (~3,500 lines) into act modules, as ADR-018
+   intends, so a change to one act stays local.
+8. The sandbox's plot labels (and the workshop) are hard-coded English; they
+   join the translation work.
+
+**The rest of the essay**
+
+9. Progressivity dial: owner-promised parametric rate ~ log wealth, ONE slider;
+   the dummy slider and the `endRound` seam in `SandboxWorld` are waiting.
+10. Phase map default display style in the workshop: cells / dots / shade all
+    live (map body click cycles) — owner hasn't picked.
+11. `CcdfChart`, `GiniCurve` and `PhaseMap` live only in the workshop now
+    (`Histogram` and `LorenzPlot` are the stage's charts). Do not force them in.
+12. **"Looks like an embedded image until it gets to stage, then snapped."**
+    (pinned scenes: the cow and the person branches). Ask him what is on screen
+    when it looks wrong before building anything.
+13. **The figure that sometimes does not appear** (`person/00-figure.webp`).
+    Not reproduced in six controlled runs; `PinScene` now decodes plates before
+    refreshing. If it recurs, get the browser and the position, and consider
+    loading each scene's plates only as the reader approaches it.
+14. Owner reported cow plates overlapping on scroll-back once; not
+    reproducible, switching is deterministic by construction. If it recurs, get
+    the browser and the position.
+15. Three lines in the cow/person branches are not his: the biologist caption,
+    "Keep going. Take the face too.", and the football line's tightening.
+16. Reader studies A–D (`notes/research/reader-study.md`).
+17. CI logs a Node 20 deprecation for `actions/checkout@v4` and friends.
+18. Deferred seams unchanged: Rust/WASM core, Persian/RTL, audio.
+19. Analytics: swap GA4 for a cookieless counter before the site is public, and
     add scroll-depth events — no consent banner in front of the opening. See the
     deploy section above.
-14. `notes/prose.md` §4–16 have never been edited by the owner — he worked
-    through §3 and stopped. The ending is untouched.
-15. Coin photograph rights: asked the mint for permission and sponsorship,
+20. Coin photograph rights: asked the mint for permission and sponsorship,
     awaiting reply. Settle before the site is listed publicly.
-16. Owner reported cow plates overlapping on scroll-back once; NOT reproducible
-    (forward, reverse, fast fling, reload-parked all show exactly one plate).
-    Switching is now deterministic by construction. If it recurs, get the
-    browser and the position.
 
 ## Untracked local files that are NOT yours
 

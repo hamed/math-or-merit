@@ -70,7 +70,7 @@
   needs (owner: "keep the images, cut the text if must"). Beat indices refer to
   CowCastScene.BEATS, which lost its bridge and model beats with their cards.
 
-  B2 is PersonTradeScene with part="reduction": the plates down to one circle,
+  B2 is PersonTradeScene (its trade half deleted 2026-09-27): the plates down to one circle,
   and the guard that it never explains how anyone got rich. The two-person game
   that used to follow is played by Blue and Red on the pair stage now.
 -->
@@ -119,7 +119,7 @@
 >
   {#snippet content(PersonTradeScene)}
     <PinScene navigation="step" deferAssets>
-      <PersonTradeScene part="reduction" />
+      <PersonTradeScene />
       <Caption beat={1}>{say('human_1')}</Caption>
     </PinScene>
   {/snippet}

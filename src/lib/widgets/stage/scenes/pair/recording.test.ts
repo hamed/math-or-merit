@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { measureWealth } from '$lib/research';
-import { DEFAULT_RUN, extend, frameAt, record, recorder, richest } from './recording';
+import { DEFAULT_RUN, extend, record, recorder, richest } from './recording';
 
 describe('a recorded run', () => {
   const run = record(DEFAULT_RUN, 42);
@@ -33,12 +33,6 @@ describe('a recorded run', () => {
     const late = rounds.slice(-5).reduce((s, x) => s + x, 0) / 5;
     expect(early).toBeGreaterThan(0);
     expect(late).toBeLessThan(early);
-  });
-
-  it('finds the frame on screen for any number of trades', () => {
-    expect(frameAt(run, 0)).toBe(0);
-    expect(frameAt(run, 150)).toBe(1);
-    expect(frameAt(run, 1e9)).toBe(run.frames.length - 1);
   });
 
   it('can stop on trades, or on how many still hold something, instead', () => {

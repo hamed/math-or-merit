@@ -1,12 +1,18 @@
 /**
- * Cross-widget session state, content-layer only. The reveal and re-run
- * widgets log finished rooms here; Chapter III reads the latest one so the
- * histogram is built from "the people you just watched". The reader's
- * prediction (beat 10) is quoted back after the reveal.
+ * Cross-widget session state, content-layer only: the reader's guess and bet
+ * (Scene 12, remembered for the visit and in localStorage), and every run of
+ * the stage's room, logged as it finishes.
  */
-import type { LoggedRun } from './roomRun';
 
-export type { LoggedRun };
+/** A finished run of the room, as the stage logs it. */
+export interface LoggedRun {
+  readonly seed: number;
+  readonly beta: number;
+  readonly trades: number;
+  readonly wealth: Float64Array;
+  readonly winner: number;
+  readonly topShare: number;
+}
 
 export const PREDICTIONS = [
   { id: 'equal', label: 'Still roughly equal' },
@@ -64,14 +70,6 @@ export function answer(kind: 'prediction' | 'bet', id: string): void {
   }
 }
 
-export function predictionLabel(id: PredictionId | null): string | null {
-  return PREDICTIONS.find((p) => p.id === id)?.label ?? null;
-}
-
 export function logRun(run: LoggedRun): void {
   session.runs.push(run);
-}
-
-export function latestRun(): LoggedRun | null {
-  return session.runs.length === 0 ? null : session.runs[session.runs.length - 1];
 }
