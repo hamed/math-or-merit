@@ -14,7 +14,7 @@ Use logical CSS properties exclusively: `margin-inline-start` not `margin-left`,
 - A second LTR language is nearly free; the first RTL one (Persian) cashes in this reservation and is the real work — but the layout won't be part of that work.
 - Cost: contributors must use logical properties consistently. This is the kind of intent worth encoding as a lint rule so it's checked by machine, not by review.
 
-## Amendment (2026-09-24) — one deliberate physical exception
+## Amendment (2026-09-24) — one deliberate physical exception — **WITHDRAWN 2026-09-26**
 
 The title words and the two protagonists keep their PHYSICAL sides in every
 locale, Farsi included: MATH and Red on the left, MERIT and Blue on the right
@@ -27,3 +27,11 @@ to where those two things are drawn and to what is anchored to them (a speech
 bubble is placed by its speaker's physical position; the words inside it follow
 the document's direction). New code that uses `left`/`right` must be one of
 those, and say so in a comment.
+
+**Withdrawn (2026-09-26, owner, iteration-2 brief; ADR-018).** The title reads
+"Merit or Math?": the common sense first, the question second, in reading
+order. Blue stands under MERIT and Red under MATH, so "first" is the reading
+direction's start and the stage mirrors in a right-to-left locale like
+everything else. The stage still places things in its own pixels (a bubble by
+its speaker, a coin by its fortune); what changed is that those positions are
+mirrored from the locale's direction (`pairLayout(…, mirror)`), not fixed.

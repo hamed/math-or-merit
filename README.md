@@ -1,4 +1,4 @@
-# Math or Merit?
+# Merit or Math?
 
 An interactive explorable explanation of the Yard-Sale wealth-condensation model.
 

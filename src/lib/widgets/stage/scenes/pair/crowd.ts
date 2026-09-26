@@ -17,10 +17,10 @@
  */
 
 export const CROWD = 16;
-/** Becomes Red: the small survivor, under MATH on the left. */
-export const SMALL = 4;
-/** Becomes Blue: the big survivor, under MERIT on the right. */
-export const BIG = 11;
+/** Becomes Red: the small survivor, under MATH, second in the reading order. */
+export const SMALL = 11;
+/** Becomes Blue: the big survivor, under MERIT, first in the reading order. */
+export const BIG = 4;
 /** Below this a circle is "nothing" and is absorbed by its biter. */
 export const ABSORB_BELOW = 0.13;
 

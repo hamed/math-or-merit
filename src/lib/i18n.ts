@@ -19,10 +19,9 @@ export function formatNumber(value: number, options?: Intl.NumberFormatOptions):
 }
 
 /**
- * The one `dir` attribute the whole layout follows (ADR-006). Everything is
- * logical CSS except the title words and the two protagonists, which keep
- * their PHYSICAL sides in every locale — the political association is spatial
- * (D19, A2).
+ * The one `dir` attribute the whole layout follows (ADR-006). Everything
+ * mirrors with it, the stage included: MERIT and Blue come first in the
+ * reading direction (ADR-018; the v3 physical-sides exception is withdrawn).
  */
 export function applyLocaleToDocument(root: HTMLElement = document.documentElement): void {
   root.lang = getLocale();

@@ -77,7 +77,10 @@ export function parseProse(prose: string): ProseLine[] {
     }
     text = text.replace(PROVENANCE, '');
     const approved = /★\s*$/.test(text);
-    text = text.replace(/\s*★\s*$/, '').replace(/\*\*/g, '').trim();
+    text = text.replace(/\s*★\s*$/, '').trim();
+    // In a bubble `**…**` is said louder (the bubble renders it); anywhere
+    // else it is only the author's emphasis.
+    if (speaker === null) text = text.replace(/\*\*/g, '');
 
     // A `·` list is a set of separate things to say — reel words, a pool of
     // call-outs. A parenthesised line is one thing that happens to use the

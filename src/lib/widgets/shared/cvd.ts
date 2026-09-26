@@ -134,3 +134,10 @@ export function deltaE2000(p: Lab, q: Lab): number {
 export function seenDelta(a: Rgb, b: Rgb, vision: Vision): number {
   return deltaE2000(toLab(simulate(a, vision)), toLab(simulate(b, vision)));
 }
+
+/** WCAG 2 contrast ratio between two opaque colours, 1–21. */
+export function contrastRatio(a: Rgb, b: Rgb): number {
+  const luminance = (c: Rgb) => 0.2126 * toLinear(c[0]) + 0.7152 * toLinear(c[1]) + 0.0722 * toLinear(c[2]);
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}

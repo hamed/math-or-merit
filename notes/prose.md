@@ -12,7 +12,8 @@ Rules of the road:
 - **★** marks wording you approved. I keep it exactly.
 - **(draft)** marks everything else: placeholders from the design brief or from
   me, kept to the length and the claim, not to your voice. Rewrite freely.
-- Dialogue reads `[tag] BLUE: …` or `[tag] RED: …`. One bubble, one line.
+- Dialogue reads `[tag] BLUE: …` or `[tag] RED: …`. One bubble per tag, one
+  sentence per line inside it (` / ` between lines). `**…**` is said louder.
   Aim for 12 words, never more than 18.
 - `{name}` is a live value. The line around it is one whole sentence, never
   glued from pieces — word order changes in other languages.
@@ -27,26 +28,29 @@ Rules of the road:
   be wrong; the essay may not** — when Blue says something false, a later line
   or the picture corrects it.
 
-> STATUS (2026-09-24). This file LEADS the build: it holds the dialogue script
-> from the design brief (`inbox/2026-09-24 note.md`, decision D19), and
+> STATUS (2026-09-26). This file LEADS the build: it holds the dialogue script
+> from the design briefs (v3 `inbox/2026-09-24 note.md`, decision D19;
+> iteration 2 `inbox/merit-or-math-iteration-2.md`, D20), and
 > `messages/en.json` is generated from it — after editing, run
 > `npx vite-node scripts/prose-to-messages.ts` (a test refuses a stale file).
-> BUILT so far: Scenes 1–14 on the pair stage, and both branches (B1, B2).
-> Still the narrator on screen: Scene 15 onward. Those lines are at the bottom,
-> under "Retiring" — each goes when the scene replacing it ships.
+> BUILT so far: Scenes 1–11 on the stage, and both branches (B1, B2).
+> Still the narrator on screen: the guess onward. Those lines are at the
+> bottom, under "Retiring" — each goes when the act replacing it ships.
+> One sentence per line: ` / ` starts a new line inside a bubble, and the
+> lines of a bubble arrive one after another.
 
 ---
 
 ## 1 · Title — Scene 1 (chapter `question`)
 
-> picture: the teletype types the news line, as today. Then the title builds
-> left-to-right-by-meaning: MERIT arrives on the RIGHT through its own reel,
-> "or" to its left, MATH on the far LEFT through its reel, then "?". Each reel
-> starts on a couple of funny wrong words, turns slowly enough to read every
-> word, speeds up a little but never blurs, runs two wrong words past the
-> answer and comes back to rest on it. The title stays on screen until Scene 8.
-> On a phone the words shrink; they are never stacked — left and right are the
-> point.
+> picture: the teletype types the news line, as today. Then the title builds in
+> reading order: MERIT fades in, plain, with no reel; then "or"; then MATH
+> arrives through its reel; then "?". Blue sits under MERIT, Red under MATH,
+> breathing. The reel starts on a couple of funny wrong words, turns slowly
+> enough to read every word, runs two wrong words past the answer and comes
+> back to rest on it. On a phone the words shrink; they are never stacked.
+> In Farsi the whole line mirrors like everything else: MERIT comes first, on
+> the right, and Blue with it.
 
 [open.headline] The world has its first trillionaire.
 
@@ -54,11 +58,11 @@ Rules of the road:
 
 ! keep true: "on paper" and the dated source stay attached to the headline.
 
-[open.title] Math or Merit?
+[open.title] Merit or Math? ★
 
-> the "?" lands at the end of the line, after MERIT. MATH and Red on the left,
-> MERIT and Blue on the right — in every language, Farsi included (the one
-> deliberate exception to mirroring).
+> the common sense comes first, the question second (owner, 2026-09-26).
+
+[open.title.merit] Merit
 
 [open.title.or] or
 
@@ -66,16 +70,12 @@ Rules of the road:
 
 ~ adapt: [open.title.mark] is the language's own question mark ("؟" in Farsi).
 
-[open.reel.merit] (draft) Blue eyes · Coffee · Hard work · Talent · Grit · IQ · Education · Charisma · **Merit** · Horoscope · Socks
-
 [open.reel.math] (draft) Horoscope · Lucky socks · Timing · Connections · Family money · Luck · **Math** · Coffee · Blue eyes
 
-> my pick, to be tuned (2026-09-24). Each reel opens on two funny wrong words,
-> passes the serious answers, lands on its word — always the THIRD FROM LAST —
-> and the last two are the two wrong words it overshoots onto before settling
-> back. MERIT's list is the explanations about the person; MATH's is the ones
-> that are not. Race, Genes, God's will and Class are kept off both reels:
-> split left and right, they start taking political sides.
+> the reel opens on two funny wrong words, passes the serious answers, lands on
+> MATH — always the THIRD FROM LAST — and the last two are the wrong words it
+> overshoots onto before settling back. Race, Genes, God's will and Class stay
+> off it: they take political sides.
 
 ~ adapt: translate each word as the everyday explanation, not literally; keep
 the answer third from last and the two after it wrong.
@@ -86,44 +86,34 @@ the answer third from last and the two after it wrong.
 
 ## 2 · The crowd — Scene 2
 
-> picture: during the title, sixteen small neutral circles live in the lower
-> part of the screen under light gravity — they jiggle, hop and drift. When the
-> MATH reel lands, coins pop out of it and fly down: one Marx coin per person.
-> A circle grows when its coin arrives. Then the circles BITE: on contact one
-> shrinks and the other grows, faster and faster; circles that reach nothing
-> are absorbed. It ends with two: the small one under MATH, the big one under
-> MERIT. No words, no numbers.
+> picture (owner, 2026-09-26 — Phase 2; the v3 bites are on screen until then):
+> people come in from different directions, bouncing and jumping, and settle as
+> a loose crowd — truly random, no rows, no clusters of one shape or colour,
+> everyone the same size. Coins fall at random: some people catch them and
+> grow, some do not. Then they bump into each other, and every bump is a trade.
+> One grows very big, one ends up small. The rest bounce and jump and move out.
+> Those two stay: the big one under MERIT, the small one under MATH. No words,
+> no numbers.
 
-! keep true: sixteen people, one coin each, so the crowd holds exactly one
-person's fortune (sixteen coins make a whole person). Every bite follows the
-game's own rule — the stake is half of the smaller fortune. It ends at 15 and 1.
-
----
-
-## 3 · Calling out — Scene 3
-
-> picture: the two survivors, still neutral. At random moments, never both at
-> once, one of them says a line; each stays about two and a half seconds, three
-> to seven seconds apart, opening with "Hi." and escalating toward "Click on
-> me."
-> [HOLD] until the reader has clicked both.
-
-[call.pool] (draft) Hi. · Hello? · Hey. Anybody there? · Click on me. · Psst. Over here.
-
-[call.big] (draft) Click me. I'm the important one.
-
-[call.small] (draft) Click me. I'm the interesting one.
-
-[call.after] (draft) Me too! · Hey, don't forget me.
-
-> after one is clicked, the other says one of [call.after].
+! keep true: every trade follows the game's own rule — the stake is half of the
+smaller fortune, the winner takes it. It ends at 15 and 1.
 
 ---
 
-## 4 · Introductions — Scene 4
+## 3 · Meeting them — Scene 3
 
-> picture: on each click the circle takes its colours with a small pop. Blue:
-> blue fill, red outline. Red: red fill, blue outline.
+> picture: the two survivors, still neutral. Red calls first. A click makes a
+> circle take its colours and introduce itself at once; then the other one
+> calls. If the reader waits, the caller tries again, a little louder.
+> [HOLD] until Red is clicked, then [HOLD] until Blue is clicked.
+
+[meet.red.call] RED: (draft) Hi. · Hello? · Anybody there? · Click on me.
+
+[meet.red] RED: I'm the poorest man in this world. ★
+
+[meet.blue.call] BLUE: (draft) Psst. Over here. · Over here! · Click me. I'm the important one.
+
+[meet.blue] BLUE: I'm the richest man in this world. ★
 
 [name.blue] Blue
 
@@ -132,125 +122,77 @@ game's own rule — the stake is half of the smaller fortune. It ends at 15 and 
 > the names themselves. A screen reader says the name before each of that
 > character's lines, and it labels his circle.
 
-[intro.blue] BLUE: I'm Blue. The richest man in this world. ★
+[meet.tip] RED: (draft) Click, press a key, or scroll to go on.
 
-[intro.red] RED: I'm Red. The poorest man in this world. ★
-
-[intro.world] RED: (draft) "This world" means the one on your screen.
-
-[intro.small] BLUE: (draft) Small world. But it's mine.
-
-~ adapt: [intro.small] plays on "small world" as a saying; keep the idea that
-Blue owns almost all of a tiny place.
+> the one line about controls, and it waits for the reader. Removed
+> 2026-09-26: "'This world' means the one on your screen" and Blue's "Small
+> world. But it's mine." ("Everybody knows that.")
 
 ! keep true: Blue is LIKE a tech billionaire and is never a real person; he
 quotes and imitates no one. The essay explains no real person's fortune.
 
 ---
 
-## 5 · Controls — Scene 5
+## 4 · The merit debate — Scene 4
 
-> [HOLD] until any click, key or scroll.
+> picture: Blue argues from under MERIT, Red answers from under MATH. Every
+> line here is a key line: it waits for the reader. Red hints at chance
+> without a technical word — no coins, no games, no probability.
 
-[ctl.1] RED: (draft) Quick tip. To go on, click anywhere…
+[merit.1b] BLUE: I work hard for it. ★
 
-[ctl.2] BLUE: (draft) …or press any key…
+[merit.1r] RED: I work two shifts to pay the bills. ★
 
-[ctl.3] RED: (draft) …or scroll. Whatever you like.
+[merit.2b] BLUE: I'm smart. ★
 
-[ctl.4] BLUE: (draft) Go on. Try it.
+[merit.2r] RED: I'm smart too. / I have a PhD in physics. ★
 
-[ctl.5] BLUE: (draft) Fast learner. I like that.
+[merit.3b] BLUE: I take big risks, and win big. ★
 
----
+[merit.3r] RED: I take risks too. / But nobody catches me when I fall. ★
 
-## 6 · The merit debate — Scene 6
-
-> picture: Blue argues from under MERIT, Red answers from under MATH, one turn
-> each. Red hints at chance without a technical word — no coins, no games, no
-> probability.
-
-[merit.1b] BLUE: (draft) I didn't get here by luck. I worked hard for all of it.
-
-[merit.1r] RED: I work two shifts to pay the bills. That's hard work too. ★
-
-[merit.2b] BLUE: (draft) I'm smart. I think from first principles.
-
-[merit.2r] RED: I'm smart too. I have a PhD in physics. ★
-
-[merit.3b] BLUE: (draft) I take big risks. That's why I win big.
-
-[merit.3r] RED: (draft) I take risks too. When I fall, nobody catches me.
-
-[merit.4b] BLUE: (draft) I build things people want.
-
-[merit.4r] RED: (draft) Physics is inside the GPS on your phone. Nobody pays me for that.
-
-[merit.5b] BLUE: (draft) Look, anyone could be where I am.
-
-[merit.5r] RED: Maybe. But standing here first tends to decide who's still standing later. ★
-
-[merit.6b] BLUE: (draft) Success finds the people who deserve it.
-
-[merit.6r] RED: (draft) Or it finds the people it already found once.
-
-> spare pairs, if one above does not work on screen — all (draft):
->
-> - BLUE: I saved and invested wisely. / RED: I saved too, until rent ate it all.
-> - BLUE: It's not luck. I make good decisions. / RED: We took the same chances. It never lands the same way twice.
-> - BLUE: I just kept showing up, and things kept going my way. / RED: So did I. Mine just didn't.
-> - BLUE: I took my shot and it worked out. / RED: We all take shots. Somebody gets to be the one it keeps working for.
+> cut 2026-09-26: the GPS pair (too long), "Look, anyone could be where I am"
+> with Red's "standing here first…" (out of character; the pair goes), and
+> "Success finds the people who deserve it" with its reply.
 
 ! keep true: these are two characters' opinions, not the essay's findings.
 Nothing here is shown true until the game shows it.
 
 ---
 
-## 7 · The invitation — Scene 7
+## 5 · The invitation — Scene 5
 
 > picture: numbers appear for the first time — each fortune shown as its coins,
-> in the honeycomb lattice.
+> packed tight. Every coin is the same size everywhere, and a circle's area is
+> its coins' area.
 
 [invite.1] RED: (draft) Let's play a game.
 
-[invite.2] BLUE: (draft) I don't play games. I build things.
+[invite.2] BLUE: (draft) I don't play games. / I build things.
 
 [invite.3] RED: (draft) Just try it. We start equal.
 
-[invite.4] BLUE: (draft) Equal? I have {blue} coins. You have {red}. Why would I give that up?
+[invite.4] BLUE: (draft) Equal? / Why would I give up my wealth?
 
-[invite.5] RED: (draft) It's only a simulation. Nothing real is lost.
+[invite.5] RED: It's only a simulation. ★
 
-[invite.6] BLUE: (draft) Fine. I like a good experiment.
+[invite.6] BLUE: Fine. / I like a good experiment. ★
 
-! keep true: {blue} and {red} are the coins on screen — 15 and 1.
+> [ACTION] the title and every other word move up and out. Only the two remain.
 
----
+[equal.ask] BLUE: Give him some of my coins. ★
 
-## 8 · Clearing the stage — Scene 8
-
-> picture: the title and all other type move up and out. Only the two circles
-> remain. No words.
-
----
-
-## 9 · The reader makes them equal — Scene 9
-
-> picture: the reader moves coins one at a time from Blue to Red — tap a coin
-> then a person, or drag; keyboard works too; moving coins back is allowed.
+> picture: a tap on a circle sends one of its coins, visibly, to the other; or
+> drag a coin across and it follows the finger. Moving coins back is allowed.
 > Each circle re-sizes by area after every move.
 > [HOLD] until 8 and 8.
 
-[equal.ask] BLUE: (draft) Go on, then. Move my coins to him until we're even.
+[equal.give] (draft) Give one of {name}'s coins to {other}. {name} has {count}.
 
-[equal.take] (draft) Take a coin from {name}. {name} has {count}.
+> not a bubble: what a screen reader hears on each circle while coins are being
+> moved, and the keyboard path through this hold.
 
-[equal.give] (draft) Give the coin to {name}.
-
-> not bubbles: what a screen reader hears on the two circles while coins are
-> being moved, and the keyboard path through Scene 9.
-
-[equal.first] BLUE: (draft) Ouch.
+[equal.first] BLUE: (draft) Hey!
 
 > after the first coin moves.
 
@@ -258,7 +200,7 @@ Nothing here is shown true until the game shows it.
 
 > when Blue is down to 11.
 
-[equal.over.b] BLUE: (draft) Hey! Equal, not upside down.
+[equal.over.b] BLUE: (draft) Whoa. Equal, not upside down.
 
 [equal.over.r] RED: (draft) Tempting. But give him one back.
 
@@ -268,60 +210,66 @@ Nothing here is shown true until the game shows it.
 
 ---
 
-## 10 · Round one, with the minimum rule — Scene 10 (chapter `spherical-human` → the game)
+## 6 · Round one — Scene 6
 
 > picture: Blue is trader A, Red is trader B. The stakes are the same coins,
-> stacked on the table below the pair. The decider is the same coin with each
-> face tinted in a trader's fill. The rule is deliberately incomplete here.
+> on the table below the pair. The decider is one plain coin until it is
+> tossed: Marx is Red's side, the bank is Blue's. The rule is deliberately
+> incomplete here.
 
-[r1.rules] RED: The rules are simple. We each put half on the table. ★
+[r1.rules] RED: The rules are simple. / We each put half on the table. ★
 
-[r1.half] BLUE: (draft) Half of eight. Four each.
+[r1.half] BLUE: Half of 8. / 4 each. ★
 
 > [ACTION] four coins from each circle move to the table.
 
-[r1.flip] RED: (draft) Then we flip this coin. Blue side, you win. Red side, I win.
+[r1.flip] RED: We flip a coin. / Blue side, you win. / Red side, I win. ★
 
 [r1.winner] RED: The winner takes it all. ★
 
 ~ adapt: [r1.winner] echoes a well-known song title in English. The line must
 still read plainly — the winner of the toss takes both stakes.
 
-[r1.odds] BLUE: Fifty-fifty? I've bet on worse odds. ★
+> [ACTION] the coin turns; its faces change only when it is edge-on. Red
+> lands. Blue 4, Red 12.
 
-> [ACTION] red lands. Blue 4, Red 12.
-
-[r1.hm] BLUE: (draft) Hm.
-
----
-
-## 11 · Round two — the rule breaks and gets fixed — Scene 11
-
-[r2.again] RED: Another round? ★
-
-[r2.wait] BLUE: Wait. I only have four. I can't put in as much as you. ★
-
-[r2.half] RED: Then put in half of what you have. I'll match it. ★
-
-[r2.two] BLUE: Two each? ★
-
-[r2.rule] RED: Two each. We always bet half of what the poorer one has. ★
-
-[r2.why] RED: That way, nobody loses everything in one flip. ★
-
-[r2.go] BLUE: (draft) Smart. Okay, let's go. I'll win it back.
-
-> [ACTION] blue lands. Blue 6, Red 10.
-
-[r2.told] BLUE: (draft) Told you.
-
-> Blue's objection is correct: under the naive reading — "bet the same as last
-> time" — he would have to put everything he has on the table. The real rule
-> arrives as the answer to HIS problem.
+[r1.ouch] BLUE: Ouch! ★
 
 ---
 
-## 12 · One more round, faster — Scene 12
+## 7 · Round two — the rule breaks and gets fixed — Scene 7
+
+[r2.wait] BLUE: Wait! / I have 4. I can't put in as much as you. ★
+
+[r2.half] RED: Put in half of what you have. ★
+
+[r2.two] BLUE: Only 2? ★
+
+[r2.match] RED: Yes. And I'll match that. ★
+
+> [ACTION] two coins from each circle move to the table.
+
+[r2.rule] BLUE: So we always put in half / of what the poorer one has. ★
+
+[r2.why] RED: Yes. That way everybody can keep playing. ★
+
+[r2.go] BLUE: Smart. / Okay, let's go. / I'll win it back. ★
+
+> [ACTION] blue lands. Blue 6, Red 10. Blue says the rule himself and Red
+> confirms it; the stakes are already known to be equal, so nobody says "half
+> of each".
+
+---
+
+## 8 · Round three — Scene 8
+
+> slower than before, and the two say what is happening.
+
+[r3.each] RED: (draft) 3 each.
+
+> [ACTION] three coins from each circle move to the table.
+
+[r3.flip] BLUE: (draft) Flip!
 
 > [ACTION] blue lands. Blue 9, Red 7.
 
@@ -331,35 +279,27 @@ still read plainly — the winner of the toss takes both stakes.
 8-8, then 4-12, then 6-10, then 9-7. The total never changes, and every stake
 is half of the poorer fortune.
 
-[rules.1] (draft · proposed — first to cut) Both bet half. Flip. The color that lands takes both.
-
-[rules.2] (draft · proposed — first to cut) Both bet half of what the poorer one has.
-
-[rules.3] (draft · proposed — first to cut) …and two people are picked at random each time.
-
-> a small frameless line of type that grows as the rules arrive — [rules.1]
-> after Scene 10, [rules.2] after Scene 11, [rules.3] before Scene 15. Built
-> last, and only if a screenshot shows it is missing.
-
 ---
 
-## 13 · The challenge — Scene 13
+## 9 · The challenge — Scene 9
 
-[dare.ahead] BLUE: (draft) Back where we started. Well, I'm a bit ahead. Naturally.
+[dare.ahead] BLUE: Back where I started. / Well, I'm a bit ahead. Naturally. ★
 
-[dare.pointless] BLUE: (draft) But this game is pointless.
+[dare.pointless] BLUE: This is pointless. ★
 
 [dare.why] RED: (draft) Why?
 
-[dare.edge] BLUE: Nobody has an edge. Same odds, same rules. Nobody gets rich. ★
+[dare.edge] BLUE: Nobody has an edge. / Same odds, same rule. / Nobody gets rich. ★
 
-[dare.what] RED: But what if one of us did? Very rich. ★
+[dare.what] RED: What if one does? / **Very riiich.** ★
 
-[dare.no] BLUE: Impossible. ★
+[dare.no] BLUE: **Impossible.** ★
 
-[dare.imagine] RED: Imagine it happens anyway. What would that tell you? ★
+> `**…**` in a bubble is said louder: bigger and heavier.
 
-[dare.luck] BLUE: That being rich means nothing. No talent, no hard work. Just luck. ★
+[dare.imagine] RED: But what if that happens? ★
+
+[dare.luck] BLUE: That being rich means nothing. / No talent, no hard work. Just luck. ★
 
 [dare.math] RED: Not merit. Just math. ★
 
@@ -373,42 +313,49 @@ is half of the poorer fortune.
 
 [dare.all] RED: I'll bet all of mine. ★
 
-[dare.sure] BLUE: All of it? You're either very sure or very foolish. ★
+[dare.sure] BLUE: You're either very sure / or very foolish. ★
 
-[dare.very] RED: Very sure. ★
+[dare.laugh] RED: (draft) Let's see who laughs last.
+
+[dare.more] RED: We need more players. / And many more rounds. ★
 
 ! keep true: a run shows something; it cannot prove it. Red's "prove" is honest
-only because the proof arrives later — the reveal says so (Scene 16), and the
-theorem in "Where it ends" pays it off.
+only because the proof arrives later — the reveal says so, and the theorem pays
+it off.
 
 ---
 
-## 14 · More players, and the pair joins the room — Scene 14
+## 10 · The crowd arrives — Scene 10
 
-[more.add] RED: Two players can't settle this. Let's add more people. ★
+> picture: the room fills around the two (Phase 2: people arrive from all
+> sides and the view zooms out, the pair keeping its place). The crowd keeps
+> its costumes; Blue and Red keep their unique colours.
 
-[more.how] BLUE: (draft) How many?
+[more.shapes] RED: (draft) Different colours. Different shapes. / Only the size counts. The size is the wealth.
 
-[more.hundred] RED: (draft) A hundred. Everyone starts equal. Including us.
+[more.random] RED: Each time, / two people are picked at random. ★
 
-[more.random] RED: (draft) Each time, two people are picked at random. Same bet. Same coin.
+! keep true: [more.random] is REQUIRED — the two-person game never taught
+random pairing, and every room after this one uses it.
 
-! keep true: [more.random] is NEW and REQUIRED — the two-person game never
-taught random pairing, and every room after this one uses it.
+[more.rule] RED: They bet half of what the poorer one has. / Flip. The winner takes it all. ★
 
-[more.watch] BLUE: (draft) Fine. Watch nobody get rich.
+[more.watch] BLUE: Nobody gets rich. ★
 
-> [ACTION] the pair takes its seats in the ring and the room fills. The crowd
-> keeps its costumes; Blue and Red keep their unique colours (no one else in
-> the room may wear them).
+> Blue laughs.
 
-[more.real] BLUE: (draft) Real life is much more complicated than this, you know.
+---
 
-[more.joke] RED: (draft) Of course it is. Want to hear a joke first?
+## 11 · The joke offer — Scene 11
 
-[more.choice] (draft) Tell me · Not now
+[more.real] BLUE: Real life is / much more complicated than this. ★
 
-> [CHOICE] — "Tell me" opens the cow (B1); "Not now" moves on.
+[more.joke] RED: Of course it is. / Want to hear a joke? ★
+
+[more.choice] (draft) Yes · Not now
+
+> [CHOICE] — links inside Red's bubble: "Yes" opens the cow (B1); "Not now"
+> moves on.
 
 ---
 

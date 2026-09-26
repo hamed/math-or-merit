@@ -1,8 +1,11 @@
 /**
- * The pair stage, Scenes 1–14 of the dialogue brief, as data.
+ * The pair stage, Scenes 1–11 of the iteration-2 brief, as data.
  *
  * Every step says three things: how it lets go (its wait), what is said (a
- * message key, never words — A2), and the POSE it leaves the stage in. A pose is
+ * message key, never words — A2), and the POSE it leaves the stage in. Key
+ * lines wait for the reader; chit-chat (`CHAT`) moves on by itself once read.
+ * A step that opens a `panel` clears the bubbles before it: within a panel
+ * they pile up like one comic panel, so the reader can re-read. A pose is
  * everything the reader can see that the argument depends on: the title, the
  * crowd, who has been named, how many coins each of them holds, what is on the
  * table, where they stand. `settle` draws a pose; `play` animates from one pose
@@ -14,7 +17,7 @@
  */
 import { HOLDINGS, ROUNDS } from './game';
 import { BIG, BITES_SECONDS, SMALL } from './crowd';
-import { HOLD, READER, auto, type LineSpec, type StepSpec, type Wait } from '../../steps';
+import { CHAT, HOLD, READER, auto, type LineSpec, type StepSpec, type Wait } from '../../steps';
 
 export type CrowdState = 'idle' | 'paid' | 'bitten' | 'two';
 export type Place = 'marks' | 'seats' | 'room';
@@ -28,12 +31,14 @@ export interface Coins {
 export interface Pose {
   /** The news line and its source are typed out. */
   readonly teletype: boolean;
-  /** Each title word has arrived (MERIT, or, MATH, and the "?" with the credit). */
+  /** Each title word has arrived (MERIT, or, MATH, and the "?" with the credit), in reading order. */
   readonly merit: boolean;
   readonly or: boolean;
   readonly math: boolean;
   readonly mark: boolean;
-  /** Scene 8: the title and every other word have left; only the two remain. */
+  /** From Scene 3: the news line has gone and the title sits small at the top, leaving room to talk. */
+  readonly compact: boolean;
+  /** Scene 5: the title and every other word have left; only the two remain. */
   readonly cleared: boolean;
   readonly crowd: CrowdState;
   readonly named: { readonly blue: boolean; readonly red: boolean };
@@ -47,14 +52,14 @@ export interface Pose {
   readonly place: Place;
   /** How many people are in the room (Scene 14). */
   readonly room: number;
-  /** Scene 14's "Tell me · Not now". */
+  /** Scene 11's "Yes · Not now", inside Red's bubble. */
   readonly choice: boolean;
 }
 
 /** What a step does on the way in, for the scene's choreography. */
 export type Action =
   | 'type'
-  | 'reel-merit'
+  | 'merit'
   | 'or'
   | 'reel-math'
   | 'payout'
@@ -69,6 +74,8 @@ export type Action =
 export interface PairStep extends StepSpec {
   readonly pose: Pose;
   readonly action?: Action;
+  /** Clears the bubbles: a new topic, a new comic panel. */
+  readonly panel?: true;
 }
 
 const START: Pose = {
@@ -77,6 +84,7 @@ const START: Pose = {
   or: false,
   math: false,
   mark: false,
+  compact: false,
   cleared: false,
   crowd: 'idle',
   named: { blue: false, red: false },
@@ -96,6 +104,7 @@ interface Draft {
   say?: string;
   action?: Action;
   pose?: Partial<Pose>;
+  panel?: true;
 }
 
 const blue = (id: string, say: string, rest: Omit<Draft, 'id' | 'who' | 'say'> = {}): Draft => ({ id, who: 'blue', say, ...rest });
@@ -107,14 +116,11 @@ const staked = (round: number): Coins => ({ blue: ROUNDS[round].stake, red: ROUN
 const minus = (a: Coins, b: Coins): Coins => ({ blue: a.blue - b.blue, red: a.red - b.red });
 const NOTHING: Coins = { blue: 0, red: 0 };
 
-/** Seconds a bubble is on screen when the stage moves on by itself (before Scene 5 teaches the controls). */
-const READ = (ms: number) => auto(ms);
-
 const DRAFTS: Draft[] = [
-  // ---- Scene 1: teletype and title --------------------------------------
+  // ---- Scene 1: teletype and title, in reading order ----------------------
   { id: 'title.type', wait: auto(4600), action: 'type', pose: { teletype: true } },
-  { id: 'title.merit', wait: auto(3800), action: 'reel-merit', pose: { merit: true } },
-  { id: 'title.or', wait: auto(1000), action: 'or', pose: { or: true } },
+  { id: 'title.merit', wait: auto(1500), action: 'merit', pose: { merit: true } },
+  { id: 'title.or', wait: auto(900), action: 'or', pose: { or: true } },
   { id: 'title.math', wait: auto(3800), action: 'reel-math', pose: { math: true } },
 
   // ---- Scene 2: the crowd ----------------------------------------------
@@ -122,105 +128,87 @@ const DRAFTS: Draft[] = [
   { id: 'crowd.bites', wait: auto(Math.round(BITES_SECONDS * 1000) + 300), action: 'bites', pose: { crowd: 'bitten' } },
   { id: 'crowd.two', wait: auto(1500), action: 'gather', pose: { crowd: 'two' } },
 
-  // ---- Scene 3: calling out (hold: both clicked) -----------------------
-  { id: 'call', wait: HOLD, pose: { named: { blue: true, red: true } } },
+  // ---- Scene 3: meeting them — Red calls, then Blue (holds: a click each) --
+  red('call.red', 'meet_red_call_1', { wait: HOLD, panel: true, pose: { compact: true, named: { blue: false, red: true } } }),
+  red('meet.red', 'meet_red', { wait: CHAT }),
+  blue('call.blue', 'meet_blue_call_1', { wait: HOLD, pose: { named: { blue: true, red: true } } }),
+  blue('meet.blue', 'meet_blue', { wait: CHAT }),
+  red('meet.tip', 'meet_tip'),
 
-  // ---- Scene 4: introductions (the controls are not taught yet) ---------
-  blue('intro.blue', 'intro_blue', { wait: READ(2900) }),
-  red('intro.red', 'intro_red', { wait: READ(2900) }),
-  red('intro.world', 'intro_world', { wait: READ(2900) }),
-  blue('intro.small', 'intro_small', { wait: READ(2400) }),
-
-  // ---- Scene 5: controls --------------------------------------------------
-  red('ctl.1', 'ctl_1', { wait: READ(2600) }),
-  blue('ctl.2', 'ctl_2', { wait: READ(2000) }),
-  red('ctl.3', 'ctl_3', { wait: READ(2400) }),
-  blue('ctl.4', 'ctl_4'),
-  blue('ctl.5', 'ctl_5', { wait: READ(1900) }),
-
-  // ---- Scene 6: the merit debate ---------------------------------------
-  blue('merit.1b', 'merit_1b'),
+  // ---- Scene 4: the merit debate — every line waits ------------------------
+  blue('merit.1b', 'merit_1b', { panel: true }),
   red('merit.1r', 'merit_1r'),
   blue('merit.2b', 'merit_2b'),
   red('merit.2r', 'merit_2r'),
   blue('merit.3b', 'merit_3b'),
   red('merit.3r', 'merit_3r'),
-  blue('merit.4b', 'merit_4b'),
-  red('merit.4r', 'merit_4r'),
-  blue('merit.5b', 'merit_5b'),
-  red('merit.5r', 'merit_5r'),
-  blue('merit.6b', 'merit_6b'),
-  red('merit.6r', 'merit_6r'),
 
-  // ---- Scene 7: the invitation — numbers appear ------------------------
-  red('invite.1', 'invite_1', { action: 'lattice', pose: { coins: true } }),
-  blue('invite.2', 'invite_2'),
+  // ---- Scene 5: the invitation — numbers appear, then the reader evens them --
+  red('invite.1', 'invite_1', { panel: true, action: 'lattice', pose: { coins: true } }),
+  blue('invite.2', 'invite_2', { wait: CHAT }),
   red('invite.3', 'invite_3'),
-  blue('invite.4', 'invite_4'),
+  blue('invite.4', 'invite_4', { wait: CHAT }),
   red('invite.5', 'invite_5'),
-  blue('invite.6', 'invite_6'),
-
-  // ---- Scene 8: clearing the stage -------------------------------------
-  { id: 'clear', wait: auto(1500), action: 'clear', pose: { cleared: true, place: 'seats' } },
-
-  // ---- Scene 9: the reader makes them equal (hold: 8 and 8) ------------
+  blue('invite.6', 'invite_6', { wait: CHAT }),
+  { id: 'clear', wait: auto(1500), action: 'clear', panel: true, pose: { cleared: true, place: 'seats' } },
   blue('equal', 'equal_ask', { wait: HOLD, pose: { holdings: held(0) } }),
-  red('equal.done', 'equal_done'),
+  red('equal.done', 'equal_done', { wait: CHAT }),
 
-  // ---- Scene 10: round one, with the minimum rule ----------------------
-  red('r1.rules', 'r1_rules'),
+  // ---- Scene 6: round one, with the incomplete rule -------------------------
+  red('r1.rules', 'r1_rules', { panel: true }),
   blue('r1.half', 'r1_half', { action: 'ante', pose: { holdings: minus(held(0), staked(0)), table: staked(0) } }),
   red('r1.flip', 'r1_flip', { pose: { flip: 'shown' } }),
   red('r1.winner', 'r1_winner'),
-  blue('r1.odds', 'r1_odds'),
-  { id: 'r1.toss', wait: auto(2600), action: 'toss', pose: { holdings: held(1), table: NOTHING, flip: 'red' } },
-  blue('r1.hm', 'r1_hm'),
+  { id: 'r1.toss', wait: auto(3600), action: 'toss', pose: { holdings: held(1), table: NOTHING, flip: 'red' } },
+  blue('r1.ouch', 'r1_ouch', { wait: CHAT }),
 
-  // ---- Scene 11: round two — the rule breaks and gets fixed ------------
-  red('r2.again', 'r2_again', { pose: { flip: 'hidden' } }),
-  blue('r2.wait', 'r2_wait'),
+  // ---- Scene 7: round two — the rule breaks, and Blue says the fix ---------
+  blue('r2.wait', 'r2_wait', { panel: true, pose: { flip: 'hidden' } }),
   red('r2.half', 'r2_half'),
-  blue('r2.two', 'r2_two'),
-  red('r2.rule', 'r2_rule', { action: 'ante', pose: { holdings: minus(held(1), staked(1)), table: staked(1) } }),
+  blue('r2.two', 'r2_two', { wait: CHAT }),
+  red('r2.match', 'r2_match', { action: 'ante', pose: { holdings: minus(held(1), staked(1)), table: staked(1) } }),
+  blue('r2.rule', 'r2_rule'),
   red('r2.why', 'r2_why'),
-  blue('r2.go', 'r2_go', { pose: { flip: 'shown' } }),
-  { id: 'r2.toss', wait: auto(2600), action: 'toss', pose: { holdings: held(2), table: NOTHING, flip: 'blue' } },
-  blue('r2.told', 'r2_told'),
+  blue('r2.go', 'r2_go', { wait: CHAT, pose: { flip: 'shown' } }),
+  { id: 'r2.toss', wait: auto(3600), action: 'toss', pose: { holdings: held(2), table: NOTHING, flip: 'blue' } },
 
-  // ---- Scene 12: one more round, faster --------------------------------
-  {
-    id: 'r3.ante',
-    wait: auto(1300),
+  // ---- Scene 8: round three, slower, said out loud ---------------------------
+  red('r3.each', 'r3_each', {
+    wait: CHAT,
+    panel: true,
     action: 'ante',
     pose: { holdings: minus(held(2), staked(2)), table: staked(2), flip: 'shown' },
-  },
-  { id: 'r3.toss', wait: auto(2400), action: 'toss', pose: { holdings: held(3), table: NOTHING, flip: 'blue' } },
-  blue('r3.done', 'r3_done'),
+  }),
+  blue('r3.flip', 'r3_flip', { wait: CHAT }),
+  { id: 'r3.toss', wait: auto(3600), action: 'toss', pose: { holdings: held(3), table: NOTHING, flip: 'blue' } },
+  blue('r3.done', 'r3_done', { wait: CHAT }),
 
-  // ---- Scene 13: the challenge -----------------------------------------
-  blue('dare.ahead', 'dare_ahead', { pose: { flip: 'hidden' } }),
-  blue('dare.pointless', 'dare_pointless'),
-  red('dare.why', 'dare_why'),
+  // ---- Scene 9: the challenge ------------------------------------------
+  blue('dare.ahead', 'dare_ahead', { wait: CHAT, panel: true, pose: { flip: 'hidden' } }),
+  blue('dare.pointless', 'dare_pointless', { wait: CHAT }),
+  red('dare.why', 'dare_why', { wait: CHAT }),
   blue('dare.edge', 'dare_edge'),
   red('dare.what', 'dare_what'),
-  blue('dare.no', 'dare_no'),
+  blue('dare.no', 'dare_no', { wait: CHAT }),
   red('dare.imagine', 'dare_imagine'),
   blue('dare.luck', 'dare_luck'),
   red('dare.math', 'dare_math'),
-  blue('dare.nice', 'dare_nice'),
+  blue('dare.nice', 'dare_nice', { wait: CHAT, panel: true }),
   red('dare.prove', 'dare_prove'),
   blue('dare.bet', 'dare_bet'),
   red('dare.all', 'dare_all'),
-  blue('dare.sure', 'dare_sure'),
-  red('dare.very', 'dare_very'),
+  blue('dare.sure', 'dare_sure', { wait: CHAT }),
+  red('dare.laugh', 'dare_laugh', { wait: CHAT }),
+  red('dare.more', 'dare_more'),
 
-  // ---- Scene 14: more players, and the pair joins the room -------------
-  red('more.add', 'more_add'),
-  blue('more.how', 'more_how'),
-  red('more.hundred', 'more_hundred', { action: 'room', pose: { place: 'room', room: 100 } }),
+  // ---- Scene 10: the crowd arrives; the pair joins the room ------------------
+  red('more.shapes', 'more_shapes', { panel: true, action: 'room', pose: { place: 'room', room: 100 } }),
   red('more.random', 'more_random'),
-  blue('more.watch', 'more_watch'),
-  blue('more.real', 'more_real'),
+  red('more.rule', 'more_rule'),
+  blue('more.watch', 'more_watch', { wait: CHAT }),
+
+  // ---- Scene 11: the joke offer ----------------------------------------
+  blue('more.real', 'more_real', { panel: true }),
   red('more.joke', 'more_joke', { pose: { choice: true } }),
 ];
 
@@ -234,6 +222,7 @@ function build(): PairStep[] {
       pose,
       ...(draft.say ? { lines: [{ who: draft.who ?? null, message: draft.say }] } : {}),
       ...(draft.action ? { action: draft.action } : {}),
+      ...(draft.panel ? { panel: true as const } : {}),
     };
     return step;
   });
@@ -253,17 +242,24 @@ export function valuesFor(step: PairStep): Record<string, number> {
 
 /**
  * Lines the scene speaks on EVENTS inside a hold rather than as steps: the
- * call-outs while the reader has not clicked (Scene 3) and the reactions while
- * coins move (Scene 9). Listed here so a test can prove every scripted line is
- * spoken somewhere.
+ * caller trying again while the reader has not clicked (Scene 3) and the
+ * reactions while coins move (Scene 5). Listed here so a test can prove every
+ * scripted line is spoken somewhere.
  */
 export const REACTIONS = {
-  callPool: ['call_pool_1', 'call_pool_2', 'call_pool_3', 'call_pool_4', 'call_pool_5'],
-  callBig: 'call_big',
-  callSmall: 'call_small',
-  callAfter: ['call_after_1', 'call_after_2'],
+  callRed: ['meet_red_call_1', 'meet_red_call_2', 'meet_red_call_3', 'meet_red_call_4'],
+  callBlue: ['meet_blue_call_1', 'meet_blue_call_2', 'meet_blue_call_3'],
   equalFirst: 'equal_first',
   equalEleven: 'equal_eleven',
   equalOverBlue: 'equal_over_b',
   equalOverRed: 'equal_over_r',
 } as const;
+
+/** The step of each Scene 3 hold, by who is calling. */
+export const CALLS = { red: 'call.red', blue: 'call.blue' } as const;
+
+/** Where the panel a step belongs to begins. */
+export function panelStart(index: number): number {
+  for (let i = Math.min(index, PAIR_STEPS.length - 1); i > 0; i--) if (PAIR_STEPS[i].panel) return i;
+  return 0;
+}

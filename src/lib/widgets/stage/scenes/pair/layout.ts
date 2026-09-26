@@ -1,12 +1,24 @@
 /**
  * Where everything stands on the pair stage, for a stage of any size. Pure.
  *
- * Sides are PHYSICAL in every locale (ADR-006 amendment): Red and MATH on the
- * left, Blue and MERIT on the right. Everything here is in stage pixels.
+ * Blue stands under MERIT, which the title says first; Red under MATH, second
+ * (owner, 2026-09-26). "First" is the reading direction's start, so in a
+ * right-to-left locale the whole stage mirrors like everything else (ADR-006;
+ * the v3 physical-sides amendment is withdrawn). Everything here is in stage
+ * pixels.
  */
 import { roomPositions, radiusScale, type Point } from '../../../shared/layout';
 import { UNITS } from './game';
 import { CROWD } from './crowd';
+import { PACKINGS } from './packings';
+
+/**
+ * How much of a fortune's circle its coins cover. Every coin claims the same
+ * area, a little more than itself, so a circle's area is exactly its coins'
+ * area. At this density eight coins — the two made equal — and fifteen — Blue
+ * at the start — sit in their circles as tight as coins can pack.
+ */
+export const COIN_DENSITY = 0.7325;
 
 export interface PairLayout {
   readonly width: number;
@@ -30,8 +42,10 @@ export interface PairLayout {
   readonly ground: number;
   /** One coin's radius: money is one size everywhere. */
   readonly coinRadius: number;
-  /** The room of Scene 14: positions, everyone's radius, and the pair's seats in it. */
+  /** The room of Scene 10: positions, everyone's radius, and the pair's seats in it. */
   readonly room: {
+    /** The room's top edge: the talk stays above it. */
+    readonly top: number;
     readonly positions: readonly Point[];
     readonly radius: number;
     readonly red: number;
@@ -39,7 +53,7 @@ export interface PairLayout {
   };
 }
 
-export function pairLayout(width: number, height: number, roomSize = 100): PairLayout {
+export function pairLayout(width: number, height: number, roomSize = 100, mirror = false): PairLayout {
   const w = Math.max(1, width);
   const h = Math.max(1, height);
   const portrait = h > w;
@@ -63,20 +77,25 @@ export function pairLayout(width: number, height: number, roomSize = 100): PairL
     }
   }
 
-  const markY = portrait ? h * 0.6 : h * 0.62;
-  const seatY = portrait ? h * 0.5 : h * 0.48;
+  // low on the stage: the talk needs the room above them (iteration 2, 3.1)
+  const markY = portrait ? h * 0.66 : h * 0.68;
+  const seatY = portrait ? h * 0.66 : h * 0.64;
   const left = portrait ? 0.3 : 0.33;
 
-  // the bottom of the stage is kept clear for the choice that ends Scene 14
-  const roomBox = { x: w * 0.06, y: h * 0.12, w: w * 0.88, h: h * 0.72 };
+  // the crowd keeps to the lower part, leaving room above for the talk (3.6)
+  const roomBox = { x: w * 0.05, y: h * 0.38, w: w * 0.9, h: h * 0.58 };
   const positions = roomPositions(roomSize, roomBox.w, roomBox.h).map((p) => ({
     x: p.x + roomBox.x,
     y: p.y + roomBox.y,
   }));
-  const nearest = (target: Point) =>
-    positions.reduce((best, p, i) => (Math.hypot(p.x - target.x, p.y - target.y) < Math.hypot(positions[best].x - target.x, positions[best].y - target.y) ? i : best), 0);
-  const seatRed = { x: w * left, y: seatY };
-  const seatBlue = { x: w * (1 - left), y: seatY };
+  const nearest = (among: readonly Point[], target: Point) =>
+    among.reduce((best, p, i) => (Math.hypot(p.x - target.x, p.y - target.y) < Math.hypot(among[best].x - target.x, among[best].y - target.y) ? i : best), 0);
+  // MERIT and Blue at the start of the line, MATH and Red at its end
+  const flipX = (p: Point): Point => (mirror ? { x: w - p.x, y: p.y } : p);
+  const seatBlue = flipX({ x: w * left, y: seatY });
+  const seatRed = flipX({ x: w * (1 - left), y: seatY });
+  const homes = crowdHomes.map(flipX);
+  const room = positions.map(flipX);
 
   return {
     width: w,
@@ -84,32 +103,47 @@ export function pairLayout(width: number, height: number, roomSize = 100): PairL
     whole,
     radius,
     minRadius: Math.max(9, whole * 0.12),
-    markRed: { x: w * left, y: markY },
-    markBlue: { x: w * (1 - left), y: markY },
+    markBlue: flipX({ x: w * left, y: markY }),
+    markRed: flipX({ x: w * (1 - left), y: markY }),
     seatRed,
     seatBlue,
     table: { x: w * 0.5, y: seatY + whole * 1.05 },
-    flip: { x: w * 0.5, y: seatY - whole * 1.1 },
-    crowdHomes,
+    // between the two where there is room; under the table on a narrow screen,
+    // where anything above them is where they talk
+    flip: { x: w * 0.5, y: portrait ? seatY + whole * 1.95 : seatY },
+    crowdHomes: homes,
     ground,
-    coinRadius: whole / Math.sqrt(UNITS),
+    coinRadius: whole * Math.sqrt(COIN_DENSITY / UNITS),
     room: {
-      positions,
+      top: roomBox.y,
+      positions: room,
       radius: radiusScale(roomSize, roomBox.w, roomBox.h) * Math.sqrt(1 / roomSize),
-      red: nearest(seatRed),
-      blue: nearest(seatBlue),
+      red: nearest(room, seatRed),
+      blue: nearest(room, seatBlue),
     },
   };
 }
 
 /**
- * Where `count` coins sit inside a fortune of radius `fit`: the nearest points
- * of a honeycomb to the centre, so the pile is round, then scaled down just
- * enough to sit inside the circle. Coins are one size for money everywhere, so
- * the scale only ever shrinks a crowded pile, never grows a sparse one.
+ * Where `count` coins sit inside a fortune of radius `fit`: the tightest known
+ * pile for that count (packings.ts). Coins are one size for money everywhere,
+ * so the pile is never scaled up or down — only its centres draw in when the
+ * circle is a touch smaller than the packing (two to six coins, where no
+ * packing reaches the fixed density), and then the coins overlap like a small
+ * pile on a table. Counts past the table fall back to a honeycomb.
  */
-export function lattice(count: number, coinRadius: number, fit = Infinity): { spots: Point[]; r: number } {
-  if (count <= 0) return { spots: [], r: coinRadius };
+export function pile(count: number, coinRadius: number, fit: number): Point[] {
+  if (count <= 0) return [];
+  const packing = PACKINGS[count - 1];
+  if (!packing) return honeycomb(count, coinRadius);
+  const reach = packing.radius - 1;
+  const room = fit / coinRadius - 1;
+  const draw = reach > 0 ? Math.min(1, Math.max(0, room) / reach) : 1;
+  return packing.centres.map(([x, y]) => ({ x: x * coinRadius * draw, y: y * coinRadius * draw }));
+}
+
+/** The nearest points of a honeycomb to the centre, for a count no packing covers. */
+function honeycomb(count: number, coinRadius: number): Point[] {
   const step = coinRadius * 2;
   const rowH = coinRadius * Math.sqrt(3);
   const reach = Math.ceil(Math.sqrt(count)) + 2;
@@ -118,13 +152,17 @@ export function lattice(count: number, coinRadius: number, fit = Infinity): { sp
     const offset = (row & 1) * coinRadius;
     for (let col = -reach; col <= reach; col++) points.push({ x: col * step + offset, y: row * rowH });
   }
-  // nearest first; ties broken by angle so the pile is the same every time
   points.sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y) || Math.atan2(a.y, a.x) - Math.atan2(b.y, b.x));
-  const chosen = points.slice(0, count);
-  const cx = chosen.reduce((sum, p) => sum + p.x, 0) / count;
-  const cy = chosen.reduce((sum, p) => sum + p.y, 0) / count;
-  const centred = chosen.map((p) => ({ x: p.x - cx, y: p.y - cy }));
-  const extent = Math.max(...centred.map((p) => Math.hypot(p.x, p.y))) + coinRadius;
-  const scale = Math.min(1, (fit * 0.96) / extent);
-  return { spots: centred.map((p) => ({ x: p.x * scale, y: p.y * scale })), r: coinRadius * scale };
+  return points.slice(0, count);
+}
+
+/**
+ * The decider's face and apparent width at a turn of `angle` radians. Marx is
+ * Red's side and faces up at 0; the bank is Blue's and faces up at π. A face
+ * only ever changes where the coin is edge-on (|cos| = 0) — never mid-face
+ * (iteration-2 brief 3.5).
+ */
+export function deciderFace(angle: number): { side: 'red' | 'blue'; squash: number } {
+  const half = Math.floor((angle + Math.PI / 2) / Math.PI);
+  return { side: half % 2 === 0 ? 'red' : 'blue', squash: Math.max(0.04, Math.abs(Math.cos(angle))) };
 }

@@ -1,3 +1,22 @@
+/* Comic Neue (SIL OFL 1.1, assets/fonts/comic-neue/OFL.txt): the speech
+   bubbles' hand, self-hosted, Latin subset. Farsi gets its own companion when
+   the translation starts (owner's pick to try: Koodak). */
+@font-face {
+  font-family: "Comic Neue";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/comic-neue/comic-neue-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Comic Neue";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/comic-neue/comic-neue-700.woff2") format("woff2");
+}
+
 :root {
   /* ---- design tokens (ADR-013) ---- */
   --paper: #f4efe4;
@@ -30,6 +49,7 @@
 
   --font-serif: "Iowan Old Style", "Palatino Linotype", Vazirmatn, Georgia, serif;
   --font-sans: Vazirmatn, system-ui, sans-serif;
+  --font-hand: "Comic Neue", "Comic Sans MS", Vazirmatn, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 
   font-family: var(--font-serif);

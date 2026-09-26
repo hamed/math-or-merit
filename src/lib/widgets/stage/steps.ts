@@ -16,6 +16,12 @@ export type Wait =
   | { readonly kind: 'reader' }
   /** Advances by itself (the teletype, the reels, the crowd). */
   | { readonly kind: 'auto'; readonly ms: number }
+  /**
+   * Chit-chat (iteration 2, 3.2): banter, reactions, bragging. Advances by
+   * itself once read — the scene says how long its words take — pauses while
+   * the pointer rests on it, and never blocks a reader who wants to go on.
+   */
+  | { readonly kind: 'chat' }
   /** Holds until the scene reports the reader has done the thing (8 and 8). */
   | { readonly kind: 'action' };
 
@@ -34,7 +40,16 @@ export interface StepSpec {
 
 export const READER: Wait = { kind: 'reader' };
 export const HOLD: Wait = { kind: 'action' };
+export const CHAT: Wait = { kind: 'chat' };
 export const auto = (ms: number): Wait => ({ kind: 'auto', ms });
+
+/**
+ * How long chit-chat stays before moving on: a second and a half, plus about
+ * 150 words a minute — a pace for readers of a second language (brief 3.2).
+ */
+export function readingMs(words: number): number {
+  return 1500 + 400 * Math.max(0, words);
+}
 
 /** Sanity-checkable at data level, like `validateBeats`. */
 export function validateSteps(steps: readonly StepSpec[]): string[] {
@@ -58,8 +73,10 @@ export function validateSteps(steps: readonly StepSpec[]): string[] {
  * `held`   — forward was asked for at a hold the reader has not released yet.
  * `end`    — forward past the last step: the gesture belongs to the page.
  * `start`  — back before the first step: the gesture belongs to the page.
+ * `hurried` — the scene was still arriving (a bubble's lines coming in one by
+ *             one); forward finished that instead of moving on.
  */
-export type StepResult = 'moved' | 'held' | 'end' | 'start';
+export type StepResult = 'moved' | 'held' | 'end' | 'start' | 'hurried';
 
 export interface StepSnapshot {
   readonly index: number;
@@ -232,6 +249,13 @@ export interface StepScene {
   settle(index: number): void;
   /** Forward was asked for at a hold: show the reader what is being waited on. */
   nudge?(index: number): void;
+  /**
+   * Forward was asked for while the step is still arriving. Finish arriving and
+   * return true to keep the reader on this step; false to move on.
+   */
+  hurry?(index: number): boolean;
+  /** How long a `chat` step's words take to read, ms (see `readingMs`). */
+  readingMs?(index: number): number;
 }
 
 export interface StepStageContext {
@@ -240,6 +264,8 @@ export interface StepStageContext {
   release(id: string): void;
   /** Whether a hold has already been done — `settle` on a hold still waiting shows the reader's own progress. */
   isReleased(id: string): boolean;
+  /** The reader is resting on something (a bubble): chit-chat waits for them. */
+  pause(on: boolean): void;
   /** Reactive: the step on screen. */
   readonly index: number;
   /** Reactive: the reader asked for no motion. */

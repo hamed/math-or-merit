@@ -88,6 +88,24 @@ export const PROTAGONISTS: Readonly<Record<'blue' | 'red', AgentStyle>> = Object
 });
 
 /**
+ * How each speaker's bubble wears his colours (iteration-2 brief 3.1): text in
+ * very dark ink leaning toward his name's colour, the outline a pastel of his
+ * circle's stroke, the paper a faint wash of his fill. Never colour alone —
+ * the tail and the hidden name say who speaks too. Contrast is a test.
+ */
+export interface SpeakerTone {
+  readonly ink: string;
+  readonly edge: string;
+  readonly wash: string;
+}
+
+export const SPEAKER_TONES: Readonly<Record<'blue' | 'red' | 'none', SpeakerTone>> = Object.freeze({
+  blue: { ink: '#1f2c4d', edge: 'rgb(157 53 51 / 62%)', wash: 'rgb(183 207 249 / 26%)' },
+  red: { ink: '#4a221e', edge: 'rgb(40 78 153 / 62%)', wash: 'rgb(246 190 184 / 26%)' },
+  none: { ink: '#28251f', edge: 'rgb(117 108 93 / 55%)', wash: 'rgb(255 250 240 / 0%)' },
+});
+
+/**
  * Colour pairs (fill/stroke) a CIRCLE in a crowd may not wear (A5).
  *
  * The brief reserves the protagonists' colours in crowds. Reserving only the

@@ -501,3 +501,51 @@ the title read "Merit or Math?", and the two protagonists had same-hue strokes.
 Its front half is not to be merged as it stands. Its circle physics, reel code,
 one-line title pose and side-trip wrapper are raw material for the stage.
 
+
+## D20 — Iteration 2: one stage, comic talk, honest coins (2026-09-26)
+
+Source: `inbox/merit-or-math-iteration-2.md` — an agent's brief from the
+owner's 70-minute recorded play-through of the v3 build (2026-09-25). It wins
+over v3 where they conflict. **ADR-018 accepted:** the whole essay becomes one
+step stage of acts on one persistent room, Blue and Red present throughout;
+shipped act by act.
+
+**Answered by the owner, 2026-09-26:**
+
+1. ADR-018: yes.
+2. **Title "Merit or Math?"** — "the left should come first, because English is
+   left to right; the common sense is merit, the question is math." MERIT
+   fades in plain, "or", MATH through its reel, "?". Blue under MERIT, Red
+   under MATH; colours unchanged (Red poor). This REVERSES the 2026-09-24
+   "final and permanent" sides, by the owner's own choice; the ADR-006
+   amendment is withdrawn and the stage mirrors in RTL.
+3. **The crowd** (Phase 2): people come in bouncing and jumping; coins fall at
+   random, some grow and some do not; they bump into each other and every bump
+   is a trade; one becomes very big, one small; the rest bounce and move out;
+   those two stay.
+4. "Success finds the people who deserve it" — cut, with its reply.
+5. "Anyone could be where I am" / "standing here first…" — the pair goes.
+6. The bias is described without its name ("the paper finds the reason after
+   the result"); C12 stands.
+7. **Coins:** each coin claims a fixed area a little larger than itself, so a
+   circle's area is truly its coin count; nice if the counts pack tight. Built:
+   density 0.7325, where 8 (the two made equal) and 15 (Blue at the start) are
+   the tightest known packings; 2–6 coins overlap slightly, like a small pile.
+   The transfer stays an interaction but every coin visibly travels (tap sends
+   one, a drag carries one under the finger). He also floated giving up the
+   interaction; not taken — the reader making them equal is v3's core beat.
+8. Turnover and the 1,000-person crowd leave the main flow; the theorem ("a
+   limit, not a date") survives as Red's line after the run, with the
+   time-lapse offered in the same room.
+9. Comic font: Comic Neue (OFL, self-hosted) for Latin now; Farsi later — the
+   owner's pick to try is Koodak.
+10. The cow stays the answer to "Want to hear a joke?"; the spherical human is
+    offered at the cow's end.
+
+**Removed with Phase 1 (words):** "'This world' means the one on your screen"
+and "Small world. But it's mine."; the five-bubble controls tip (now one
+line that waits); the GPS pair; "Fifty-fifty? I've bet on worse odds." ★ and
+"Another round?" ★ (absent from the brief's rewritten rounds); "Told you.";
+"Two players can't settle this…" ★ (replaced by the brief's ★ "We need more
+players. And many more rounds."); "How many?" / "A hundred. Everyone starts
+equal. Including us." (the room shows it).

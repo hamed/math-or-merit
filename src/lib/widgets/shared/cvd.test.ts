@@ -105,3 +105,16 @@ describe('speaker-coloured text is readable (A6)', () => {
     for (const name of COLOR_NAMES) expect(contrast(FILLS[name], PAPER)).toBeLessThan(2);
   });
 });
+
+describe('speaker bubbles stay readable (iteration-2 brief 3.1)', () => {
+  it('keeps each speaker\'s ink at 4.5:1 or more on his own washed bubble', async () => {
+    const { SPEAKER_TONES } = await import('./agentStyle');
+    const { contrastRatio, over, parseColor } = await import('./cvd');
+    for (const [who, tone] of Object.entries(SPEAKER_TONES)) {
+      const paper = over(tone.wash, '#fffaf0');
+      const hex = (rgb: readonly number[]) => '#' + rgb.map((c) => Math.round(c * 255).toString(16).padStart(2, '0')).join('');
+      const ratio = contrastRatio(parseColor(tone.ink).rgb, parseColor(hex(paper)).rgb);
+      expect(ratio, who).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});

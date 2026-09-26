@@ -22,6 +22,7 @@
     STEP_STAGE_CONTEXT,
     StepMachine,
     claim,
+    readingMs,
     type Claim,
     type StepResult,
     type StepScene,
@@ -64,6 +65,14 @@
     isReleased(stepId) {
       return machine?.isReleased(stepId) ?? false;
     },
+    pause(on) {
+      paused = on;
+      if (!on && owed) {
+        owed = false;
+        // the reader looked away from a line that was due: a moment more, then go
+        scheduleAuto(RESUME_MS);
+      }
+    },
     get index() {
       return live.index;
     },
@@ -82,6 +91,10 @@
   }
 
   let autoTimer: number | undefined;
+  /** The pointer rests on a bubble; a chat step that comes due waits for it to leave. */
+  let paused = false;
+  let owed = false;
+  const RESUME_MS = 1200;
 
   function clearAuto(): void {
     if (autoTimer !== undefined) window.clearTimeout(autoTimer);
@@ -94,21 +107,28 @@
    * back into the title or a toss is reviewing it; a timer there pushed them
    * forward again, so walking back through two auto steps never got past them.
    */
-  function scheduleAuto(): void {
+  function scheduleAuto(after: number | null = null): void {
     clearAuto();
+    owed = false;
     if (!machine || live.reduced) return;
     const wait = machine.step.wait;
-    if (wait.kind !== 'auto') return;
+    if (wait.kind !== 'auto' && wait.kind !== 'chat') return;
     const at = machine.index;
+    const ms = after ?? (wait.kind === 'auto' ? wait.ms : (scene?.readingMs?.(at) ?? readingMs(8)));
     autoTimer = window.setTimeout(function fire() {
       if (!machine || machine.index !== at) return;
       if (!inView()) {
         autoTimer = window.setTimeout(fire, 400);
         return;
       }
+      if (paused && wait.kind === 'chat') {
+        owed = true;
+        autoTimer = undefined;
+        return;
+      }
       const from = machine.index;
       if (machine.next() === 'moved') show(from, 'forward');
-    }, wait.ms);
+    }, ms);
   }
 
   /** Put the scene on the machine's step. Forward by one plays; anything else settles. */
@@ -126,7 +146,8 @@
 
   function publish(): void {
     const el = document.documentElement;
-    const state = !machine || !engaged() ? null : autoTimer !== undefined ? 'playing' : 'reading';
+    const playing = autoTimer !== undefined && machine?.step.wait.kind === 'auto';
+    const state = !machine || !engaged() ? null : playing ? 'playing' : 'reading';
     if (state === null) el.removeAttribute(STAGE_STATE_ATTRIBUTE);
     else if (el.getAttribute(STAGE_STATE_ATTRIBUTE) !== state) el.setAttribute(STAGE_STATE_ATTRIBUTE, state);
   }
@@ -134,6 +155,7 @@
   function step(direction: 1 | -1): StepResult {
     if (!machine) return direction > 0 ? 'end' : 'start';
     const from = machine.index;
+    if (direction > 0 && scene?.hurry?.(from)) return 'hurried';
     const result = direction > 0 ? machine.next() : machine.back();
     if (result === 'moved') show(from, direction > 0 ? 'forward' : 'jump');
     else if (result === 'held') scene?.nudge?.(machine.index);
@@ -182,7 +204,7 @@
       case 'step': {
         inside = true;
         const result = step(direction);
-        return result === 'moved' || result === 'held';
+        return result === 'moved' || result === 'held' || result === 'hurried';
       }
     }
   }

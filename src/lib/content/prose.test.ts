@@ -32,12 +32,17 @@ describe('prose.md is the source of every word', () => {
     expect(new Set(tags.map(tagToKey)).size).toBe(tags.length);
   });
 
-  it('strips provenance and markdown but keeps the words', () => {
-    const blue = lines.find((line) => line.tag === 'intro.blue')!;
-    expect(blue).toMatchObject({ speaker: 'blue', approved: true, text: "I'm Blue. The richest man in this world." });
-    const draft = lines.find((line) => line.tag === 'intro.world')!;
+  it('strips provenance but keeps the words', () => {
+    const blue = lines.find((line) => line.tag === 'meet.blue')!;
+    expect(blue).toMatchObject({ speaker: 'blue', approved: true, text: "I'm the richest man in this world." });
+    const draft = lines.find((line) => line.tag === 'invite.1')!;
     expect(draft.approved).toBe(false);
     expect(draft.text.startsWith('(draft')).toBe(false);
+  });
+
+  it('keeps a bubble\'s **shout** for the bubble, and drops the stars everywhere else', () => {
+    expect(lines.find((line) => line.tag === 'dare.no')!.text).toBe('**Impossible.**');
+    expect(lines.find((line) => line.tag === 'open.reel.math')!.parts).toContain('Math');
   });
 });
 
@@ -64,24 +69,14 @@ describe('bubbles fit (brief 4.3, A2)', () => {
   });
 });
 
-describe('the reels', () => {
-  const reel = (tag: string) => lines.find((line) => line.tag === tag)!.parts!;
+describe('the reel', () => {
+  const math = lines.find((line) => line.tag === 'open.reel.math')!.parts!;
 
-  it('land on their word, third from last, with two wrong words to overshoot onto', () => {
-    const merit = reel('open.reel.merit');
-    const math = reel('open.reel.math');
-    expect(merit[merit.length - 3]).toBe('Merit');
+  it('lands on MATH, third from last, with two wrong words to overshoot onto', () => {
     expect(math[math.length - 3]).toBe('Math');
   });
 
-  it('never share a serious word — the two sides ask different questions', () => {
-    const merit = reel('open.reel.merit').slice(2, -3);
-    const math = reel('open.reel.math').slice(2, -3);
-    expect(merit.filter((word) => math.includes(word))).toEqual([]);
-  });
-
-  it('keep the politically loaded words off both sides', () => {
-    const all = [...reel('open.reel.merit'), ...reel('open.reel.math')];
-    for (const loaded of ['Race', 'Genes', "God's will", 'Class']) expect(all).not.toContain(loaded);
+  it('keeps the politically loaded words off it', () => {
+    for (const loaded of ['Race', 'Genes', "God's will", 'Class']) expect(math).not.toContain(loaded);
   });
 });

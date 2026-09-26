@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The pair stage — Scenes 1–14 of the dialogue brief, on the step player.
+   * The pair stage — Scenes 1–11 of the iteration-2 brief, on the step player.
    *
    * One stage, one continuous subject (ADR-015): the two circles the crowd
    * leaves standing ARE Blue and Red, the same two DOM nodes from the title to
@@ -9,7 +9,8 @@
    * it. The step player decides when; this file decides what.
    *
    * Words are never written here: every line is a message key (A2), and every
-   * number in a line is read off the pose on screen.
+   * number in a line is read off the pose on screen. Within a panel the lines
+   * pile up as comic bubbles (bubbles.ts), so the reader can re-read.
    */
   import { getContext, onMount } from 'svelte';
   import { gsap } from '../../gsap';
@@ -17,10 +18,11 @@
   import Coin from '../Coin.svelte';
   import Reel from './Reel.svelte';
   import Teletype from './Teletype.svelte';
-  import { STEP_STAGE_CONTEXT, type Speaker, type StepStageContext } from '../../steps';
-  import { PAIR_STEPS, REACTIONS, indexOf, valuesFor, type Pose } from './script';
+  import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
+  import { CALLS, PAIR_STEPS, REACTIONS, indexOf, panelStart, valuesFor, type Pose } from './script';
   import { BIG, BITES, CROWD, SMALL } from './crowd';
-  import { lattice, pairLayout } from './layout';
+  import { deciderFace, pairLayout, pile } from './layout';
+  import { bubbleLines, bubbleWords, stackBubbles, type BubbleChoice } from '../../bubbles';
   import {
     CLASSIC_AGENT_FILL,
     CLASSIC_AGENT_STROKE,
@@ -29,7 +31,7 @@
   } from '../../../shared/agentStyle';
   import { svgShapePath } from '../../../shared/shapePath';
   import { ambientClock, breath } from '../../ambient';
-  import { say } from '$lib/i18n';
+  import { getTextDirection, say } from '$lib/i18n';
   import { openBranch } from '../../branch';
 
   const stage = getContext<StepStageContext | undefined>(STEP_STAGE_CONTEXT);
@@ -49,16 +51,18 @@
     return out;
   }
 
-  const MERIT_WORDS = words('open_reel_merit');
   const MATH_WORDS = words('open_reel_math');
-  /** Each reel lands third from last, with two wrong words after it to overshoot onto. */
-  const MERIT_AT = MERIT_WORDS.length - 3;
+  /** The reel lands third from last, with two wrong words after it to overshoot onto. */
   const MATH_AT = MATH_WORDS.length - 3;
 
   /** Which crowd circle each protagonist is. */
   const WHO: Record<Speaker, number> = { blue: BIG, red: SMALL };
-  const PAIR: readonly Speaker[] = ['red', 'blue'];
+  const PAIR: readonly Speaker[] = ['blue', 'red'];
   const whoIs = (i: number): Speaker | null => (i === BIG ? 'blue' : i === SMALL ? 'red' : null);
+  const other = (who: Speaker): Speaker => (who === 'blue' ? 'red' : 'blue');
+
+  /** A bubble's lines arrive this far apart (3.1: "they feel timed"). */
+  const LINE_BEAT_MS = 700;
 
   // ---- measuring -----------------------------------------------------------
 
@@ -66,7 +70,9 @@
   let mathReel: HTMLSpanElement;
   let width = $state(0);
   let height = $state(0);
-  const L = $derived(pairLayout(width, height));
+  /** MERIT and Blue come first in the reading direction: in Farsi they stand on the right. */
+  const rtl = getTextDirection() === 'rtl';
+  const L = $derived(pairLayout(width, height, 100, rtl));
 
   /** The room's other ninety-eight wear the ordinary costumes (A5 keeps them off the pair's). */
   const ROOM_STYLES = assignStyles(100);
@@ -83,16 +89,17 @@
     x: number;
     y: number;
     on: number;
+    face: 'front' | 'back';
   }
 
   const view = $state({
     type: 0,
     meritOn: 0,
-    meritPos: 0,
     orOn: 0,
     mathOn: 0,
     mathPos: 0,
     markOn: 0,
+    compact: 0,
     titleOn: 1,
     lift: 0,
     people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1 })) as Person[],
@@ -101,23 +108,15 @@
     held: { blue: 15, red: 1 },
     table: { blue: 0, red: 0 },
     flipOn: 0,
-    flipFace: 'red' as Speaker,
-    flipSquash: 1,
+    /** The decider's turn, radians: faces change exactly when it is edge-on. */
+    flipAngle: 0,
+    flipLift: 0,
+    /** 0 — a plain coin, nobody's colour yet; 1 — each face in its owner's colour. */
+    flipTint: 0,
     roomOn: 0,
-    payout: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, on: 0 })) as Token[],
-    fly: [] as (Token & { face: 'front' | 'back' })[],
+    payout: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, on: 0, face: 'front' })) as Token[],
+    fly: [] as Token[],
   });
-
-  interface Said {
-    /** Whose colour the bubble wears; null for a circle not yet named. */
-    who: Speaker | null;
-    /** Which circle it points at. */
-    at: Speaker;
-    text: string;
-  }
-  let said = $state<Said | null>(null);
-  let choice = $state(false);
-  let seconds = $state(0);
 
   // ---- poses → the view ----------------------------------------------------
 
@@ -127,10 +126,10 @@
   function poseAt(index: number): Pose {
     const step = PAIR_STEPS[index];
     if (step.wait.kind !== 'action' || stage?.isReleased(step.id)) return step.pose;
-    const before = index > 0 ? PAIR_STEPS[index - 1].pose : step.pose;
-    if (step.id === 'call') return { ...before, named: { ...reader.named } };
-    if (step.id === 'equal') return { ...before, holdings: { ...reader.held } };
-    return before;
+    if (step.id === 'equal') return { ...step.pose, holdings: { ...reader.held } };
+    // only the one calling is still waiting; whoever was clicked before stays named
+    const caller = callerOf(step.id);
+    return caller ? { ...step.pose, named: { ...step.pose.named, [caller]: reader.named[caller] } } : step.pose;
   }
 
   function pairSpot(pose: Pose, who: Speaker) {
@@ -161,31 +160,31 @@
     });
   }
 
+  /** The decider at rest: plain before a toss, the winner's face after. */
+  function restingAngle(pose: Pose): number {
+    return pose.flip === 'blue' ? Math.PI : 0;
+  }
+
   function target(pose: Pose) {
     return {
       type: pose.teletype ? 1 : 0,
       meritOn: pose.merit ? 1 : 0,
-      meritPos: pose.merit ? MERIT_AT : 0,
       orOn: pose.or ? 1 : 0,
       mathOn: pose.math ? 1 : 0,
       mathPos: pose.math ? MATH_AT : 0,
       markOn: pose.mark ? 1 : 0,
+      compact: pose.compact ? 1 : 0,
       titleOn: pose.cleared ? 0 : 1,
-      lift: pose.cleared ? -L.height * 0.28 : 0,
+      lift: pose.cleared ? -L.height * 0.2 : 0,
       paint: { blue: pose.named.blue ? 1 : 0, red: pose.named.red ? 1 : 0 },
       coinsOn: pose.coins && pose.place !== 'room' ? 1 : 0,
       held: { ...pose.holdings },
       table: { ...pose.table },
       flipOn: pose.flip === 'hidden' ? 0 : 1,
+      flipAngle: restingAngle(pose),
+      flipTint: pose.flip === 'blue' || pose.flip === 'red' ? 1 : 0,
       roomOn: pose.place === 'room' ? 1 : 0,
     };
-  }
-
-  function lineFor(index: number): Said | null {
-    const step = PAIR_STEPS[index];
-    const line = step.lines?.[0];
-    if (!line || !line.who) return null;
-    return { who: line.who, at: line.who, text: say(line.message, valuesFor(step)) };
   }
 
   let timeline: ReturnType<typeof gsap.timeline> | null = null;
@@ -193,8 +192,10 @@
   function stopMotion(): void {
     timeline?.kill();
     timeline = null;
+    for (const token of view.fly) gsap.killTweensOf(token);
     view.fly = [];
     for (const token of view.payout) token.on = 0;
+    dragging = null;
   }
 
   /** Draw a pose at once. */
@@ -202,11 +203,11 @@
     const t = target(pose);
     view.type = t.type;
     view.meritOn = t.meritOn;
-    view.meritPos = t.meritPos;
     view.orOn = t.orOn;
     view.mathOn = t.mathOn;
     view.mathPos = t.mathPos;
     view.markOn = t.markOn;
+    view.compact = t.compact;
     view.titleOn = t.titleOn;
     view.lift = t.lift;
     view.paint.blue = t.paint.blue;
@@ -215,14 +216,14 @@
     view.held = t.held;
     view.table = t.table;
     view.flipOn = t.flipOn;
-    if (pose.flip === 'blue' || pose.flip === 'red') view.flipFace = pose.flip;
-    view.flipSquash = 1;
+    view.flipAngle = t.flipAngle;
+    view.flipLift = 0;
+    view.flipTint = t.flipTint;
     view.roomOn = t.roomOn;
     people(pose).forEach((p, i) => Object.assign(view.people[i], p));
-    choice = pose.choice;
   }
 
-  // ---- the player's two verbs ------------------------------------------------
+  // ---- the player's verbs ----------------------------------------------------
 
   let current = $state(0);
 
@@ -230,8 +231,9 @@
     current = index;
     stopMotion();
     stopCalls();
+    reaction = null;
     draw(poseAt(index));
-    said = lineFor(index);
+    showAll(index);
     enter(index);
   }
 
@@ -239,29 +241,149 @@
     current = index;
     stopMotion();
     stopCalls();
+    reaction = null;
     if (from >= 0) draw(poseAt(from));
     const step = PAIR_STEPS[index];
     const pose = poseAt(index);
-    said = lineFor(index);
     timeline = gsap.timeline();
     choreograph(step.action, pose, timeline);
+    revealLines(index);
     enter(index);
   }
 
   function nudge(index: number): void {
     const id = PAIR_STEPS[index].id;
-    if (id === 'call') callOut(true);
-    if (id === 'equal') said = { who: 'blue', at: 'blue', text: say('equal_ask') };
+    const caller = callerOf(id);
+    if (caller) callOut(caller);
+    if (id === 'equal') wiggle('blue');
   }
 
-  /** Things a step starts that are not tweens: the call-outs, the coin mover. */
+  function hurry(index: number): boolean {
+    if (reveal.id !== PAIR_STEPS[index].id || reveal.shown >= reveal.total) return false;
+    showAll(index);
+    return true;
+  }
+
+  function readingTime(index: number): number {
+    const line = PAIR_STEPS[index].lines?.[0];
+    if (!line) return readingMs(0);
+    const text = say(line.message, valuesFor(PAIR_STEPS[index]));
+    return readingMs(bubbleWords(text)) + (bubbleLines(text).length - 1) * LINE_BEAT_MS;
+  }
+
+  /** Things a step starts that are not tweens: the calls, the coin mover. */
   function enter(index: number): void {
     const id = PAIR_STEPS[index].id;
-    if (id === 'call' && !stage?.isReleased('call')) startCalls();
-    if (id === 'equal' && !stage?.isReleased('equal')) {
-      reacted = { first: false, eleven: false, over: false };
-      selected = null;
+    const caller = callerOf(id);
+    if (caller && !stage?.isReleased(id)) startCalls(caller);
+    if (id === 'equal' && !stage?.isReleased('equal')) reacted = { first: false, eleven: false, over: false };
+  }
+
+  // ---- the bubbles: one comic panel per topic --------------------------------
+
+  interface Said {
+    id: string;
+    /** Whose colours the bubble wears; null for a circle not yet introduced. */
+    who: Speaker | null;
+    /** Which circle it points at. */
+    at: Speaker;
+    text: string;
+    choices?: readonly BubbleChoice[];
+  }
+
+  /** The line of a Scene 3 hold, once more and a little louder each time. */
+  const callLevel = $state({ blue: 0, red: 0 });
+  /** A coin-moving reaction (Scene 5), spoken on an event rather than a step. */
+  let reaction = $state<Said | null>(null);
+
+  const callerOf = (id: string): Speaker | null => (id === CALLS.red ? 'red' : id === CALLS.blue ? 'blue' : null);
+
+  const said = $derived.by((): Said[] => {
+    const out: Said[] = [];
+    for (let i = panelStart(current); i <= current; i++) {
+      const step = PAIR_STEPS[i];
+      const line = step.lines?.[0];
+      if (!line || !line.who) continue;
+      const caller = callerOf(step.id);
+      if (caller) {
+        const waiting = !(view.paint[caller] > 0.5);
+        const level = waiting ? callLevel[caller] : 0;
+        const pool = caller === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
+        out.push({ id: `${step.id}#${level}`, who: waiting ? null : caller, at: caller, text: say(pool[level]) });
+        continue;
+      }
+      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)) });
     }
+    if (reaction && current === indexOf('equal')) out.push(reaction);
+    const last = out[out.length - 1];
+    if (last && PAIR_STEPS[current].pose.choice) {
+      out[out.length - 1] = {
+        ...last,
+        choices: [
+          { label: say('more_choice_1'), act: tellMe },
+          { label: say('more_choice_2'), act: notNow },
+        ],
+      };
+    }
+    return out;
+  });
+
+  /** The newest bubble's lines, arriving one by one. */
+  let reveal = $state({ id: '', shown: Infinity, total: 0 });
+  let revealTimer: number | undefined;
+
+  function stopReveal(): void {
+    if (revealTimer !== undefined) window.clearInterval(revealTimer);
+    revealTimer = undefined;
+  }
+
+  function revealLines(index: number): void {
+    stopReveal();
+    const step = PAIR_STEPS[index];
+    const line = step.lines?.[0];
+    if (!line) return;
+    const total = bubbleLines(say(line.message)).length;
+    if (total <= 1 || stage?.reduced) {
+      reveal = { id: step.id, shown: Infinity, total };
+      return;
+    }
+    reveal = { id: step.id, shown: 1, total };
+    revealTimer = window.setInterval(() => {
+      reveal.shown += 1;
+      if (reveal.shown >= total) stopReveal();
+    }, LINE_BEAT_MS);
+  }
+
+  function showAll(index: number): void {
+    stopReveal();
+    reveal = { id: PAIR_STEPS[index].id, shown: Infinity, total: 0 };
+  }
+
+  const sizes = $state<Record<string, { w: number; h: number }>>({});
+
+  /** The band the talk lives in: under the title (small by now), over the two. */
+  const region = $derived.by(() => {
+    const pose = poseAt(current);
+    const font = Math.min(108.8, Math.max(32, Math.min(width * 0.08, height * 0.13)));
+    const top = pose.cleared ? height * 0.05 : height * 0.03 + font * 0.72 + 12;
+    const tops =
+      pose.place === 'room'
+        ? [L.room.top]
+        : PAIR.map((who) => pairSpot(pose, who).y - Math.max(pairRadius(pose, who), L.minRadius));
+    const bottom = Math.max(top + 90, Math.min(...tops) - 6);
+    return { top, bottom, left: 16, right: width - 16 };
+  });
+
+  const placed = $derived(
+    stackBubbles(
+      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: anchorOf(b.at) })),
+      region,
+    ),
+  );
+
+  function anchorOf(who: Speaker) {
+    const p = view.people[WHO[who]];
+    return { x: p.x, y: p.y, r: Math.max(p.r, L.minRadius) };
   }
 
   // ---- choreography ----------------------------------------------------------
@@ -276,6 +398,7 @@
         orOn: t.orOn,
         mathOn: t.mathOn,
         markOn: t.markOn,
+        compact: t.compact,
         titleOn: t.titleOn,
         lift: t.lift,
         coinsOn: t.coinsOn,
@@ -292,22 +415,23 @@
       () => {
         view.held = t.held;
         view.table = t.table;
-        choice = pose.choice;
+        view.flipAngle = t.flipAngle;
+        view.flipTint = t.flipTint;
       },
       [],
       at + duration,
     );
   }
 
-  function spin(tl: ReturnType<typeof gsap.timeline>, key: 'meritPos' | 'mathPos', answer: number, onKey: 'meritOn' | 'mathOn'): void {
-    tl.set(view, { [key]: 0 });
-    tl.to(view, { [onKey]: 1, duration: 0.25, ease: 'none' });
+  function spin(tl: ReturnType<typeof gsap.timeline>, answer: number): void {
+    tl.set(view, { mathPos: 0 });
+    tl.to(view, { mathOn: 1, duration: 0.25, ease: 'none' });
     // Slow enough to read the two funny words, then a steady readable run past
     // the answer (never under about a quarter second a word), two words over,
     // and back to rest.
-    tl.to(view, { [key]: 2, duration: 1.1, ease: 'sine.in' });
-    tl.to(view, { [key]: answer + 2, duration: answer / 3.6, ease: 'none' });
-    tl.to(view, { [key]: answer, duration: 0.75, ease: 'power2.inOut' });
+    tl.to(view, { mathPos: 2, duration: 1.1, ease: 'sine.in' });
+    tl.to(view, { mathPos: answer + 2, duration: answer / 3.6, ease: 'none' });
+    tl.to(view, { mathPos: answer, duration: 0.75, ease: 'power2.inOut' });
   }
 
   function choreograph(action: string | undefined, pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
@@ -315,14 +439,14 @@
       case 'type':
         tl.to(view, { type: 1, duration: 3.6, ease: 'none' }, 0.5);
         return;
-      case 'reel-merit':
-        spin(tl, 'meritPos', MERIT_AT, 'meritOn');
+      case 'merit':
+        tl.to(view, { meritOn: 1, duration: 0.9, ease: 'power1.out' });
         return;
       case 'or':
         tl.to(view, { orOn: 1, duration: 0.6, ease: 'none' });
         return;
       case 'reel-math':
-        spin(tl, 'mathPos', MATH_AT, 'mathOn');
+        spin(tl, MATH_AT);
         return;
       case 'payout':
         payout(tl);
@@ -346,7 +470,7 @@
         tweenTo(pose, tl, 0, 1.2);
         return;
       default:
-        tweenTo(pose, tl, 0, 0.5);
+        tweenTo(pose, tl, 0, 0.6);
     }
   }
 
@@ -401,24 +525,35 @@
     }
   }
 
-  /** Stakes leave each fortune and land on the table, as coins. */
+  /** Where coin `k` of a fortune of `count` sits on the stage right now. */
+  function coinSpot(who: Speaker, count: number, k: number) {
+    const person = view.people[WHO[who]];
+    const spots = pile(count, L.coinRadius, Math.max(L.minRadius, L.radius(count)));
+    const spot = spots[Math.max(0, Math.min(k, spots.length - 1))] ?? { x: 0, y: 0 };
+    return { x: person.x + spot.x, y: person.y + spot.y };
+  }
+
+  /** Stakes leave each fortune, one coin at a time, and land on the table. */
   function ante(pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
     const stake = pose.table.blue;
-    const tokens: (Token & { face: 'front' | 'back' })[] = [];
+    const before = { blue: pose.holdings.blue + stake, red: pose.holdings.red + stake };
+    const starts: Token[] = [];
     for (const who of ['red', 'blue'] as Speaker[]) {
-      const person = view.people[WHO[who]];
-      for (let k = 0; k < stake; k++) tokens.push({ x: person.x, y: person.y, on: 1, face: k % 2 ? 'back' : 'front' });
+      for (let k = 0; k < stake; k++) {
+        const from = coinSpot(who, before[who], before[who] - 1 - k);
+        starts.push({ x: from.x, y: from.y, on: 1, face: k % 2 ? 'back' : 'front' });
+      }
     }
-    view.fly = tokens;
+    view.fly = starts;
     const slots = tableSlots(stake, stake);
     tl.call(() => {
       view.held = { ...pose.holdings };
     });
-    tokens.forEach((token, k) => {
-      tl.to(token, { x: slots[k].x, y: slots[k].y, duration: 0.5, ease: 'power2.inOut' }, 0.05 + k * 0.05);
+    view.fly.forEach((token, k) => {
+      tl.to(token, { x: slots[k].x, y: slots[k].y, duration: 0.75, ease: 'power2.inOut' }, 0.05 + k * 0.09);
     });
     for (const who of ['blue', 'red'] as Speaker[]) {
-      tl.to(view.people[WHO[who]], { r: pairRadius(pose, who), duration: 0.45, ease: 'power2.inOut' }, 0.1);
+      tl.to(view.people[WHO[who]], { r: pairRadius(pose, who), duration: 0.6, ease: 'power2.inOut' }, 0.15);
     }
     tl.call(() => {
       view.fly = [];
@@ -426,25 +561,28 @@
     });
   }
 
-  /** The decider spins, one colour lands, and the table goes to its owner. */
+  /**
+   * The decider goes up turning and comes down on the winner's face. A face
+   * only ever changes while the coin is edge-on, and each face wears its
+   * owner's colour from the moment it is tossed: Marx is Red's, the bank is
+   * Blue's (brief 3.5). Then the table goes to the winner.
+   */
   function toss(pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
     const winner: Speaker = pose.flip === 'blue' ? 'blue' : 'red';
-    const loser: Speaker = winner === 'blue' ? 'red' : 'blue';
+    const start = view.flipAngle;
+    const turns = 5;
+    const end = start - (start % (2 * Math.PI)) + turns * 2 * Math.PI + (winner === 'blue' ? Math.PI : 0);
+    const high = -L.whole * 0.9;
     tl.to(view, { flipOn: 1, duration: 0.2 }, 0);
-    const squashes = 5;
-    for (let s = 0; s < squashes; s++) {
-      const at = 0.2 + s * 0.2;
-      tl.to(view, { flipSquash: 0.06, duration: 0.1, ease: 'power1.in' }, at);
-      // the sequence is built backwards from the face that lands
-      tl.set(view, { flipFace: (squashes - 1 - s) % 2 === 0 ? winner : loser }, at + 0.1);
-      tl.to(view, { flipSquash: 1, duration: 0.1, ease: 'power1.out' }, at + 0.1);
-    }
-    const landed = 0.2 + squashes * 0.2 + 0.25;
-    // The stakes on the table become flying coins the moment the coin lands;
+    tl.set(view, { flipTint: 1 }, 0.15);
+    tl.to(view, { flipAngle: end, duration: 2.1, ease: 'power3.out' }, 0.15);
+    tl.to(view, { flipLift: high, duration: 0.95, ease: 'power2.out' }, 0.15);
+    tl.to(view, { flipLift: 0, duration: 0.9, ease: 'bounce.out' }, 1.1);
+    const landed = 2.4;
+    // The stakes on the table become flying coins once the coin has landed;
     // they are made now, hidden, so the timeline owns every tween it plays.
     const slots = tableSlots(view.table.blue, view.table.red);
-    const tokens = slots.map((slot, k) => ({ x: slot.x, y: slot.y, on: 0, face: (k % 2 ? 'back' : 'front') as 'front' | 'back' }));
-    view.fly = tokens;
+    view.fly = slots.map((slot, k) => ({ x: slot.x, y: slot.y, on: 0, face: k % 2 ? 'back' : 'front' }));
     const to = view.people[WHO[winner]];
     tl.call(
       () => {
@@ -455,9 +593,9 @@
       landed,
     );
     view.fly.forEach((token, k) => {
-      tl.to(token, { x: to.x, y: to.y, duration: 0.45, ease: 'power2.in' }, landed + 0.05 + k * 0.03);
+      tl.to(token, { x: to.x, y: to.y, duration: 0.5, ease: 'power2.in' }, landed + 0.05 + k * 0.05);
     });
-    const done = landed + 0.5 + tokens.length * 0.03;
+    const done = landed + 0.6 + slots.length * 0.05;
     tl.call(
       () => {
         view.fly = [];
@@ -471,90 +609,97 @@
     }
   }
 
-  /** Where staked coins sit: Red's half-stack on the left, Blue's on the right. */
+  /** Where staked coins sit: each one's half-stack on his own side of the table. */
   function tableSlots(blue: number, red: number) {
     const r = L.coinRadius;
+    const toward = (who: Speaker) => Math.sign(pairSpot(poseAt(current), who).x - L.table.x) || (who === 'blue' ? -1 : 1);
     const slots: { x: number; y: number }[] = [];
-    for (let k = 0; k < red; k++) slots.push({ x: L.table.x - r * (1.2 + k * 1.1), y: L.table.y });
-    for (let k = 0; k < blue; k++) slots.push({ x: L.table.x + r * (1.2 + k * 1.1), y: L.table.y });
+    for (let k = 0; k < red; k++) slots.push({ x: L.table.x + toward('red') * r * (1.3 + k * 1.15), y: L.table.y });
+    for (let k = 0; k < blue; k++) slots.push({ x: L.table.x + toward('blue') * r * (1.3 + k * 1.15), y: L.table.y });
     return slots;
   }
 
-  // ---- Scene 3: calling out --------------------------------------------------
+  // ---- Scene 3: meeting them -------------------------------------------------
 
   let callTimer: number | undefined;
-  let calls = 0;
 
   function stopCalls(): void {
     if (callTimer !== undefined) window.clearTimeout(callTimer);
     callTimer = undefined;
   }
 
-  function startCalls(): void {
-    calls = 0;
-    callTimer = window.setTimeout(() => callOut(false), 900);
+  function startCalls(who: Speaker): void {
+    callLevel[who] = 0;
+    callTimer = window.setTimeout(() => callOut(who), 4200);
   }
 
-  /** One line from an unnamed circle, escalating from "Hi." toward "Click on me." */
-  function callOut(now: boolean): void {
+  /** The caller tries again, a little louder, while the reader has not clicked. */
+  function callOut(who: Speaker): void {
     stopCalls();
-    if (reader.named.blue && reader.named.red) return;
-    const waiting = (['blue', 'red'] as Speaker[]).filter((who) => !reader.named[who]);
-    const at = waiting[Math.floor(Math.random() * waiting.length)];
-    const pool = REACTIONS.callPool;
-    let key: string = pool[Math.min(pool.length - 1, calls)];
-    if (calls >= 3 && Math.random() < 0.45) key = at === 'blue' ? REACTIONS.callBig : REACTIONS.callSmall;
-    calls++;
-    said = { who: reader.named[at] ? at : null, at, text: say(key) };
+    if (view.paint[who] > 0.5) return;
+    const pool = who === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
+    callLevel[who] = Math.min(pool.length - 1, callLevel[who] + 1);
     if (stage?.reduced) return;
-    callTimer = window.setTimeout(
-      () => {
-        said = null;
-        callTimer = window.setTimeout(() => callOut(false), 3000 + Math.random() * 4000);
-      },
-      now ? 1800 : 2500,
-    );
+    callTimer = window.setTimeout(() => callOut(who), 4000 + Math.random() * 2500);
   }
 
   function name(who: Speaker): void {
-    if (current !== indexOf('call') || reader.named[who]) return;
+    const id = CALLS[who];
+    if (current !== indexOf(id) || reader.named[who]) return;
     reader.named = { ...reader.named, [who]: true };
-    gsap.fromTo(view.paint, { [who]: 0 }, { [who]: 1, duration: 0.4, ease: 'back.out(2.5)' });
-    const other: Speaker = who === 'blue' ? 'red' : 'blue';
-    if (reader.named[other]) {
-      stopCalls();
-      said = null;
-      stage?.release('call');
-      return;
-    }
     stopCalls();
-    const after = REACTIONS.callAfter;
-    said = { who: null, at: other, text: say(after[Math.floor(Math.random() * after.length)]) };
-    callTimer = window.setTimeout(() => callOut(false), 2600);
+    gsap.fromTo(view.paint, { [who]: 0 }, { [who]: 1, duration: 0.4, ease: 'back.out(2.5)' });
+    stage?.release(id);
   }
 
-  // ---- Scene 9: the reader makes them equal ----------------------------------
+  // ---- Scene 5: the reader makes them equal ----------------------------------
 
-  let selected = $state<Speaker | null>(null);
   let reacted = { first: false, eleven: false, over: false };
   const holding = $derived(current === indexOf('equal') && !stage?.isReleased('equal') && stage?.index === indexOf('equal'));
 
   function react(key: string, who: Speaker): void {
-    said = { who, at: who, text: say(key) };
+    reaction = { id: `react:${key}`, who, at: who, text: say(key) };
   }
 
-  function give(from: Speaker): void {
-    if (!holding) return;
-    const to: Speaker = from === 'blue' ? 'red' : 'blue';
-    if (reader.held[from] <= 0) return;
-    const held = { ...reader.held, [from]: reader.held[from] - 1, [to]: reader.held[to] + 1 };
-    reader.held = held;
-    view.held = held;
-    selected = null;
-    for (const who of ['blue', 'red'] as Speaker[]) {
-      gsap.to(view.people[WHO[who]], { r: Math.max(L.minRadius, L.radius(held[who])), duration: 0.3, ease: 'back.out(2)' });
-    }
-    if (held.blue === 8 && held.red === 8) {
+  /** A coin on its way from one fortune to the other, drawn where it is. */
+  interface Flight {
+    token: Token;
+    to: Speaker;
+  }
+  let flights: Flight[] = [];
+
+  function launch(from: Speaker, start: { x: number; y: number }): void {
+    const to = other(from);
+    reader.held = { ...reader.held, [from]: reader.held[from] - 1 };
+    view.held = { ...view.held, [from]: view.held[from] - 1 };
+    gsap.to(view.people[WHO[from]], { r: Math.max(L.minRadius, L.radius(reader.held[from])), duration: 0.3, ease: 'back.out(2)' });
+    view.fly = [...view.fly, { x: start.x, y: start.y, on: 1, face: 'front' }];
+    const token = view.fly[view.fly.length - 1];
+    const flight = { token, to };
+    flights.push(flight);
+    const landing = reader.held[to] + flights.filter((f) => f.to === to).length;
+    const spot = coinSpot(to, landing, landing - 1);
+    const reduced = stage?.reduced ?? false;
+    gsap.to(token, {
+      x: spot.x,
+      y: spot.y,
+      duration: reduced ? 0 : 0.5,
+      ease: 'power2.inOut',
+      onComplete: () => land(flight),
+    });
+  }
+
+  function land(flight: Flight): void {
+    flights = flights.filter((f) => f !== flight);
+    flight.token.on = 0;
+    if (flights.length === 0) view.fly = [];
+    const to = flight.to;
+    reader.held = { ...reader.held, [to]: reader.held[to] + 1 };
+    view.held = { ...view.held, [to]: view.held[to] + 1 };
+    gsap.to(view.people[WHO[to]], { r: Math.max(L.minRadius, L.radius(reader.held[to])), duration: 0.3, ease: 'back.out(2)' });
+    const held = reader.held;
+    if (held.blue === 8 && held.red === 8 && flights.length === 0) {
+      reaction = null;
       stage?.release('equal');
       return;
     }
@@ -575,34 +720,67 @@
     }
   }
 
-  /** Tap a coin, then a person — or tap the fortune a coin should come FROM, then the other. */
-  function pick(who: Speaker): void {
-    if (!holding) return;
-    if (selected && selected !== who) give(selected);
-    else selected = selected === who ? null : reader.held[who] > 0 ? who : null;
+  /** A tap or a key on a fortune sends one of its coins, visibly, to the other. */
+  function give(from: Speaker): void {
+    if (!holding || reader.held[from] <= 0) return;
+    launch(from, coinSpot(from, reader.held[from], reader.held[from] - 1));
   }
 
-  let dragFrom: Speaker | null = null;
+  /** A coin being dragged across by the reader: it follows the finger. */
+  let dragging = $state<{ from: Speaker; x: number; y: number; start: { x: number; y: number }; moved: boolean } | null>(null);
+
+  function local(event: PointerEvent) {
+    const box = host.getBoundingClientRect();
+    return { x: event.clientX - box.left, y: event.clientY - box.top };
+  }
 
   function dragStart(event: PointerEvent, who: Speaker): void {
     if (!holding || reader.held[who] <= 0) return;
-    dragFrom = who;
+    const at = local(event);
+    dragging = { from: who, x: at.x, y: at.y, start: at, moved: false };
     (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
   }
 
-  function dragEnd(event: PointerEvent): void {
-    if (!dragFrom) return;
-    const from = dragFrom;
-    dragFrom = null;
-    const box = host.getBoundingClientRect();
-    const x = event.clientX - box.left;
-    const y = event.clientY - box.top;
-    const to: Speaker = from === 'blue' ? 'red' : 'blue';
-    const p = view.people[WHO[to]];
-    if (Math.hypot(x - p.x, y - p.y) <= Math.max(p.r, 40)) give(from);
+  function dragMove(event: PointerEvent): void {
+    if (!dragging) return;
+    const at = local(event);
+    dragging.x = at.x;
+    dragging.y = at.y;
+    if (Math.hypot(at.x - dragging.start.x, at.y - dragging.start.y) > 6) dragging.moved = true;
   }
 
-  // ---- Scene 14: the choice ---------------------------------------------------
+  function dragEnd(event: PointerEvent): void {
+    if (!dragging) return;
+    const { from, moved } = dragging;
+    const at = local(event);
+    dragging = null;
+    pointerDone = true;
+    if (!moved) {
+      give(from);
+      return;
+    }
+    const p = view.people[WHO[other(from)]];
+    // dropped on the other fortune: it lands there; anywhere else: it goes home
+    if (Math.hypot(at.x - p.x, at.y - p.y) <= Math.max(p.r, 44)) launch(from, at);
+  }
+
+  /** A pointer tap is handled by pointerup; a click with no pointer is a key. */
+  let pointerDone = false;
+  function onKeyClick(event: MouseEvent, who: Speaker): void {
+    if (pointerDone || event.detail !== 0) {
+      pointerDone = false;
+      return;
+    }
+    give(who);
+  }
+
+  /** At a hold, a forward gesture wiggles whoever is waiting to be acted on. */
+  let wiggling = $state<{ who: Speaker; until: number } | null>(null);
+  function wiggle(who: Speaker): void {
+    wiggling = { who, until: seconds + 0.6 };
+  }
+
+  // ---- Scene 11: the choice ---------------------------------------------------
 
   function tellMe(): void {
     openBranch('cow');
@@ -618,6 +796,8 @@
   }
 
   // ---- drawing helpers -------------------------------------------------------
+
+  let seconds = $state(0);
 
   function costumeFill(i: number): string {
     const who = whoIs(i);
@@ -659,26 +839,11 @@
       const r = view.people[i].r;
       hop = Math.max(0, Math.sin(seconds * 2.1 + i * 1.3)) ** 6 * r * 0.9;
     }
-    return `translate(${b.dx.toFixed(2)} ${(b.dy - hop).toFixed(2)}) scale(${(b.scale * pop(i)).toFixed(4)})`;
+    let shake = 0;
+    if (wiggling && whoIs(i) === wiggling.who && seconds < wiggling.until) shake = Math.sin(seconds * 42) * 4;
+    return `translate(${(b.dx + shake).toFixed(2)} ${(b.dy - hop).toFixed(2)}) scale(${(b.scale * pop(i)).toFixed(4)})`;
   }
 
-  /**
-   * Waiting to be tossed, the decider turns slowly and shows both of its faces
-   * — showing one colour at rest would give the outcome away. Once a toss has
-   * landed (the pose names a colour), it stays on that face.
-   */
-  function idleFace(): { side: Speaker; squash: number } {
-    const flip = PAIR_STEPS[current]?.pose.flip;
-    const tossing = timeline?.isActive() && PAIR_STEPS[current]?.action === 'toss';
-    if (flip !== 'shown' || tossing || stage?.reduced) return { side: view.flipFace, squash: 1 };
-    const turn = seconds / 1.6;
-    return { side: Math.floor(turn) % 2 === 0 ? 'blue' : 'red', squash: Math.max(0.06, Math.abs(Math.cos(turn * Math.PI))) };
-  }
-
-  function anchorOf(who: Speaker) {
-    const p = view.people[WHO[who]];
-    return { x: p.x, y: p.y, r: Math.max(p.r, L.minRadius) };
-  }
 
   onMount(() => {
     const observer = new ResizeObserver(() => {
@@ -690,22 +855,24 @@
     width = host.clientWidth;
     height = host.clientHeight;
     observer.observe(host);
-    stage?.attach(PAIR_STEPS, { play, settle, nudge });
+    stage?.attach(PAIR_STEPS, { play, settle, nudge, hurry, readingMs: readingTime });
     const stopAmbient = ambientClock((s) => (seconds = s), stage?.reduced ?? false);
     return () => {
       observer.disconnect();
       stopAmbient();
       stopMotion();
       stopCalls();
+      stopReveal();
     };
   });
 </script>
 
-<div class="pair-scene" bind:this={host}>
-  <!-- Once the stage is cleared (Scene 8) its words are gone, so their links
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="pair-scene" bind:this={host} onpointermove={dragMove}>
+  <!-- Once the stage is cleared (Scene 5) its words are gone, so their links
        must not stay in the tab order, invisible. -->
   <div class="words" style={`opacity:${view.titleOn}; transform: translateY(${view.lift}px)`} inert={view.titleOn < 0.5}>
-    <div class="teletype-slot">
+    <div class="teletype-slot" style={`opacity:${1 - view.compact}`} inert={view.compact > 0.5}>
       <Teletype
         headline={say('open_headline')}
         source={say('open_source')}
@@ -715,14 +882,16 @@
       />
     </div>
 
-    <!-- Physical order in every locale: MATH left, MERIT right (ADR-006 amendment). -->
-    <h1 class="title" dir="ltr" aria-label={say('open_title')}>
-      <span class="word math" bind:this={mathReel}>
-        <Reel words={MATH_WORDS} answer={MATH_AT} position={view.mathPos} shown={view.mathOn} />
-      </span>
+    <!-- In reading order: the common sense first, the question second. -->
+    <h1
+      class="title"
+      aria-label={say('open_title')}
+      style={`transform: translateY(${(-view.compact * height * 0.18).toFixed(1)}px) scale(${(1 - view.compact * 0.42).toFixed(3)})`}
+    >
+      <span class="word merit" style={`opacity:${view.meritOn}`} aria-hidden="true">{say('open_title_merit')}</span>
       <span class="word or" style={`opacity:${view.orOn}`} aria-hidden="true">{say('open_title_or')}</span>
-      <span class="word merit">
-        <Reel words={MERIT_WORDS} answer={MERIT_AT} position={view.meritPos} shown={view.meritOn} /><span
+      <span class="word math" bind:this={mathReel}>
+        <Reel words={MATH_WORDS} answer={MATH_AT} position={view.mathPos} shown={view.mathOn} /><span
           class="mark"
           style={`opacity:${view.markOn}`}
           aria-hidden="true">{say('open_title_mark')}</span
@@ -767,10 +936,10 @@
                 vector-effect="non-scaling-stroke"
               />
               {#if whoIs(i) && view.coinsOn > 0.01}
-                {@const pile = lattice(view.held[whoIs(i)!], L.coinRadius, person.r)}
+                {@const count = view.held[whoIs(i)!]}
                 <g opacity={view.coinsOn}>
-                  {#each pile.spots as spot, k (k)}
-                    <Coin cx={spot.x} cy={spot.y} r={pile.r * 0.94} face={k % 2 ? 'back' : 'front'} />
+                  {#each pile(count, L.coinRadius, Math.max(L.minRadius, L.radius(count))) as spot, k (k)}
+                    <Coin cx={spot.x} cy={spot.y} r={L.coinRadius} face={k % 2 ? 'back' : 'front'} />
                   {/each}
                 </g>
               {/if}
@@ -780,7 +949,7 @@
       {/each}
 
       {#each view.payout as token, i (i)}
-        {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius * 0.7} face={i % 2 ? 'back' : 'front'} />{/if}
+        {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius * 0.8} face={i % 2 ? 'back' : 'front'} />{/if}
       {/each}
 
       {#if view.table.blue + view.table.red > 0}
@@ -793,38 +962,43 @@
         {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius} face={token.face} />{/if}
       {/each}
 
+      {#if dragging}
+        <g class="dragged"><Coin cx={dragging.x} cy={dragging.y} r={L.coinRadius * 1.1} face="front" /></g>
+      {/if}
+
       {#if view.flipOn > 0.01}
-        {@const face = idleFace()}
-        <g transform={`translate(${L.flip.x} ${L.flip.y})`} opacity={view.flipOn}>
-          <g transform={`scale(${(view.flipSquash * face.squash).toFixed(3)} 1)`}>
-            <Coin r={L.coinRadius * 1.5} face={face.side === 'blue' ? 'front' : 'back'} tint={PROTAGONISTS[face.side].fill} />
+        {@const face = deciderFace(view.flipAngle)}
+        <g transform={`translate(${L.flip.x} ${(L.flip.y + view.flipLift).toFixed(2)})`} opacity={view.flipOn}>
+          <g transform={`scale(${face.squash.toFixed(3)} 1)`}>
+            <Coin
+              r={L.coinRadius * 1.6}
+              face={face.side === 'red' ? 'front' : 'back'}
+              tint={view.flipTint > 0.5 ? PROTAGONISTS[face.side].fill : undefined}
+            />
           </g>
         </g>
       {/if}
     </svg>
 
-    <!-- the two circles as controls, over the art: named in Scene 3, handed coins in Scene 9 -->
+    <!-- the two circles as controls, over the art: each clicked in Scene 3, handed coins in Scene 5 -->
     {#each PAIR as who (who)}
       {@const p = view.people[WHO[who]]}
       {@const r = Math.max(p.r, 30)}
-      {#if current === indexOf('call') && !stage?.isReleased('call') && !reader.named[who]}
+      {#if current === indexOf(CALLS[who]) && !reader.named[who] && !stage?.isReleased(CALLS[who])}
         <button
           type="button"
           class="hit"
           style={`left:${p.x - r}px; top:${p.y - r}px; width:${r * 2}px; height:${r * 2}px;`}
-          aria-label={say(who === 'blue' ? REACTIONS.callBig : REACTIONS.callSmall)}
+          aria-label={say(who === 'blue' ? REACTIONS.callBlue[0] : REACTIONS.callRed[0])}
           onclick={() => name(who)}
         ></button>
       {:else if holding}
         <button
           type="button"
           class="hit coins"
-          class:selected={selected === who}
           style={`left:${p.x - r}px; top:${p.y - r}px; width:${r * 2}px; height:${r * 2}px;`}
-          aria-label={selected && selected !== who
-            ? say('equal_give', { name: say(`name_${who}`) })
-            : say('equal_take', { name: say(`name_${who}`), count: reader.held[who] })}
-          onclick={() => pick(who)}
+          aria-label={say('equal_give', { name: say(`name_${who}`), other: say(`name_${other(who)}`), count: reader.held[who] })}
+          onclick={(e) => onKeyClick(e, who)}
           onpointerdown={(e) => dragStart(e, who)}
           onpointerup={dragEnd}
         ></button>
@@ -832,24 +1006,27 @@
     {/each}
 
     <div class="bubbles" aria-live="polite">
-      {#if said}
-        <Bubble
-          text={said.text}
-          speaker={said.who}
-          name={said.who ? say(`name_${said.who}`) : ''}
-          anchor={anchorOf(said.at)}
-          bounds={{ width, height }}
-          reduced={stage?.reduced ?? false}
-        />
-      {/if}
+      {#each said as bubble, i (bubble.id)}
+        {@const place = placed[i]}
+        {#if place}
+          <Bubble
+            id={bubble.id}
+            text={bubble.text}
+            speaker={bubble.who}
+            name={bubble.who ? say(`name_${bubble.who}`) : ''}
+            x={place.x}
+            y={place.y}
+            tail={place.tail}
+            gone={place.gone}
+            shown={bubble.id === reveal.id ? reveal.shown : Infinity}
+            choices={bubble.choices}
+            onsize={(w, h) => (sizes[bubble.id] = { w, h })}
+            onrest={(on) => stage?.pause(on)}
+            reduced={stage?.reduced ?? false}
+          />
+        {/if}
+      {/each}
     </div>
-
-    {#if choice}
-      <div class="choice">
-        <button type="button" onclick={tellMe}>{say('more_choice_1')}</button>
-        <button type="button" onclick={notNow}>{say('more_choice_2')}</button>
-      </div>
-    {/if}
   {/if}
 </div>
 
@@ -886,8 +1063,7 @@
   .title {
     position: absolute;
     inset-block-start: 21%;
-    left: 0;
-    right: 0;
+    inset-inline: 0;
     display: flex;
     justify-content: center;
     align-items: baseline;
@@ -900,6 +1076,7 @@
     line-height: 1.2;
     color: var(--ink-strong);
     white-space: nowrap;
+    transform-origin: 50% 0;
   }
 
   .word.or {
@@ -926,6 +1103,11 @@
     border-radius: 50%;
     background: transparent;
     cursor: pointer;
+    touch-action: none;
+  }
+
+  .hit.coins {
+    cursor: grab;
   }
 
   .hit:focus-visible {
@@ -933,9 +1115,8 @@
     outline-offset: 3px;
   }
 
-  .hit.coins.selected {
-    outline: 2px dashed var(--ink-mid);
-    outline-offset: 4px;
+  .dragged {
+    filter: drop-shadow(0 3px 4px rgb(40 37 31 / 25%));
   }
 
   .bubbles {
@@ -945,33 +1126,7 @@
     pointer-events: none;
   }
 
-  .choice {
-    position: absolute;
-    inset-block-end: 6%;
-    left: 50%;
-    z-index: 5;
-    display: flex;
-    gap: 0.7rem;
-    transform: translateX(-50%);
-  }
-
-  .choice button {
-    white-space: nowrap;
-    min-block-size: 2.75rem;
-    padding-block: 0.45rem;
-    padding-inline: 1.15rem;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    color: var(--ink);
-    background: var(--paper-bright);
-    font-family: var(--font-sans);
-    font-size: 0.92rem;
-    font-weight: 650;
-    cursor: pointer;
-  }
-
-  .choice button:first-child {
-    border-color: var(--accent);
-    color: var(--accent);
+  .bubbles :global(.bubble) {
+    pointer-events: auto;
   }
 </style>

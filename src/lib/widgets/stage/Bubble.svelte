@@ -1,127 +1,245 @@
 <script lang="ts">
   /**
-   * A speech bubble over a stage (brief 4.3, A2).
+   * One comic speech bubble on a stage (iteration-2 brief 3.1; A2).
    *
-   * HTML, not SVG text: Farsi shaping, bidi and the Vazirmatn fallback only
-   * work in HTML, and the width is MEASURED, never fixed, so a longer
-   * translation grows the bubble instead of spilling out of it.
+   * HTML, not SVG text: Farsi shaping and bidi only work in HTML, and the size
+   * is MEASURED, never fixed — a longer translation grows the bubble. The panel
+   * that owns it measures it (`w`, `h`), decides where it goes (`bubbles.ts`),
+   * and hands back its place and tail. The outline is drawn around whatever
+   * size that is.
    *
-   * Placement is in the stage's physical pixels, because the speakers' sides
-   * are physical in every locale (A2's one exception). The words inside follow
-   * the document's direction like everything else.
+   * One sentence per line; the lines arrive one after another (`shown`), each
+   * taking its space from the start so nothing jumps. A screen reader gets the
+   * whole bubble at once, name first.
    */
+  import { bubbleLines, comicOutline, shoutSegments, type BubbleChoice, type Tail } from './bubbles';
+  import { SPEAKER_TONES } from '../shared/agentStyle';
   import type { Speaker } from './steps';
 
   interface Props {
+    /** Stable per bubble: seeds its wobble. */
+    id: string;
     text: string;
-    /** Who is speaking — sets the tail's colour and the hidden name. */
+    /** Whose colours it wears; null for someone not yet introduced. */
     speaker: Speaker | null;
     /** The name a screen reader says first ("Blue"). */
     name?: string;
-    /** The speaker's centre and radius, in stage px. */
-    anchor: { x: number; y: number; r: number };
-    /** The stage, in px, so the bubble never leaves it. */
-    bounds: { width: number; height: number };
-    /** No pop, no bounce. */
+    x: number;
+    y: number;
+    tail: Tail;
+    /** How many lines are showing; the rest keep their space, unseen. */
+    shown?: number;
+    /** Scrolled out of the top of a full panel. */
+    gone?: boolean;
+    /** Reports the measured size, for the panel's layout. */
+    onsize?: (w: number, h: number) => void;
+    /** The reader's choices, as links inside the bubble (3.1). */
+    choices?: readonly BubbleChoice[];
+    /** The pointer is resting on it: chit-chat waits. */
+    onrest?: (on: boolean) => void;
     reduced?: boolean;
   }
 
-  let { text, speaker, name = '', anchor, bounds, reduced = false }: Props = $props();
+  let {
+    id,
+    text,
+    speaker,
+    name = '',
+    x,
+    y,
+    tail,
+    shown = Infinity,
+    gone = false,
+    onsize,
+    choices,
+    onrest,
+    reduced = false,
+  }: Props = $props();
 
-  const MARGIN = 12;
-  const GAP = 10;
-  const TAIL = 9;
+  let w = $state(0);
+  let h = $state(0);
+  $effect(() => onsize?.(w, h));
 
-  let width = $state(0);
-  let height = $state(0);
+  const lines = $derived(bubbleLines(text));
+  const plain = $derived(lines.join(' ').replace(/\*\*/g, ''));
+  const tone = $derived(SPEAKER_TONES[speaker ?? 'none']);
+  const outline = $derived(w > 0 && h > 0 ? comicOutline(w, h, tail, id) : '');
+  /** Moves between places glide, but the first placement never slides in from a corner. */
+  let settled = $state(false);
 
-  const placed = $derived.by(() => {
-    const w = width || 1;
-    const h = height || 1;
-    const left = Math.min(Math.max(MARGIN, anchor.x - w / 2), Math.max(MARGIN, bounds.width - w - MARGIN));
-    const aboveTop = anchor.y - anchor.r - GAP - TAIL - h;
-    const below = aboveTop < MARGIN;
-    const top = below ? anchor.y + anchor.r + GAP + TAIL : aboveTop;
-    const tailX = Math.min(Math.max(anchor.x - left, 18), w - 18);
-    return { left, top, below, tailX };
+  $effect(() => {
+    if (w > 0 && !settled) requestAnimationFrame(() => (settled = true));
   });
 </script>
 
-{#key text}
-  <p
-    class="bubble"
-    class:below={placed.below}
-    class:still={reduced}
-    data-speaker={speaker}
-    style={`left:${placed.left}px; top:${placed.top}px; --tail-x:${placed.tailX}px;`}
-    bind:clientWidth={width}
-    bind:clientHeight={height}
-  >
-    {#if name}<span class="visually-hidden">{name}: </span>{/if}{text}
+<!-- the pointer resting on a bubble holds chit-chat (3.2); a click on it still steps -->
+<div
+  class="bubble"
+  class:settled
+  class:gone
+  class:still={reduced}
+  data-speaker={speaker ?? 'none'}
+  style={`left:${x}px; top:${y}px; --ink:${tone.ink}; visibility:${w > 0 ? 'visible' : 'hidden'}`}
+  bind:clientWidth={w}
+  bind:clientHeight={h}
+  onpointerenter={() => onrest?.(true)}
+  onpointerleave={() => onrest?.(false)}
+  role="presentation"
+>
+  {#if outline}
+    <svg class="outline" width={w} height={h} aria-hidden="true">
+      <path d={outline} class="paper" />
+      <path d={outline} fill={tone.wash} stroke={tone.edge} stroke-width="2.1" stroke-linejoin="round" />
+    </svg>
+  {/if}
+  <p class="words">
+    <span class="visually-hidden">{name ? `${name}: ` : ''}{plain}</span>
+    <span class="lines" aria-hidden="true">
+      {#each lines as line, i (i)}
+        <span class="line" class:waiting={i >= shown}
+          >{#each shoutSegments(line) as segment, k (k)}{#if segment.shout}<strong class="shout">{segment.text}</strong
+              >{:else}{segment.text}{/if}{/each}</span
+        >
+      {/each}
+    </span>
   </p>
-{/key}
+  {#if choices && choices.length > 0}
+    <p class="choices" class:waiting={shown < lines.length}>
+      {#each choices as choice, i (choice.label)}
+        {#if i > 0}<span class="dot" aria-hidden="true">·</span>{/if}
+        <button type="button" class="choice" onclick={choice.act}>{choice.label}</button>
+      {/each}
+    </p>
+  {/if}
+</div>
 
 <style>
   .bubble {
     position: absolute;
     z-index: 3;
-    margin: 0;
     inline-size: max-content;
-    max-inline-size: min(24rem, calc(100vw - 24px));
-    padding-block: 0.5rem;
-    padding-inline: 0.85rem;
-    border: 1.5px solid var(--speaker-edge, var(--line));
-    border-radius: 1rem;
+    max-inline-size: min(23rem, calc(100% - 32px));
+    padding-block: 0.7rem 0.75rem;
+    padding-inline: 1.1rem;
     color: var(--ink);
-    background: var(--paper-bright);
-    box-shadow: 0 1px 4px rgb(40 37 31 / 10%);
-    font-family: var(--font-serif);
-    font-size: clamp(0.98rem, 1.7vw, 1.14rem);
-    line-height: 1.4;
+    font-family: var(--font-hand);
+    font-size: clamp(1.08rem, 1.9vw, 1.3rem);
+    font-weight: 700;
+    line-height: 1.32;
     text-align: start;
+    animation: pop 220ms cubic-bezier(0.34, 1.45, 0.64, 1) both;
+  }
+
+  .bubble.settled {
+    transition:
+      top 380ms cubic-bezier(0.3, 0.7, 0.3, 1),
+      left 380ms cubic-bezier(0.3, 0.7, 0.3, 1),
+      opacity 300ms ease;
+  }
+
+  .bubble.gone {
+    opacity: 0;
     pointer-events: none;
-    animation: pop 190ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
   }
 
-  /* the tail points at whoever is speaking */
-  .bubble::after {
-    content: '';
+  .outline {
     position: absolute;
-    inset-block-start: 100%;
-    left: calc(var(--tail-x) - 8px);
-    border-inline: 8px solid transparent;
-    border-block-start: 9px solid var(--speaker-edge, var(--line));
+    inset-block-start: 0;
+    left: 0;
+    z-index: -1;
+    overflow: visible;
+    filter: drop-shadow(0 1px 2px rgb(40 37 31 / 10%));
   }
 
-  .bubble.below::after {
-    inset-block-start: auto;
-    inset-block-end: 100%;
-    border-block-start: 0;
-    border-block-end: 9px solid var(--speaker-edge, var(--line));
+  .outline .paper {
+    fill: var(--paper-bright);
   }
 
-  .bubble[data-speaker='blue'] {
-    --speaker-edge: rgb(157 53 51 / 55%);
+  /* the essay's paragraph rhythm is for prose, not for a bubble */
+  .words,
+  .choices {
+    font-size: inherit;
+    line-height: inherit;
   }
 
-  .bubble[data-speaker='red'] {
-    --speaker-edge: rgb(40 78 153 / 55%);
+  .words {
+    margin: 0;
+  }
+
+  .lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12em;
+  }
+
+  .line {
+    display: block;
+    transition: opacity 260ms ease;
+  }
+
+  .line.waiting,
+  .choices.waiting {
+    opacity: 0;
+  }
+
+  .shout {
+    display: inline-block;
+    font-size: 1.45em;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.15;
+  }
+
+  .choices {
+    margin: 0.45rem 0 0;
+    transition: opacity 260ms ease;
+  }
+
+  .choice {
+    padding: 0.15rem 0.1rem;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+  }
+
+  .choice:hover {
+    color: var(--accent-deep);
+  }
+
+  .choice:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  .dot {
+    margin-inline: 0.45rem;
+    color: var(--ink-soft);
   }
 
   .bubble.still {
     animation: none;
+    transition: none;
   }
 
   @keyframes pop {
     from {
       opacity: 0;
-      transform: scale(0.94) translateY(4px);
+      transform: scale(0.92) translateY(6px);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .bubble {
+    .bubble,
+    .bubble.settled,
+    .line {
       animation: none;
+      transition: none;
     }
   }
 </style>

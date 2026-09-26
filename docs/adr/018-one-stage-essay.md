@@ -1,10 +1,10 @@
 # ADR-018 — One stage for the whole essay: acts on a persistent room
 
 Date: 2026-09-26
-Status: **PROPOSED** — owner decision (iteration-2 brief, Part 2).
+Status: **ACCEPTED 2026-09-26 by the owner** (proposed the same day; iteration-2 brief, Part 2).
 Amends ADR-013 (yield sections become acts). Extends ADR-017 (the step stage
-carries the whole essay, not only the story). Serves ADR-015. Conditionally
-withdraws the ADR-006 amendment (see "Sides").
+carries the whole essay, not only the story). Serves ADR-015. Withdraws the
+ADR-006 amendment (see "Sides").
 
 ## Context
 
@@ -105,12 +105,13 @@ Every act also renders its lines, in order, as a visually hidden transcript, so 
 screen reader reads the essay as a document rather than a stream of live-region
 announcements. Reduced motion: tweens become cuts, runs jump to their end.
 
-### Sides (conditional)
+### Sides
 
-If the owner confirms the title "Merit or Math?" with Blue under Merit on the
-left (brief Needs-you 1), the ADR-006 amendment — physical left/right for the
-title and the protagonists — is withdrawn and the stage mirrors in RTL like
-everything else. Until then it stands.
+Confirmed by the owner (2026-09-26): the title is "Merit or Math?" — "the left
+should come first, because English is left to right; the common sense is
+merit, the question is math" — with each circle under the word it believes in.
+The ADR-006 amendment (physical sides) is withdrawn; the stage mirrors in RTL
+like everything else.
 
 ## Migration: act by act, shippable at every step
 
@@ -146,9 +147,9 @@ participants → the levy acts → the sandbox.
 - **Leave the back half as it is and only restyle it.** Does not answer
   "one stage, one room".
 
-## Acceptance (before Accepted)
+## Acceptance, per phase
 
-Owner's yes. Then per phase: the sweep through the whole stage both ways
+The sweep through the whole stage both ways
 (mouse, trackpad-shaped wheel, keys, 390 px touch); reduced motion; keyboard
 only; every act settles from its `start` with no history; restore on reload;
 fragments land on their act.
