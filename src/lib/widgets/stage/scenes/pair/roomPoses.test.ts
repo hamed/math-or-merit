@@ -134,15 +134,42 @@ describe("Scene 17's imagined rooms", async () => {
   });
 });
 
-describe('the line keeps everyone\'s size', () => {
-  it('stands each on the floor at their own size, poorest first, the richest last', () => {
-    const amounts = room();
-    const radii = amounts.map((a) => 12 * Math.sqrt(a / 100));
-    const pose = line(amounts, BOX, radii);
-    const floor = BOX.y + BOX.h - 4;
-    for (let i = 0; i < 100; i++) expect(pose.spots[i].y + Math.max(0.6, radii[i])).toBeCloseTo(floor, 6);
-    const byX = Array.from({ length: 100 }, (_, i) => i).sort((a, b) => pose.spots[a].x - pose.spots[b].x);
-    expect(byX[99]).toBe(42);
-    expect(pose.frame.y + pose.frame.h).toBeLessThan(floor - 2 * Math.max(...radii));
-  });
+describe('the line keeps everyone\'s size, under a square plot', () => {
+  const amounts = room();
+  const radii = amounts.map((a) => 12 * Math.sqrt(a / 100));
+  for (const [name, box, beside] of [
+    ['wide', { x: 40, y: 100, w: 840, h: 640 }, true],
+    ['phone', PHONE, false],
+  ] as const) {
+    const pose = line(amounts, box, radii, beside);
+
+    it(`draws the Lorenz plot square, inside the room, on a ${name} stage`, () => {
+      const f = pose.frame;
+      expect(f.w).toBeCloseTo(f.h, 6);
+      expect(f.w).toBeGreaterThan(Math.min(box.w, box.h) * 0.4);
+      expect(f.x).toBeGreaterThanOrEqual(box.x);
+      expect(f.x + f.w).toBeLessThanOrEqual(box.x + box.w);
+      expect(f.y).toBeGreaterThanOrEqual(box.y);
+      if (beside) expect(box.x + box.w - (f.x + f.w)).toBeGreaterThan(box.w * 0.3);
+    });
+
+    it(`stands everyone on the floor under the plot, at their own sizes scaled together, on a ${name} stage`, () => {
+      const floor = box.y + box.h - 4;
+      const k = pose.radii[0] / Math.max(0.6, radii[0]);
+      for (let i = 0; i < 100; i++) {
+        expect(pose.spots[i].y + pose.radii[i]).toBeCloseTo(floor, 6);
+        expect(pose.radii[i] / Math.max(0.6, radii[i])).toBeCloseTo(k, 6);
+        expect(pose.spots[i].y - pose.radii[i]).toBeGreaterThan(pose.labelY);
+      }
+      // side by side, no one on anyone, the poorest first
+      for (let rank = 1; rank < 100; rank++) {
+        const a = pose.order[rank - 1];
+        const b = pose.order[rank];
+        expect(pose.spots[b].x - pose.radii[b]).toBeGreaterThanOrEqual(pose.spots[a].x + pose.radii[a] - 1e-6);
+      }
+      expect(pose.order[99]).toBe(42);
+      const last = pose.order[99];
+      expect(pose.spots[last].x + pose.radii[last]).toBeLessThanOrEqual(pose.frame.x + pose.frame.w + 1);
+    });
+  }
 });

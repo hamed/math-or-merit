@@ -7,8 +7,8 @@
  *              keeping their costumes; the ruler is ordinary, ticks are round.
  * - `ruler`  — the same people on a multiplying ruler; under a cent goes in the
  *              dust box, because zero has no place on it.
- * - `line`   — everyone in a row, poorest first, with the running total of
- *              their money drawn above them: the Lorenz curve, and the Gini.
+ * - `line`   — everyone in a row, poorest first, under a square plot of the
+ *              running total of their money: the Lorenz curve, and the Gini.
  *
  * Everyone is one marker size in these pictures: a person counts once, and
  * where they stand says how much they have. The ruler's decade marks are keyed
@@ -63,13 +63,19 @@ export interface RulerPose {
 
 export interface LinePose {
   readonly spots: readonly Point[];
+  /** Everyone's radius in the row: their own sizes, scaled together to fit under the plot. */
+  readonly radii: readonly number[];
   readonly marker: number;
-  /** The Lorenz frame: population along the bottom, share of the money up the side. */
+  /** The Lorenz plot, square: population along the bottom, share of the money up the side. */
   readonly frame: Box;
   /** The running total, one point per person, from (0, 0) to (1, 1), in stage px. */
   readonly curve: readonly Point[];
   /** Where equal shares would climb: the diagonal, in stage px. */
   readonly diagonal: readonly [Point, Point];
+  /** Who stands at each place in the row, poorest first. */
+  readonly order: readonly number[];
+  /** Where the population axis's label sits: under the plot's ticks, over the row. */
+  readonly labelY: number;
 }
 
 /** Ruler steps a reader can say out loud: 1, 2, 2.5 or 5 times a power of ten. */
@@ -210,31 +216,46 @@ export function ruler(amounts: ArrayLike<number>, box: Box, most = 7): RulerPose
 }
 
 /**
- * Everyone in a line, poorest first. With `radii`, everyone keeps their own
- * size (owner review 2026-09-26: "you must keep the size"): side by side on
- * the floor, squeezed together only if the room is too narrow for them all.
+ * Everyone in a line, poorest first, under a square Lorenz plot (owner review
+ * 2026-09-26: "the gini plot should be square, with proper axes"; the running
+ * total must not eat the line). With `radii`, everyone keeps their own size —
+ * all scaled by one factor, so area is still wealth — side by side on the
+ * floor, as wide as the plot. With `beside`, the plot leaves the far side of
+ * the box free (the talk goes there); without, it takes the width it can.
  */
-export function line(amounts: ArrayLike<number>, box: Box, radii?: ArrayLike<number>): LinePose {
+export function line(amounts: ArrayLike<number>, box: Box, radii?: ArrayLike<number>, beside = false): LinePose {
   const n = amounts.length;
   const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => amounts[a] - amounts[b] || a - b);
-  const pitch = box.w / n;
-  const uniform = Math.max(1.2, Math.min(6, pitch / 2 - 0.6));
-  const r = (i: number) => (radii ? Math.max(0.6, radii[i]) : uniform);
+  const GAP = 0.8;
+  /** Room for the plot's own labels: the money axis on the left, the ticks and the population label below. */
+  const LEFT = 56;
+  const BELOW = 44;
+  const own = (i: number) => (radii ? Math.max(0.6, radii[i]) : 1);
+  const diameters = order.reduce((sum, i) => sum + 2 * own(i), 0);
+  const biggest = Math.max(...order.map(own));
+  // the largest square that leaves room under it for the row it scales
+  const most = Math.max(40, Math.min(box.w - LEFT - 8, beside ? box.w * 0.55 : Infinity));
+  let side = most;
+  let scale = 1;
+  for (; side > 40; side -= 2) {
+    scale = Math.min(Math.max(0.05, side - n * GAP) / diameters, (side * 0.28) / (2 * biggest));
+    if (!radii) scale = Math.min(6, side / n / 2 - GAP / 2);
+    const row = radii ? 2 * biggest * scale : 2 * scale;
+    if (side + BELOW + 10 + row + 4 <= box.h) break;
+  }
+  const r = (i: number) => (radii ? own(i) * scale : scale);
   const floor = box.y + box.h - 4;
-  const tallest = Math.max(...order.map((i) => r(i)));
-  // side by side, then squeezed to fit the room if they do not
-  const widths = order.map((i) => 2 * r(i) + 0.8);
-  const needed = widths.reduce((sum, w) => sum + w, 0);
-  const squeeze = Math.min(1, box.w / needed);
+  const tallest = Math.max(...order.map(r));
+  const frame = { x: box.x + LEFT, y: floor - 2 * tallest - 10 - BELOW - side, w: side, h: side };
+  const rowWidth = order.reduce((sum, i) => sum + 2 * r(i) + GAP, 0);
   const spots = new Array<Point>(n);
-  let x = box.x;
-  order.forEach((i, rank) => {
-    const w = widths[rank] * squeeze;
+  let x = frame.x + Math.max(0, (side - rowWidth) / 2);
+  const squeeze = Math.min(1, side / rowWidth);
+  for (const i of order) {
+    const w = (2 * r(i) + GAP) * squeeze;
     spots[i] = { x: x + w / 2, y: floor - r(i) };
     x += w;
-  });
-  const top = box.y + 6;
-  const frame = { x: box.x, y: top, w: box.w, h: floor - 2 * tallest - 10 - top };
+  }
   let total = 0;
   for (let i = 0; i < n; i++) total += amounts[i];
   const curve: Point[] = [{ x: frame.x, y: frame.y + frame.h }];
@@ -245,13 +266,16 @@ export function line(amounts: ArrayLike<number>, box: Box, radii?: ArrayLike<num
   });
   return {
     spots,
-    marker: uniform,
+    radii: Array.from({ length: n }, (_, i) => r(i)),
+    marker: scale,
     frame,
     curve,
     diagonal: [
       { x: frame.x, y: frame.y + frame.h },
       { x: frame.x + frame.w, y: frame.y },
     ],
+    order,
+    labelY: frame.y + frame.h + BELOW - 8,
   };
 }
 

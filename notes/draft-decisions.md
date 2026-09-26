@@ -573,3 +573,15 @@ equal. Including us." (the room shows it).
 - New draft labels (not his voice, rewrite freely): `dial.same`, `stop.tap`,
   `match.left`, `match.right`, `levy.pool`, `map.stake`, `map.levy`,
   `map.many`, `map.few`, `map.half`.
+
+**His review of Phase 5, 2026-09-26 (made as asked):**
+
+- The stake is 25%, not 50% ("too large and jittery"). [more.rule] ★ "They
+  bet half…" → "They bet a quarter…" (his line, one word; the coin game above
+  it still plays at half, so the room's smaller bet is new information).
+- Every plot is a proper plot, the sandbox's frame and style; the Gini plot is
+  square with the lined-up room under it and the talk beside it; the running
+  sum is read off the axes instead of drawn as a circle that ate the line.
+- The phone's side rail of thumbnails is removed; on a phone the plots live
+  in the cards (open the stack). Veto if you want the rail back.
+

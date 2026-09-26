@@ -346,7 +346,11 @@ it off.
 ! keep true: [more.random] is REQUIRED — the two-person game never taught
 random pairing, and every room after this one uses it.
 
-[more.rule] RED: They bet half of what the poorer one has. / Flip. The winner takes it all. ★
+[more.rule] RED: They bet a quarter of what the poorer one has. / Flip. The winner takes it all. ★
+
+> 2026-09-26: "half" → "a quarter" — the room's stake is 25% now (owner:
+> "0.5 is too large and jittery, maybe .25?"). The two-player game above
+> still plays at half.
 
 [more.watch] BLUE: Nobody gets rich. ★
 
@@ -470,8 +474,8 @@ real fortune.
 
 [guess.percent] RED: (draft · proposed — first to cut) One percent. Careful. That's how it starts.
 
-> the reveal runs at exactly half of the poorer fortune — the same bet Red
-> names (settled 2026-09-24; it used to be 35%).
+> the run plays at exactly a quarter of the poorer fortune — the same bet Red
+> names (owner 2026-09-26: half was too jittery; it used to be 35%, then half).
 
 ### The rule card
 
@@ -610,6 +614,10 @@ the explanation second; colour, corners and edges never touch the game.
 ! keep true: the multiplying ruler only makes hidden values visible. It proves
 nothing about what kind of distribution this is.
 
+[sort.axis.money] (draft) money each holds
+
+[sort.axis.people] (draft) people
+
 [card.histogram.title] (draft) Histogram
 
 [card.histogram.1] (draft) Sort everyone into piles by how much they have.
@@ -645,6 +653,10 @@ nothing about what kind of distribution this is.
 
 > [CHOICE] "Yes" opens the old Gini toy in a panel on the stage; its Done
 > link, or "Not now", goes on.
+
+[gini.axis.people] (draft) people, poorest first
+
+[gini.axis.money] (draft) share of all the money
 
 [card.gini.title] (draft) Gini
 
@@ -717,6 +729,12 @@ This is the inverse Herfindahl concentration index.
 [turn.now] RED: (draft) By the end, {late}. / The trades go on. The money barely moves.
 
 [turn.dead] BLUE: (draft) A dead economy. / Even I don't like that.
+
+[turn.axis.trades] (draft) trades
+
+[turn.axis.share] (draft) money changing hands, each round
+
+[turn.axis.short] (draft) moved per round
 
 [card.turnover.title] (draft) Turnover
 
@@ -885,7 +903,7 @@ shared return.
 
 > picture: the room shrinks to one side and a mirror copy appears beside it — a
 > parallel universe with the same start and the same luck. Left: trades only.
-> Right: the same trades plus a 3% levy and equal return every round.
+> Right: the same trades plus a 2% levy and equal return every round (60,000 trades at the quarter stake: about 4 still count on the left, about 42 on the right).
 
 [match.ask] RED: (draft) Now let it trade. Same luck, twice: / one room without the rule, one with it.
 
@@ -893,7 +911,7 @@ shared return.
 
 [match.left] (draft) Trades only
 
-[match.right] (draft) Trades, and a 3% levy shared back
+[match.right] (draft) Trades, and a {levy} levy shared back
 
 [match.luck] BLUE: (draft) Same coin, same partners?
 

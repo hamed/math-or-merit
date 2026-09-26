@@ -7,7 +7,8 @@
  */
 import { DEFAULT_RUN, type RunSettings, type StopRule } from './recording';
 
-const KEY = 'merit-or-math:tuning:v1';
+// v2: the stake became a quarter (2026-09-26); knobs saved at a half start over
+const KEY = 'merit-or-math:tuning:v2';
 
 export type StopKind = StopRule['kind'];
 

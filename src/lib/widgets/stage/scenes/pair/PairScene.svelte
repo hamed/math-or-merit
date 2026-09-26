@@ -41,8 +41,11 @@
   import { GINI_RAMP } from '../../../shared/presets';
   import { effectiveCount, imaginedShares, line, piles, ruler, type Tick } from './roomPoses';
   import { toDollars } from '../../../distribution/binning';
-  import HistoMini from '../../../shared/HistoMini.svelte';
-  import LorenzMini from '../../../shared/LorenzMini.svelte';
+  import Histogram from '../../../sandbox/Histogram.svelte';
+  import LorenzPlot from '../../../sandbox/LorenzPlot.svelte';
+  import { compactNumber, niceLinearTicks } from '../../../sandbox/ticks';
+  import StageAxes from './StageAxes.svelte';
+  import TurnoverPlot from './TurnoverPlot.svelte';
   import { createRun } from './run.svelte';
   import { BIG, COINS, CROWD, RAINED, SMALL } from './crowd';
   import { FALL, hopsFor, noise, planRain } from './rain';
@@ -667,7 +670,7 @@
   });
 
   /** Scene 20: a fresh room at the reader's stake, the same length every time. */
-  const DIAL_TRADES = 20_000;
+  const DIAL_TRADES = 40_000;
   const DIAL_MS = 5_000;
   let dialStake = $state(DEFAULT_RUN.beta);
   /** Where the dial's thumb is while it is being dragged. */
@@ -677,12 +680,16 @@
   /** Scene 21: the room trades live; the game's own clock ends it. */
   const gameRun = createRun(() => fixed(GAME.beta, 10_000_000), () => 0, OWN);
 
-  /** Scene 23: one seed, twice — trades only, and trades with a 3% levy shared back. */
-  const MATCH_TRADES = 20_000;
-  const MATCH_LEVY = 0.03;
+  /**
+   * Scene 23: one seed, twice — trades only, and trades with a 2% levy shared
+   * back. At the quarter stake over 60,000 trades that leaves about 4 against
+   * about 42 still counting (20 seeds), the map's own square for those dials.
+   */
+  const MATCH_TRADES = 60_000;
+  const MATCH_LEVY = 0.02;
   const MATCH_MS = 7_000;
-  const leftRun = createRun(() => fixed(GAME.beta, MATCH_TRADES), () => MATCH_MS, OWN);
-  const rightRun = createRun(() => fixed(GAME.beta, MATCH_TRADES, MATCH_LEVY), () => MATCH_MS, OWN);
+  const leftRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES), () => MATCH_MS, OWN);
+  const rightRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES, MATCH_LEVY), () => MATCH_MS, OWN);
 
   const RUNS: Record<RoomSource, Run> = { run, dial: dialRun, game: gameRun, pair: leftRun };
   /** The room on screen now. */
@@ -733,7 +740,7 @@
   });
   const pilesPose = $derived(piles(amounts, L.room.box));
   const rulerPose = $derived(ruler(amounts, L.room.box));
-  const linePose = $derived(line(amounts, L.room.box, amounts.map((_, i) => roomR(i))));
+  const linePose = $derived(line(amounts, L.room.box, amounts.map((_, i) => roomR(i)), L.column !== null));
   const metrics = $derived.by(() => {
     void shown.state.revision;
     return measureWealth(shown.wealth());
@@ -825,7 +832,7 @@
   const mapBox = $derived.by(() => {
     const box = L.room.box;
     const side = Math.min(box.w * 0.62, box.h * 0.62);
-    const below = 64;
+    const below = 74;
     const y = box.y + box.h - side - below;
     const x = box.x + (box.w - side) / 2 + 14;
     return { x, y, side, cw: side / MAP_STAKES.length, ch: side / MAP_LEVIES.length };
@@ -893,7 +900,7 @@
       case 'ruler':
         return at(rulerPose.spots[i].x, rulerPose.spots[i].y, rulerPose.marker);
       case 'line':
-        return at(linePose.spots[i].x, linePose.spots[i].y, real);
+        return at(linePose.spots[i].x, linePose.spots[i].y, linePose.radii[i]);
       case 'equal':
       case 'zero':
       case 'double':
@@ -1013,11 +1020,15 @@
 
   /** How far along the line the walk has come: the running total, and its point. */
   const walker = $derived.by(() => {
-    const k = Math.min(L.room.positions.length, Math.floor(view.lorenzDraw * L.room.positions.length));
+    const n = L.room.positions.length;
+    const k = Math.min(n, Math.floor(view.lorenzDraw * n));
     const point = linePose.curve[k];
     const share = 1 - (point.y - linePose.frame.y) / Math.max(1, linePose.frame.h);
-    return { k, point, r: L.room.radius * Math.sqrt(Math.max(0, share) * L.room.positions.length) };
+    return { k, point, people: k / n, share };
   });
+
+  /** A share as a percent, for the plots' axes and readings. */
+  const pct = (v: number) => formatNumber(v, { style: 'percent' });
 
   // ---- Scene 17's four: coins moved by the reader --------------------------------
 
@@ -1071,7 +1082,8 @@
   // ---- the side rail, the sheets (optional toys) --------------------------------
 
 
-  const RAIL_W = $derived(width < 760 ? 96 : 150);
+  /** The charts column's plots, two across and two down, as large as the column allows. */
+  const plotCell = $derived(L.column ? Math.max(120, Math.min((L.column.w - 10) / 2, (L.column.h - 140) / 2)) : 0);
 
   /** What the debug panel shows (owner only, `?debug=1`). */
   const debugLines = $derived.by((): [string, string][] => {
@@ -1603,7 +1615,7 @@
       map: mapBox.y - 16,
       piles: Math.min(...pilesPose.piles.map((p) => p.top)) - 22,
       ruler: Math.min(...rulerPose.spots.map((p) => p.y)) - rulerPose.marker - 20,
-      line: L.room.box.y + L.room.box.h * 0.5,
+      line: L.column ? L.room.box.y + L.room.box.h - 8 : linePose.frame.y - 18,
     };
     const tops =
       pose.place === 'room'
@@ -1624,10 +1636,15 @@
   const inPicture = $derived(PAIR_STEPS[current].pose.place === 'room' && PICTURES.includes(PAIR_STEPS[current].pose.roomMode));
 
   const column = $derived.by(() => {
-    const right = L.column ? L.column.x - 8 : width - (PAIR_STEPS[current].pose.thumbs.length > 0 ? RAIL_W + 8 : 0);
+    const right = L.column ? L.column.x - 8 : width;
     const c = chatColumn(PAIR.map((who) => anchorOf(who)), right, region.top, region.bottom);
     if (!inPicture) return c;
     const box = L.room.box;
+    // on a wide stage the Lorenz plot is square and the talk has the room beside it
+    if (PAIR_STEPS[current].pose.roomMode === 'line' && L.column) {
+      const left = linePose.frame.x + linePose.frame.w + 28;
+      return { ...c, left, mid: (left + c.right) / 2 };
+    }
     return { ...c, mid: box.x + box.w / 2 };
   });
   const bubbleWidth = $derived(Math.min(368, (column.right - column.left) * 0.8));
@@ -2276,11 +2293,13 @@
 </script>
 
 {#snippet histogramPicture()}
-  <HistoMini wealth={shown.wealth()} startDollars={START_DOLLARS} revision={shown.state.revision} />
+  <div class="card-plot">
+    <Histogram wealth={shown.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={shown.state.revision} startDollars={START_DOLLARS} />
+  </div>
 {/snippet}
 
 {#snippet giniPicture()}
-  <div class="card-lorenz"><LorenzMini wealth={shown.wealth()} revision={shown.state.revision} /></div>
+  <div class="card-plot"><LorenzPlot wealth={shown.wealth()} gini={metrics.gini} revision={shown.state.revision} /></div>
 {/snippet}
 
 {#snippet participantsPicture()}
@@ -2288,9 +2307,15 @@
 {/snippet}
 
 {#snippet turnoverPicture()}
-  <svg class="turn-mini" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
-    <polyline points={turnover.rounds.map((t, k) => `${((k / Math.max(1, turnover.rounds.length - 1)) * 200).toFixed(1)},${(58 - (t / turnover.max) * 54).toFixed(1)}`).join(' ')} />
-  </svg>
+  <div class="card-plot">
+    <TurnoverPlot
+      rounds={turnover.rounds}
+      trades={shown.state.trades}
+      title={say('card_turnover_title')}
+      xLabel={say('turn_axis_trades')}
+      yLabel={say('turn_axis_short')}
+    />
+  </div>
 {/snippet}
 
 {#snippet player(runs: Run[])}
@@ -2424,7 +2449,7 @@
         </g>
         <g class="match-labels">
           {#each [0, 1] as side (side)}
-            {@const label = say(side === 0 ? 'match_left' : 'match_right')}
+            {@const label = say(side === 0 ? 'match_left' : 'match_right', { levy: formatNumber(MATCH_LEVY, { style: 'percent' }) })}
             <!-- a label wider than its room breaks after its first comma -->
             {@const parts = matchBox.w < 260 && label.includes(', ') ? [label.slice(0, label.indexOf(', ') + 1), label.slice(label.indexOf(', ') + 2)] : [label]}
             <text x={matchBox.lefts[side] + matchBox.w / 2} y={matchBox.top - 10 - (parts.length - 1) * 15} text-anchor="middle"
@@ -2452,17 +2477,13 @@
           {#if PAIR_STEPS[current].pose.map >= 2 && mapCurve}
             <path class="fit" d={mapCurve} />
           {/if}
-          <text class="tick" x={m.x + m.cw / 2} y={m.y + m.side + 14} text-anchor="middle">{formatNumber(MAP_STAKES[0], { style: 'percent' })}</text>
-          <text class="tick" x={m.x + m.side - m.cw / 2} y={m.y + m.side + 14} text-anchor="middle"
-            >{formatNumber(MAP_STAKES[MAP_STAKES.length - 1], { style: 'percent' })}</text
-          >
-          <text class="axis" x={m.x + m.side / 2} y={m.y + m.side + 30} text-anchor="middle">{say('map_stake')}</text>
-          <text class="tick" x={m.x - 6} y={m.y + m.side - m.ch / 2 + 4} text-anchor="end">{formatNumber(0, { style: 'percent' })}</text>
-          <text class="tick" x={m.x - 6} y={m.y + m.ch / 2 + 4} text-anchor="end"
-            >{formatNumber(MAP_LEVIES[MAP_LEVIES.length - 1], { style: 'percent' })}</text
-          >
-          <text class="axis" transform={`translate(${m.x - 12} ${m.y + m.side / 2}) rotate(-90)`} text-anchor="middle">{say('map_levy')}</text>
-          <g class="legend" transform={`translate(${m.x + m.side / 2 - GINI_RAMP.length * 8} ${m.y + m.side + 42})`}>
+          <StageAxes
+            frame={{ x: m.x, y: m.y, w: m.side, h: m.side }}
+            x={{ lo: MAP_STAKES[0] - 0.025, hi: MAP_STAKES[MAP_STAKES.length - 1] + 0.025, ticks: [0.1, 0.2, 0.3, 0.4, 0.5], format: pct, label: say('map_stake') }}
+            y={{ lo: MAP_LEVIES[0] - 0.005, hi: MAP_LEVIES[MAP_LEVIES.length - 1] + 0.005, ticks: [0, 0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14], format: pct, label: say('map_levy') }}
+            grid={false}
+          />
+          <g class="legend" transform={`translate(${m.x + m.side / 2 - GINI_RAMP.length * 8} ${m.y + m.side + 50})`}>
             {#each GINI_RAMP as colour, k (k)}
               <rect x={k * 16} y="0" width="15" height="8" fill={colour} />
             {/each}
@@ -2529,6 +2550,13 @@
           {@const axisY = pose.roomMode === 'ruler' ? rulerPose.axisY : pilesPose.axisY}
           <g class="ruler">
             <line x1={box.x} x2={box.x + box.w} y1={axisY} y2={axisY} />
+            {#if !arranging}
+              <text class="axis-label" x={box.x + box.w} y={axisY + 36} text-anchor="end">{say('sort_axis_money')}</text>
+              {#if box.x >= 28}
+                <!-- where there is a margin for it: a phone's piles start at its edge -->
+                <text class="axis-label" transform={`translate(${box.x - 14} ${(box.y + axisY) / 2}) rotate(-90)`} text-anchor="middle">{say('sort_axis_people')}</text>
+              {/if}
+            {/if}
             {#each Object.entries(view.ticks) as [key, tick] (key)}
               {#if tick.alpha > 0.01 && Number.isFinite(tick.x)}
                 {@const label = [...pilesPose.ticks, ...rulerPose.ticks].find((t) => t.key === key)?.label ?? ''}
@@ -2557,6 +2585,18 @@
             </text>
           </g>
         {/if}
+        {#if pose.roomMode === 'line' && !arranging}
+          {@const quarters = [0, 0.25, 0.5, 0.75, 1]}
+          <g class="appear">
+            <StageAxes
+              frame={linePose.frame}
+              x={{ lo: 0, hi: 1, ticks: quarters, format: pct, label: say('gini_axis_people') }}
+              y={{ lo: 0, hi: 1, ticks: quarters, format: pct, label: say('gini_axis_money') }}
+              sharedZero
+              xLabelY={linePose.labelY}
+            />
+          </g>
+        {/if}
         {#if pose.roomMode === 'line' && view.lorenzDraw > 0}
           {@const curve = linePose.curve.map((p, k) => `${k ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')}
           <g class="lorenz">
@@ -2576,7 +2616,7 @@
             {/if}
             <path class="curve" d={curve} pathLength="1" stroke-dasharray="1" stroke-dashoffset={(1 - view.lorenzDraw).toFixed(4)} />
             {#if pose.lorenz >= 3}
-              <text class="gini" x={linePose.frame.x + linePose.frame.w * 0.62} y={linePose.frame.y + linePose.frame.h * 0.62}>
+              <text class="gini" x={linePose.frame.x + linePose.frame.w * 0.06} y={linePose.frame.y + linePose.frame.h * 0.12}>
                 {`Gini ${formatNumber(metrics.gini, { maximumFractionDigits: 2 })}`}
               </text>
             {/if}
@@ -2587,13 +2627,22 @@
       {#if PAIR_STEPS[current].pose.place === 'room'}
         {@const mode = PAIR_STEPS[current].pose.roomMode}
         {@const box = L.room.box}
-        {#if mode === 'line' && view.lorenzDraw > 0 && view.lorenzDraw < 1}
-          <!-- the walk: added up, poorest first, each point plotted as it is reached -->
+        {#if mode === 'line' && view.lorenzDraw > 0 && view.lorenzDraw < 1 && walker.k > 0}
+          <!-- the walk: added up, poorest first, each point plotted as it is
+               reached and read off both axes (owner review 2026-09-26: the
+               running total must not eat the line) -->
+          {@const f = linePose.frame}
+          {@const added = agentView(linePose.order[walker.k - 1])}
           <g class="walker">
+            <circle class="added" cx={added.x} cy={added.y} r={added.r + 4} />
             {#each linePose.curve.slice(1, walker.k + 1) as p, k (k)}
-              <circle class="dot" cx={p.x} cy={p.y} r="2" />
+              <circle class="dot" cx={p.x} cy={p.y} r="1.8" />
             {/each}
-            <circle class="total" cx={walker.point.x} cy={walker.point.y} r={Math.max(2, walker.r)} />
+            <line class="guide" x1={walker.point.x} y1={f.y + f.h} x2={walker.point.x} y2={walker.point.y} />
+            <line class="guide" x1={f.x} y1={walker.point.y} x2={walker.point.x} y2={walker.point.y} />
+            <circle class="total" cx={walker.point.x} cy={walker.point.y} r="4.5" />
+            <text class="read" x={walker.point.x + 5} y={f.y + f.h - 6}>{pct(walker.people)}</text>
+            <text class="read" x={f.x + 5} y={walker.point.y - 6}>{pct(walker.share)}</text>
           </g>
         {/if}
         {#if mode === 'four'}
@@ -2627,21 +2676,23 @@
           {/each}
         {/if}
         {#if view.turnDraw > 0.001 && turnover.rounds.length > 1}
-          {@const chart = { x: box.x + 40, y: box.y + box.h * 0.12, w: box.w - 60, h: box.h * 0.7 }}
+          {@const chart = { x: box.x + 64, y: box.y + box.h * 0.1, w: box.w - 84, h: box.h * 0.72 }}
           {@const n = turnover.rounds.length}
-          {@const shown = Math.max(2, Math.round(view.turnDraw * n))}
+          {@const drawn = Math.max(2, Math.round(view.turnDraw * n))}
+          {@const trades = Math.max(1, shown.state.trades)}
+          {@const top = turnover.max * 1.1}
           <g class="turnover" opacity={Math.min(1, view.turnDraw * 3)}>
-            <line class="axis" x1={chart.x} y1={chart.y + chart.h} x2={chart.x + chart.w} y2={chart.y + chart.h} />
-            <line class="axis" x1={chart.x} y1={chart.y} x2={chart.x} y2={chart.y + chart.h} />
+            <StageAxes
+              frame={chart}
+              x={{ lo: 0, hi: trades, ticks: niceLinearTicks(0, trades, 4), format: compactNumber, label: say('turn_axis_trades') }}
+              y={{ lo: 0, hi: top, ticks: niceLinearTicks(0, top, 4), format: (v) => formatNumber(v, { style: 'percent', maximumFractionDigits: 1 }), label: say('turn_axis_share') }}
+            />
             <polyline
               points={turnover.rounds
-                .slice(0, shown)
-                .map((t, k) => `${(chart.x + (k / (n - 1)) * chart.w).toFixed(1)},${(chart.y + chart.h - (t / turnover.max) * chart.h).toFixed(1)}`)
+                .slice(0, drawn)
+                .map((t, k) => `${(chart.x + ((k + 1) / n) * chart.w).toFixed(1)},${(chart.y + chart.h - (t / top) * chart.h).toFixed(1)}`)
                 .join(' ')}
             />
-            <text x={chart.x} y={chart.y - 8}>{formatNumber(turnover.max, { style: 'percent', maximumFractionDigits: 1 })}</text>
-            <text x={chart.x + chart.w} y={chart.y + chart.h + 18} text-anchor="end">{formatNumber(run.state.trades)}</text>
-            <text x={chart.x} y={chart.y + chart.h + 18}>0</text>
           </g>
         {/if}
       {/if}
@@ -2841,42 +2892,34 @@
             {/if}
           </section>
         {/if}
-        {#each APART.includes(pose.roomMode) ? [] : pose.thumbs as thumb (thumb)}
-          <section class="chart">
-            <h3>{say(`card_${thumb}_title`)}</h3>
-            {#if thumb === 'histogram'}
-              <HistoMini wealth={shown.wealth()} startDollars={START_DOLLARS} revision={shown.state.revision} />
-            {:else if thumb === 'gini'}
-              <div class="lorenz-mini"><LorenzMini wealth={shown.wealth()} revision={shown.state.revision} /></div>
-            {:else if thumb === 'participants'}
-              <p class="big">{`≈ ${formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
-            {:else}
-              <svg class="turn-mini" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
-                <polyline points={turnover.rounds.map((t, k) => `${((k / Math.max(1, turnover.rounds.length - 1)) * 200).toFixed(1)},${(58 - (t / turnover.max) * 54).toFixed(1)}`).join(' ')} />
-              </svg>
-            {/if}
-          </section>
-        {/each}
-      </aside>
-    {:else if PAIR_STEPS[current].pose.thumbs.length > 0 && !APART.includes(PAIR_STEPS[current].pose.roomMode)}
-      <div class="rail" style={`inline-size:${RAIL_W}px`}>
-        {#each PAIR_STEPS[current].pose.thumbs as thumb (thumb)}
-          <div class="thumb">
-            {#if thumb === 'histogram'}
-              <HistoMini wealth={shown.wealth()} startDollars={START_DOLLARS} revision={shown.state.revision} />
-            {:else if thumb === 'gini'}
-              <LorenzMini wealth={shown.wealth()} revision={shown.state.revision} />
-            {:else if thumb === 'participants'}
-              <p class="count">{`≈ ${formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
-              <p class="of">{say('card_participants_title')}</p>
-            {:else}
-              <svg class="turn-mini" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
-                <polyline points={turnover.rounds.map((t, k) => `${((k / Math.max(1, turnover.rounds.length - 1)) * 200).toFixed(1)},${(58 - (t / turnover.max) * 54).toFixed(1)}`).join(' ')} />
-              </svg>
-            {/if}
+        {#if !APART.includes(pose.roomMode) && pose.thumbs.length > 0}
+          <!-- the sandbox's own plots, properly framed (owner review 2026-09-26) -->
+          <div class="plots" style={`--cell:${plotCell.toFixed(0)}px`}>
+            {#each pose.thumbs as thumb (thumb)}
+              <section class="plot" aria-label={say(`card_${thumb}_title`)}>
+                {#if thumb === 'histogram'}
+                  <Histogram wealth={shown.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={shown.state.revision} startDollars={START_DOLLARS} />
+                {:else if thumb === 'gini'}
+                  <LorenzPlot wealth={shown.wealth()} gini={metrics.gini} revision={shown.state.revision} />
+                {:else if thumb === 'participants'}
+                  <div class="stat">
+                    <p class="big">{`≈ ${formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
+                    <p class="of">{say('card_participants_title')}</p>
+                  </div>
+                {:else}
+                  <TurnoverPlot
+                    rounds={turnover.rounds}
+                    trades={shown.state.trades}
+                    title={say('card_turnover_title')}
+                    xLabel={say('turn_axis_trades')}
+                    yLabel={say('turn_axis_short')}
+                  />
+                {/if}
+              </section>
+            {/each}
           </div>
-        {/each}
-      </div>
+        {/if}
+      </aside>
     {/if}
 
 
@@ -3037,8 +3080,10 @@
     font-weight: 750;
   }
 
-  .card-lorenz {
-    inline-size: min(100%, 11rem);
+  /* a card's plot: the sandbox's square frame, at a size the card can hold */
+  .card-plot {
+    inline-size: min(100%, 12rem);
+    aspect-ratio: 1;
     margin-inline: auto;
   }
 
@@ -3056,9 +3101,40 @@
   }
 
   .walker .total {
-    fill: rgb(139 63 43 / 22%);
+    fill: var(--accent);
+    stroke: var(--paper-bright, #fffaf0);
+    stroke-width: 1.5;
+  }
+
+  .walker .added {
+    fill: none;
     stroke: var(--accent);
-    stroke-width: 1.4;
+    stroke-width: 2;
+  }
+
+  .walker .guide {
+    stroke: var(--accent);
+    stroke-width: 1.1;
+    stroke-dasharray: 3 3;
+  }
+
+  .walker .read {
+    fill: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .appear {
+    animation: fade-in 600ms ease-out both;
+  }
+
+  .ruler .axis-label {
+    fill: var(--ink-soft);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    letter-spacing: 0.04em;
   }
 
   .pick {
@@ -3068,28 +3144,11 @@
     stroke-dasharray: 5 4;
   }
 
-  .turnover .axis {
-    stroke: var(--ink-mid);
-    stroke-width: 1.2;
-  }
-
-  .turnover polyline,
-  .turn-mini polyline {
+  .turnover polyline {
     fill: none;
     stroke: var(--accent);
     stroke-width: 2.4;
     stroke-linejoin: round;
-  }
-
-  .turn-mini polyline {
-    stroke-width: 1.6;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .turnover text {
-    fill: var(--ink-mid);
-    font-family: var(--font-sans);
-    font-size: 12px;
   }
 
   /* Scene 20: the stake dial, inside Red's bubble */
@@ -3186,11 +3245,6 @@
   }
 
   /* Scene 24: the outcome map */
-  .map .axis {
-    fill: var(--ink);
-    font-size: 12.5px;
-  }
-
   .map .fit {
     fill: none;
     stroke: var(--ink);
@@ -3271,13 +3325,46 @@
     block-size: auto;
   }
 
-  .chart .lorenz-mini {
-    inline-size: min(100%, 8.5rem);
-    margin-inline: auto;
-  }
-
   .chart :global(svg) {
     max-block-size: 7.5rem;
+  }
+
+  .plots {
+    display: grid;
+    grid-template-columns: repeat(2, var(--cell));
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .plot {
+    inline-size: var(--cell);
+    block-size: var(--cell);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgb(255 250 240 / 88%);
+    overflow: hidden;
+  }
+
+  .plot .stat {
+    display: grid;
+    place-content: center;
+    block-size: 100%;
+    text-align: center;
+  }
+
+  .plot .stat .big {
+    margin: 0;
+    color: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 2.1rem;
+    font-weight: 800;
+  }
+
+  .plot .stat .of {
+    margin: 0.2rem 0 0;
+    color: var(--ink-mid);
+    font-family: var(--font-hand);
+    font-size: 0.95rem;
   }
 
   .chart.glow {
@@ -3333,48 +3420,6 @@
   }
 
   /* concepts already built, small, on the far side */
-  .rail {
-    position: absolute;
-    z-index: 4;
-    inset-block-start: 3.4rem;
-    inset-inline-end: 0.7rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  .thumb {
-    padding: 0.3rem;
-    border: 1px solid var(--line);
-    border-radius: 0.45rem;
-    background: rgb(255 250 240 / 88%);
-    animation: drop 380ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
-  }
-
-  .thumb :global(svg) {
-    display: block;
-    inline-size: 100%;
-    block-size: auto;
-  }
-
-  .thumb .count {
-    margin: 0;
-    color: var(--accent-deep);
-    font-family: var(--font-sans);
-    font-size: 1.3rem;
-    font-weight: 800;
-    text-align: center;
-  }
-
-  .thumb .of {
-    margin: 0;
-    color: var(--ink-mid);
-    font-family: var(--font-sans);
-    font-size: 0.68rem;
-    line-height: 1.2;
-    text-align: center;
-  }
-
   @keyframes drop {
     from {
       opacity: 0;

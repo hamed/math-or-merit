@@ -4,14 +4,15 @@
  * WEALTH levy, C13); the reader keeps at least twenty effective participants
  * for thirty seconds, or the game closes after five seconds below them.
  *
- * Tuned with a robot player at this pace (2026-09-26, 20 rooms each): tapping
- * the richest every 700 ms or faster held every room; once a second won about
- * half; never tapping closed every room in about twelve seconds — a diligent
- * hand genuinely can win (design guard), a lazy one cannot.
+ * Tuned with a robot player at this pace and the essay's quarter stake
+ * (2026-09-26, 20 rooms each): tapping the richest every 700 ms or faster held
+ * every room; once a second won 12 of 20; never tapping closed every room in
+ * about twelve seconds — a diligent hand genuinely can win (design guard), a
+ * lazy one cannot.
  */
 export const GAME = {
-  beta: 0.5,
-  perSecond: 280,
+  beta: 0.25,
+  perSecond: 1_000,
   seconds: 30,
   rate: 0.25,
   target: 20,

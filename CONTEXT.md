@@ -158,6 +158,26 @@ State of the work, by the brief's own plan (Part 9):
   elsewhere an aside steps off the talk, and the newest is never hidden.
   Retired: CrowdRun, TimeLapse, StakeDial, TaxGame, LevyLesson, MatchedRooms,
   PhaseDiagram and their essay sections (the 1,000 crowd is cut, D20).
+- **Owner review of Phase 5 (2026-09-26), done:** the stake is a QUARTER
+  (`DEFAULT_RUN.beta` 0.25 — "0.5 is too large and jittery"): the run still
+  stops when the richest holds 40% (now after ~46,000 trades, 32k–66k; effN
+  ≈ 4, Gini 0.95); the dial plays 40,000 trades a turn; the tax game 1,000
+  trades/s (robot: every 700 ms 20/20, once a second 12/20, never 0/20);
+  matched rooms 60,000 trades with a 2% levy (≈4–6 vs ≈42–46 count, the map's
+  own square). The tuning key moved to v2 so knobs saved at a half reset.
+  [more.rule] ★ now says "a quarter"; the two-player coin game stays at half.
+  Plots are proper plots: the charts column is 2×2 of the sandbox's own
+  `Histogram` and `LorenzPlot`, the count, and `pair/TurnoverPlot.svelte` on
+  `PlotFrame` (column now 0.32w, room box 0.615w); cards show the same plots;
+  the phone rail is gone (thumbnails were unreadable — the cards carry the
+  plots). The room's pictures draw real axes in the sandbox's style
+  (`pair/StageAxes.svelte`): the Lorenz plot is SQUARE with the row of people
+  under it at their own sizes scaled together (`line(…, beside)`), the walk
+  plots each point with guides read off both axes (the growing sum circle
+  that ate the line is gone), and the talk sits beside the plot on a wide
+  stage; turnover and the map have ticks and labels; piles and ruler say
+  what they measure. The sandbox `Histogram` thins its log ticks when labels
+  would touch (a 1e-11 room wrote "1e-11" into "1e-8").
 - **Next:** Phase 6 — the verdict as dialogue, the sandbox with Blue and Red,
   the invitation.
 - **Stage input rules** (2026-09-26, `claim()` in `steps.ts`): while the reader

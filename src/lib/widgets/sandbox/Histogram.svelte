@@ -1,5 +1,5 @@
 <script lang="ts">
-  import PlotFrame, { type AxisSpec } from './PlotFrame.svelte';
+  import PlotFrame, { FRAME, type AxisSpec } from './PlotFrame.svelte';
   import { geometricBins, rangedLinearBins, StickyRange } from './histBins';
   import { compactNumber, logBinTicks, logTicks, niceLinearTicks } from './ticks';
   import { gatedClick } from './gatedClick';
@@ -65,7 +65,7 @@
     type: xLog ? 'log' : 'linear',
     lo: view.lo,
     hi: view.hi,
-    ticks: xLog ? logBinTicks(view.lo, view.hi, view.binCount, 5) : niceLinearTicks(0, view.hi),
+    ticks: xLog ? spacedTicks((most) => logBinTicks(view.lo, view.hi, view.binCount, most), 5) : niceLinearTicks(0, view.hi),
     format: compactNumber,
     label: 'wealth $',
     onToggle: gatedClick(() => (xLog = !xLog)),
@@ -81,6 +81,20 @@
     label: 'people',
     onToggle: gatedClick(() => (yLog = !yLog)),
   });
+
+  /**
+   * As many ticks as fit without their labels touching: a room whose poorest
+   * hold 1e-11 dollars writes long labels (the stage's charts column,
+   * 2026-09-26: "1e-11" ran into "1e-8").
+   */
+  function spacedTicks(make: (most: number) => number[], most: number): number[] {
+    for (let count = most; count > 2; count--) {
+      const ticks = make(count);
+      const widest = Math.max(...ticks.map((t) => compactNumber(t).length));
+      if (ticks.length * (widest * 4.6 + 6) <= FRAME.w) return ticks;
+    }
+    return make(2);
+  }
 
   const cycleBins = gatedClick(() => {
     if (xLog) logBinIdx = (logBinIdx + 1) % LOG_BIN_CYCLE.length;

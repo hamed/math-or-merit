@@ -89,13 +89,15 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
   const seatY = portrait ? h * 0.66 : h * 0.64;
   const left = portrait ? 0.3 : 0.33;
 
-  // On a wide stage the room takes the left three quarters, from near the top
+  // On a wide stage the room takes the left two thirds, from near the top
   // down (owner review 2026-09-26: "use the free space at top for the room"),
-  // and the charts get a column of their own on the right, big enough to read.
-  // On a narrow one the room is the lower two thirds and the charts are thumbnails.
+  // and the charts get a column of their own on the right, wide enough for
+  // two proper plots side by side ("they all need to be properly formatted
+  // plots", the same day). On a narrow one the room is the lower two thirds
+  // and the plots live in the cards.
   const wide = w >= 900 && w > h * 1.15;
-  const column = wide ? { x: w * 0.755, y: h * 0.1, w: w * 0.228, h: h * 0.87 } : null;
-  const roomBox = wide ? { x: w * 0.03, y: h * 0.13, w: w * 0.7, h: h * 0.83 } : { x: w * 0.04, y: h * 0.3, w: w * 0.92, h: h * 0.66 };
+  const column = wide ? { x: w * 0.665, y: h * 0.1, w: w * 0.32, h: h * 0.87 } : null;
+  const roomBox = wide ? { x: w * 0.03, y: h * 0.13, w: w * 0.615, h: h * 0.83 } : { x: w * 0.04, y: h * 0.3, w: w * 0.92, h: h * 0.66 };
   const roomRadius = radiusScale(roomSize, roomBox.w, roomBox.h) * Math.sqrt(1 / roomSize);
   // The camera pulls back about the middle as the room fills: the two keep
   // their places relative to each other, and everyone else scatters around.
