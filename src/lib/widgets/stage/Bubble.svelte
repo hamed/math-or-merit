@@ -68,6 +68,16 @@
     reduced = false,
   }: Props = $props();
 
+  /** Where the people of a choice's little picture stand, in its 96×64 box. */
+  const GLYPH_SPOTS = [
+    { x: 16, y: 22 },
+    { x: 48, y: 18 },
+    { x: 80, y: 24 },
+    { x: 20, y: 48 },
+    { x: 52, y: 46 },
+    { x: 82, y: 50 },
+  ];
+
   let w = $state(0);
   let h = $state(0);
   $effect(() => onsize?.(w, h));
@@ -129,10 +139,20 @@
     </span>
   </p>
   {#if choices && choices.length > 0}
-    <p class="choices" class:waiting={shown < lines.length}>
+    {@const listed = choices.some((c) => c.glyph)}
+    <p class="choices" class:listed class:waiting={shown < lines.length}>
       {#each choices as choice, i (choice.label)}
-        {#if i > 0}<span class="dot" aria-hidden="true">·</span>{/if}
-        <button type="button" class="choice" onclick={choice.act}>{choice.label}</button>
+        {#if i > 0 && !listed}<span class="dot" aria-hidden="true">·</span>{/if}
+        <button type="button" class="choice" class:chosen={choice.chosen} aria-pressed={choice.chosen ?? undefined} onclick={choice.act}>
+          {#if choice.glyph}
+            <svg class="glyph" viewBox="0 0 96 64" aria-hidden="true">
+              {#each choice.glyph as r, k (k)}
+                <circle cx={GLYPH_SPOTS[k].x} cy={GLYPH_SPOTS[k].y} r={Math.max(1, r)} />
+              {/each}
+            </svg>
+          {/if}
+          <span>{choice.label}</span>
+        </button>
       {/each}
     </p>
   {/if}
@@ -254,6 +274,54 @@
 
   .choice:hover {
     color: var(--accent-deep);
+  }
+
+  /* several choices with pictures: one per line, picture first */
+  .choices.listed {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+
+  .choices.listed .choice {
+    display: flex;
+    align-items: center;
+    text-align: start;
+    gap: 0.55rem;
+    text-decoration-thickness: 1.5px;
+  }
+
+  .choice.chosen {
+    color: var(--accent-deep);
+    text-decoration-thickness: 3px;
+  }
+
+  .choice.chosen::after {
+    content: ' ✓';
+  }
+
+  .glyph {
+    flex: none;
+    inline-size: 2.6rem;
+    block-size: 1.75rem;
+  }
+
+  .glyph circle {
+    fill: var(--agent-fill-red);
+    fill-opacity: 0.75;
+    stroke: var(--agent-stroke-blue);
+    stroke-width: 2;
+  }
+
+  .glyph circle:nth-child(3n + 2) {
+    fill: var(--agent-fill-blue);
+    stroke: var(--agent-stroke-violet);
+  }
+
+  .glyph circle:nth-child(3n) {
+    fill: var(--agent-fill-green);
+    stroke: var(--agent-stroke-pink);
   }
 
   .choice:focus-visible {

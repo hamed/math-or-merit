@@ -184,6 +184,40 @@ export function assignStyles(n: number): AgentStyle[] {
  * stroke-never-matches-fill rule, but shuffled — the deterministic cycle
  * reads as one shape per column on a grid room.
  */
+/**
+ * Costumes for people who stand at `points`, so that no two neighbours within
+ * `reach` share a shape or a fill where it can be helped (iteration-2 brief 3.6:
+ * clusters of one shape or colour read as a pattern that is not there). Greedy
+ * and deterministic: each person takes the costume that clashes least with the
+ * neighbours already dressed, cycling through the palette to break ties. The
+ * protagonists' reserved circle pairs are skipped as everywhere (A5).
+ */
+export function spreadStyles(points: readonly { x: number; y: number }[], reach: number): AgentStyle[] {
+  const styles: AgentStyle[] = [];
+  const combos: { fillIdx: number; shape: AgentShape }[] = [];
+  for (const shape of AGENT_SHAPES) for (let f = 0; f < COLOR_NAMES.length; f++) combos.push({ fillIdx: f, shape });
+  points.forEach((p, i) => {
+    const near = styles.filter((_, j) => Math.hypot(points[j].x - p.x, points[j].y - p.y) < reach);
+    let best = 0;
+    let bestScore = Infinity;
+    for (let k = 0; k < combos.length; k++) {
+      const c = combos[(i * 7 + k) % combos.length];
+      const score = near.reduce((sum, n) => sum + (n.shape === c.shape ? 1 : 0) + (n.fillName === COLOR_NAMES[c.fillIdx] ? 1 : 0), 0);
+      if (score < bestScore) {
+        bestScore = score;
+        best = (i * 7 + k) % combos.length;
+        if (score === 0) break;
+      }
+    }
+    const { fillIdx, shape } = combos[best];
+    const strokeIdx = safeStroke(fillIdx, (fillIdx + 1 + (i % (COLOR_NAMES.length - 1))) % COLOR_NAMES.length, shape);
+    const fillName = COLOR_NAMES[fillIdx];
+    const strokeName = COLOR_NAMES[strokeIdx];
+    styles.push({ fill: FILLS[fillName], stroke: STROKES[strokeName], fillName, strokeName, shape });
+  });
+  return styles;
+}
+
 export function randomStyles(n: number, rand: () => number = Math.random): AgentStyle[] {
   const styles: AgentStyle[] = [];
   for (let i = 0; i < n; i++) {

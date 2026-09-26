@@ -7,10 +7,11 @@
  * the v3 physical-sides amendment is withdrawn). Everything here is in stage
  * pixels.
  */
-import { roomPositions, radiusScale, type Point } from '../../../shared/layout';
+import { radiusScale, type Point } from '../../../shared/layout';
 import { UNITS } from './game';
 import { CROWD } from './crowd';
 import { PACKINGS } from './packings';
+import { createRandomSource } from '$lib/sim';
 
 /**
  * How much of a fortune's circle its coins cover. Every coin claims the same
@@ -19,6 +20,9 @@ import { PACKINGS } from './packings';
  * at the start — sit in their circles as tight as coins can pack.
  */
 export const COIN_DENSITY = 0.7325;
+
+/** How far the camera pulls back when the room fills (Scene 10): the pair's spacing shrinks by this. */
+export const ROOM_ZOOM = 0.5;
 
 export interface PairLayout {
   readonly width: number;
@@ -37,8 +41,13 @@ export interface PairLayout {
   readonly seatBlue: Point;
   readonly table: Point;
   readonly flip: Point;
-  /** Where each of the sixteen stands before the bites. */
+  /** Where each of the sixteen stands once they have bounced in: scattered, never in rows. */
   readonly crowdHomes: readonly Point[];
+  /** Where each of them comes in from, off the stage, and where each leaves to. */
+  readonly crowdEntries: readonly Point[];
+  readonly crowdExits: readonly Point[];
+  /** The size of someone with nothing: visible, but no area (drawn as an empty ring). */
+  readonly presence: number;
   readonly ground: number;
   /** One coin's radius: money is one size everywhere. */
   readonly coinRadius: number;
@@ -62,20 +71,13 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
 
   const ground = h * 0.9;
   const one = radius(1);
-  // Sixteen across if they fit two diameters apart, otherwise balanced rows —
-  // 8 and 8, never 12 and a lonely 4 (the room's own rule, owner review 2026-07-13).
-  const fit = Math.min(CROWD, Math.max(4, Math.floor((w * 0.86) / (one * 2.6))));
-  const rows = Math.ceil(CROWD / fit);
-  const crowdHomes: Point[] = [];
-  for (let row = 0; row < rows; row++) {
-    const first = Math.round((row * CROWD) / rows);
-    const inRow = Math.round(((row + 1) * CROWD) / rows) - first;
-    for (let col = 0; col < inRow; col++) {
-      // alternate rows offset by half a slot, so the crowd reads as a crowd, not a grid
-      const x = w * 0.07 + ((col + 0.5 + (row % 2) * 0.35) / (inRow + 0.35 * (rows > 1 ? 1 : 0))) * w * 0.86;
-      crowdHomes.push({ x, y: ground - one - row * one * 2.8 });
-    }
-  }
+  // the lower part of the stage, under the title; scattered at random, no rows
+  const band = { x: w * 0.06, y: h * 0.6, w: w * 0.88, h: h * 0.3 };
+  const crowdHomes = scatter(CROWD, band, one * 2.7, 7);
+  const crowdEntries = crowdHomes.map((home, i) =>
+    i % 3 === 0 ? { x: home.x, y: h + one * 3 } : { x: home.x < w / 2 ? -one * 3 : w + one * 3, y: home.y },
+  );
+  const crowdExits = crowdHomes.map((home) => ({ x: home.x < w / 2 ? -one * 4 : w + one * 4, y: home.y }));
 
   // low on the stage: the talk needs the room above them (iteration 2, 3.1)
   const markY = portrait ? h * 0.66 : h * 0.68;
@@ -83,19 +85,29 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
   const left = portrait ? 0.3 : 0.33;
 
   // the crowd keeps to the lower part, leaving room above for the talk (3.6)
-  const roomBox = { x: w * 0.05, y: h * 0.38, w: w * 0.9, h: h * 0.58 };
-  const positions = roomPositions(roomSize, roomBox.w, roomBox.h).map((p) => ({
-    x: p.x + roomBox.x,
-    y: p.y + roomBox.y,
-  }));
-  const nearest = (among: readonly Point[], target: Point) =>
-    among.reduce((best, p, i) => (Math.hypot(p.x - target.x, p.y - target.y) < Math.hypot(among[best].x - target.x, among[best].y - target.y) ? i : best), 0);
+  const roomBox = { x: w * 0.04, y: h * 0.62, w: w * 0.92, h: h * 0.355 };
+  const roomRadius = radiusScale(roomSize, roomBox.w, roomBox.h) * Math.sqrt(1 / roomSize);
+  // The camera pulls back about the middle as the room fills: the two keep
+  // their places relative to each other, and everyone else scatters around.
+  const zoomed = (seat: Point): Point => ({ x: w / 2 + (seat.x - w / 2) * ROOM_ZOOM, y: roomBox.y + roomBox.h * 0.5 });
+  const pairInRoom = [zoomed({ x: w * left, y: 0 }), zoomed({ x: w * (1 - left), y: 0 })];
+  const cell = Math.sqrt((roomBox.w * roomBox.h) / roomSize);
+  const inset = roomRadius * 1.6;
+  const others = scatter(
+    Math.max(0, roomSize - 2),
+    { x: roomBox.x + inset, y: roomBox.y + inset, w: roomBox.w - 2 * inset, h: roomBox.h - 2 * inset },
+    cell * 0.8,
+    11,
+    pairInRoom.map((p) => ({ ...p, r: roomRadius * 1.4 })),
+  );
+  const positions = [...others, ...pairInRoom];
   // MERIT and Blue at the start of the line, MATH and Red at its end
   const flipX = (p: Point): Point => (mirror ? { x: w - p.x, y: p.y } : p);
   const seatBlue = flipX({ x: w * left, y: seatY });
   const seatRed = flipX({ x: w * (1 - left), y: seatY });
   const homes = crowdHomes.map(flipX);
   const room = positions.map(flipX);
+  const blueSeatInRoom = positions.length - 2;
 
   return {
     width: w,
@@ -112,14 +124,17 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
     // where anything above them is where they talk
     flip: { x: w * 0.5, y: portrait ? seatY + whole * 1.95 : seatY },
     crowdHomes: homes,
+    crowdEntries: crowdEntries.map(flipX),
+    crowdExits: crowdExits.map(flipX),
+    presence: one * 0.55,
     ground,
     coinRadius: whole * Math.sqrt(COIN_DENSITY / UNITS),
     room: {
       top: roomBox.y,
       positions: room,
-      radius: radiusScale(roomSize, roomBox.w, roomBox.h) * Math.sqrt(1 / roomSize),
-      red: nearest(room, seatRed),
-      blue: nearest(room, seatBlue),
+      radius: roomRadius,
+      blue: blueSeatInRoom,
+      red: blueSeatInRoom + 1,
     },
   };
 }
@@ -165,4 +180,38 @@ function honeycomb(count: number, coinRadius: number): Point[] {
 export function deciderFace(angle: number): { side: 'red' | 'blue'; squash: number } {
   const half = Math.floor((angle + Math.PI / 2) / Math.PI);
   return { side: half % 2 === 0 ? 'red' : 'blue', squash: Math.max(0.04, Math.abs(Math.cos(angle))) };
+}
+
+/**
+ * `count` points scattered at random in a box, no two closer than `gap` —
+ * seeded, so the same every time, and with no rows or columns to read into it
+ * (iteration-2 brief 3.6: the visible patterns were "aliasing"). Dart
+ * throwing; a box too small for the gap gets a slightly smaller gap rather
+ * than fewer points.
+ */
+export function scatter(
+  count: number,
+  box: { x: number; y: number; w: number; h: number },
+  gap: number,
+  seed: number,
+  avoid: readonly { x: number; y: number; r: number }[] = [],
+): Point[] {
+  const random = createRandomSource(seed);
+  const points: Point[] = [];
+  let spacing = gap;
+  let misses = 0;
+  while (points.length < count) {
+    const p = { x: box.x + random.next() * box.w, y: box.y + random.next() * box.h };
+    const clear =
+      points.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= spacing) &&
+      avoid.every((a) => Math.hypot(p.x - a.x, p.y - a.y) >= spacing / 2 + a.r);
+    if (clear) {
+      points.push(p);
+      misses = 0;
+    } else if (++misses > 400) {
+      spacing *= 0.94;
+      misses = 0;
+    }
+  }
+  return points;
 }

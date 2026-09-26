@@ -2,11 +2,17 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { validateSteps } from '../../steps';
 import { ROUNDS, UNITS } from './game';
+import { BETS, PREDICTIONS } from '../../../shared/runLog.svelte';
 import { PAIR_STEPS, REACTIONS, indexOf, panelStart } from './script';
 import { parseProse } from '../../../../content/prose';
 
 const messages: Record<string, string> = JSON.parse(readFileSync('messages/en.json', 'utf8'));
 const step = (id: string) => PAIR_STEPS[indexOf(id)];
+/** Every message key the scene speaks on events, flattened. */
+const reactionKeys = (): string[] =>
+  Object.values(REACTIONS).flatMap((v) =>
+    typeof v === 'string' ? [v] : Array.isArray(v) ? [...v] : Object.values(v).map((line) => (line as { message: string }).message),
+  );
 const before = (id: string) => PAIR_STEPS[indexOf(id) - 1];
 
 describe('the pair stage as data', () => {
@@ -16,18 +22,18 @@ describe('the pair stage as data', () => {
 
   it('only says words that exist in the message file', () => {
     const keys = PAIR_STEPS.flatMap((s) => s.lines?.map((l) => l.message) ?? []);
-    const reactions = Object.values(REACTIONS).flat();
+    const reactions = reactionKeys();
     for (const key of [...keys, ...reactions]) expect(messages[key], key).toBeTypeOf('string');
   });
 
   it('speaks every scripted line of Scenes 3–11 somewhere, in script order', () => {
     // what a character SAYS in these scenes — not the buttons and labels
     const scripted = parseProse(readFileSync('notes/prose.md', 'utf8'))
-      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more)\./.test(line.tag))
+      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess)\./.test(line.tag))
       .flatMap((line) => (line.parts ? line.parts.map((_, i) => `${line.key}_${i + 1}`) : [line.key]));
     const spoken = new Set([
       ...PAIR_STEPS.flatMap((s) => s.lines?.map((l) => l.message) ?? []),
-      ...Object.values(REACTIONS).flat(),
+      ...reactionKeys(),
     ]);
     expect(scripted.filter((k) => !spoken.has(k))).toEqual([]);
     const order = PAIR_STEPS.flatMap((s) => s.lines?.map((l) => l.message) ?? []);
@@ -35,11 +41,13 @@ describe('the pair stage as data', () => {
     expect(order.filter((k) => inFile.includes(k))).toEqual(inFile);
   });
 
-  it('holds three times — Red clicked, Blue clicked, then 8 and 8 — and nowhere else', () => {
+  it('holds only where the reader must act — two clicks, 8 and 8, a guess, a bet', () => {
     expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual([
       'call.red',
       'call.blue',
       'equal',
+      'guess.what',
+      'guess.stake',
     ]);
   });
 
@@ -64,6 +72,21 @@ describe('the pair stage as data', () => {
   it('lets the calls and the tip go as soon as the talk moves on', () => {
     for (const id of ['call.red', 'call.blue', 'meet.tip']) expect(step(id).brief, id).toBe(true);
     expect(step('meet.blue').brief).toBeUndefined();
+  });
+
+  it('drops the rule card once Red has said the whole rule, and opens it at "Remember the rule."', () => {
+    expect(before('more.rule').pose.cards).toEqual([]);
+    expect(step('more.rule').pose.cards).toEqual(['rule']);
+    expect(step('guess.rule').pose.cardOpen).toBe('rule');
+    expect(step('guess.what').pose.cardOpen).toBe('rule');
+    expect(step('guess.stake').pose.cardOpen).toBeNull();
+  });
+
+  it('offers exactly the four outcomes and four bets the session knows, in its order', () => {
+    expect(REACTIONS.guesses.map((k) => messages[k])).toHaveLength(PREDICTIONS.length);
+    expect(REACTIONS.bets.map((k) => messages[k])).toHaveLength(BETS.length);
+    expect(Object.keys(REACTIONS.betLines)).toEqual([...BETS]);
+    for (const k of [...REACTIONS.guesses, ...REACTIONS.bets]) expect(messages[k], k).toBeTypeOf('string');
   });
 
   it('lets every step belong to a panel that starts with a clear', () => {

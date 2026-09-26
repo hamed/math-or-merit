@@ -55,6 +55,10 @@ export interface Placed {
 export interface BubbleChoice {
   readonly label: string;
   readonly act: () => void;
+  /** A tiny picture beside the label: the radii of a few people. */
+  readonly glyph?: readonly number[];
+  /** The one the reader already picked. */
+  readonly chosen?: boolean;
 }
 
 /** Space between one line and the next. */

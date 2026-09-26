@@ -31,6 +31,7 @@
   } from './steps';
   import { motionOk } from './motion';
   import { STAGE_STATE_ATTRIBUTE } from '$lib/deferredEvents';
+  import { STAGE_STEP_EVENT, type StageStep } from './branch';
   import { SWIPE_MIN_PX, WHEEL_GESTURE_REST_MS, keyDirection, keyIsClaimed } from '../shared/gesture';
 
   interface Props {
@@ -64,6 +65,10 @@
     },
     isReleased(stepId) {
       return machine?.isReleased(stepId) ?? false;
+    },
+    advance() {
+      inside = true;
+      step(1);
     },
     pause(on) {
       paused = on;
@@ -390,6 +395,20 @@
     lastScrollY = window.scrollY;
     inside = engaged();
     publish();
+
+    // back from a branch, to a named step
+    const onStep = (event: Event) => {
+      const { stage, step: stepId } = (event as CustomEvent<StageStep>).detail;
+      if (stage !== id || !machine) return;
+      const index = machine.steps.findIndex((s) => s.id === stepId);
+      if (index < 0) return;
+      const from = machine.index;
+      machine.reach(index);
+      show(from, 'jump');
+      inside = true;
+      window.scrollTo({ top: window.scrollY + top(), behavior: live.reduced ? 'auto' : 'smooth' });
+    };
+    window.addEventListener(STAGE_STEP_EVENT, onStep);
     window.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('keydown', onKey);
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -407,6 +426,7 @@
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('scroll', onScroll);
       document.documentElement.removeAttribute(STAGE_STATE_ATTRIBUTE);
+      window.removeEventListener(STAGE_STEP_EVENT, onStep);
     };
   });
 </script>

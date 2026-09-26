@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COIN_DENSITY, deciderFace, pairLayout, pile } from './layout';
+import { COIN_DENSITY, ROOM_ZOOM, deciderFace, pairLayout, pile, scatter } from './layout';
 import { PACKINGS } from './packings';
 
 describe('the pair stage layout', () => {
@@ -120,6 +120,46 @@ describe('the decider coin', () => {
       const r = L.radius(12);
       for (const seat of [L.seatBlue, L.seatRed]) expect(Math.hypot(L.flip.x - seat.x, L.flip.y - seat.y)).toBeGreaterThan(r + L.coinRadius * 1.6);
       expect(L.flip.y + L.coinRadius * 1.6).toBeLessThan(h);
+    }
+  });
+});
+
+describe('a crowd with no rows (brief 3.6)', () => {
+  it('scatters every point in its box, no two too close, the same every time', () => {
+    const box = { x: 10, y: 20, w: 400, h: 200 };
+    const points = scatter(40, box, 30, 3);
+    expect(points).toHaveLength(40);
+    expect(scatter(40, box, 30, 3)).toEqual(points);
+    for (const p of points) {
+      expect(p.x).toBeGreaterThanOrEqual(10);
+      expect(p.x).toBeLessThanOrEqual(410);
+      expect(p.y).toBeGreaterThanOrEqual(20);
+      expect(p.y).toBeLessThanOrEqual(220);
+    }
+    for (let i = 0; i < 40; i++)
+      for (let j = i + 1; j < 40; j++) expect(Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y)).toBeGreaterThan(20);
+  });
+
+  it('never lines people up: almost no two share a row', () => {
+    const L = pairLayout(1366, 768);
+    const ys = L.room.positions.map((p) => p.y);
+    let aligned = 0;
+    for (let i = 0; i < ys.length; i++) for (let j = i + 1; j < ys.length; j++) if (Math.abs(ys[i] - ys[j]) < 0.5) aligned++;
+    // chance alone puts ~18 of 4,950 pairs within half a pixel; ten rows of ten put ~450
+    expect(aligned).toBeLessThan(60);
+  });
+
+  it('keeps the two in their places relative to each other as the room fills', () => {
+    for (const [w, h] of [[1366, 768], [390, 844]]) {
+      const L = pairLayout(w, h);
+      const blue = L.room.positions[L.room.blue];
+      const red = L.room.positions[L.room.red];
+      expect(red.x - blue.x).toBeCloseTo((L.seatRed.x - L.seatBlue.x) * ROOM_ZOOM, 6);
+      expect(blue.y).toBeCloseTo(red.y, 9);
+      for (const [i, p] of L.room.positions.entries()) {
+        if (i === L.room.blue || i === L.room.red) continue;
+        expect(Math.hypot(p.x - blue.x, p.y - blue.y)).toBeGreaterThan(L.room.radius * 1.5);
+      }
     }
   });
 });

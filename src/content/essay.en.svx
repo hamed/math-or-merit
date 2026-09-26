@@ -7,7 +7,7 @@
   import Branch from '$lib/widgets/stage/Branch.svelte';
   import SpeakerText from '$lib/widgets/stage/SpeakerText.svelte';
   import ChoiceRow from '$lib/widgets/stage/ChoiceRow.svelte';
-  import { openBranch } from '$lib/widgets/stage/branch';
+  import { goToStep, openBranch } from '$lib/widgets/stage/branch';
   import RevealInterpretation from '$lib/widgets/reveal/RevealInterpretation.svelte';
   import WinnerStory from '$lib/widgets/reveal/WinnerStory.svelte';
   import Deferred from '$lib/widgets/shared/Deferred.svelte';
@@ -104,7 +104,7 @@
 <ChoiceRow
   options={[
     { label: say('cow_choice_1'), act: () => openBranch('human') },
-    { label: say('cow_choice_2'), act: () => document.getElementById('guess')?.scrollIntoView({ behavior: 'smooth' }) },
+    { label: say('cow_choice_2'), act: () => goToStep('pair', 'guess.ask') },
   ]}
 />
 
@@ -127,26 +127,16 @@
   {/snippet}
 </Deferred>
 
+<ChoiceRow options={[{ label: say('human_back'), act: () => goToStep('pair', 'guess.ask') }]} />
+
 </Branch>
 
-<Chapter id="guess" label="Your turn to guess" />
-
-## Your turn to guess
-
-Now remove the script. Put one hundred equal fortunes in the room.
-
-1. Everyone starts with the same money.
-2. Pick two people at random.
-3. Both put up half of whatever the poorer one has.
-4. Toss for it. One wins, one loses. Fifty-fifty.
-5. Go back to 2.
-
-After a hundred thousand fair trades, what survives? Pick one before the coin speaks.
 <!--
-  WIDGET: Prediction — the reader commits to an outcome before the reveal; the choice is
-  quoted back by the reveal widget. Stored locally only.
+  YOUR GUESS (iteration 2, Scene 12, 2026-09-26) happens inside the pair stage
+  now: the question, the rule card and the four choices in Red's bubble, then
+  the bet. The narrator's rule list and the Prediction widget are retired; the
+  stage writes the same session.prediction the run below quotes back.
 -->
-<Deferred load={() => import('$lib/widgets/predict/Prediction.svelte')} label="prediction" reserve="18rem" />
 
 <Chapter id="run" label="Now run it" />
 

@@ -150,6 +150,11 @@ export class StepMachine {
     this.current = Math.max(0, Math.min(this.steps.length - 1, Math.trunc(index)));
   }
 
+  /** Jump toward a step, but never past a hold the reader has not done (like `restore`). */
+  reach(index: number): void {
+    this.restore({ index, released: [...this.released] });
+  }
+
   snapshot(): StepSnapshot {
     return { index: this.current, released: [...this.released] };
   }
@@ -266,6 +271,8 @@ export interface StepStageContext {
   isReleased(id: string): boolean;
   /** The reader is resting on something (a bubble): chit-chat waits for them. */
   pause(on: boolean): void;
+  /** Forward, as if the reader had asked: a "Not now" link inside a bubble. */
+  advance(): void;
   /** Reactive: the step on screen. */
   readonly index: number;
   /** Reactive: the reader asked for no motion. */

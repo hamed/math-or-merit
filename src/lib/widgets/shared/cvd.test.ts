@@ -118,3 +118,25 @@ describe('speaker bubbles stay readable (iteration-2 brief 3.1)', () => {
     }
   });
 });
+
+describe('a costumed room shows no clusters (iteration-2 brief 3.6)', () => {
+  it('dresses near neighbours in different shapes and fills — far better than a cycle', async () => {
+    const { spreadStyles, assignStyles, RESERVED_CIRCLE_PAIRS } = await import('./agentStyle');
+    const { pairLayout } = await import('../stage/scenes/pair/layout');
+    const L = pairLayout(1366, 768);
+    const points = L.room.positions;
+    const reach = L.room.radius * 3.2;
+    const clashes = (styles: { shape: string; fillName: string }[]) => {
+      let n = 0;
+      for (let i = 0; i < points.length; i++)
+        for (let j = i + 1; j < points.length; j++) {
+          if (Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y) >= reach) continue;
+          if (styles[i].shape === styles[j].shape || styles[i].fillName === styles[j].fillName) n++;
+        }
+      return n;
+    };
+    const spread = spreadStyles(points, reach);
+    expect(clashes(spread)).toBeLessThanOrEqual(Math.floor(clashes(assignStyles(points.length)) / 4));
+    for (const s of spread) if (s.shape === 'circle') expect(RESERVED_CIRCLE_PAIRS.has(`${s.fillName}/${s.strokeName}`)).toBe(false);
+  });
+});

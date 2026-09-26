@@ -16,23 +16,35 @@
   import { getContext, onMount } from 'svelte';
   import { gsap } from '../../gsap';
   import Bubble from '../../Bubble.svelte';
+  import CardStack, { type Card } from '../../CardStack.svelte';
   import Coin from '../Coin.svelte';
   import Reel from './Reel.svelte';
   import Teletype from './Teletype.svelte';
   import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
   import { CALLS, PAIR_STEPS, REACTIONS, indexOf, panelStart, valuesFor, type Pose } from './script';
-  import { BIG, BITES, CROWD, SMALL } from './crowd';
+  import { BIG, BITES, CROWD, RAIN, RAINED, SMALL } from './crowd';
   import { deciderFace, pairLayout, pile } from './layout';
   import { bubbleLines, bubbleWords, chatColumn, stackChat, type BubbleChoice } from '../../bubbles';
   import {
     CLASSIC_AGENT_FILL,
     CLASSIC_AGENT_STROKE,
     PROTAGONISTS,
-    assignStyles,
+    spreadStyles,
   } from '../../../shared/agentStyle';
   import { svgShapePath } from '../../../shared/shapePath';
   import { ambientClock, breath } from '../../ambient';
-  import { getTextDirection, say } from '$lib/i18n';
+  import { formatNumber, getTextDirection, say } from '$lib/i18n';
+  import {
+    BETS,
+    PREDICTIONS,
+    PREDICTION_PICTURES,
+    answer,
+    recallAnswers,
+    session,
+    type BetId,
+    type PredictionId,
+  } from '../../../shared/runLog.svelte';
+  import { REVEAL_BETA } from '../../../shared/presets';
   import { openBranch } from '../../branch';
 
   const stage = getContext<StepStageContext | undefined>(STEP_STAGE_CONTEXT);
@@ -87,7 +99,7 @@
   const L = $derived(pairLayout(width, height, 100, rtl));
 
   /** The room's other ninety-eight wear the ordinary costumes (A5 keeps them off the pair's). */
-  const ROOM_STYLES = assignStyles(100);
+  const roomStyles = $derived(spreadStyles(L.room.positions, L.room.radius * 3.2));
 
   // ---- the view: every number the stage draws, tweened by GSAP ---------------
 
@@ -96,6 +108,8 @@
     y: number;
     r: number;
     alpha: number;
+    /** 1 — holds nothing: an empty ring, visible but with no area. */
+    empty: number;
   }
   interface Token {
     x: number;
@@ -114,7 +128,9 @@
     compact: 0,
     titleOn: 1,
     lift: 0,
-    people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1 })) as Person[],
+    people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1, empty: 1 })) as Person[],
+    /** The room's other ninety-eight (Scene 10), each on its way in or in place. */
+    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, alpha: 0 })),
     paint: { blue: 0, red: 0 },
     coinsOn: 0,
     held: { blue: 15, red: 1 },
@@ -157,18 +173,35 @@
 
   /** Where each of the sixteen is, and how big, in a pose. */
   function people(pose: Pose): Person[] {
-    const one = L.radius(1);
+    const nobody = L.presence;
     return L.crowdHomes.map((home, i) => {
       const who = whoIs(i);
-      if (pose.crowd === 'idle') return { x: home.x, y: home.y, r: one * 0.42, alpha: 1 };
-      if (pose.crowd === 'paid') return { x: home.x, y: home.y, r: one, alpha: 1 };
-      if (!who) return { x: home.x, y: home.y, r: 0, alpha: 0 };
-      if (pose.crowd === 'bitten') {
-        const coins = who === 'blue' ? 15 : 1;
-        return { x: home.x, y: L.ground - L.radius(coins), r: L.radius(coins), alpha: 1 };
+      switch (pose.crowd) {
+        case 'away':
+          return { ...L.crowdEntries[i], r: nobody, alpha: 1, empty: 1 };
+        case 'idle':
+          return { ...home, r: nobody, alpha: 1, empty: 1 };
+        case 'paid':
+          return RAINED[i] > 0 ? { ...home, r: L.radius(RAINED[i]), alpha: 1, empty: 0 } : { ...home, r: nobody, alpha: 1, empty: 1 };
+        case 'bitten':
+          if (!who) return { ...home, r: nobody, alpha: 1, empty: 1 };
+          return { ...home, r: L.radius(who === 'blue' ? 15 : 1), alpha: 1, empty: 0 };
+        default: {
+          if (!who) return { ...L.crowdExits[i], r: nobody, alpha: 0, empty: 1 };
+          const spot = pairSpot(pose, who);
+          return { x: spot.x, y: spot.y, r: pairRadius(pose, who), alpha: 1, empty: 0 };
+        }
       }
-      const spot = pairSpot(pose, who);
-      return { x: spot.x, y: spot.y, r: pairRadius(pose, who), alpha: 1 };
+    });
+  }
+
+  /** The room's others: in place once the room has filled, off the stage before. */
+  function roomPeople(pose: Pose) {
+    const w = L.width;
+    return L.room.positions.map((p, i) => {
+      if (pose.place === 'room') return { x: p.x, y: p.y, alpha: 1 };
+      const side = i % 3 === 0 ? { x: p.x, y: L.height + L.room.radius * 4 } : { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y };
+      return { ...side, alpha: 0 };
     });
   }
 
@@ -233,6 +266,7 @@
     view.flipTint = t.flipTint;
     view.roomOn = t.roomOn;
     people(pose).forEach((p, i) => Object.assign(view.people[i], p));
+    roomPeople(pose).forEach((p, i) => Object.assign(view.room[i], p));
   }
 
   // ---- the player's verbs ----------------------------------------------------
@@ -245,6 +279,7 @@
     stopCalls();
     reaction = null;
     logReady = true;
+    cardOpen = PAIR_STEPS[index].pose.cardOpen;
     draw(poseAt(index));
     showAll(index);
     enter(index);
@@ -259,6 +294,7 @@
     const step = PAIR_STEPS[index];
     const pose = poseAt(index);
     logReady = !step.log;
+    cardOpen = step.pose.cardOpen;
     timeline = gsap.timeline();
     choreograph(step.action, pose, timeline);
     revealLines(index);
@@ -279,9 +315,11 @@
   }
 
   function readingTime(index: number): number {
-    const line = PAIR_STEPS[index].lines?.[0];
-    if (!line) return readingMs(0);
-    const text = say(line.message, valuesFor(PAIR_STEPS[index]));
+    const step = PAIR_STEPS[index];
+    const dynamic = step.id === 'guess.react' && session.bet ? REACTIONS.betLines[session.bet].message : null;
+    const line = step.lines?.[0];
+    if (!line && !dynamic) return readingMs(0);
+    const text = dynamic ? say(dynamic) : say(line!.message, valuesFor(step));
     return readingMs(bubbleWords(text)) + (bubbleLines(text).length - 1) * LINE_BEAT_MS;
   }
 
@@ -327,9 +365,13 @@
       const step = PAIR_STEPS[i];
       const line = step.lines?.[0];
       if (step.log && (i < current || logReady)) {
-        const winner: Speaker = step.pose.flip === 'blue' ? 'blue' : 'red';
-        const text = say(step.log, { winner: say(`name_${winner}`), blue: step.pose.holdings.blue, red: step.pose.holdings.red });
-        out.push({ id: `log:${step.id}`, who: null, at: null, text, kind: 'event', coin: winner });
+        const logged = logFor(step.id, step.log, step.pose);
+        if (logged) out.push(logged);
+      }
+      if (step.id === 'guess.react') {
+        const bet = session.bet ? REACTIONS.betLines[session.bet] : null;
+        if (bet) out.push({ id: `${step.id}:${session.bet}`, who: bet.who, at: bet.who, text: say(bet.message) });
+        continue;
       }
       if (!line || !line.who) continue;
       // a brief line goes as soon as anyone says the next thing
@@ -350,17 +392,81 @@
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
     const last = out[out.length - 1];
-    if (last && PAIR_STEPS[current].pose.choice) {
-      out[out.length - 1] = {
-        ...last,
-        choices: [
-          { label: say('more_choice_1'), act: tellMe },
-          { label: say('more_choice_2'), act: notNow },
-        ],
-      };
-    }
+    const choices = choicesAt(current);
+    if (last && choices) out[out.length - 1] = { ...last, choices };
     return out;
   });
+
+  /** What a finished step leaves in the talk: a toss's result, the reader's own answer. */
+  function logFor(id: string, key: string, pose: Pose): Said | null {
+    if (key === 'log_toss') {
+      const winner: Speaker = pose.flip === 'blue' ? 'blue' : 'red';
+      const text = say(key, { winner: say(`name_${winner}`), blue: pose.holdings.blue, red: pose.holdings.red });
+      return { id: `log:${id}`, who: null, at: null, text, kind: 'event', coin: winner };
+    }
+    if (key === 'log_guess' && session.prediction) {
+      const choice = say(REACTIONS.guesses[PREDICTIONS.findIndex((p) => p.id === session.prediction)]);
+      return { id: `log:${id}`, who: null, at: null, text: say(key, { choice }), kind: 'event' };
+    }
+    if (key === 'log_bet' && session.bet) {
+      const bet = say(REACTIONS.bets[BETS.indexOf(session.bet)]);
+      return { id: `log:${id}`, who: null, at: null, text: say(key, { bet }), kind: 'event' };
+    }
+    return null;
+  }
+
+  /** The reader's choices, set inside the current speaker's bubble. */
+  function choicesAt(index: number): readonly BubbleChoice[] | null {
+    const id = PAIR_STEPS[index].id;
+    if (PAIR_STEPS[index].pose.choice) {
+      return [
+        { label: say('more_choice_1'), act: tellMe },
+        { label: say('more_choice_2'), act: () => stage?.advance() },
+      ];
+    }
+    if (id === 'guess.what') {
+      return PREDICTIONS.map((p, k) => ({
+        label: say(REACTIONS.guesses[k]),
+        glyph: PREDICTION_PICTURES[p.id],
+        chosen: session.prediction === p.id,
+        act: () => pick('guess.what', () => answer('prediction', p.id as PredictionId)),
+      }));
+    }
+    if (id === 'guess.stake') {
+      return BETS.map((bet, k) => ({
+        label: say(REACTIONS.bets[k]),
+        chosen: session.bet === bet,
+        act: () => pick('guess.stake', () => answer('bet', bet as BetId)),
+      }));
+    }
+    return null;
+  }
+
+  /** Record the reader's answer; if it was what the stage waited for, move on. */
+  function pick(hold: string, record: () => void): void {
+    record();
+    if (current === indexOf(hold) && !stage?.isReleased(hold)) stage?.release(hold);
+  }
+
+  // ---- the concept cards -----------------------------------------------------
+
+  let cardOpen = $state<string | null>(null);
+  let cardHeight = $state(0);
+
+  /** The rule card reads the rule that is running: the live stake, never typed in. */
+  function cardFor(id: string): Card | null {
+    if (id !== 'rule') return null;
+    const stake = formatNumber(REVEAL_BETA, { style: 'percent' });
+    return {
+      id,
+      title: say('card_rule_title'),
+      lines: [say('card_rule_1'), say('card_rule_2', { stake }), say('card_rule_3'), say('card_rule_4')],
+    };
+  }
+
+  const cards = $derived(
+    PAIR_STEPS[current].pose.cards.map(cardFor).filter((card): card is Card => card !== null),
+  );
 
   /** The newest bubble's lines, arriving one by one. */
   let reveal = $state({ id: '', shown: Infinity, total: 0 });
@@ -408,8 +514,11 @@
       pose.place === 'room'
         ? [L.room.top]
         : PAIR.map((who) => pairSpot(pose, who).y - Math.max(pairRadius(pose, who), L.minRadius));
-    const bottom = Math.max(top + 90, Math.min(...tops) - 6);
-    return { top, bottom, left: 16, right: width - 16 };
+    // on a narrow stage an open card sits over the talk's space: start below it
+    const card = cardOpen && width < 760 && cardHeight > 0 ? 12.8 + 44 + 8 + cardHeight + 10 : 0;
+    const start = Math.max(top, card);
+    const bottom = Math.max(start + 90, Math.min(...tops) - 6);
+    return { top: start, bottom, left: 16, right: width - 16 };
   });
 
   const column = $derived(
@@ -486,6 +595,7 @@
     switch (action) {
       case 'type':
         tl.to(view, { type: 1, duration: 3.6, ease: 'none' }, 0.5);
+        arrive(tl);
         return;
       case 'merit':
         tl.to(view, { meritOn: 1, duration: 0.9, ease: 'power1.out' });
@@ -503,7 +613,7 @@
         bites(tl);
         return;
       case 'gather':
-        tweenTo(pose, tl, 0, 1.3);
+        leave(pose, tl);
         return;
       case 'clear':
         tweenTo(pose, tl, 0, 1.1);
@@ -515,62 +625,129 @@
         toss(pose, tl);
         return;
       case 'room':
-        tweenTo(pose, tl, 0, 1.2);
+        fillRoom(pose, tl);
         return;
       default:
         tweenTo(pose, tl, 0, 0.6);
     }
   }
 
-  /** Coins pop out of the MATH reel and fly down, one to each person (Scene 2). */
+  /** A deterministic wobble per person, so every visit bounces the same way. */
+  const jitter = (i: number, k: number) => {
+    const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  };
+
+  /** Across to `to` in three hops, each lower than the last, landing where it belongs. */
+  function bounce(tl: ReturnType<typeof gsap.timeline>, who: { x: number; y: number }, to: { x: number; y: number }, at: number, duration: number, height: number): void {
+    tl.to(who, { x: to.x, duration, ease: 'none' }, at);
+    const hops = [1, 0.42, 0.16];
+    const piece = duration / (hops.length * 2);
+    hops.forEach((k, n) => {
+      const t = at + n * piece * 2;
+      tl.to(who, { y: to.y - height * k, duration: piece, ease: 'power1.out' }, t);
+      tl.to(who, { y: to.y, duration: piece, ease: 'power1.in' }, t + piece);
+    });
+  }
+
+  /** Scene 2 begins: people bounce in from every side and settle where they like. */
+  function arrive(tl: ReturnType<typeof gsap.timeline>): void {
+    const hop = L.radius(1) * 1.4;
+    view.people.forEach((person, i) => {
+      tl.set(person, { ...L.crowdEntries[i], r: L.presence, empty: 1, alpha: 1 }, 0);
+      bounce(tl, person, L.crowdHomes[i], 0.3 + jitter(i, 1) * 2.8, 1.1 + jitter(i, 2) * 0.5, hop);
+    });
+  }
+
+  /** Sixteen coins pop out of the MATH reel and fall where they fall — some catch two, some none. */
   function payout(tl: ReturnType<typeof gsap.timeline>): void {
     const hostBox = host.getBoundingClientRect();
     const reelBox = mathReel.getBoundingClientRect();
     const from = { x: reelBox.left - hostBox.left + reelBox.width / 2, y: reelBox.top - hostBox.top + reelBox.height / 2 };
-    const one = L.radius(1);
+    const caught = new Array<number>(CROWD).fill(0);
     tl.to(view, { markOn: 1, duration: 0.5, ease: 'none' }, 0);
-    view.people.forEach((person, i) => {
-      const token = view.payout[i];
-      const at = 0.15 + (i * 1.5) / CROWD;
+    RAIN.forEach((who, k) => {
+      const token = view.payout[k];
+      const person = view.people[who];
+      const at = 0.15 + k * 0.19;
+      caught[who] += 1;
+      const r = L.radius(caught[who]);
       tl.set(token, { x: from.x, y: from.y, on: 1 }, at);
-      tl.to(token, { x: person.x, duration: 0.6, ease: 'power1.out' }, at);
-      tl.to(token, { y: person.y, duration: 0.6, ease: 'power2.in' }, at);
-      tl.set(token, { on: 0 }, at + 0.6);
-      tl.to(person, { r: one, duration: 0.25, ease: 'back.out(3)' }, at + 0.6);
+      tl.to(token, { x: L.crowdHomes[who].x, duration: 0.65, ease: 'power1.out' }, at);
+      tl.to(token, { y: L.crowdHomes[who].y, duration: 0.65, ease: 'power2.in' }, at);
+      tl.set(token, { on: 0 }, at + 0.65);
+      tl.set(person, { empty: 0 }, at + 0.65);
+      tl.to(person, { r, duration: 0.25, ease: 'back.out(3)' }, at + 0.65);
     });
   }
 
-  /** The bites, exactly as crowd.ts scripts them — the rule on every contact. */
+  /** The bumps, exactly as crowd.ts scripts them — the rule on every contact. */
   function bites(tl: ReturnType<typeof gsap.timeline>): void {
+    const wealth = [...RAINED];
     for (let k = 0; k < BITES.length; k++) {
       const bite = BITES[k];
       const next = BITES[k + 1]?.at ?? bite.at + 0.4;
-      const hop = Math.min(0.2, (next - bite.at) * 0.6);
-      const winner = view.people[bite.winner];
-      const loserIndex = bite.winner === bite.a ? bite.b : bite.a;
-      const loser = view.people[loserIndex];
-      const rw = L.radius(bite.after[bite.winner]);
-      const rl = bite.absorbed === loserIndex ? 0 : L.radius(bite.after[loserIndex]);
-      // the biter reaches its victim: they touch, the stake crosses
-      tl.to(
-        winner,
-        {
-          x: () => loser.x + Math.sign(winner.x - loser.x || 1) * (winner.r + loser.r) * 0.9,
-          y: () => loser.y + (loser.r - winner.r) * 0.2,
-          duration: hop,
-          ease: 'power2.out',
-        },
-        bite.at,
-      );
-      tl.to(winner, { r: rw, duration: hop, ease: 'power1.out' }, bite.at + hop * 0.6);
-      tl.to(loser, { r: rl, duration: hop, ease: 'power1.in' }, bite.at + hop * 0.6);
-      if (bite.absorbed === loserIndex) tl.to(loser, { alpha: 0, duration: hop }, bite.at + hop);
+      const move = Math.min(0.22, (next - bite.at) * 0.55);
+      const a = bite.a;
+      const b = bite.b;
+      const loser = bite.winner === a ? b : a;
+      const ha = L.crowdHomes[a];
+      const hb = L.crowdHomes[b];
+      // they meet halfway, touch, and bounce back home
+      const ra = L.radius(wealth[a]);
+      const rb = L.radius(wealth[b]);
+      const d = Math.hypot(hb.x - ha.x, hb.y - ha.y) || 1;
+      const touch = Math.max(0, (d - ra - rb) / 2);
+      const ux = (hb.x - ha.x) / d;
+      const uy = (hb.y - ha.y) / d;
+      tl.to(view.people[a], { x: ha.x + ux * touch, y: ha.y + uy * touch, duration: move, ease: 'power2.in' }, bite.at);
+      tl.to(view.people[b], { x: hb.x - ux * touch, y: hb.y - uy * touch, duration: move, ease: 'power2.in' }, bite.at);
+      tl.to(view.people[a], { x: ha.x, y: ha.y, duration: move * 1.4, ease: 'back.out(2)' }, bite.at + move);
+      tl.to(view.people[b], { x: hb.x, y: hb.y, duration: move * 1.4, ease: 'back.out(2)' }, bite.at + move);
+      for (const who of [a, b]) {
+        const r = bite.after[who] > 0 ? L.radius(bite.after[who]) : L.presence;
+        tl.to(view.people[who], { r, duration: move, ease: 'power1.out' }, bite.at + move * 0.8);
+      }
+      if (bite.absorbed === loser) tl.set(view.people[loser], { empty: 1 }, bite.at + move * 1.6);
+      for (let i = 0; i < CROWD; i++) wealth[i] = bite.after[i];
     }
-    // everyone left settles back onto the ground
-    const end = BITES[BITES.length - 1].at + 0.3;
-    for (const i of [BIG, SMALL]) {
-      tl.to(view.people[i], { y: L.ground - L.radius(i === BIG ? 15 : 1), duration: 0.3 }, end);
-    }
+  }
+
+  /** Everyone with nothing bounces off the stage; the two glide under their words. */
+  function leave(pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
+    const targets = people(pose);
+    const hop = L.radius(1) * 1.2;
+    view.people.forEach((person, i) => {
+      if (whoIs(i)) {
+        tl.to(person, { ...targets[i], duration: 1.3, ease: 'power2.inOut' }, 0.5);
+        return;
+      }
+      const at = jitter(i, 3) * 0.9;
+      bounce(tl, person, L.crowdExits[i], at, 1.2, hop);
+      tl.to(person, { alpha: 0, duration: 0.3 }, at + 1.0);
+    });
+  }
+
+  /**
+   * Scene 10: the camera pulls back about the middle — the two shrink and keep
+   * their places relative to each other — while ninety-eight people bounce in
+   * one by one from every side (brief 3.6).
+   */
+  function fillRoom(pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
+    const t = target(pose);
+    tl.to(view, { roomOn: 1, coinsOn: t.coinsOn, flipOn: t.flipOn, duration: 0.3 }, 0);
+    people(pose).forEach((p, i) => tl.to(view.people[i], { ...p, duration: 1.1, ease: 'power2.inOut' }, 0));
+    const hop = L.room.radius * 2.2;
+    L.room.positions.forEach((spot, i) => {
+      if (i === L.room.blue || i === L.room.red) return;
+      const at = 0.6 + (i / L.room.positions.length) * 2.4 + jitter(i, 4) * 0.25;
+      tl.set(view.room[i], { alpha: 1 }, at);
+      bounce(tl, view.room[i], spot, at, 0.8, hop);
+    });
+    tl.call(() => {
+      view.held = t.held;
+      view.table = t.table;
+    }, [], 1.1);
   }
 
   /** Where coin `k` of a fortune of `count` sits on the stage right now. */
@@ -836,15 +1013,6 @@
     openBranch('cow');
   }
 
-  /** Past the stage — the gesture the last step would have handed to the page anyway. */
-  function notNow(): void {
-    const section = host.closest('section');
-    window.scrollTo({
-      top: window.scrollY + (section?.getBoundingClientRect().bottom ?? window.innerHeight),
-      behavior: stage?.reduced ? 'auto' : 'smooth',
-    });
-  }
-
   // ---- drawing helpers -------------------------------------------------------
 
   let seconds = $state(0);
@@ -909,6 +1077,7 @@
     stage?.attach(PAIR_STEPS, { play, settle, nudge, hurry, readingMs: readingTime });
     measureReel();
     void document.fonts?.ready.then(measureReel);
+    recallAnswers();
     const stopAmbient = ambientClock((s) => (seconds = s), stage?.reduced ?? false);
     return () => {
       observer.disconnect();
@@ -961,15 +1130,16 @@
     <svg class="art" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
       {#if view.roomOn > 0}
         <g class="room" opacity={view.roomOn}>
-          {#each L.room.positions as spot, i (i)}
-            {#if i !== L.room.blue && i !== L.room.red}
+          {#each view.room as spot, i (i)}
+            {#if i !== L.room.blue && i !== L.room.red && spot.alpha > 0.01 && roomStyles[i]}
               <path
-                d={svgShapePath(ROOM_STYLES[i].shape, L.room.radius)}
-                transform={`translate(${spot.x} ${spot.y})`}
-                fill={ROOM_STYLES[i].fill}
-                stroke={ROOM_STYLES[i].stroke}
+                d={svgShapePath(roomStyles[i].shape, L.room.radius)}
+                transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)})`}
+                fill={roomStyles[i].fill}
+                stroke={roomStyles[i].stroke}
                 fill-opacity="0.75"
                 stroke-width="1.3"
+                opacity={spot.alpha}
               />
             {/if}
           {/each}
@@ -982,8 +1152,9 @@
             <g transform={life(i)}>
               <circle
                 r={person.r}
-                fill={costumeFill(i)}
+                fill={person.empty > 0.5 ? 'none' : costumeFill(i)}
                 stroke={costumeStroke(i)}
+                stroke-dasharray={person.empty > 0.5 ? '3 3' : undefined}
                 fill-opacity={whoIs(i) && view.paint[whoIs(i)!] > 0.5 ? 0.75 : 1}
                 stroke-width={strokeWidth(i)}
                 vector-effect="non-scaling-stroke"
@@ -1083,6 +1254,15 @@
         {/if}
       {/each}
     </div>
+
+    <CardStack
+      {cards}
+      open={cardOpen}
+      ontoggle={(id) => (cardOpen = id)}
+      label={say('card_stack')}
+      closeLabel={say('card_close')}
+      onsize={(h) => (cardHeight = h)}
+    />
   {/if}
 </div>
 

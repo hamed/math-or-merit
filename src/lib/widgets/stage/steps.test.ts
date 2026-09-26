@@ -157,3 +157,21 @@ describe('who owns a gesture', () => {
     expect(claim(at(VIEW * 0.6), 1, mid)).toBe('pass');
   });
 });
+
+describe('reaching a step from outside (back from a branch)', () => {
+  it('goes to the step when nothing before it is still waiting', () => {
+    const machine = new StepMachine(STEPS);
+    machine.seek(2);
+    machine.release('click-both');
+    machine.release('equal');
+    machine.seek(0);
+    machine.reach(5);
+    expect(machine.step.id).toBe('done');
+  });
+
+  it('stops at a hold the reader has not done', () => {
+    const machine = new StepMachine(STEPS);
+    machine.reach(5);
+    expect(machine.step.id).toBe('click-both');
+  });
+});

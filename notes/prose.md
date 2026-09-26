@@ -420,6 +420,10 @@ that every omitted detail is powerless. (Today [cow.7b] carries this.)
 
 [human.1] I am not going to explain how he got rich.
 
+[human.back] (draft) Back to the story
+
+> at the end of the branch: a link back into the stage, at the guess (Scene 12).
+
 ! keep true: this guard stays with the plates. The essay does not explain any
 real fortune.
 
@@ -428,17 +432,33 @@ real fortune.
 
 ---
 
-## 15 · The reader's prediction — Scene 15 (chapter `guess`)
+## 12 · Your guess — Scene 12 (inside the stage)
 
-[guess.ask] RED: (draft) So. What do you think happens?
+> picture: the same room. No jump to another page: the question, the rule and
+> the choices are all in front of the reader at once (brief Scene 12). The rule
+> card opens beside Red's bubble; the choices sit inside a large bubble.
 
-> [CHOICE] Still roughly equal · A gentle spread · A split: some rich, some poor
-> · One giant, the rest near nothing
+[guess.ask] RED: (draft) Now it's your turn to guess.
+
+[guess.rule] RED: (draft) Remember the rule.
+
+[guess.what] RED: (draft) What do you think will happen?
+
+[guess.choice] (draft) Still roughly equal · A gentle spread · A split: some rich, some poor · One giant, the rest near nothing
+
+> [HOLD] until one is picked. Links inside Red's bubble, each with a small
+> picture of the room it means.
 
 [guess.stake] RED: (draft) And how much would you bet on that?
 
-> [CHOICE] A coffee · A lunch · A vacation · 1% of my wealth
-> [HOLD] until both are answered. Both answers are remembered.
+[guess.bet] (draft) A coffee · A lunch · A vacation · 1% of my wealth
+
+> [HOLD] until one is picked. Both answers are remembered, and logged in the
+> talk as the reader's own lines:
+
+[log.guess] (draft) Your guess: {choice}.
+
+[log.bet] (draft) Your bet: {bet}.
 
 [guess.coffee] BLUE: (draft · proposed — first to cut) A coffee. Careful with your money. I respect that.
 
@@ -450,6 +470,27 @@ real fortune.
 
 > the reveal runs at exactly half of the poorer fortune — the same bet Red
 > names (settled 2026-09-24; it used to be 35%).
+
+### The rule card
+
+> the first concept card (brief 1.6): like the rule card in a board game, it
+> shows the rule that is running right now, read from the room's own settings
+> — {stake} is the live stake. It drops into the stack in the corner once Red
+> has said the whole rule (Scene 10), and opens at "Remember the rule."
+
+[card.stack] (draft) Cards
+
+[card.rule.title] (draft) The rule
+
+[card.rule.1] (draft) Pick two people at random.
+
+[card.rule.2] (draft) Each puts in {stake} of what the poorer one has.
+
+[card.rule.3] (draft) Flip a coin. The winner takes both.
+
+[card.rule.4] (draft) Do it again.
+
+[card.close] (draft) Close
 
 ---
 
@@ -758,21 +799,9 @@ Every `! keep true:` these lines carried has already moved up into the script.
 > Gone from the build 2026-09-24: the cow's bridge cards and every caption the
 > owner's cut left out, and the spherical human's narration and its trade —
 > Blue and Red play that game on the pair stage now.
-
-## Your turn to guess
-
-[guess.head] Your turn to guess
-
-[guess.body]
-Now remove the script. Put one hundred equal fortunes in the room.
-
-1. Everyone starts with the same money.
-2. Pick two people at random.
-3. Both put up half of whatever the poorer one has.
-4. Toss for it. One wins, one loses. Fifty-fifty.
-5. Go back to 2.
-
-After a hundred thousand fair trades, what survives? Pick one before the coin speaks.
+>
+> Gone 2026-09-26: "Your turn to guess" and its five-step rule list — the guess
+> happens inside the stage now (Scene 12), and the rule lives on the rule card.
 
 ## Now run it · So why did they win?
 

@@ -22,7 +22,8 @@ import { HOLDINGS, ROUNDS } from './game';
 import { BIG, BITES_SECONDS, SMALL } from './crowd';
 import { CHAT, HOLD, READER, auto, type LineSpec, type StepSpec, type Wait } from '../../steps';
 
-export type CrowdState = 'idle' | 'paid' | 'bitten' | 'two';
+/** Scene 2: not here yet · bounced in · coins landed · bumped · only the two left. */
+export type CrowdState = 'away' | 'idle' | 'paid' | 'bitten' | 'two';
 export type Place = 'marks' | 'seats' | 'room';
 export type Flip = 'hidden' | 'shown' | 'blue' | 'red';
 
@@ -57,6 +58,10 @@ export interface Pose {
   readonly room: number;
   /** Scene 11's "Yes · Not now", inside Red's bubble. */
   readonly choice: boolean;
+  /** Concept cards dropped into the stack so far (brief 1.6), oldest first. */
+  readonly cards: readonly string[];
+  /** A card the step opens beside the talk ("Remember the rule."). */
+  readonly cardOpen: string | null;
 }
 
 /** What a step does on the way in, for the scene's choreography. */
@@ -93,7 +98,7 @@ const START: Pose = {
   mark: false,
   compact: false,
   cleared: false,
-  crowd: 'idle',
+  crowd: 'away',
   named: { blue: false, red: false },
   coins: false,
   holdings: { blue: 15, red: 1 },
@@ -102,6 +107,8 @@ const START: Pose = {
   place: 'marks',
   room: 2,
   choice: false,
+  cards: [],
+  cardOpen: null,
 };
 
 interface Draft {
@@ -127,15 +134,15 @@ const NOTHING: Coins = { blue: 0, red: 0 };
 
 const DRAFTS: Draft[] = [
   // ---- Scene 1: teletype and title, in reading order ----------------------
-  { id: 'title.type', wait: auto(4600), action: 'type', pose: { teletype: true } },
+  { id: 'title.type', wait: auto(4600), action: 'type', pose: { teletype: true, crowd: 'idle' } },
   { id: 'title.merit', wait: auto(1500), action: 'merit', pose: { merit: true } },
   { id: 'title.or', wait: auto(900), action: 'or', pose: { or: true } },
   { id: 'title.math', wait: auto(3800), action: 'reel-math', pose: { math: true } },
 
   // ---- Scene 2: the crowd ----------------------------------------------
-  { id: 'crowd.payout', wait: auto(2600), action: 'payout', pose: { crowd: 'paid', mark: true } },
+  { id: 'crowd.payout', wait: auto(3900), action: 'payout', pose: { crowd: 'paid', mark: true } },
   { id: 'crowd.bites', wait: auto(Math.round(BITES_SECONDS * 1000) + 300), action: 'bites', pose: { crowd: 'bitten' } },
-  { id: 'crowd.two', wait: auto(1500), action: 'gather', pose: { crowd: 'two' } },
+  { id: 'crowd.two', wait: auto(2600), action: 'gather', pose: { crowd: 'two' } },
 
   // ---- Scene 3: meeting them — Red calls, then Blue (holds: a click each) --
   red('call.red', 'meet_red_call_1', { wait: HOLD, panel: true, brief: true, pose: { compact: true, named: { blue: false, red: true } } }),
@@ -212,12 +219,19 @@ const DRAFTS: Draft[] = [
   // ---- Scene 10: the crowd arrives; the pair joins the room ------------------
   red('more.shapes', 'more_shapes', { panel: true, action: 'room', pose: { place: 'room', room: 100 } }),
   red('more.random', 'more_random'),
-  red('more.rule', 'more_rule'),
+  red('more.rule', 'more_rule', { pose: { cards: ['rule'] } }),
   blue('more.watch', 'more_watch', { wait: CHAT }),
 
   // ---- Scene 11: the joke offer ----------------------------------------
   blue('more.real', 'more_real'),
   red('more.joke', 'more_joke', { pose: { choice: true } }),
+
+  // ---- Scene 12: your guess, inside the stage (holds: a guess, then a bet) --
+  red('guess.ask', 'guess_ask', { panel: true, pose: { choice: false } }),
+  red('guess.rule', 'guess_rule', { pose: { cardOpen: 'rule' } }),
+  red('guess.what', 'guess_what', { wait: HOLD, log: 'log_guess' }),
+  red('guess.stake', 'guess_stake', { wait: HOLD, log: 'log_bet', pose: { cardOpen: null } }),
+  { id: 'guess.react', wait: CHAT },
 ];
 
 function build(): PairStep[] {
@@ -263,6 +277,16 @@ export const REACTIONS = {
   equalEleven: 'equal_eleven',
   equalOverBlue: 'equal_over_b',
   equalOverRed: 'equal_over_r',
+  /** Scene 12: the four outcomes, in the order of PREDICTIONS; the four bets, in the order of BETS. */
+  guesses: ['guess_choice_1', 'guess_choice_2', 'guess_choice_3', 'guess_choice_4'],
+  bets: ['guess_bet_1', 'guess_bet_2', 'guess_bet_3', 'guess_bet_4'],
+  /** Who answers each bet, and with what. */
+  betLines: {
+    coffee: { who: 'blue', message: 'guess_coffee' },
+    lunch: { who: 'red', message: 'guess_lunch' },
+    vacation: { who: 'blue', message: 'guess_vacation' },
+    percent: { who: 'red', message: 'guess_percent' },
+  },
 } as const;
 
 /** The step of each Scene 3 hold, by who is calling. */
