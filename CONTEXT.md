@@ -96,9 +96,19 @@ State of the work, by the brief's own plan (Part 9):
   reading `REVEAL_BETA`). The old guess section and `Prediction.svelte` are
   gone; "Skip" after the cow and "Back to the story" after B2 return into the
   stage (`goToStep`).
-- **Next:** Phase 3 — the run in the same room (Scenes 13–14): slower, the
-  biggest marked, the newspaper, banter on the real result, "Again · Go on".
-  Then the concept acts, the levy acts, the sandbox (brief Part 6).
+- **Phase 3 done:** the run happens in the stage's room (Scene 13,
+  `pair/run.svelte.ts`: unseeded, 16 s eased, a forward press finishes it,
+  the last run remembered in sessionStorage, every run logged to `session` for
+  the chapters below); the richest wears the dashed ring; a readout in the top
+  bar; the result and the Morning Ledger's front page are printed INTO the talk
+  (`Bubble` kind `paper`); banter branches on who actually won and quotes what
+  the two hold in dollars; "Again · Go on" (`StepStageContext.replay`). Scene
+  14 argues over the paper (the bias described, never named). Retired:
+  RevealRun, RevealInterpretation, WinnerStory, their guidance/interpretation
+  modules, and the "Now run it" / "So why did they win?" sections.
+- **Next:** Phase 4 — histogram, Gini, effective participants as acts on the
+  same room (side rail thumbnails, concept cards). Then the levy acts, the
+  sandbox (brief Part 6).
 - **Stage input rules** (2026-09-26, `claim()` in `steps.ts`): while the reader
   is in the stage every wheel event is the stage's, sub-pixel ones included —
   letting a trackpad's tail through slid the page and every later flick went

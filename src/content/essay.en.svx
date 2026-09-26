@@ -8,8 +8,6 @@
   import SpeakerText from '$lib/widgets/stage/SpeakerText.svelte';
   import ChoiceRow from '$lib/widgets/stage/ChoiceRow.svelte';
   import { goToStep, openBranch } from '$lib/widgets/stage/branch';
-  import RevealInterpretation from '$lib/widgets/reveal/RevealInterpretation.svelte';
-  import WinnerStory from '$lib/widgets/reveal/WinnerStory.svelte';
   import Deferred from '$lib/widgets/shared/Deferred.svelte';
   import Chapter from '$lib/nav/Chapter.svelte';
 </script>
@@ -138,48 +136,14 @@
   stage writes the same session.prediction the run below quotes back.
 -->
 
-<Chapter id="run" label="Now run it" />
-
-## Now run it
-
-A hundred equal fortunes. The colors and corners are costumes. The game cannot see them.
-
 <!--
-  WIDGET: RevealRun (R4, owner review 2026-07-08) — the real Yard-Sale rule, UNSEEDED
-  ("do not use seed, or even bother its concept"). REVEAL_BETA = 0.5 (2026-09-24, was 0.35):
-  exactly the half-of-the-poorer rule the game teaches, and one giant appears fast —
-  median top share 93–95%, p5 61–67% over 2×120 runs (scripts/reveal-calibrate.ts). The interpretation
-  below waits for the run and reads its actual top share. When a run finishes, the widget prints
-  a morning-paper card with the winner's portrait and a machine-confident headline about
-  their inert traits (folds the old WinnerStory beat in; the separate rerun widget was
-  redundant — this one reruns forever, logging every room for Chapter III's histogram).
-  GUARD (critical failure mode + widget contract): styles are dealt BEFORE the run and
-  NEVER enter pair selection, the stake, or the coin — the sim core has no import path to
-  them. Do NOT name a cognitive bias in prose (research.md C12). Claim discipline: finite
-  run only; NO power-law or distribution-family claim here. Asymptotics are beat 17.
+  THE RUN and SO WHY DID THEY WIN? (iteration 2, Scenes 13–14, 2026-09-26)
+  happen inside the pair stage now: the same room, run for real (unseeded,
+  slowed down), the dashed ring on the richest, the morning paper printed into
+  the talk, banter on the actual result, "Again · Go on", and the paper argued
+  over. RevealRun, RevealInterpretation and WinnerStory are retired; the stage
+  logs every run into the same session the chapters below read.
 -->
-<Deferred load={() => import('$lib/widgets/reveal/RevealRun.svelte')} label="main run" reserve="30rem" />
-
-<RevealInterpretation />
-
-<Chapter id="why" label="So why did they win?" />
-
-## So why did they win?
-
-The Morning Ledger has already found the secret of success:
-
-<WinnerStory />
-
-It sounds almost reasonable. That is how the trick works.
-
-The result came first. The explanation came second. Color, corners and edges never touched
-the game.
-
-Run it again. Maybe a new winner. Maybe the same one twice. The paper never prints
-“chance.” It simply finds another reason.
-
-Remember the headline we started with? How many reasons did you add before seeing the
-mechanism?
 
 <Chapter id="line-them-up" label="Line them up" />
 

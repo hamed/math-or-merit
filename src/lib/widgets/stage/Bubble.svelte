@@ -15,7 +15,8 @@
   import { fade } from 'svelte/transition';
   import Coin from './scenes/Coin.svelte';
   import { bubbleLines, comicOutline, shoutSegments, type BubbleChoice, type Tail } from './bubbles';
-  import { PROTAGONISTS, SPEAKER_TONES } from '../shared/agentStyle';
+  import { PROTAGONISTS, SPEAKER_TONES, type AgentStyle } from '../shared/agentStyle';
+  import { svgShapePath } from '../shared/shapePath';
   import type { Speaker } from './steps';
 
   interface Props {
@@ -30,8 +31,10 @@
     y: number;
     /** None for a logged event. */
     tail: Tail | null;
-    /** A line someone says, or something that happened (a coin landed), logged. */
-    kind?: 'line' | 'event';
+    /** A line someone says, something that happened (a coin landed), or the morning paper. */
+    kind?: 'line' | 'event' | 'paper';
+    /** The paper's front page, when `kind` is 'paper'. */
+    paper?: { masthead: string; text: string; source: string; style: AgentStyle };
     /** An event's coin: the face that landed, in its owner's colour. */
     coin?: Speaker;
     /** The widest it may grow, px: a bubble never spans its whole column. */
@@ -59,6 +62,7 @@
     tail,
     kind = 'line',
     coin,
+    paper,
     maxWidth = 368,
     shown = Infinity,
     gone = false,
@@ -85,7 +89,7 @@
   const lines = $derived(bubbleLines(text));
   const plain = $derived(lines.join(' ').replace(/\*\*/g, ''));
   const tone = $derived(SPEAKER_TONES[speaker ?? 'none']);
-  const outline = $derived(w > 0 && h > 0 ? comicOutline(w, h, tail, id) : '');
+  const outline = $derived(w > 0 && h > 0 && kind !== 'paper' ? comicOutline(w, h, tail, id) : '');
   /** Moves between places glide, but the first placement never slides in from a corner. */
   let settled = $state(false);
 
@@ -98,6 +102,7 @@
 <div
   class="bubble"
   class:event={kind === 'event'}
+  class:paper={kind === 'paper'}
   class:settled
   class:gone
   class:still={reduced}
@@ -122,6 +127,20 @@
       />
     </svg>
   {/if}
+  {#if paper}
+    <article class="page" aria-label={`${paper.masthead}: ${paper.text}`}>
+      <p class="masthead">{paper.masthead}</p>
+      <div class="spread">
+        <svg class="photo" viewBox="-14 -14 28 28" aria-hidden="true">
+          <path d={svgShapePath(paper.style.shape, 10)} fill={paper.style.fill} stroke={paper.style.stroke} stroke-width="1.6" />
+        </svg>
+        <div>
+          <p class="headline">{paper.text}</p>
+          <p class="source">{paper.source}</p>
+        </div>
+      </div>
+    </article>
+  {:else}
   <p class="words">
     {#if coin}
       <svg class="coin" viewBox="-17 -17 34 34" aria-hidden="true"
@@ -138,6 +157,7 @@
       {/each}
     </span>
   </p>
+  {/if}
   {#if choices && choices.length > 0}
     {@const listed = choices.some((c) => c.glyph)}
     <p class="choices" class:listed class:waiting={shown < lines.length}>
@@ -197,6 +217,60 @@
 
   .outline .paper {
     fill: var(--paper-bright);
+  }
+
+  /* the morning paper, printed into the talk: newsprint, not a voice */
+  .bubble.paper {
+    inline-size: min(21rem, calc(100% - 32px));
+    padding: 0.55rem 0.75rem 0.6rem;
+    border: 1px solid #c9bca5;
+    border-radius: 0.5rem;
+    background: #fffdf8;
+    box-shadow: 0 0.5rem 1.4rem rgb(65 50 29 / 16%);
+    color: var(--ink);
+    font-family: var(--font-serif);
+    font-weight: 400;
+  }
+
+  .masthead {
+    margin: 0 0 0.35rem;
+    padding-block-end: 0.25rem;
+    border-block-end: 2px solid var(--ink);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .spread {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .photo {
+    flex: none;
+    inline-size: 3.2rem;
+    block-size: 3.2rem;
+    padding: 0.2rem;
+    border: 1px solid #d8cdb9;
+    background: var(--paper-bright);
+  }
+
+  .headline {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 750;
+    line-height: 1.2;
+  }
+
+  .source {
+    margin: 0.2rem 0 0;
+    color: var(--ink-soft);
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    line-height: 1.3;
   }
 
   /* something that happened, logged in the talk: quieter than anyone's voice */

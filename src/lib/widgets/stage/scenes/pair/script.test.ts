@@ -9,10 +9,19 @@ import { parseProse } from '../../../../content/prose';
 const messages: Record<string, string> = JSON.parse(readFileSync('messages/en.json', 'utf8'));
 const step = (id: string) => PAIR_STEPS[indexOf(id)];
 /** Every message key the scene speaks on events, flattened. */
-const reactionKeys = (): string[] =>
-  Object.values(REACTIONS).flatMap((v) =>
-    typeof v === 'string' ? [v] : Array.isArray(v) ? [...v] : Object.values(v).map((line) => (line as { message: string }).message),
-  );
+const reactionKeys = (): string[] => {
+  const keys: string[] = [];
+  const walk = (v: unknown): void => {
+    if (typeof v === 'string') keys.push(v);
+    else if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === 'object') {
+      if ('message' in v) keys.push((v as { message: string }).message);
+      else Object.values(v).forEach(walk);
+    }
+  };
+  walk(REACTIONS);
+  return keys;
+};
 const before = (id: string) => PAIR_STEPS[indexOf(id) - 1];
 
 describe('the pair stage as data', () => {
@@ -29,7 +38,7 @@ describe('the pair stage as data', () => {
   it('speaks every scripted line of Scenes 3–11 somewhere, in script order', () => {
     // what a character SAYS in these scenes — not the buttons and labels
     const scripted = parseProse(readFileSync('notes/prose.md', 'utf8'))
-      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess)\./.test(line.tag))
+      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess|run|why)\./.test(line.tag))
       .flatMap((line) => (line.parts ? line.parts.map((_, i) => `${line.key}_${i + 1}`) : [line.key]));
     const spoken = new Set([
       ...PAIR_STEPS.flatMap((s) => s.lines?.map((l) => l.message) ?? []),
@@ -87,6 +96,13 @@ describe('the pair stage as data', () => {
     expect(REACTIONS.bets.map((k) => messages[k])).toHaveLength(BETS.length);
     expect(Object.keys(REACTIONS.betLines)).toEqual([...BETS]);
     for (const k of [...REACTIONS.guesses, ...REACTIONS.bets]) expect(messages[k], k).toBeTypeOf('string');
+  });
+
+  it('runs the room once, and every step after it shows how the run ended', () => {
+    const run = indexOf('run');
+    expect(step('run').action).toBe('run');
+    expect(step('run').wait.kind).toBe('auto');
+    for (const [i, s] of PAIR_STEPS.entries()) expect(s.pose.ran, s.id).toBe(i >= run);
   });
 
   it('lets every step belong to a panel that starts with a clear', () => {

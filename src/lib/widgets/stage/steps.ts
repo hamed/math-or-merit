@@ -273,6 +273,8 @@ export interface StepStageContext {
   pause(on: boolean): void;
   /** Forward, as if the reader had asked: a "Not now" link inside a bubble. */
   advance(): void;
+  /** Play a step again, from the step before it: "Again" — a new run, in the same room. */
+  replay(id: string): void;
   /** Reactive: the step on screen. */
   readonly index: number;
   /** Reactive: the reader asked for no motion. */

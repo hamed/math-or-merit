@@ -62,6 +62,8 @@ export interface Pose {
   readonly cards: readonly string[];
   /** A card the step opens beside the talk ("Remember the rule."). */
   readonly cardOpen: string | null;
+  /** Scene 13 onward: the room has been run, and shows how the last run ended. */
+  readonly ran: boolean;
 }
 
 /** What a step does on the way in, for the scene's choreography. */
@@ -76,7 +78,8 @@ export type Action =
   | 'clear'
   | 'ante'
   | 'toss'
-  | 'room';
+  | 'room'
+  | 'run';
 
 export interface PairStep extends StepSpec {
   readonly pose: Pose;
@@ -108,6 +111,7 @@ const START: Pose = {
   choice: false,
   cards: [],
   cardOpen: null,
+  ran: false,
 };
 
 interface Draft {
@@ -130,6 +134,9 @@ const held = (i: number): Coins => ({ blue: HOLDINGS[i].a, red: HOLDINGS[i].b })
 const staked = (round: number): Coins => ({ blue: ROUNDS[round].stake, red: ROUNDS[round].stake });
 const minus = (a: Coins, b: Coins): Coins => ({ blue: a.blue - b.blue, red: a.red - b.red });
 const NOTHING: Coins = { blue: 0, red: 0 };
+
+/** How long the run takes on screen, ms: slow enough to see it happen (brief Scene 13). */
+export const RUN_MS = 16_000;
 
 const DRAFTS: Draft[] = [
   // ---- Scene 1: teletype and title, in reading order ----------------------
@@ -230,6 +237,17 @@ const DRAFTS: Draft[] = [
   red('guess.what', 'guess_what', { wait: HOLD, log: 'log_guess' }),
   red('guess.stake', 'guess_stake', { wait: HOLD, log: 'log_bet', pose: { cardOpen: null } }),
   { id: 'guess.react', wait: CHAT },
+
+  // ---- Scene 13: the run, in the same room ---------------------------------
+  red('run.go', 'run_go', { panel: true }),
+  { id: 'run', wait: auto(RUN_MS + 4000), action: 'run', log: 'log_run', pose: { ran: true } },
+  { id: 'run.banter', wait: CHAT },
+  red('run.again', 'run_again'),
+
+  // ---- Scene 14: so why did they win? -------------------------------------
+  blue('why.paper', 'why_paper'),
+  { id: 'why.after', wait: READER },
+  red('why.once', 'why_once'),
 ];
 
 function build(): PairStep[] {
@@ -278,6 +296,28 @@ export const REACTIONS = {
   /** Scene 12: the four outcomes, in the order of PREDICTIONS; the four bets, in the order of BETS. */
   guesses: ['guess_choice_1', 'guess_choice_2', 'guess_choice_3', 'guess_choice_4'],
   bets: ['guess_bet_1', 'guess_bet_2', 'guess_bet_3', 'guess_bet_4'],
+  /** Scene 13: the banter after a run, by who finished richest. */
+  runBanter: {
+    other: [
+      { who: 'blue', message: 'run_where' },
+      { who: 'red', message: 'run_here' },
+      { who: 'blue', message: 'run_have' },
+      { who: 'red', message: 'run_havetoo' },
+      { who: 'red', message: 'run_told' },
+    ],
+    blue: [
+      { who: 'blue', message: 'run_blue_b' },
+      { who: 'red', message: 'run_blue_r' },
+    ],
+    red: [
+      { who: 'red', message: 'run_red_r' },
+      { who: 'blue', message: 'run_red_b' },
+    ],
+  },
+  runChoices: ['run_choice_1', 'run_choice_2'],
+  /** Scene 14: Red's answer to the paper — after one run, or after several. */
+  whyAfter: { who: 'red', message: 'why_after' },
+  whyAgain: { who: 'red', message: 'why_again' },
   /** Who answers each bet, and with what. */
   betLines: {
     coffee: { who: 'blue', message: 'guess_coffee' },

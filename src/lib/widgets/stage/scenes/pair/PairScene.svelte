@@ -21,7 +21,8 @@
   import Reel from './Reel.svelte';
   import Teletype from './Teletype.svelte';
   import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
-  import { CALLS, PAIR_STEPS, REACTIONS, indexOf, panelStart, valuesFor, type Pose } from './script';
+  import { CALLS, PAIR_STEPS, REACTIONS, RUN_MS, indexOf, panelStart, valuesFor, type Pose } from './script';
+  import { createRun } from './run.svelte';
   import { BIG, COINS, CROWD, FALL, RAIN, RAINED, RAIN_GAP, SMALL } from './crowd';
   import { deciderFace, pairLayout, pile } from './layout';
   import { bubbleLines, bubbleWords, chatColumn, stackChat, type BubbleChoice } from '../../bubbles';
@@ -29,7 +30,10 @@
     CLASSIC_AGENT_FILL,
     CLASSIC_AGENT_STROKE,
     PROTAGONISTS,
+    headlineForStyle,
     spreadStyles,
+    styleNoun,
+    type AgentStyle,
   } from '../../../shared/agentStyle';
   import { svgShapePath } from '../../../shared/shapePath';
   import { ambientClock, breath } from '../../ambient';
@@ -44,7 +48,9 @@
     type BetId,
     type PredictionId,
   } from '../../../shared/runLog.svelte';
-  import { REVEAL_BETA } from '../../../shared/presets';
+  import { REVEAL_BETA, REVEAL_TRADES, START_DOLLARS } from '../../../shared/presets';
+  import { collectStats, frontPageFor } from '../../../sandbox/newsroom';
+  import { measureWealth } from '$lib/research';
   import { openBranch } from '../../branch';
 
   const stage = getContext<StepStageContext | undefined>(STEP_STAGE_CONTEXT);
@@ -285,6 +291,10 @@
     reaction = null;
     logReady = true;
     cardOpen = PAIR_STEPS[index].pose.cardOpen;
+    stopBanter();
+    banterShown = Infinity;
+    if (PAIR_STEPS[index].pose.ran) run.ended();
+    else run.clear();
     draw(poseAt(index));
     showAll(index);
     enter(index);
@@ -300,6 +310,17 @@
     const pose = poseAt(index);
     logReady = !step.log;
     cardOpen = step.pose.cardOpen;
+    stopBanter();
+    banterShown = Infinity;
+    if (step.action === 'run') {
+      if (stage?.reduced) {
+        run.start();
+        run.finish();
+        logReady = true;
+      } else run.start(() => (logReady = true));
+    } else if (step.pose.ran) run.ended();
+    else run.clear();
+    if (step.id === 'run.banter') playBanter();
     timeline = gsap.timeline();
     choreograph(step.action, pose, timeline);
     revealLines(index);
@@ -314,6 +335,16 @@
   }
 
   function hurry(index: number): boolean {
+    const id = PAIR_STEPS[index].id;
+    if (id === 'run' && run.state.running) {
+      run.finish();
+      return true;
+    }
+    if (id === 'run.banter' && banterShown < banterLines().length) {
+      stopBanter();
+      banterShown = Infinity;
+      return true;
+    }
     if (reveal.id !== PAIR_STEPS[index].id || reveal.shown >= reveal.total) return false;
     showAll(index);
     return true;
@@ -321,6 +352,7 @@
 
   function readingTime(index: number): number {
     const step = PAIR_STEPS[index];
+    if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readingMs(bubbleWords(line.text)), 0);
     const dynamic = step.id === 'guess.react' && session.bet ? REACTIONS.betLines[session.bet].message : null;
     const line = step.lines?.[0];
     if (!line && !dynamic) return readingMs(0);
@@ -336,6 +368,114 @@
     if (id === 'equal' && !stage?.isReleased('equal')) reacted = { first: false, eleven: false, over: false };
   }
 
+  // ---- Scene 13: the run --------------------------------------------------------
+
+  /** The room of a hundred, played for real: unseeded, as the reveal always was. */
+  const run = createRun(100, REVEAL_BETA, REVEAL_TRADES, RUN_MS);
+  const ROOM_TOTAL_DOLLARS = 100 * START_DOLLARS;
+
+  /** A room member's radius: area is wealth, and everyone started at the room's radius. */
+  function roomR(i: number): number {
+    void run.state.revision;
+    return Math.max(0.8, L.room.radius * Math.sqrt(Math.max(0, run.wealth()[i]) * 100));
+  }
+
+  /** Whether the room's sizes come from a run (from the run on) rather than from the pose. */
+  const runShown = $derived(PAIR_STEPS[current].pose.ran && (run.state.running || run.state.done));
+
+  /** Largest first, so a giant never hides the small ones under it. */
+  const roomOrder = $derived.by(() => {
+    void run.state.revision;
+    const w = run.wealth();
+    return L.room.positions.map((_, i) => i).sort((a, b) => (runShown ? w[b] - w[a] : 0) || a - b);
+  });
+
+  /** Where a room member stands right now: Blue and Red are their own circles. */
+  function roomSpot(i: number) {
+    if (i === L.room.blue) return view.people[BIG];
+    if (i === L.room.red) return view.people[SMALL];
+    return view.room[i];
+  }
+
+  function styleOfRoom(i: number): AgentStyle {
+    if (i === L.room.blue) return PROTAGONISTS.blue;
+    if (i === L.room.red) return PROTAGONISTS.red;
+    return roomStyles[i];
+  }
+
+  /** The morning paper on whoever finished richest — the sandbox's own newsroom. */
+  function frontPage(): Said['paper'] | null {
+    const winner = run.state.winner;
+    if (winner < 0) return null;
+    const w = run.wealth();
+    const style = styleOfRoom(winner);
+    let poorer = 0;
+    for (let i = 0; i < w.length; i++) if (w[i] < w[winner]) poorer++;
+    const m = measureWealth(w);
+    const stats = collectStats(
+      { n: 100, startDollars: START_DOLLARS, taxRate: 0, dollarsOf: (i) => w[i] * ROOM_TOTAL_DOLLARS, volume: [] },
+      m.gini,
+      m.topShare,
+    );
+    const edition = Math.max(0, run.state.finished - 1);
+    const page = frontPageFor(
+      'ledger',
+      { noun: styleNoun(style), dollars: w[winner] * ROOM_TOTAL_DOLLARS, percentile: poorer / w.length },
+      stats,
+      headlineForStyle(style, edition),
+      edition,
+    );
+    return { masthead: page.paper, text: page.text, source: page.source, style };
+  }
+
+  /** Who finished richest, as far as the banter goes. */
+  const runBranch = $derived.by((): 'blue' | 'red' | 'other' => {
+    void run.state.revision;
+    if (run.state.winner === L.room.blue) return 'blue';
+    if (run.state.winner === L.room.red) return 'red';
+    return 'other';
+  });
+
+  const dollars = (i: number) => formatNumber(run.wealth()[i] * ROOM_TOTAL_DOLLARS, { style: 'currency', currency: 'USD' });
+
+  /** The banter's lines for how the run went, with what the two actually hold. */
+  function banterLines(): Said[] {
+    void run.state.revision;
+    return REACTIONS.runBanter[runBranch].map((line, k) => ({
+      id: `run.banter:${runBranch}:${run.state.finished}:${k}`,
+      who: line.who,
+      at: line.who,
+      text: say(line.message, { blue: dollars(L.room.blue), red: dollars(L.room.red) }),
+    }));
+  }
+
+  /** The banter plays out line by line, each once the one before has been read. */
+  let banterShown = $state(Infinity);
+  let banterTimer: number | undefined;
+
+  function stopBanter(): void {
+    if (banterTimer !== undefined) window.clearTimeout(banterTimer);
+    banterTimer = undefined;
+  }
+
+  function playBanter(): void {
+    stopBanter();
+    const lines = banterLines();
+    if (stage?.reduced) {
+      banterShown = Infinity;
+      return;
+    }
+    banterShown = 1;
+    const next = () => {
+      if (banterShown >= lines.length) return;
+      banterTimer = window.setTimeout(() => {
+        banterShown += 1;
+        next();
+      }, readingMs(bubbleWords(lines[banterShown - 1].text)));
+    };
+    next();
+  }
+
   // ---- the bubbles: one comic panel per topic --------------------------------
 
   interface Said {
@@ -345,9 +485,11 @@
     /** Which circle it points at; null for a logged event, which points at nobody. */
     at: Speaker | null;
     text: string;
-    kind?: 'line' | 'event';
+    kind?: 'line' | 'event' | 'paper';
     /** An event's coin: the face that landed. */
     coin?: Speaker;
+    /** The morning paper's front page, printed in the talk. */
+    paper?: { masthead: string; text: string; source: string; style: AgentStyle };
     choices?: readonly BubbleChoice[];
   }
 
@@ -369,9 +511,15 @@
     for (let i = panelStart(current); i <= current; i++) {
       const step = PAIR_STEPS[i];
       const line = step.lines?.[0];
-      if (step.log && (i < current || logReady)) {
-        const logged = logFor(step.id, step.log, step.pose);
-        if (logged) out.push(logged);
+      if (step.log && (i < current || logReady)) out.push(...logFor(step.id, step.log, step.pose));
+      if (step.id === 'run.banter') {
+        out.push(...banterLines().slice(0, i === current ? banterShown : Infinity));
+        continue;
+      }
+      if (step.id === 'why.after') {
+        const line = run.state.finished > 1 ? REACTIONS.whyAgain : REACTIONS.whyAfter;
+        out.push({ id: `${step.id}:${line.message}`, who: line.who, at: line.who, text: say(line.message) });
+        continue;
       }
       if (step.id === 'guess.react') {
         const bet = session.bet ? REACTIONS.betLines[session.bet] : null;
@@ -402,22 +550,35 @@
     return out;
   });
 
-  /** What a finished step leaves in the talk: a toss's result, the reader's own answer. */
-  function logFor(id: string, key: string, pose: Pose): Said | null {
+  /** What a finished step leaves in the talk: a toss's result, the reader's answers, the run and its paper. */
+  function logFor(id: string, key: string, pose: Pose): Said[] {
     if (key === 'log_toss') {
       const winner: Speaker = pose.flip === 'blue' ? 'blue' : 'red';
       const text = say(key, { winner: say(`name_${winner}`), blue: pose.holdings.blue, red: pose.holdings.red });
-      return { id: `log:${id}`, who: null, at: null, text, kind: 'event', coin: winner };
+      return [{ id: `log:${id}`, who: null, at: null, text, kind: 'event', coin: winner }];
     }
     if (key === 'log_guess' && session.prediction) {
       const choice = say(REACTIONS.guesses[PREDICTIONS.findIndex((p) => p.id === session.prediction)]);
-      return { id: `log:${id}`, who: null, at: null, text: say(key, { choice }), kind: 'event' };
+      return [{ id: `log:${id}`, who: null, at: null, text: say(key, { choice }), kind: 'event' }];
     }
     if (key === 'log_bet' && session.bet) {
       const bet = say(REACTIONS.bets[BETS.indexOf(session.bet)]);
-      return { id: `log:${id}`, who: null, at: null, text: say(key, { bet }), kind: 'event' };
+      return [{ id: `log:${id}`, who: null, at: null, text: say(key, { bet }), kind: 'event' }];
     }
-    return null;
+    if (key === 'log_run' && run.state.done) {
+      void run.state.revision;
+      const text = say(key, {
+        trades: formatNumber(run.state.trades),
+        share: formatNumber(run.state.share, { style: 'percent' }),
+      });
+      const paper = frontPage();
+      const edition = run.state.finished;
+      return [
+        { id: `log:${id}:${edition}`, who: null, at: null, text, kind: 'event' },
+        ...(paper ? [{ id: `paper:${edition}`, who: null, at: null, text: paper.text, kind: 'paper' as const, paper }] : []),
+      ];
+    }
+    return [];
   }
 
   /** The reader's choices, set inside the current speaker's bubble. */
@@ -427,6 +588,12 @@
       return [
         { label: say('more_choice_1'), act: tellMe },
         { label: say('more_choice_2'), act: () => stage?.advance() },
+      ];
+    }
+    if (id === 'run.again') {
+      return [
+        { label: say(REACTIONS.runChoices[0]), act: () => stage?.replay('run') },
+        { label: say(REACTIONS.runChoices[1]), act: () => stage?.advance() },
       ];
     }
     if (id === 'guess.what') {
@@ -514,10 +681,10 @@
   /** The band the talk lives in: under the title (small by now), over the two. */
   const region = $derived.by(() => {
     const pose = poseAt(current);
-    const top = pose.cleared ? height * 0.05 : height * 0.03 + titleFont * 1.2 * COMPACT + 12;
+    const top = pose.cleared ? Math.max(height * 0.05, pose.cards.length > 0 ? 68 : 0) : height * 0.03 + titleFont * 1.2 * COMPACT + 12;
     const tops =
       pose.place === 'room'
-        ? [L.room.top]
+        ? [L.room.top, ...(runShown && run.state.winner >= 0 ? [roomSpot(run.state.winner).y - roomR(run.state.winner) - 8] : [])]
         : PAIR.map((who) => pairSpot(pose, who).y - Math.max(pairRadius(pose, who), L.minRadius));
     // on a narrow stage an open card sits over the talk's space: start below it
     const card = cardOpen && width < 760 && cardHeight > 0 ? 12.8 + 44 + 8 + cardHeight + 10 : 0;
@@ -1095,6 +1262,8 @@
       stopMotion();
       stopCalls();
       stopReveal();
+      stopBanter();
+      run.stop();
     };
   });
 </script>
@@ -1150,10 +1319,11 @@
     <svg class="art" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
       {#if view.roomOn > 0}
         <g class="room" opacity={view.roomOn}>
-          {#each view.room as spot, i (i)}
+          {#each roomOrder as i (i)}
+            {@const spot = view.room[i]}
             {#if i !== L.room.blue && i !== L.room.red && spot.alpha > 0.01 && roomStyles[i]}
               <path
-                d={svgShapePath(roomStyles[i].shape, L.room.radius)}
+                d={svgShapePath(roomStyles[i].shape, runShown ? roomR(i) : L.room.radius)}
                 transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)})`}
                 fill={roomStyles[i].fill}
                 stroke={roomStyles[i].stroke}
@@ -1171,7 +1341,7 @@
           <g transform={`translate(${person.x.toFixed(2)} ${person.y.toFixed(2)})`} opacity={person.alpha}>
             <g transform={life(i)}>
               <circle
-                r={person.r}
+                r={runShown && whoIs(i) ? roomR(whoIs(i) === 'blue' ? L.room.blue : L.room.red) : person.r}
                 fill={person.empty > 0.5 ? 'none' : costumeFill(i)}
                 stroke={costumeStroke(i)}
                 stroke-dasharray={person.empty > 0.5 ? '3 3' : undefined}
@@ -1191,6 +1361,21 @@
           </g>
         {/if}
       {/each}
+
+      {#if runShown && run.state.winner >= 0}
+        {@const spot = roomSpot(run.state.winner)}
+        <!-- the dashed ring means "the richest", as everywhere in the essay -->
+        <circle
+          class="halo"
+          cx={spot.x}
+          cy={spot.y}
+          r={roomR(run.state.winner) + 5}
+          fill="none"
+          stroke="var(--ink-mid)"
+          stroke-width="1.4"
+          stroke-dasharray="4 4"
+        />
+      {/if}
 
       {#each view.payout as token, i (i)}
         {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius * 0.8} face={i % 2 ? 'back' : 'front'} />{/if}
@@ -1223,6 +1408,15 @@
         </g>
       {/if}
     </svg>
+
+    {#if runShown}
+      <p class="readout" aria-live="off">
+        {say('run_readout', {
+          trades: formatNumber(run.state.trades),
+          share: formatNumber(run.state.share, { style: 'percent' }),
+        })}
+      </p>
+    {/if}
 
     <!-- the two circles as controls, over the art: each clicked in Scene 3, handed coins in Scene 5 -->
     {#each PAIR as who (who)}
@@ -1263,6 +1457,7 @@
             tail={place.tail}
             kind={bubble.kind}
             coin={bubble.coin}
+            paper={bubble.paper}
             maxWidth={bubbleWidth}
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
@@ -1369,6 +1564,22 @@
   .hit:focus-visible {
     outline: 2px dashed var(--accent);
     outline-offset: 3px;
+  }
+
+  /* in the top bar, beside the card deck: never under the talk */
+  .readout {
+    position: absolute;
+    z-index: 3;
+    inset-block-start: 1.05rem;
+    inset-inline-start: 7.2rem;
+    max-inline-size: calc(100% - 7.2rem - 8.5rem);
+    margin: 0;
+    line-height: 1.25;
+    color: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
   }
 
   .dragged {

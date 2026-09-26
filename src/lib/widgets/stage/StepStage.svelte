@@ -70,6 +70,18 @@
       inside = true;
       step(1);
     },
+    replay(stepId) {
+      if (!machine || !scene) return;
+      const index = machine.steps.findIndex((s) => s.id === stepId);
+      if (index < 0) return;
+      machine.reach(index);
+      live.index = machine.index;
+      if (live.reduced) scene.settle(machine.index);
+      else scene.play(machine.index, machine.index - 1);
+      remember();
+      scheduleAuto();
+      publish();
+    },
     pause(on) {
       paused = on;
       if (!on && owed) {
