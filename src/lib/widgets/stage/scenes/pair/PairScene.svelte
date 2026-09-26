@@ -17,6 +17,7 @@
   import { gsap } from '../../gsap';
   import Bubble from '../../Bubble.svelte';
   import CardStack, { type Card } from '../../CardStack.svelte';
+  import TimePlayer from '../../TimePlayer.svelte';
   import Coin from '../Coin.svelte';
   import Reel from './Reel.svelte';
   import Teletype from './Teletype.svelte';
@@ -1837,6 +1838,25 @@
   </svg>
 {/snippet}
 
+{#snippet player()}
+  <TimePlayer
+    frame={run.state.frame}
+    frames={run.state.frames}
+    playing={run.state.playing}
+    label={say('dial_label', { trades: formatNumber(run.state.trades) })}
+    names={{
+      play: say('player_play'),
+      pause: say('player_pause'),
+      start: say('player_start'),
+      end: say('player_end'),
+      scrub: say('player_scrub'),
+    }}
+    onscrub={(f) => run.scrub(f)}
+    onplay={() => run.play()}
+    onpause={() => run.pause()}
+  />
+{/snippet}
+
 {#snippet giniToy()}
   {#await import('../../../distribution/GiniStage.svelte') then toy}
     <toy.default />
@@ -2098,10 +2118,7 @@
     </svg>
 
     {#if !L.column && runShown && run.state.done && run.state.frames > 1 && current > indexOf('run') && !inPicture}
-      <label class="dial phone">
-        <span>{say('dial_label', { trades: formatNumber(run.state.trades) })}</span>
-        <input type="range" min="0" max={run.state.frames - 1} value={run.state.frame} oninput={(e) => run.scrub(+e.currentTarget.value)} />
-      </label>
+      <div class="dial phone">{@render player()}</div>
     {/if}
 
     {#if !L.column && runShown && current <= indexOf('why.once')}
@@ -2215,10 +2232,7 @@
             <p class="big">{formatNumber(run.state.share, { style: 'percent' })}</p>
             <p class="small">{say('run_readout', { trades: formatNumber(run.state.trades), share: formatNumber(run.state.share, { style: 'percent' }) })}</p>
             {#if run.state.done && run.state.frames > 1}
-              <label class="dial">
-                <span>{say('dial_label', { trades: formatNumber(run.state.trades) })}</span>
-                <input type="range" min="0" max={run.state.frames - 1} value={run.state.frame} oninput={(e) => run.scrub(+e.currentTarget.value)} />
-              </label>
+              <div class="dial">{@render player()}</div>
             {/if}
           </section>
         {/if}
@@ -2581,11 +2595,6 @@
     color: var(--ink-mid);
     font-family: var(--font-sans);
     font-size: 0.75rem;
-  }
-
-  .dial input {
-    inline-size: 100%;
-    accent-color: var(--accent);
   }
 
   .dial.phone {

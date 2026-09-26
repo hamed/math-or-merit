@@ -727,9 +727,20 @@ This is the inverse Herfindahl concentration index.
 ! keep true: only trades count as turnover. Levies and shared returns are kept
 in their own ledger; the remedy never pads this number.
 
-[dial.label] (draft) Rewind: {trades} trades
+[dial.label] (draft) {trades} trades
 
-> the time dial, beside the charts: the same run, any round of it.
+> the time player, beside the charts: the same run, any round of it — minimal,
+> like a video player (owner, 2026-09-26). The buttons' names, for screen readers:
+
+[player.play] (draft) Play the run again
+
+[player.pause] (draft) Pause
+
+[player.start] (draft) Back to the start
+
+[player.end] (draft) To the end
+
+[player.scrub] (draft) Where in the run
 
 ---
 

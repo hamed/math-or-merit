@@ -36,6 +36,8 @@ export interface RunState {
   /** The frame on screen, and how many frames the run has. */
   frame: number;
   frames: number;
+  /** A finished run being played again from the time player. */
+  playing: boolean;
 }
 
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -53,6 +55,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number)
     finished: 0,
     frame: 0,
     frames: 0,
+    playing: false,
   });
   let recording: Recording | null = null;
   let equal = new Float64Array(n).fill(1 / n);
@@ -75,6 +78,19 @@ export function createRun(settings: () => RunSettings, durationMs: () => number)
     const progress = Math.min(1, elapsed / Math.max(500, durationMs()));
     show(Math.round(easeInOutCubic(progress) * (recording.frames.length - 1)));
     if (progress >= 1) finish();
+  });
+
+  /** Playing a finished run again, from the time player: the whole run in about eight seconds. */
+  let replayAt = 0;
+  const replayer = createTicker((dt) => {
+    if (!recording) return;
+    const perFrame = 8000 / Math.max(1, recording.frames.length - 1);
+    replayAt += dt / perFrame;
+    show(Math.min(recording.frames.length - 1, Math.floor(replayAt)));
+    if (state.frame >= recording.frames.length - 1) {
+      replayer.stop();
+      state.playing = false;
+    }
   });
 
   function remember(): void {
@@ -153,14 +169,30 @@ export function createRun(settings: () => RunSettings, durationMs: () => number)
         finish();
       }
     },
-    /** The time dial: show the run as it stood at frame `frame`. */
+    /** The time player: show the run as it stood at frame `frame`. */
     scrub(frame: number): void {
       if (!recording || state.running) return;
+      replayer.stop();
+      state.playing = false;
       show(frame);
+    },
+    /** Play the finished run again from where the player stands (from the start, if at the end). */
+    play(): void {
+      if (!recording || state.running) return;
+      if (state.frame >= recording.frames.length - 1) show(0);
+      replayAt = state.frame;
+      state.playing = true;
+      replayer.start();
+    },
+    pause(): void {
+      replayer.stop();
+      state.playing = false;
     },
     /** Before any run: everyone equal. */
     clear(): void {
       ticker.stop();
+      replayer.stop();
+      state.playing = false;
       state.running = false;
       state.done = false;
       state.trades = 0;
@@ -171,6 +203,8 @@ export function createRun(settings: () => RunSettings, durationMs: () => number)
     },
     stop(): void {
       ticker.stop();
+      replayer.stop();
+      state.playing = false;
     },
   };
 }
