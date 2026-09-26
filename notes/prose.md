@@ -745,104 +745,191 @@ in their own ledger; the remedy never pads this number.
 ---
 
 
-## 19 · More of them · Where it ends · Your hand on the dial (chapters `crowd`, `where-it-ends`, `dial`)
+## 19 · Where it ends — Scene 19 (inside the stage)
 
-[crowd.1] BLUE: (draft) Surely a bigger crowd evens things out.
+> picture: the same room. Red states what the mathematics says; "Run it
+> longer?" plays the same room on, fast, in place: closer and closer to one
+> owner, never on a date. The 1,000-person crowd is cut from the main flow
+> (D20 answer 8).
 
-[crowd.2] RED: (draft) A thousand people. Two million fair trades. Let's see.
+[end.one] RED: (draft) That was one run. / It shows. It doesn't prove.
 
-[crowd.3] BLUE: (draft) …It doesn't.
+[end.proof] RED: (draft) The math says more. / Keep playing forever, and one person ends up with everything.
 
-[end.1] BLUE: (draft) Fine. But a run is just one run.
+[end.when] BLUE: (draft) When?
 
-[end.2] RED: (draft) True. Now the proof I promised you.
+[end.limit] RED: (draft) Never on a date. It's a limit. / At any moment, it can still wobble.
 
-[end.3] RED: (draft) Keep going without end, and one owner takes it all. That's proven.
+[end.longer] RED: (draft) Want to see it run longer?
 
-[end.4] BLUE: (draft) "Without end" is a long time.
+[end.choice] (draft) Yes · Not now
 
-[end.5] RED: (draft) It is. It's a limit, not a date.
+! keep true: for a fixed finite room, random pairs, a fixed stake strictly
+between 0 and 100%, and a fair coin, wealth converges to a single owner with
+probability one — a limit, not a date; at any finite time the room can be
+deeply concentrated without one owner, and the path can wobble. The animation
+is not the proof. Börgers & Greengard (2023), https://arxiv.org/abs/2308.01485.
 
-[end.6] BLUE: (draft) Look, the top keeps changing.
+[card.limit.title] (draft) Where it ends
 
-[end.7] RED: (draft) The name changes. The shape doesn't.
+[card.limit.1] (draft) Keep playing forever: with probability one, one person ends up with everything.
 
-[end.citation] For a fixed finite number of agents and a fixed stake fraction
-0 < β < 1, the wealth vector converges almost surely to one of the room's
-one-owner states. "Almost surely" means probability one; it does not mean every
-imaginable sequence of coin tosses. The proof is in Börgers & Greengard (2023).
+[card.limit.2] (draft) A limit, not a date. At any moment the room can still wobble.
 
-! keep true: the single-owner ending is a limit result, not a prediction of a
-date, and the citation stays.
-
-[stake.1] BLUE: (draft) Then make the bets smaller. Problem solved.
-
-[stake.2] RED: (draft) Try it. Smaller bets take longer. They still get there.
-
-[stake.3] BLUE: (draft) And zero?
-
-[stake.4] RED: (draft) Zero isn't a slow game. It's no game.
-
-! keep true: the stake changes the speed, not the ending. Don't state a formula
-for how much faster.
+[card.limit.3] (draft) Proof: Börgers & Greengard, 2023.
 
 ---
 
-## 20 · Now you try to stop it (chapter `stop-it`)
+## 20 · Your hand on the dial — Scene 20 (inside the stage)
 
-[tax.1] BLUE: (draft) Let me guess. Now you want to tax me.
+> picture: a stake dial inside Red's bubble, from nothing to everything
+> (brief 1.5: nothing is capped). Every change runs a fresh room of the same
+> length, so luck is allowed to heckle the comparison.
 
-[tax.2] RED: (draft) I want you to try. Keep at least twenty players in the game.
+[dial.ask] RED: (draft) Your turn. / Pick a stake, from nothing to everything.
 
-[tax.3] RED: (draft) Tap a big fortune. A quarter goes into a pool, shared equally by everyone.
+[dial.stake] (draft) Stake: {stake}
 
-[tax.4] BLUE: (draft) Tax me too much and I stop building.
+[dial.zero] RED: (draft) Zero: nothing moves. / That's no game at all.
 
-[tax.5] RED: (draft) Fair point. In this world nobody builds. They only trade. So we test the math alone.
+[dial.slow] RED: (draft) {stake}: slower. / The richest holds {share}.
 
-> Blue's objection stays prominent: it is the fair fight, and it is the model's
-> honest limit — nothing is produced here, only traded.
+[dial.fast] RED: (draft) {stake}: faster. / The richest holds {share}.
 
-[tax.after.1] RED: (draft) Notice what your hand did. It picked one person, again and again.
+[dial.all] RED: (draft) Everything on the table: / one loss and you're out. The richest holds {share}.
 
-[tax.after.2] BLUE: (draft) Exhausting.
+[dial.same] RED: (draft) {stake}: the stake you watched. / The richest holds {share}.
 
-[tax.after.3] RED: (draft) Then let's write it into the rules.
+> Red's one line about the reader's last room, whichever fits.
 
-! keep true: whether a fast hand can hold the room is genuinely open. The game
-is not rigged to make you lose.
+[dial.law] RED: (draft) Every stake above zero ends the same way. / The stake changes the journey, not the end.
+
+! keep true: the qualitative split only — every fixed stake in (0, 1) has the
+same limit (C4); the rate is what these runs did, not a law. Exactly zero
+switches the game off.
+
+[card.stake.title] (draft) The stake
+
+[card.stake.1] (draft) How much of the poorer one's money goes on each toss.
+
+[card.stake.2] (draft) Any stake above zero ends the same way. Smaller only takes longer. Zero is no game.
 
 ---
 
-## 21 · The levy in the rules · Trade and return together (chapters `levy`, `tax-against-trade`)
+## 21 · Now you try to stop it — Scene 21 (inside the stage)
 
-[levy.1] RED: (draft) Same percentage from everyone. One pool. Shared back equally.
+> picture: the room trades live. Tapping a fortune takes a quarter of it into
+> a pool and shares it back equally — a manual WEALTH levy (C13). Keep at least
+> twenty effective participants for thirty seconds. The pace is tuned so a
+> diligent hand genuinely can.
 
-[levy.2] BLUE: (draft) That's just taking my money.
+[stop.ask] RED: (draft) Enough watching. / Keep at least twenty players in the game.
 
-[levy.3] RED: (draft) Watch the return. Below average gains. Average breaks even. Above pays in.
+[stop.how] RED: (draft) Tap a big fortune: a quarter goes into a pool / and comes back to everyone, equally.
 
-[levy.4] BLUE: (draft) And the room?
+[stop.start] (draft) Start
 
-[levy.5] RED: (draft) Keeps every coin.
+[stop.won] RED: (draft) Thirty seconds, and still {count} players. / Your hand did it.
 
-[match.1] RED: (draft) Same luck, same trades, twice. Only one room gets the rule.
+[stop.lost] RED: (draft) It closed after {seconds} seconds. / {taps} taps weren't enough.
 
-[match.2] BLUE: (draft) So luck can't take the credit.
+[stop.hand] RED: (draft) Notice what your hand did: / watch, pick one, react. Again and again.
 
-[map.1] BLUE: (draft) One pair proves nothing.
+[stop.rule] RED: (draft) Next, not a hand. A rule. / Nobody gets picked.
 
-[map.2] RED: (draft) Agreed. So let's fill a map.
+[stop.meter] (draft) {count} players
 
-[map.3] RED: (draft) That line is my challenge, not a law of nature.
+[stop.tap] (draft) Take a quarter of {share}
 
-[map.4] BLUE: (draft) A small levy keeps the field open, even with big bets?
+---
 
-[map.5] RED: (draft) In this room, yes. It's not a tax formula.
+## 22 · Put the levy in the rules — Scene 22 (inside the stage)
 
-! keep true: effective participants is the primary field; 50 is a chosen target;
-the map is finite-run evidence; the square curve is fitted, not a phase
-boundary or law. Never say "phase transition", "law" or "theoretical" here.
+> picture: trading frozen; four step out with coins — Blue 16, two others 8
+> and 4, Red 4 (the average is 8). A quarter of every pile goes to one pool;
+> the pool comes back in equal parts: Blue 14, 8, 5, Red 5.
+
+[levy.ask] RED: (draft) Your hand gets tired. / A rule doesn't.
+
+[levy.collect] RED: (draft) Once a round, the same share from everyone: / a quarter.
+
+[levy.same] BLUE: (draft) Everyone lost a quarter. / Nothing changed.
+
+[levy.shares] RED: (draft) Right. Everyone shrank the same. / The shares didn't move.
+
+[levy.return] RED: (draft) Now the pool goes back, / in equal parts.
+
+[levy.net] RED: (draft) The average broke even. / Below it, more came back. Above it, less.
+
+[levy.paid] BLUE: (draft) I paid in.
+
+[levy.kept] RED: (draft) And the room kept every coin.
+
+[levy.pool] (draft) pool
+
+! keep true: the return is literal coins here; outside the room it could be a
+dividend or a shared service — the model chooses no budget, it only tests the
+shared return.
+
+[card.levy.title] (draft) The shared levy
+
+[card.levy.1] (draft) Once a round: the same share of every fortune into one pool.
+
+[card.levy.2] (draft) The pool comes back in equal parts.
+
+[card.levy.3] (draft) Below the average gains, the average breaks even, above it pays in. Nothing is lost.
+
+---
+
+## 23 · Trade and return together — Scene 23 (inside the stage)
+
+> picture: the room shrinks to one side and a mirror copy appears beside it — a
+> parallel universe with the same start and the same luck. Left: trades only.
+> Right: the same trades plus a 3% levy and equal return every round.
+
+[match.ask] RED: (draft) Now let it trade. Same luck, twice: / one room without the rule, one with it.
+
+[match.result] RED: (draft) Without the rule: about {a} players. / With it: about {b}.
+
+[match.left] (draft) Trades only
+
+[match.right] (draft) Trades, and a 3% levy shared back
+
+[match.luck] BLUE: (draft) Same coin, same partners?
+
+[match.same] RED: (draft) Every toss the same. / Only the rule changed.
+
+! keep true: one matched pair is one finite experiment; within the pair luck is
+held still, and the only changed ingredient is the levy plus equal return.
+
+---
+
+## 24 · The outcome map — Scene 24 (inside the stage)
+
+> picture: the map of stake against levy, each square a finished room,
+> coloured by how many still count. The dashed fit is drawn only over the
+> range it was measured on; neither it nor the contour is a phase boundary.
+
+[map.ask] BLUE: (draft) One pair is confusing. / Which settings keep the room open?
+
+[map.all] RED: (draft) Try them all: stake across, levy up. / Each square, how many still count.
+
+[map.fit] RED: (draft) A small levy can hold a big stake: / double the stake, about four times the levy.
+
+! keep true: the fit is descriptive, drawn only over the measured range; each
+square is the mean of 8 finished rooms (200,000 trades, levy once a round);
+the stake is at risk each trade, the levy comes once a round — different
+clocks, compared by their measured effects, not interchangeable percentages.
+
+[map.stake] (draft) stake per trade
+
+[map.levy] (draft) levy per round
+
+[map.many] (draft) all 100 count
+
+[map.few] (draft) one counts
+
+[map.half] (draft) half still count
 
 ---
 
@@ -920,97 +1007,8 @@ Every `! keep true:` these lines carried has already moved up into the script.
 > Gone the same day: "Now run it" and "So why did they win?" — the run and the
 > paper happen in the stage (Scenes 13–14); and "Line them up", "Measure the
 > room" and turnover — the histogram, the Gini and effective participants are
-> acts on the same room (Scenes 15–17), turnover is cut (D20).
-
-## More of them
-
-[crowd.head] More of them
-
-[crowd.body] A small room is good for learning the instruments. Now invite a crowd: one thousand equal fortunes, two million fair trades, fresh luck.
-
-[crowd.after]
-The histogram says where the people sit. Gini says how far the room bent from equality. Effective participants says how broad the field remains. Turnover says whether all those trades still move meaningful wealth.
-
-Do not ask one number to impersonate another. Read the room with all of them.
-
-## Where it ends
-
-[end.head] Where it ends
-
-[end.body]
-That crowd was one run. A run can show you something. It cannot prove it.
-
-Here mathematics says something stronger. Keep the room finite. Pick pairs at random. Use one fixed stake strictly between zero and one hundred percent, and an independent fair coin. Then continue without end. With probability one, wealth converges to a single owner.
-
-[end.after]
-The animation is not the proof. It only lets the pixels chase the theorem.
-
-"Without end" is doing serious work. This is a limit, not a date. At any finite time the room can be deeply concentrated without literally reaching one owner. The path can wobble, too: a poorer circle can win and the room can briefly grow fairer on the way.
-
-## Your hand on the dial
-
-[stake.head] Your hand on the dial
-
-[stake.body]
-You have seen the destination. Now put your hand on the clock.
-
-The stake — the fraction of the poorer fortune placed on each toss — has been fixed until now. Turn it down. Turn it up. Every change starts a fresh room, so luck is allowed to heckle your comparison.
-
-[stake.after]
-Look for the pattern across runs, not a promise from one of them. Smaller stakes usually take longer to produce a dominant fortune. Larger stakes usually get there faster. I am not claiming an exact stopwatch law here.
-
-The theorem says every fixed positive stake has the same limiting destination. The dial changes the journey, not the limit. Exactly zero is not a very slow game. It switches the game off.
-
-## Now you try to stop it
-
-[tax.head] Now you try to stop it
-
-[tax.body]
-Enough watching. Put your hand in the room.
-
-Keep at least twenty effective participants in the game. Tap a large fortune: one quarter of it goes into a common pool and returns in equal shares to all one hundred people. Choose the stake before you start. That changes the difficulty, not the rule.
-
-The room keeps trading while you work. Can your hand preserve the field, or will the game close around you? Nothing is locked behind winning. I want you to feel the job.
-
-[tax.after]
-Whatever your score, notice what your hand did. It watched, chose one holder, reacted, and did it again. That is a targeted intervention.
-
-What comes next is not a robot finger. It is a different rule: nobody is selected. The same percentage applies to every fortune, the pieces enter one pool, and the pool returns equally to everyone.
-
-## Put the levy in the rules
-
-[rule.head] Put the levy in the rules
-
-[rule.body]
-Your hand gets tired. A rule does not.
-
-Once per measurement round, collect the same percentage of every fortune. Put every piece in one pool. Return the pool equally. That complete loop — levy plus shared return — is the counterforce I am testing.
-
-First, see the tool alone — freeze the trading.
-
-[rule.after] Do not skip the return. Collection alone shrinks every circle by the same proportion and leaves the shares unchanged. The equal return changes them: below-average fortunes receive more than they contributed, an average fortune breaks even, and above-average fortunes contribute net. The room keeps every coin.
-
-Here the return is literal coins. Outside this room it could be a dividend or a universally shared service. This model does not choose a budget. It only tests the shared return.
-
-## Trade and return together
-
-[phase.head] Trade and return together
-
-[phase.body]
-Now unfreeze trading. I refuse to compare two unrelated lucky stories and call the difference tax. Instead, write one fresh random script of partners and coin tosses, then photocopy it. One room gets only the trades. The other gets the exact same trades plus the shared rule.
-
-One matched pair is still one finite experiment. Run another and the numbers move. But within each pair, luck is held still. The only changed ingredient is the levy plus equal return.
-
-One pair is not a landscape
-
-Now vary both dials. Stake goes across. Levy per round goes up. Each fresh finite run enters one square, and color answers the question we learned to ask: how many effective participants remain?
-
-[phase.after]
-Fifty effective participants is my challenge line, not a law of nature. If you fill the map, the pale line connects settings that reached that chosen finite-run outcome. It is not a border between two phases.
-
-The dashed fit follows `levy ≈ c × stake²` over this measured range. Double the stake and the fitted levy for the same target grows by roughly four. That is not a universal tax formula. It is the relationship this room asks us to notice: a shared levy numerically much smaller than the risk on each trade can preserve a broad field for risk-taking.
-
-Those percentages live on different clocks: stake is at risk in each trade; levy is applied once per measurement round of one hundred trades. The fit compares their measured effects. It does not say the displayed percentages are interchangeable.
+> acts on the same room (Scenes 15–17); and "More of them" through "Trade and
+> return together" — Scenes 19–24 on the stage; the 1,000-person crowd is cut.
 
 ## The earned conclusion
 

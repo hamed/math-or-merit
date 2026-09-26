@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { validateSteps } from '../../steps';
 import { ROUNDS, UNITS } from './game';
 import { BETS, PREDICTIONS } from '../../../shared/runLog.svelte';
-import { PAIR_STEPS, REACTIONS, indexOf, panelStart } from './script';
+import { PAIR_STEPS, REACTIONS, indexOf, levyLesson, panelStart } from './script';
 import { parseProse } from '../../../../content/prose';
 
 const messages: Record<string, string> = JSON.parse(readFileSync('messages/en.json', 'utf8'));
@@ -38,7 +38,7 @@ describe('the pair stage as data', () => {
   it('speaks every scripted line of Scenes 3–11 somewhere, in script order', () => {
     // what a character SAYS in these scenes — not the buttons and labels
     const scripted = parseProse(readFileSync('notes/prose.md', 'utf8'))
-      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess|run|why|sort|gini|eff|turn)\./.test(line.tag))
+      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess|run|why|sort|gini|eff|turn|end|dial|stop|levy|match|map)\./.test(line.tag))
       .flatMap((line) => (line.parts ? line.parts.map((_, i) => `${line.key}_${i + 1}`) : [line.key]));
     const spoken = new Set([
       ...PAIR_STEPS.flatMap((s) => s.lines?.map((l) => l.message) ?? []),
@@ -119,10 +119,31 @@ describe('the pair stage as data', () => {
     expect(step('eff.try').pose.roomMode).toBe('four');
     expect(step('turn.count').pose.roomMode).toBe('turnover');
     for (const id of ['sort.home', 'gini.home', 'eff.room', 'eff.end', 'turn.home']) expect(step(id).pose.roomMode, id).toBe('free');
-    const last = PAIR_STEPS[PAIR_STEPS.length - 1].pose;
-    expect(last.thumbs).toEqual(['histogram', 'gini', 'participants', 'turnover']);
-    expect(last.cards).toEqual(['rule', 'histogram', 'gini', 'participants', 'turnover']);
+    expect(step('turn.home').pose.thumbs).toEqual(['histogram', 'gini', 'participants', 'turnover']);
+    expect(step('turn.home').pose.cards).toEqual(['rule', 'histogram', 'gini', 'participants', 'turnover']);
     for (const s of PAIR_STEPS) expect(s.pose.place === 'room' || s.pose.roomMode === 'free', s.id).toBe(true);
+  });
+
+  it('plays the levy chapters on the same room: the dial, the game, the lesson, two rooms, the map', () => {
+    expect([step('dial.ask').pose.source, step('dial.ask').pose.control]).toEqual(['dial', 'stake']);
+    expect([step('stop.ask').pose.source, step('stop.ask').pose.control]).toEqual(['game', 'tax']);
+    expect(step('stop.hand').pose.control).toBeNull();
+    expect(['levy.ask', 'levy.collect', 'levy.return'].map((id) => step(id).pose.levy)).toEqual([0, 1, 2]);
+    expect(step('levy.ask').pose.roomMode).toBe('levy4');
+    expect([step('match.ask').pose.roomMode, step('match.ask').pose.source]).toEqual(['matched', 'pair']);
+    expect([step('map.ask').pose.source, step('map.all').pose.map, step('map.fit').pose.map]).toEqual(['run', 1, 2]);
+    const last = PAIR_STEPS[PAIR_STEPS.length - 1].pose;
+    expect(last.cards).toEqual(['rule', 'histogram', 'gini', 'participants', 'turnover', 'limit', 'stake', 'levy']);
+  });
+
+  it('keeps every coin in the levy lesson, and nets out the way Red says', () => {
+    const [before, collected, returned] = ([0, 1, 2] as const).map(levyLesson);
+    expect(before).toEqual({ coins: [16, 4, 8, 4], pool: 0 });
+    expect(collected).toEqual({ coins: [12, 3, 6, 3], pool: 8 });
+    expect(returned).toEqual({ coins: [14, 5, 8, 5], pool: 0 });
+    for (const moment of [before, collected, returned]) expect(moment.coins.reduce((s, c) => s + c, moment.pool)).toBe(32);
+    // below the average gains, the average breaks even, above it pays in
+    expect(returned.coins.map((c, k) => Math.sign(c - before.coins[k]))).toEqual([-1, 1, 0, 1]);
   });
 
   it('sets what is said to the reader apart from what the two say to each other', () => {

@@ -149,7 +149,10 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
     });
   }
 
-  // the outer sides: to the reader, beside and above whoever says it
+  // the outer sides: to the reader, beside and above whoever says it — and
+  // never over the talk: an aside steps outward past a bubble in its way, or
+  // up above it when there is no room outside (owner review 2026-09-26)
+  const taken: Box[] = laid.filter((p) => !placed[p.i].gone).map((p) => ({ x: p.x, y: placed[p.i].y, w: items[p.i].w, h: items[p.i].h }));
   for (const side of outer ? [true, false] : []) {
     const own = items
       .map((item, i) => ({ item, i }))
@@ -165,13 +168,44 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
         let x = side ? a.x + reach * 0.35 - item.w : a.x - reach * 0.35;
         x = Math.min(Math.max(x, column.left), Math.max(column.left, column.right - item.w));
         const floor = Math.min(bottom, a.y - reach - TAIL_LENGTH - 4);
-        const top = floor - item.h;
-        bottom = top - BUBBLE_GAP;
-        const tail = tailToward({ x, y: top, w: item.w, h: item.h }, a, !side);
-        placed[i] = { x, y: top, gone: k >= asides || top < column.top - 1, tail };
+        const box: Box = { x, y: floor - item.h, w: item.w, h: item.h };
+        let gone = k >= asides;
+        if (!gone) {
+          const moved = { ...box };
+          clear(moved, taken, side, column);
+          // no room anywhere: the newest stays where it was said, older ones go
+          if (moved.y >= column.top - 1) Object.assign(box, moved);
+          else if (k > 0) gone = true;
+        }
+        bottom = box.y - BUBBLE_GAP;
+        gone ||= box.y < column.top - 1 && k > 0;
+        if (!gone) taken.push(box);
+        const tail = tailToward(box, a, !side);
+        placed[i] = { x: box.x, y: box.y, gone, tail };
       });
   }
   return placed;
+}
+
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const overlaps = (a: Box, b: Box) =>
+  a.x < b.x + b.w + BUBBLE_GAP / 2 && b.x < a.x + a.w + BUBBLE_GAP / 2 && a.y < b.y + b.h + BUBBLE_GAP / 2 && b.y < a.y + a.h + BUBBLE_GAP / 2;
+
+/** Move `box` off everything in `taken`: outward (left when `left`), else up. */
+function clear(box: Box, taken: readonly Box[], left: boolean, column: Column): void {
+  for (let tries = 0; tries < 12; tries++) {
+    const hit = taken.find((t) => overlaps(box, t));
+    if (!hit) return;
+    const outward = left ? hit.x - BUBBLE_GAP - box.w : hit.x + hit.w + BUBBLE_GAP;
+    if (left ? outward >= column.left : outward + box.w <= column.right) box.x = outward;
+    else box.y = hit.y - BUBBLE_GAP - box.h;
+  }
 }
 
 /**

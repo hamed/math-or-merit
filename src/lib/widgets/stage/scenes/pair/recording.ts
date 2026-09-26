@@ -13,6 +13,7 @@
  * Pure and headless.
  */
 import { applyYardSaleTrade, createRandomSource } from '$lib/sim';
+import { applyFlatWealthLevy, applyTargetedWealthLevy } from '$lib/research';
 
 /** When a run stops. */
 export type StopRule =
@@ -29,6 +30,12 @@ export interface RunSettings {
   readonly stop: StopRule;
   /** Never more than this many trades, whatever the rule. */
   readonly cap: number;
+  /**
+   * The shared rule (Scenes 22–23): at the end of every round, this share of
+   * every fortune goes into one pool, and the pool comes back in equal parts.
+   * Only trades count as turnover; the levy never pads it.
+   */
+  readonly levy?: number;
 }
 
 export interface Recording {
@@ -59,32 +66,83 @@ function stopped(stop: StopRule, wealth: Float64Array, trades: number): boolean 
   }
 }
 
-export function record(settings: RunSettings, seed: number): Recording {
+/**
+ * A room played a few trades at a time and recorded as it goes: the tax game
+ * (Scene 21) trades live with the reader's hand in it, and every run is played
+ * out through one of these. A round ends after one trade per person on
+ * average, or as soon as the stop rule is met; the shared levy, if any, comes
+ * at the end of every round, and then the round is kept as a frame.
+ */
+export interface Recorder {
+  /** Everyone's share right now (live: the reader's taps land here at once). */
+  readonly wealth: Float64Array;
+  readonly trades: number;
+  /** The stop rule, or the cap, has been met. */
+  readonly done: boolean;
+  /** Play up to `count` more trades. */
+  play(count: number): void;
+  /** A tap: `rate` of one fortune goes into a pool, shared back equally. Returns what was taken. */
+  take(index: number, rate: number): number;
+  /** Everything kept so far. */
+  recording(): Recording;
+}
+
+export function recorder(settings: RunSettings, seed: number, start?: ArrayLike<number>): Recorder {
   const { n, beta, stop, cap } = settings;
+  const levy = Math.min(1, Math.max(0, settings.levy ?? 0));
   const random = createRandomSource(seed);
-  const wealth = new Float64Array(n).fill(1 / n);
+  const wealth = start ? Float64Array.from(start) : new Float64Array(n).fill(1 / n);
   const frames: Float64Array[] = [Float64Array.from(wealth)];
   const trades: number[] = [0];
   const turnover: number[] = [0];
   let done = 0;
-  while (done < cap && !stopped(stop, wealth, done)) {
-    let moved = 0;
-    let reached = false;
-    for (let k = 0; k < n && done < cap && !reached; k++) {
-      const a = Math.floor(random.next() * n);
-      let b = Math.floor(random.next() * (n - 1));
-      if (b >= a) b++;
-      moved += applyYardSaleTrade(wealth, a, b, beta, random.next() < 0.5);
-      done++;
-      // the richest can only change between the two who just traded
-      if (stop.kind === 'share') reached = wealth[a] >= stop.share || wealth[b] >= stop.share;
-      else if (stop.kind === 'trades') reached = done >= stop.trades;
-    }
+  let inRound = 0;
+  let moved = 0;
+  let finished = cap <= 0 || stopped(stop, wealth, 0);
+
+  function endRound(): void {
+    if (levy > 0) applyFlatWealthLevy(wealth, levy);
     frames.push(Float64Array.from(wealth));
     trades.push(done);
     turnover.push(moved);
+    inRound = 0;
+    moved = 0;
+    finished = done >= cap || stopped(stop, wealth, done);
   }
-  return { seed, settings, frames, trades, turnover };
+
+  return {
+    wealth,
+    get trades() {
+      return done;
+    },
+    get done() {
+      return finished;
+    },
+    play(count: number): void {
+      for (let k = 0; k < count && !finished; k++) {
+        const a = Math.floor(random.next() * n);
+        let b = Math.floor(random.next() * (n - 1));
+        if (b >= a) b++;
+        moved += applyYardSaleTrade(wealth, a, b, beta, random.next() < 0.5);
+        done++;
+        inRound++;
+        // the richest can only change between the two who just traded
+        const reached =
+          stop.kind === 'share' ? wealth[a] >= stop.share || wealth[b] >= stop.share : stop.kind === 'trades' && done >= stop.trades;
+        if (inRound >= n || reached || done >= cap) endRound();
+      }
+    },
+    take(index: number, rate: number): number {
+      return applyTargetedWealthLevy(wealth, index, rate);
+    },
+    recording: (): Recording => ({ seed, settings, frames: frames.slice(), trades: trades.slice(), turnover: turnover.slice() }),
+  };
+}
+
+export function record(settings: RunSettings, seed: number, start?: ArrayLike<number>): Recording {
+  const r = recorder(settings, seed, start);
+  while (!r.done) r.play(settings.n * 50);
+  return r.recording();
 }
 
 /** The frame showing the room after `trades` trades (the last one at or before it). */
@@ -122,3 +180,20 @@ export const DEFAULT_RUN: RunSettings = {
   stop: { kind: 'share', share: 0.4 },
   cap: 100_000,
 };
+
+/**
+ * Play the same room on: more rounds after the last one, with fresh dice
+ * (Scene 19, "run it longer"). The earlier rounds stay exactly as they were.
+ */
+export function extend(recording: Recording, settings: RunSettings, seed: number): Recording {
+  const last = recording.frames[recording.frames.length - 1];
+  const done = recording.trades[recording.trades.length - 1];
+  const more = record(settings, seed, last);
+  return {
+    seed: recording.seed,
+    settings: recording.settings,
+    frames: [...recording.frames, ...more.frames.slice(1)],
+    trades: [...recording.trades, ...more.trades.slice(1).map((t) => t + done)],
+    turnover: [...recording.turnover, ...more.turnover.slice(1)],
+  };
+}

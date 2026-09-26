@@ -71,14 +71,30 @@ export interface Pose {
   readonly lorenz: 0 | 1 | 2 | 3;
   /** Small pictures of concepts already built, in the side rail (brief 5.3). */
   readonly thumbs: readonly string[];
+  /**
+   * Whose fortunes the room shows: the run of Scene 13 (played on in Scene
+   * 19) · the dial's fresh room (20) · the tax game, live (21–22) · the
+   * matched pair, trades only on the left (23).
+   */
+  readonly source: RoomSource;
+  /** A control the reader holds in this step: the stake dial, the tax game. */
+  readonly control: 'stake' | 'tax' | null;
+  /** Scene 22's lesson: 0 before · 1 a quarter of every pile in the pool · 2 the pool shared back. */
+  readonly levy: 0 | 1 | 2;
+  /** Scene 24: 0 no map · 1 every square filled in · 2 and the fitted curve. */
+  readonly map: 0 | 1 | 2;
 }
+
+export type RoomSource = 'run' | 'dial' | 'game' | 'pair';
 
 /**
  * How the room stands (ADR-018 room poses): scattered as people · dropped into
  * piles on an ordinary ruler · on a multiplying ruler · in a line, poorest
  * first · the imagined cases of Scene 17 (all equal; one emptied; that one's
  * money given to one other; half owning it all; one owner) · four stepped out
- * of the crowd with coins · dimmed under the turnover chart.
+ * of the crowd with coins · dimmed under the turnover chart · four with the
+ * levy lesson's coins (Scene 22) · two rooms side by side on the same luck
+ * (23) · stepped back behind the outcome map (24).
  */
 export type RoomMode =
   | 'free'
@@ -91,7 +107,10 @@ export type RoomMode =
   | 'half'
   | 'one'
   | 'four'
-  | 'turnover';
+  | 'turnover'
+  | 'levy4'
+  | 'matched'
+  | 'map';
 
 /** What a step does on the way in, for the scene's choreography. */
 export type Action =
@@ -108,7 +127,12 @@ export type Action =
   | 'room'
   | 'run'
   | 'arrange'
-  | 'walk';
+  | 'walk'
+  | 'dial'
+  | 'game'
+  | 'coins'
+  | 'match'
+  | 'map';
 
 export interface PairStep extends StepSpec {
   readonly pose: Pose;
@@ -150,6 +174,10 @@ const START: Pose = {
   roomMode: 'free',
   lorenz: 0,
   thumbs: [],
+  source: 'run',
+  control: null,
+  levy: 0,
+  map: 0,
 };
 
 interface Draft {
@@ -173,6 +201,25 @@ const held = (i: number): Coins => ({ blue: HOLDINGS[i].a, red: HOLDINGS[i].b })
 const staked = (round: number): Coins => ({ blue: ROUNDS[round].stake, red: ROUNDS[round].stake });
 const minus = (a: Coins, b: Coins): Coins => ({ blue: a.blue - b.blue, red: a.red - b.red });
 const NOTHING: Coins = { blue: 0, red: 0 };
+
+/** The concept cards of Scenes 13–18, in the order they were made. */
+const CARDS = ['rule', 'histogram', 'gini', 'participants', 'turnover'];
+
+/**
+ * Scene 22's four, in the room's cast order (Blue, Red, then two others): coins
+ * before the levy. The average is eight.
+ */
+export const LEVY_COINS: readonly number[] = [16, 4, 8, 4];
+export const LEVY_RATE = 0.25;
+
+/** The four's coins and the pool at each moment of the lesson: before · collected · shared back. */
+export function levyLesson(stage: 0 | 1 | 2): { coins: number[]; pool: number } {
+  const taken = LEVY_COINS.map((c) => c * LEVY_RATE);
+  const pool = taken.reduce((sum, c) => sum + c, 0);
+  if (stage === 0) return { coins: [...LEVY_COINS], pool: 0 };
+  if (stage === 1) return { coins: LEVY_COINS.map((c, k) => c - taken[k]), pool };
+  return { coins: LEVY_COINS.map((c, k) => c - taken[k] + pool / LEVY_COINS.length), pool: 0 };
+}
 
 /** How long the rain step lasts: every drop, the last fall, and a moment to stand still. */
 export const RAIN_WAIT_MS = Math.round((0.4 + DROPS.length * DROP_GAP + FALL + 2.4) * 1000);
@@ -363,6 +410,45 @@ const DRAFTS: Draft[] = [
       cards: ['rule', 'histogram', 'gini', 'participants', 'turnover'],
     },
   },
+
+  // ---- Scene 19: where it ends — the theorem, and "run it longer" ------------
+  red('end.one', 'end_one', { panel: true, aside: true }),
+  red('end.proof', 'end_proof'),
+  blue('end.when', 'end_when', { wait: CHAT }),
+  red('end.limit', 'end_limit'),
+  red('end.longer', 'end_longer', { aside: true, pose: { cards: [...CARDS, 'limit'] } }),
+
+  // ---- Scene 20: your hand on the dial — the stake, from nothing to everything --
+  red('dial.ask', 'dial_ask', { panel: true, aside: true, action: 'dial', pose: { source: 'dial', control: 'stake' } }),
+  { id: 'dial.said', wait: CHAT },
+  red('dial.law', 'dial_law', { pose: { control: null, cards: [...CARDS, 'limit', 'stake'] } }),
+
+  // ---- Scene 21: now you try to stop it — the tax game, live ------------------
+  red('stop.ask', 'stop_ask', { panel: true, aside: true, action: 'game', pose: { source: 'game', control: 'tax' } }),
+  red('stop.how', 'stop_how'),
+  red('stop.hand', 'stop_hand', { pose: { control: null } }),
+  red('stop.rule', 'stop_rule'),
+
+  // ---- Scene 22: put the levy in the rules — four piles, one pool --------------
+  red('levy.ask', 'levy_ask', { panel: true, aside: true, action: 'arrange', pose: { roomMode: 'levy4' } }),
+  red('levy.collect', 'levy_collect', { action: 'coins', pose: { levy: 1 } }),
+  blue('levy.same', 'levy_same', { wait: CHAT }),
+  red('levy.shares', 'levy_shares'),
+  red('levy.return', 'levy_return', { action: 'coins', pose: { levy: 2 } }),
+  red('levy.net', 'levy_net'),
+  blue('levy.paid', 'levy_paid', { wait: CHAT, aside: true }),
+  red('levy.kept', 'levy_kept', { pose: { cards: [...CARDS, 'limit', 'stake', 'levy'] } }),
+
+  // ---- Scene 23: trade and return together — two rooms, the same luck --------
+  red('match.ask', 'match_ask', { panel: true, action: 'match', pose: { roomMode: 'matched', source: 'pair', levy: 0 } }),
+  { id: 'match.result', wait: READER },
+  blue('match.luck', 'match_luck', { wait: CHAT }),
+  red('match.same', 'match_same'),
+
+  // ---- Scene 24: the outcome map -------------------------------------------
+  blue('map.ask', 'map_ask', { panel: true, action: 'arrange', pose: { roomMode: 'free', source: 'run' } }),
+  red('map.all', 'map_all', { action: 'map', pose: { roomMode: 'map', map: 1 } }),
+  red('map.fit', 'map_fit', { pose: { map: 2 } }),
 ];
 
 function build(): PairStep[] {
@@ -443,12 +529,27 @@ export const REACTIONS = {
     'eff.room': { who: 'red', message: 'eff_room' },
   },
   turnBusy: { who: 'blue', message: 'turn_busy' },
+  /** Scene 19's offer; Scene 20's line on the reader's last room, by its stake. */
+  endChoice: ['end_choice_1', 'end_choice_2'],
+  dialSaid: {
+    zero: { who: 'red', message: 'dial_zero' },
+    slow: { who: 'red', message: 'dial_slow' },
+    fast: { who: 'red', message: 'dial_fast' },
+    all: { who: 'red', message: 'dial_all' },
+    same: { who: 'red', message: 'dial_same' },
+  },
+  /** Scene 21: after the game, won or lost. */
+  stopWon: { who: 'red', message: 'stop_won' },
+  stopLost: { who: 'red', message: 'stop_lost' },
+  /** Scene 23: the two rooms' counts. */
+  matchResult: { who: 'red', message: 'match_result' },
   turnStart: { who: 'red', message: 'turn_start' },
   turnNow: { who: 'red', message: 'turn_now' },
   effReadout: { who: 'red', message: 'eff_readout' },
   effEnd: { who: 'blue', message: 'eff_end' },
   /** Scenes 15–17: the one-link choices, and the yes/no offers of a toy. */
   links: { 'sort.ask': 'sort_do', 'sort.ruler': 'sort_ruler_do', 'sort.back': 'sort_back_do', 'eff.try': 'eff_done' },
+  stopStart: 'stop_start',
   giniToy: ['gini_toy_choice_1', 'gini_toy_choice_2'],
   effDone: 'eff_done',
   /** Scene 14: Red's answer to the paper — after one run, or after several. */

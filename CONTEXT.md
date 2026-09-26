@@ -135,9 +135,31 @@ State of the work, by the brief's own plan (Part 9):
   the room) and then four step out of the crowd with coins (`roomPoses.ts`
   `imaginedShares`, `effectiveCount`). Turnover is back as Scene 18. Cards are
   browsable short memos with a picture each; the Gini toy lives in its card.
-- **Next:** Phase 5 — the levy acts (5.5–5.9: the dial, the tax game, the
-  levy lesson, matched rooms, the outcome map) with full-range dials; the
-  theorem line and "Run it longer?" (5.4). Then the sandbox (5.10).
+- **Phase 5 done (2026-09-26):** Scenes 19–24 on the same room, each with
+  its own source of fortunes (`pose.source`: `run` · `dial` · `game` ·
+  `pair`, one `createRun` instance each; the reader's own rooms are neither
+  remembered nor logged). 19: the theorem, and "Run it longer?" plays the same
+  room on with fresh dice, ten times closer to one owner per Yes
+  (`run.longer`, `extend`). 20: the stake dial (0–100%) inside Red's bubble
+  (`Bubble` `control` snippet); every turn plays a fresh 20,000-trade room;
+  Red's line reads it (zero · slower · the stake you watched · faster ·
+  everything). 21: the tax game LIVE in the room (`recorder()` — a run
+  recorded as it trades, so it rewinds after; `pair/taxGame.ts`: 280 trades/s,
+  30 s, tap = a quarter shared back, closes after 5 s under 20; robot: every
+  700 ms wins 20/20, once a second 9/20, never 0/20); while it plays a click
+  anywhere is a tap, never a step, and the talk lets taps through. 22: four
+  with coins 16/4/8/4, a quarter each into the pool, 2 each back → 14/5/8/5
+  (`levyLesson`, tested). 23: the room and its mirror on one seed, 20,000
+  trades, the right with a 3% levy (`levy` in `RunSettings`; ≈3 vs ≈30 count).
+  24: the outcome map measured offline (`scripts/outcome-map.ts` →
+  `pair/outcomeMap.ts`, 8 rooms a square under the guided protocol), the fit
+  drawn only over the measured range. Cards: limit, stake, levy. In the room,
+  lines to the reader join the one chat column (they stacked over the talk);
+  elsewhere an aside steps off the talk, and the newest is never hidden.
+  Retired: CrowdRun, TimeLapse, StakeDial, TaxGame, LevyLesson, MatchedRooms,
+  PhaseDiagram and their essay sections (the 1,000 crowd is cut, D20).
+- **Next:** Phase 6 — the verdict as dialogue, the sandbox with Blue and Red,
+  the invitation.
 - **Stage input rules** (2026-09-26, `claim()` in `steps.ts`): while the reader
   is in the stage every wheel event is the stage's, sub-pixel ones included —
   letting a trackpad's tail through slid the page and every later flick went

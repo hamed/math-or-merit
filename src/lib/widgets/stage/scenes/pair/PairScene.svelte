@@ -13,7 +13,7 @@
    * window (bubbles.ts): time runs down the column, lines stay while they are
    * still context, and what happened is logged among them.
    */
-  import { getContext, onMount } from 'svelte';
+  import { getContext, onMount, type Snippet } from 'svelte';
   import { gsap } from '../../gsap';
   import Bubble from '../../Bubble.svelte';
   import CardStack, { type Card } from '../../CardStack.svelte';
@@ -22,7 +22,23 @@
   import Reel from './Reel.svelte';
   import Teletype from './Teletype.svelte';
   import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
-  import { CALLS, PAIR_STEPS, REACTIONS, RUN_MS, indexOf, panelStart, valuesFor, type Pose, type RoomMode } from './script';
+  import {
+    CALLS,
+    PAIR_STEPS,
+    REACTIONS,
+    RUN_MS,
+    indexOf,
+    levyLesson,
+    panelStart,
+    valuesFor,
+    type Pose,
+    type RoomMode,
+    type RoomSource,
+  } from './script';
+  import { DEFAULT_RUN, type RunSettings } from './recording';
+  import { MAP_LEVIES, MAP_PARTICIPANTS, MAP_STAKES } from './outcomeMap';
+  import { GAME, nextClosureDuration, type GameResult } from './taxGame';
+  import { GINI_RAMP } from '../../../shared/presets';
   import { effectiveCount, imaginedShares, line, piles, ruler, type Tick } from './roomPoses';
   import { toDollars } from '../../../distribution/binning';
   import HistoMini from '../../../shared/HistoMini.svelte';
@@ -59,7 +75,7 @@
   import { loadTuning, runSettings, tuning } from './tuning.svelte';
   import DebugPanel from './DebugPanel.svelte';
   import { collectStats, frontPageFor } from '../../../sandbox/newsroom';
-  import { measureWealth } from '$lib/research';
+  import { fitSquareRelationship, measureWealth } from '$lib/research';
   import { openBranch } from '../../branch';
 
   const stage = getContext<StepStageContext | undefined>(STEP_STAGE_CONTEXT);
@@ -161,6 +177,10 @@
     turnDraw: 0,
     /** How much of the Lorenz curve is drawn, 0–1 (Scene 16's walk). */
     lorenzDraw: 0,
+    /** Scene 23's mirror room, 0–1. */
+    mirrorOn: 0,
+    /** How much of Scene 24's map has filled in, 0–1. */
+    mapOn: 0,
     /** The ruler's marks, keyed so a decade slides from the ordinary ruler to the multiplying one. */
     ticks: {} as Record<string, { x: number; alpha: number }>,
     paint: { blue: 0, red: 0 },
@@ -193,13 +213,13 @@
   }
 
   function pairSpot(pose: Pose, who: Speaker) {
-    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red);
+    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red, pose.source);
     if (pose.place === 'seats') return who === 'blue' ? L.seatBlue : L.seatRed;
     return who === 'blue' ? L.markBlue : L.markRed;
   }
 
   function pairRadius(pose: Pose, who: Speaker): number {
-    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red).r;
+    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red, pose.source).r;
     return Math.max(L.minRadius, L.radius(pose.holdings[who]));
   }
 
@@ -234,7 +254,7 @@
     const w = L.width;
     return L.room.positions.map((p, i) => {
       if (pose.place === 'room') {
-        const t = modeTarget(pose.roomMode, i);
+        const t = modeTarget(pose.roomMode, i, pose.source);
         return { x: t.x, y: t.y, r: t.r, alpha: t.alpha, sx: 1, sy: 1, empty: t.empty ? 1 : 0 };
       }
       return { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y, r: L.room.radius, alpha: 0, sx: 1, sy: 1 };
@@ -306,6 +326,8 @@
     view.ticks = Object.fromEntries(ticksFor(pose.roomMode).map((t) => [t.key, { x: t.x, alpha: t.shown ? 1 : 0 }]));
     view.lorenzDraw = pose.roomMode === 'line' && pose.lorenz >= 1 ? 1 : 0;
     view.turnDraw = pose.roomMode === 'turnover' ? 1 : 0;
+    view.mirrorOn = pose.roomMode === 'matched' ? 1 : 0;
+    view.mapOn = pose.map > 0 ? 1 : 0;
   }
 
   // ---- the player's verbs ----------------------------------------------------
@@ -326,8 +348,8 @@
     cardPlaying = null;
     fourPick = null;
     if (PAIR_STEPS[index].id === 'eff.try') fourCoins = [4, 4, 4, 4];
-    if (PAIR_STEPS[index].pose.ran) run.ended();
-    else run.clear();
+    prepareRooms(index, false);
+    levyView = levyLesson(PAIR_STEPS[index].pose.levy);
     draw(poseAt(index));
     showAll(index);
     enter(index);
@@ -338,7 +360,10 @@
     stopMotion();
     stopCalls();
     reaction = null;
-    if (from >= 0) draw(poseAt(from));
+    if (from >= 0) {
+      levyView = levyLesson(PAIR_STEPS[from].pose.levy);
+      draw(poseAt(from));
+    }
     const step = PAIR_STEPS[index];
     const pose = poseAt(index);
     logReady = !step.log;
@@ -360,8 +385,9 @@
           logReady = true;
           printPaper();
         });
-    } else if (step.pose.ran) run.ended();
-    else run.clear();
+    }
+    prepareRooms(index, true);
+    if (step.action !== 'coins') levyView = levyLesson(step.pose.levy);
     if (step.id === 'run.banter') playBanter();
     timeline = gsap.timeline();
     choreograph(step.action, pose, timeline);
@@ -384,6 +410,12 @@
     }
     if (id === 'run' && run.state.running) {
       run.finish();
+      return true;
+    }
+    // a room still playing finishes on the first press (never the live game: that one is the reader's)
+    const playing = [run, dialRun, leftRun, rightRun].filter((r) => r.state.running);
+    if (playing.length > 0) {
+      playing.forEach((r) => r.finish());
       return true;
     }
     if (id === 'run.banter' && banterShown < banterLines().length) {
@@ -417,6 +449,202 @@
     if (id === 'equal' && !stage?.isReleased('equal')) reacted = { first: false, eleven: false, over: false };
   }
 
+  // ---- Scenes 19–23: the reader's own rooms -------------------------------------
+
+  /**
+   * Every room a step shows, made ready: the run of Scene 13 rebuilt, the
+   * reader's own rooms as they were left — or, on the way into their scene,
+   * emptied to everyone equal before the new one starts.
+   */
+  function prepareRooms(index: number, animate: boolean): void {
+    const step = PAIR_STEPS[index];
+    const pose = step.pose;
+    const entering = animate ? step.action : undefined;
+    if (entering !== 'run') {
+      if (pose.ran) run.ended();
+      else run.clear();
+    }
+    // the game ends when the reader leaves its step: nothing is locked behind winning
+    if (game.playing && step.id !== 'stop.how') endGame(null);
+    if (pose.source === 'dial') {
+      if (entering === 'dial') dialRun.clear();
+      else dialRun.ended();
+    }
+    if (pose.source === 'game' && entering === 'game') {
+      gameRun.clear();
+      game.result = null;
+    }
+    if (pose.source === 'pair') {
+      if (entering === 'match') {
+        leftRun.clear();
+        rightRun.clear();
+      } else if (!leftRun.recording() || !rightRun.recording()) startMatch(true);
+    }
+  }
+
+  /** Scene 19: the same room, played on with fresh dice, ten times closer to one owner each time. */
+  let longers = $state(0);
+  function runLonger(): void {
+    const rec = run.recording();
+    if (!rec || run.state.running) return;
+    const share = run.state.share;
+    const more: RunSettings = { ...rec.settings, stop: { kind: 'share', share: Math.min(0.9999, 1 - (1 - share) / 10) }, cap: 400_000 };
+    run.longer(more, 7_000, () => longers++);
+    if (stage?.reduced) run.finish();
+  }
+
+  /** Scene 20: every turn of the dial rolls a fresh room at that stake and plays it. */
+  function turnDial(stake: number): void {
+    dialStake = stake;
+    dialThumb = stake;
+    dialRun.start(undefined, undefined, DIAL_MS);
+    if (stage?.reduced) dialRun.finish();
+  }
+
+  /** Scene 23: both rooms on one seed, played side by side. */
+  function startMatch(atOnce = false): void {
+    const seed = Math.floor(Math.random() * 0xffff_ffff);
+    leftRun.start(undefined, seed);
+    rightRun.start(undefined, seed);
+    if (atOnce || stage?.reduced) {
+      leftRun.finish();
+      rightRun.finish();
+    }
+  }
+
+  /** Scene 23's mirror room at the moment on screen. */
+  const mirror = $derived.by(() => {
+    void rightRun.state.revision;
+    return { wealth: rightRun.wealth(), sized: rightRun.state.running || rightRun.state.done };
+  });
+
+  /** Scene 23: how many still count in each room, at the moment on screen. */
+  const matchCounts = $derived.by(() => {
+    void leftRun.state.revision;
+    void rightRun.state.revision;
+    const a = measureWealth(leftRun.wealth()).effectiveParticipants;
+    const b = measureWealth(rightRun.wealth()).effectiveParticipants;
+    const whole = (x: number) => formatNumber(x, { maximumFractionDigits: 0 });
+    return { a: whole(a), b: whole(b) };
+  });
+
+  /** Scene 21: the game's clock, the reader's taps, and how it went. */
+  const game = $state({ playing: false, elapsed: 0, below: 0, taps: 0, round: 0, result: null as GameResult | null });
+
+  function startGame(): void {
+    game.playing = true;
+    game.elapsed = 0;
+    game.below = 0;
+    game.taps = 0;
+    game.result = null;
+    game.round++;
+    gameRun.live(GAME.perSecond, (dt) => {
+      game.elapsed += dt;
+      const count = measureWealth(gameRun.wealth()).effectiveParticipants;
+      game.below = nextClosureDuration(game.below, count, dt, GAME.target);
+      if (game.below >= GAME.closeAfterMs) endGame({ won: false, seconds: Math.round(game.elapsed / 1000), taps: game.taps });
+      else if (game.elapsed >= GAME.seconds * 1000) endGame({ won: true, count: Math.round(count) });
+    });
+  }
+
+  function endGame(result: GameResult | null): void {
+    game.playing = false;
+    game.result = result;
+    gameRun.endLive();
+  }
+
+  /** A tap on a fortune: a quarter of it into the pool, shared back by everyone. */
+  function tapRoom(i: number): void {
+    if (!game.playing) return;
+    gameRun.take(i, GAME.rate);
+    game.taps++;
+    if (stage?.reduced) return;
+    const v = agentView(i);
+    const id = ++rippleId;
+    ripples = [...ripples, { id, x: v.x, y: v.y, r: Math.max(v.r, 6), ink: styleOfRoom(i).stroke }];
+    window.setTimeout(() => (ripples = ripples.filter((q) => q.id !== id)), 1500);
+  }
+
+  /** The fortune under a finger: the circle it lands in, or the nearest within a few pixels. */
+  function tapAt(event: PointerEvent): void {
+    const p = local(event);
+    let best = -1;
+    let bestD = 14;
+    for (let i = 0; i < L.room.positions.length; i++) {
+      const v = agentView(i);
+      const d = Math.hypot(p.x - v.x, p.y - v.y) - v.r;
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    if (best >= 0) tapRoom(best);
+  }
+
+  /** The five largest fortunes, as buttons for the keyboard. */
+  const topFive = $derived.by(() => {
+    void gameRun.state.revision;
+    const w = gameRun.wealth();
+    return Array.from(w.keys())
+      .sort((a, b) => w[b] - w[a])
+      .slice(0, 5);
+  });
+
+  /** Scene 22: a quarter of every pile flies to the pool, or the pool flies back, a coin at a time. */
+  function levyCoins(pose: Pose, tl: Timeline): void {
+    const before = levyLesson(pose.levy === 2 ? 1 : 0);
+    const after = levyLesson(pose.levy);
+    levyView = { coins: [...before.coins], pool: before.pool };
+    const pool = poolSpot();
+    const out = pose.levy === 1;
+    // one token per coin that moves, handed to the view first: the view draws its own copies
+    const flights: { k: number; c: number }[] = [];
+    cast.four.forEach((_, k) => {
+      const moves = Math.abs(after.coins[k] - before.coins[k]);
+      for (let c = 0; c < moves; c++) flights.push({ k, c });
+    });
+    view.fly = flights.map(({ k, c }) => {
+      const home = fourSpot(k);
+      return { x: out ? home.x : pool.x, y: out ? home.y : pool.y, on: 0, face: c % 2 ? 'back' : 'front' } as Token;
+    });
+    let t = 0.3;
+    let n = 0;
+    cast.four.forEach((agent, k) => {
+      const moves = Math.abs(after.coins[k] - before.coins[k]);
+      for (let c = 0; c < moves; c++) {
+        const home = fourSpot(k);
+        const token = view.fly[n++];
+        const at = t;
+        tl.call(
+          () => {
+            token.on = 1;
+            if (out) levyView.coins[k] -= 1;
+            else levyView.pool -= 1;
+          },
+          [],
+          at,
+        );
+        tl.to(token, { x: out ? pool.x : home.x, y: out ? pool.y : home.y, duration: 0.55, ease: 'power2.inOut' }, at);
+        tl.call(
+          () => {
+            token.on = 0;
+            if (out) levyView.pool += 1;
+            else levyView.coins[k] += 1;
+          },
+          [],
+          at + 0.55,
+        );
+        t += 0.16;
+      }
+      t += 0.2;
+    });
+    // each circle follows its coins
+    cast.four.forEach((agent, k) => {
+      tl.to(agentView(agent), { r: L.radius(after.coins[k]), duration: Math.max(0.6, t - 0.3), ease: 'power1.inOut' }, 0.3);
+    });
+    tl.call(() => (levyView = after), [], t + 0.6);
+  }
+
   // ---- Scene 13: the run --------------------------------------------------------
 
   /** The room of a hundred, played for real: unseeded, as the reveal always was. */
@@ -426,20 +654,60 @@
   );
   void RUN_MS;
   const ROOM_TOTAL_DOLLARS = 100 * START_DOLLARS;
+  type Run = typeof run;
+
+  /** The reader's own rooms after it: fresh luck each time, never remembered, never logged. */
+  const OWN = { remember: false, log: false };
+  const fixed = (beta: number, trades: number, levy = 0): RunSettings => ({
+    n: 100,
+    beta,
+    stop: { kind: 'trades', trades },
+    cap: trades,
+    levy,
+  });
+
+  /** Scene 20: a fresh room at the reader's stake, the same length every time. */
+  const DIAL_TRADES = 20_000;
+  const DIAL_MS = 5_000;
+  let dialStake = $state(DEFAULT_RUN.beta);
+  /** Where the dial's thumb is while it is being dragged. */
+  let dialThumb = $state(DEFAULT_RUN.beta);
+  const dialRun = createRun(() => fixed(dialStake, DIAL_TRADES), () => DIAL_MS, OWN);
+
+  /** Scene 21: the room trades live; the game's own clock ends it. */
+  const gameRun = createRun(() => fixed(GAME.beta, 10_000_000), () => 0, OWN);
+
+  /** Scene 23: one seed, twice — trades only, and trades with a 3% levy shared back. */
+  const MATCH_TRADES = 20_000;
+  const MATCH_LEVY = 0.03;
+  const MATCH_MS = 7_000;
+  const leftRun = createRun(() => fixed(GAME.beta, MATCH_TRADES), () => MATCH_MS, OWN);
+  const rightRun = createRun(() => fixed(GAME.beta, MATCH_TRADES, MATCH_LEVY), () => MATCH_MS, OWN);
+
+  const RUNS: Record<RoomSource, Run> = { run, dial: dialRun, game: gameRun, pair: leftRun };
+  /** The room on screen now. */
+  const shown = $derived(RUNS[PAIR_STEPS[current].pose.source]);
+
+  /** Whether a source's sizes come from its run rather than from the pose (everyone equal). */
+  function isShown(source: RoomSource): boolean {
+    const r = RUNS[source];
+    return PAIR_STEPS[current].pose.ran && (r.state.running || r.state.done);
+  }
 
   /** A room member's radius: area is wealth, and everyone started at the room's radius. */
-  function roomR(i: number): number {
-    void run.state.revision;
-    return Math.max(0.8, L.room.radius * Math.sqrt(Math.max(0, run.wealth()[i]) * 100));
+  function roomR(i: number, source: RoomSource = PAIR_STEPS[current].pose.source): number {
+    const r = RUNS[source];
+    void r.state.revision;
+    return Math.max(0.8, L.room.radius * Math.sqrt(Math.max(0, r.wealth()[i]) * 100));
   }
 
   /** Whether the room's sizes come from a run (from the run on) rather than from the pose. */
-  const runShown = $derived(PAIR_STEPS[current].pose.ran && (run.state.running || run.state.done));
+  const runShown = $derived(isShown(PAIR_STEPS[current].pose.source));
 
   /** Largest first, so a giant never hides the small ones under it. */
   const roomOrder = $derived.by(() => {
-    void run.state.revision;
-    const w = run.wealth();
+    void shown.state.revision;
+    const w = shown.wealth();
     return L.room.positions.map((_, i) => i).sort((a, b) => (runShown ? w[b] - w[a] : 0) || a - b);
   });
 
@@ -460,15 +728,15 @@
 
   /** What everyone holds, in the room's dollars (everyone started with $100). */
   const amounts = $derived.by(() => {
-    void run.state.revision;
-    return toDollars(run.wealth(), START_DOLLARS);
+    void shown.state.revision;
+    return toDollars(shown.wealth(), START_DOLLARS);
   });
   const pilesPose = $derived(piles(amounts, L.room.box));
   const rulerPose = $derived(ruler(amounts, L.room.box));
   const linePose = $derived(line(amounts, L.room.box, amounts.map((_, i) => roomR(i))));
   const metrics = $derived.by(() => {
-    void run.state.revision;
-    return measureWealth(run.wealth());
+    void shown.state.revision;
+    return measureWealth(shown.wealth());
   });
 
   /** Room member `i`'s circle on the stage: Blue and Red are their own. */
@@ -525,6 +793,83 @@
     return { x: cx + (k % 2 ? 1 : -1) * (side / 2), y: cy + (k < 2 ? -1 : 1) * (side / 2) };
   }
 
+  /** Scene 22: the four's coins and the pool, as the lesson stands on screen. */
+  let levyView = $state(levyLesson(0));
+
+  /** The pool, in the middle of the four. */
+  function poolSpot(): Point {
+    const box = L.room.box;
+    return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+  }
+
+  /**
+   * Scene 23: the room at half size in one half of its box — trades only first
+   * in reading order, its mirror copy with the levy second.
+   */
+  const matchBox = $derived.by(() => {
+    const box = L.room.box;
+    const gap = Math.max(14, box.w * 0.04);
+    const scale = (box.w - gap) / 2 / box.w;
+    const h = box.h * scale;
+    const top = box.y + Math.max(0, (box.h - h) / 2);
+    const lefts = [box.x, box.x + box.w * scale + gap];
+    return { scale, top, h, w: box.w * scale, lefts: rtl ? [lefts[1], lefts[0]] : lefts };
+  });
+
+  function matchedAt(side: 0 | 1, p: Point): Point {
+    const box = L.room.box;
+    return { x: matchBox.lefts[side] + (p.x - box.x) * matchBox.scale, y: matchBox.top + (p.y - box.y) * matchBox.scale };
+  }
+
+  /** Scene 24: the map in the lower part of the room's box, the talk above it. */
+  const mapBox = $derived.by(() => {
+    const box = L.room.box;
+    const side = Math.min(box.w * 0.62, box.h * 0.62);
+    const below = 64;
+    const y = box.y + box.h - side - below;
+    const x = box.x + (box.w - side) / 2 + 14;
+    return { x, y, side, cw: side / MAP_STAKES.length, ch: side / MAP_LEVIES.length };
+  });
+
+  /** Blue and Red beside the map, low on either side: speakers here, not squares on it. */
+  function mapSpeaker(who: 0 | 1, real: number): Target {
+    const box = L.room.box;
+    const m = mapBox;
+    const margin = Math.max(8, (box.w - m.side) / 2 - 42);
+    const r = Math.min(real, margin * 0.4, m.side * 0.09);
+    const first = rtl ? 1 - who : who;
+    const x = first === 0 ? m.x - 42 - margin / 2 : m.x + m.side + margin / 2 + 6;
+    return { x, y: m.y + m.side - r, r, alpha: 1, empty: false };
+  }
+
+  /** Every square of the map at once, and the curve fitted through where half still count. */
+  const MAP_FIT = fitSquareRelationship(MAP_PARTICIPANTS, MAP_STAKES, MAP_LEVIES, 50, 'increases');
+  /** The order the squares fill in: scattered, the same every time. */
+  const MAP_ORDER = MAP_PARTICIPANTS.map((row, iy) => row.map((_, ix) => noise(ix * 31 + iy, 77)));
+
+  function mapColour(count: number): string {
+    const closed = 1 - (count - 1) / 99;
+    return GINI_RAMP[Math.min(GINI_RAMP.length - 1, Math.max(0, Math.floor(closed * GINI_RAMP.length)))];
+  }
+
+  const mapCurve = $derived.by(() => {
+    if (!MAP_FIT) return '';
+    const m = mapBox;
+    const b0 = MAP_STAKES[0];
+    const b1 = MAP_STAKES[MAP_STAKES.length - 1];
+    const t1 = MAP_LEVIES[MAP_LEVIES.length - 1];
+    const xOf = (b: number) => m.x + ((b - b0) / (b1 - b0)) * (m.side - m.cw) + m.cw / 2;
+    const yOf = (t: number) => m.y + m.side - ((t - MAP_LEVIES[0]) / (t1 - MAP_LEVIES[0])) * (m.side - m.ch) - m.ch / 2;
+    const points: string[] = [];
+    // only over the range it was measured on
+    for (let b = b0; b <= b1 + 1e-9; b += 0.005) {
+      const t = MAP_FIT.c * b * b;
+      if (t > t1) break;
+      points.push(`${points.length ? 'L' : 'M'}${xOf(b).toFixed(1)} ${yOf(t).toFixed(1)}`);
+    }
+    return points.join(' ');
+  });
+
   /** Coins each of the four holds (sixteen between them), while the reader moves them. */
   let fourCoins = $state([4, 4, 4, 4]);
   let fourPick = $state<number | null>(null);
@@ -537,10 +882,10 @@
     empty: boolean;
   }
 
-  /** Where room member `i` stands, how big, and how visible, in a room pose. */
-  function modeTarget(mode: RoomMode, i: number): Target {
+  /** Where room member `i` stands, how big, and how visible, in a room pose — sized from `source`'s room. */
+  function modeTarget(mode: RoomMode, i: number, source: RoomSource = PAIR_STEPS[current].pose.source): Target {
     const free = L.room.positions[i];
-    const real = runShown ? roomR(i) : L.room.radius;
+    const real = isShown(source) ? roomR(i, source) : L.room.radius;
     const at = (x: number, y: number, r: number, alpha = 1, empty = false): Target => ({ x, y, r, alpha, empty });
     switch (mode) {
       case 'piles':
@@ -567,6 +912,21 @@
       }
       case 'turnover':
         return at(free.x, free.y, real, 0.16);
+      case 'levy4': {
+        const k = cast.four.indexOf(i);
+        if (k < 0) return at(free.x, free.y, real, 0.14);
+        const spot = fourSpot(k);
+        return at(spot.x, spot.y, L.radius(levyView.coins[k]));
+      }
+      case 'matched': {
+        const spot = matchedAt(0, free);
+        return at(spot.x, spot.y, real * matchBox.scale);
+      }
+      case 'map': {
+        if (i === L.room.blue) return mapSpeaker(0, real);
+        if (i === L.room.red) return mapSpeaker(1, real);
+        return at(free.x, free.y, real, 0.08);
+      }
       default: {
         // a fortune that has grown past the room's edge is drawn a little further in
         const box = L.room.box;
@@ -588,7 +948,7 @@
 
   // the room follows the moment on screen: the run as it plays, or the time dial
   $effect(() => {
-    void run.state.revision;
+    void shown.state.revision;
     void fourCoins;
     const pose = PAIR_STEPS[current].pose;
     if (!runShown || arranging || pose.place !== 'room') return;
@@ -698,10 +1058,10 @@
 
   /** Each round's turnover up to the moment on screen, and its mean at the start and near the end. */
   const turnover = $derived.by(() => {
-    void run.state.revision;
-    const rec = run.recording();
+    void shown.state.revision;
+    const rec = shown.recording();
     if (!rec) return { rounds: [] as number[], early: 0, late: 0, max: 0 };
-    const raw = rec.turnover.slice(1, Math.max(1, run.state.frame) + 1);
+    const raw = rec.turnover.slice(1, Math.max(1, shown.state.frame) + 1);
     const mean = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
     // drawn as a five-round moving average, so the trend reads through the noise of single rounds
     const rounds = raw.map((_, k) => mean(raw.slice(Math.max(0, k - 2), k + 3)));
@@ -718,15 +1078,16 @@
     if (!tuning.debug) return [];
     const step = PAIR_STEPS[current];
     const pose = step.pose;
-    const w = run.wealth();
+    const w = shown.wealth();
     const dollars = Array.from(w, (x) => x * 100 * START_DOLLARS);
-    const rec = run.recording();
+    const rec = shown.recording();
     return [
       ['step', `${current} ${step.id} (${step.wait.kind}${step.action ? ', ' + step.action : ''})`],
       ['pose', `${pose.place}/${pose.roomMode} crowd:${pose.crowd} lorenz:${pose.lorenz} ran:${pose.ran}`],
-      ['run', `${run.state.running ? 'playing' : run.state.done ? 'done' : 'none'} · frame ${run.state.frame}/${Math.max(0, run.state.frames - 1)} · seed ${rec?.seed ?? '–'}`],
-      ['trades', formatNumber(run.state.trades)],
-      ['richest', `${(run.state.share * 100).toFixed(1)}% (#${run.state.winner})`],
+      ['room', `${pose.source} · β ${rec?.settings.beta ?? '–'}${rec?.settings.levy ? ` · levy ${rec.settings.levy}` : ''}`],
+      ['run', `${shown.state.running ? 'playing' : shown.state.done ? 'done' : 'none'} · frame ${shown.state.frame}/${Math.max(0, shown.state.frames - 1)} · seed ${rec?.seed ?? '–'}`],
+      ['trades', formatNumber(shown.state.trades)],
+      ['richest', `${(shown.state.share * 100).toFixed(1)}% (#${shown.state.winner})`],
       ['gini', metrics.gini.toFixed(3)],
       ['eff. N', metrics.effectiveParticipants.toFixed(2)],
       ['≥10¢ / ≥$10', `${dollars.filter((d) => d >= 0.1).length} / ${dollars.filter((d) => d >= 10).length}`],
@@ -870,6 +1231,8 @@
     /** Said to the reader, not to the other one: on the speaker's outer side. */
     aside?: boolean;
     choices?: readonly BubbleChoice[];
+    /** A control the reader holds, inside the bubble (Scene 20's dial). */
+    control?: Snippet;
   }
 
   /** The line of a Scene 3 hold, once more and a little louder each time. */
@@ -910,6 +1273,25 @@
         if (bet) out.push({ id: `${step.id}:${session.bet}`, who: bet.who, at: bet.who, text: say(bet.message), aside: true });
         continue;
       }
+      if (step.id === 'end.longer' && line?.who) {
+        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message), aside: step.aside });
+        // what the room did, each time it was played on
+        if (longers > 0 && !(i === current && run.state.running)) {
+          const text = say('log_run', { trades: formatNumber(run.state.trades), share: formatNumber(run.state.share, { style: 'percent' }) });
+          out.push({ id: `log:end.longer:${longers}`, who: null, at: null, text, kind: 'event' });
+        }
+        continue;
+      }
+      if (step.id === 'stop.how' && line?.who) {
+        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)) });
+        const result = game.result;
+        if (result) {
+          const said = result.won ? REACTIONS.stopWon : REACTIONS.stopLost;
+          const values: Record<string, number> = result.won ? { count: result.count } : { seconds: result.seconds, taps: result.taps };
+          out.push({ id: `stop.result:${game.round}`, who: said.who, at: said.who, text: say(said.message, values) });
+        }
+        continue;
+      }
       if (!line || !line.who) continue;
       // a brief line goes as soon as anyone says the next thing
       if (step.brief) {
@@ -932,6 +1314,12 @@
     // an open toy has its own Done: the offer's links go while it is open
     const choices = choicesAt(current);
     if (last && choices) out[out.length - 1] = { ...last, choices };
+    // the stake dial sits in Red's newest bubble while it is the reader's to turn
+    if (PAIR_STEPS[current].pose.control === 'stake') {
+      let k = out.length - 1;
+      while (k >= 0 && !(out[k].who === 'red' && !out[k].kind)) k--;
+      if (k >= 0) out[k] = { ...out[k], control: stakeDial };
+    }
     if (current === indexOf('eff.try')) {
       const line = REACTIONS.effReadout;
       out.push({
@@ -1010,6 +1398,33 @@
         return said(REACTIONS.effRoom, { count });
       case 'eff.end':
         return said(REACTIONS.effEnd, { count });
+      case 'dial.said': {
+        // one bubble per room: its number grows as the room plays
+        const stake = dialRun.recording()?.settings.beta ?? dialStake;
+        const kind = stake <= 0 ? 'zero' : stake >= 1 ? 'all' : Math.abs(stake - DEFAULT_RUN.beta) < 1e-9 ? 'same' : stake < DEFAULT_RUN.beta ? 'slow' : 'fast';
+        const line = REACTIONS.dialSaid[kind];
+        void dialRun.state.revision;
+        return {
+          id: `dial.said:${dialRun.recording()?.seed ?? 0}:${kind}`,
+          who: line.who,
+          at: line.who,
+          text: say(line.message, {
+            stake: formatNumber(stake, { style: 'percent' }),
+            share: formatNumber(dialRun.state.share, { style: 'percent' }),
+          }),
+        };
+      }
+      case 'match.result': {
+        void leftRun.state.revision;
+        void rightRun.state.revision;
+        const line = REACTIONS.matchResult;
+        return {
+          id: `match.result:${leftRun.recording()?.seed ?? 0}`,
+          who: line.who,
+          at: line.who,
+          text: say(line.message, { a: matchCounts.a, b: matchCounts.b }),
+        };
+      }
       default:
         return null;
     }
@@ -1039,6 +1454,15 @@
         { label: say(no), act: () => stage?.advance() },
       ];
     }
+    if (id === 'end.longer') {
+      if (run.state.running) return null;
+      const [yes, no] = REACTIONS.endChoice;
+      return [
+        { label: say(yes), act: runLonger },
+        { label: say(no), act: () => stage?.advance() },
+      ];
+    }
+    if (id === 'stop.how') return game.playing ? null : [{ label: say(REACTIONS.stopStart), act: startGame }];
     if (id === 'run.again') {
       return [
         { label: say(REACTIONS.runChoices[0]), act: () => stage?.replay('run') },
@@ -1090,6 +1514,9 @@
       };
     }
     if (id === 'turnover') return { id, title: say('card_turnover_title'), lines: lines('card_turnover', 2), picture: turnoverPicture };
+    if (id === 'limit') return { id, title: say('card_limit_title'), lines: lines('card_limit', 3) };
+    if (id === 'stake') return { id, title: say('card_stake_title'), lines: lines('card_stake', 2) };
+    if (id === 'levy') return { id, title: say('card_levy_title'), lines: lines('card_levy', 3) };
     if (id !== 'rule') return null;
     const stake = formatNumber(tuning.beta, { style: 'percent' });
     return {
@@ -1171,6 +1598,9 @@
     // over a picture, it stops above the picture
     const chartTop: Record<string, number> = {
       four: fourSpot(0).y - L.radius(8) - 24,
+      levy4: fourSpot(0).y - L.radius(16) - 24,
+      matched: matchBox.top - (matchBox.w < 260 ? 50 : 34),
+      map: mapBox.y - 16,
       piles: Math.min(...pilesPose.piles.map((p) => p.top)) - 22,
       ruler: Math.min(...rulerPose.spots.map((p) => p.y)) - rulerPose.marker - 20,
       line: L.room.box.y + L.room.box.h * 0.5,
@@ -1188,7 +1618,9 @@
   });
 
   /** Poses where Blue and Red are markers inside a picture, not people to talk beside. */
-  const PICTURES = ['piles', 'ruler', 'line', 'four', 'turnover'];
+  const PICTURES = ['piles', 'ruler', 'line', 'four', 'turnover', 'levy4', 'matched', 'map'];
+  /** Pictures that are not the room on screen: its charts step aside. */
+  const APART: readonly RoomMode[] = ['levy4', 'matched', 'map'];
   const inPicture = $derived(PAIR_STEPS[current].pose.place === 'room' && PICTURES.includes(PAIR_STEPS[current].pose.roomMode));
 
   const column = $derived.by(() => {
@@ -1206,8 +1638,10 @@
       column,
       PAIR_STEPS[current].pose.place === 'room' ? 4 : 6,
       2,
-      // asides beside their speaker need room on both sides; a phone keeps one column
-      !inPicture && width >= 700,
+      // asides beside their speaker need room on both sides; a phone keeps one
+      // column, and so does the room, where the two stand among a hundred and
+      // the talk stacks right over them
+      !inPicture && width >= 700 && PAIR_STEPS[current].pose.place !== 'room',
     ),
   );
 
@@ -1302,6 +1736,27 @@
         return;
       case 'walk':
         walk(tl);
+        return;
+      case 'dial':
+        // everyone equal again, then a fresh room at the dial's stake
+        arrange(pose, tl);
+        if (stage?.reduced) turnDial(dialStake);
+        else tl.call(() => turnDial(dialStake), [], 1.6);
+        return;
+      case 'game':
+        arrange(pose, tl);
+        return;
+      case 'coins':
+        levyCoins(pose, tl);
+        return;
+      case 'match':
+        arrange(pose, tl);
+        tl.fromTo(view, { mirrorOn: 0 }, { mirrorOn: 1, duration: 0.8, ease: 'power1.inOut' }, 1.2);
+        tl.call(startMatch, [], 2.1);
+        return;
+      case 'map':
+        arrange(pose, tl);
+        tl.fromTo(view, { mapOn: 0 }, { mapOn: 1, duration: 2.4, ease: 'power1.inOut' }, 0.5);
         return;
       default:
         tweenTo(pose, tl, 0, 0.6);
@@ -1815,17 +2270,17 @@
       stopReveal();
       stopBanter();
       dropPaper();
-      run.stop();
+      for (const r of [run, dialRun, gameRun, leftRun, rightRun]) r.stop();
     };
   });
 </script>
 
 {#snippet histogramPicture()}
-  <HistoMini wealth={run.wealth()} startDollars={START_DOLLARS} revision={run.state.revision} />
+  <HistoMini wealth={shown.wealth()} startDollars={START_DOLLARS} revision={shown.state.revision} />
 {/snippet}
 
 {#snippet giniPicture()}
-  <div class="card-lorenz"><LorenzMini wealth={run.wealth()} revision={run.state.revision} /></div>
+  <div class="card-lorenz"><LorenzMini wealth={shown.wealth()} revision={shown.state.revision} /></div>
 {/snippet}
 
 {#snippet participantsPicture()}
@@ -1838,12 +2293,13 @@
   </svg>
 {/snippet}
 
-{#snippet player()}
+{#snippet player(runs: Run[])}
+  {@const lead = runs[0]}
   <TimePlayer
-    frame={run.state.frame}
-    frames={run.state.frames}
-    playing={run.state.playing}
-    label={say('dial_label', { trades: formatNumber(run.state.trades) })}
+    frame={lead.state.frame}
+    frames={lead.state.frames}
+    playing={lead.state.playing}
+    label={say('dial_label', { trades: formatNumber(lead.state.trades) })}
     names={{
       play: say('player_play'),
       pause: say('player_pause'),
@@ -1851,10 +2307,25 @@
       end: say('player_end'),
       scrub: say('player_scrub'),
     }}
-    onscrub={(f) => run.scrub(f)}
-    onplay={() => run.play()}
-    onpause={() => run.pause()}
+    onscrub={(f) => runs.forEach((r) => r.scrub(f))}
+    onplay={() => runs.forEach((r) => r.play())}
+    onpause={() => runs.forEach((r) => r.pause())}
   />
+{/snippet}
+
+{#snippet stakeDial()}
+  <label class="stake-dial">
+    <span>{say('dial_stake', { stake: formatNumber(dialThumb, { style: 'percent' }) })}</span>
+    <input
+      type="range"
+      min="0"
+      max="100"
+      step="5"
+      value={Math.round(dialThumb * 100)}
+      oninput={(e) => (dialThumb = Number(e.currentTarget.value) / 100)}
+      onchange={(e) => turnDial(Number(e.currentTarget.value) / 100)}
+    />
+  </label>
 {/snippet}
 
 {#snippet giniToy()}
@@ -1864,7 +2335,8 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="pair-scene" bind:this={host} onpointermove={dragMove}>
+<!-- while the reader's hand is in the live room, a click anywhere in it is a tap, never a step -->
+<div class="pair-scene" bind:this={host} onpointermove={dragMove} data-control={game.playing ? '' : undefined}>
   <!-- Once the stage is cleared (Scene 5) its words are gone, so their links
        must not stay in the tab order, invisible. -->
   <div class="words" style={`opacity:${view.titleOn}; transform: translateY(${view.lift}px)`} inert={view.titleOn < 0.5}>
@@ -1932,6 +2404,81 @@
         </g>
       {/if}
 
+      {#if view.mirrorOn > 0.01 && PAIR_STEPS[current].pose.roomMode === 'matched'}
+        {@const w = mirror.wealth}
+        {@const sized = mirror.sized}
+        <g class="mirror" opacity={view.mirrorOn}>
+          {#each L.room.positions as p, i (i)}
+            {@const at = matchedAt(1, p)}
+            {@const r = Math.max(0.5, (sized ? L.room.radius * Math.sqrt(Math.max(0, w[i]) * 100) : L.room.radius) * matchBox.scale)}
+            {@const style = styleOfRoom(i)}
+            <path
+              d={svgShapePath(style.shape, r)}
+              transform={`translate(${at.x.toFixed(1)} ${at.y.toFixed(1)})`}
+              fill={style.fill}
+              stroke={style.stroke}
+              fill-opacity="0.75"
+              stroke-width={i === L.room.blue || i === L.room.red ? 2.2 : 1.1}
+            />
+          {/each}
+        </g>
+        <g class="match-labels">
+          {#each [0, 1] as side (side)}
+            {@const label = say(side === 0 ? 'match_left' : 'match_right')}
+            <!-- a label wider than its room breaks after its first comma -->
+            {@const parts = matchBox.w < 260 && label.includes(', ') ? [label.slice(0, label.indexOf(', ') + 1), label.slice(label.indexOf(', ') + 2)] : [label]}
+            <text x={matchBox.lefts[side] + matchBox.w / 2} y={matchBox.top - 10 - (parts.length - 1) * 15} text-anchor="middle"
+              >{#each parts as part, k (k)}<tspan x={matchBox.lefts[side] + matchBox.w / 2} dy={k ? 15 : 0}>{part}</tspan>{/each}</text
+            >
+            <text class="count" x={matchBox.lefts[side] + matchBox.w / 2} y={matchBox.top + matchBox.h + 22} text-anchor="middle"
+              >{say('stop_meter', { count: side === 0 ? matchCounts.a : matchCounts.b })}</text
+            >
+          {/each}
+        </g>
+      {/if}
+
+      {#if PAIR_STEPS[current].pose.roomMode === 'map' && view.mapOn > 0.001}
+        {@const m = mapBox}
+        <g class="map" role="img" aria-label={say('map_all')}>
+          {#each MAP_PARTICIPANTS as row, iy (iy)}
+            {#each row as count, ix (ix)}
+              {#if view.mapOn >= MAP_ORDER[iy][ix]}
+                <rect x={m.x + ix * m.cw} y={m.y + m.side - (iy + 1) * m.ch} width={m.cw - 1} height={m.ch - 1} fill={mapColour(count)}>
+                  <title>{`${formatNumber(MAP_STAKES[ix], { style: 'percent' })} · ${formatNumber(MAP_LEVIES[iy], { style: 'percent' })} → ${formatNumber(count, { maximumFractionDigits: 0 })}`}</title>
+                </rect>
+              {/if}
+            {/each}
+          {/each}
+          {#if PAIR_STEPS[current].pose.map >= 2 && mapCurve}
+            <path class="fit" d={mapCurve} />
+          {/if}
+          <text class="tick" x={m.x + m.cw / 2} y={m.y + m.side + 14} text-anchor="middle">{formatNumber(MAP_STAKES[0], { style: 'percent' })}</text>
+          <text class="tick" x={m.x + m.side - m.cw / 2} y={m.y + m.side + 14} text-anchor="middle"
+            >{formatNumber(MAP_STAKES[MAP_STAKES.length - 1], { style: 'percent' })}</text
+          >
+          <text class="axis" x={m.x + m.side / 2} y={m.y + m.side + 30} text-anchor="middle">{say('map_stake')}</text>
+          <text class="tick" x={m.x - 6} y={m.y + m.side - m.ch / 2 + 4} text-anchor="end">{formatNumber(0, { style: 'percent' })}</text>
+          <text class="tick" x={m.x - 6} y={m.y + m.ch / 2 + 4} text-anchor="end"
+            >{formatNumber(MAP_LEVIES[MAP_LEVIES.length - 1], { style: 'percent' })}</text
+          >
+          <text class="axis" transform={`translate(${m.x - 12} ${m.y + m.side / 2}) rotate(-90)`} text-anchor="middle">{say('map_levy')}</text>
+          <g class="legend" transform={`translate(${m.x + m.side / 2 - GINI_RAMP.length * 8} ${m.y + m.side + 42})`}>
+            {#each GINI_RAMP as colour, k (k)}
+              <rect x={k * 16} y="0" width="15" height="8" fill={colour} />
+            {/each}
+            <text class="tick" x="-6" y="8" text-anchor="end">{say('map_many')}</text>
+            <text class="tick" x={GINI_RAMP.length * 16 + 6} y="8">{say('map_few')}</text>
+          </g>
+          {#if PAIR_STEPS[current].pose.map >= 2 && MAP_FIT}
+            {@const b = MAP_STAKES[MAP_STAKES.length - 1]}
+            {@const t = Math.min(MAP_FIT.c * b * b, MAP_LEVIES[MAP_LEVIES.length - 1])}
+            <text class="fit-label" x={m.x + m.side - 4} y={m.y + m.side - (t / MAP_LEVIES[MAP_LEVIES.length - 1]) * (m.side - m.ch) - m.ch / 2 - 10} text-anchor="end"
+              >{say('map_half')}</text
+            >
+          {/if}
+        </g>
+      {/if}
+
       {#each view.people as person, i (i)}
         {#if person.alpha > 0.01 && person.r > 0.05}
           <g transform={`translate(${person.x.toFixed(2)} ${person.y.toFixed(2)})`} opacity={person.alpha}>
@@ -1960,12 +2507,12 @@
         {/if}
       {/each}
 
-      {#if runShown && run.state.winner >= 0 && PAIR_STEPS[current].pose.roomMode === 'free' && !arranging}
-        {@const spot = roomSpot(run.state.winner)}
+      {#if runShown && shown.state.winner >= 0 && PAIR_STEPS[current].pose.roomMode === 'free' && !arranging}
+        {@const spot = roomSpot(shown.state.winner)}
         <!-- the dashed ring means "the richest", as everywhere in the essay -->
         <path
           class="halo"
-          d={svgShapePath(styleOfRoom(run.state.winner).shape, agentView(run.state.winner).r + 6)}
+          d={svgShapePath(styleOfRoom(shown.state.winner).shape, agentView(shown.state.winner).r + 6)}
           transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)})`}
           fill="none"
           stroke="var(--ink-mid)"
@@ -2060,6 +2607,25 @@
             </g>
           {/each}
         {/if}
+        {#if mode === 'levy4' && !arranging}
+          {@const pool = poolSpot()}
+          <g class="pool" transform={`translate(${pool.x.toFixed(1)} ${pool.y.toFixed(1)})`}>
+            <circle r={L.radius(8) + 4} />
+            {#each pile(levyView.pool, L.coinRadius, L.radius(8)) as c, j (j)}
+              <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
+            {/each}
+            <text y={L.radius(8) + 22} text-anchor="middle">{say('levy_pool')}</text>
+          </g>
+          {#each cast.four as agent, k (agent)}
+            {@const v = agentView(agent)}
+            <g transform={`translate(${v.x.toFixed(1)} ${v.y.toFixed(1)})`}>
+              {#each pile(levyView.coins[k], L.coinRadius, Math.max(v.r, L.coinRadius)) as c, j (j)}
+                <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
+              {/each}
+              <text class="coin-count" y={Math.max(v.r, L.coinRadius) + 18} text-anchor="middle">{formatNumber(levyView.coins[k])}</text>
+            </g>
+          {/each}
+        {/if}
         {#if view.turnDraw > 0.001 && turnover.rounds.length > 1}
           {@const chart = { x: box.x + 40, y: box.y + box.h * 0.12, w: box.w - 60, h: box.h * 0.7 }}
           {@const n = turnover.rounds.length}
@@ -2117,8 +2683,41 @@
       {/if}
     </svg>
 
-    {#if !L.column && runShown && run.state.done && run.state.frames > 1 && current > indexOf('run') && !inPicture}
-      <div class="dial phone">{@render player()}</div>
+    {#if !L.column && runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run') && !inPicture}
+      <div class="dial phone">{@render player([shown])}</div>
+    {/if}
+
+    {#if PAIR_STEPS[current].pose.control === 'tax' && (game.playing || game.result)}
+      {@const box = L.room.box}
+      {@const low = metrics.effectiveParticipants < GAME.target}
+      <!-- over the room's top corner; on a phone the talk covers that, so at its foot -->
+      <div class="meter" class:low style={`left:${box.x + 8}px; top:${L.column ? box.y + 6 : box.y + box.h - 44}px`} aria-live="off">
+        <span>{say('stop_meter', { count: formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 0 }) })}</span>
+        <span class="clock" aria-hidden="true"><span style={`inline-size:${Math.max(0, 1 - game.elapsed / (GAME.seconds * 1000)) * 100}%`}></span></span>
+      </div>
+    {/if}
+
+    {#if game.playing && current === indexOf('stop.how')}
+      {@const box = L.room.box}
+      <!-- a tap on any fortune; the five largest are buttons for the keyboard -->
+      <div
+        class="taps"
+        data-control
+        role="presentation"
+        style={`left:${box.x}px; top:${box.y}px; width:${box.w}px; height:${box.h}px`}
+        onpointerdown={tapAt}
+      ></div>
+      {#each topFive as i (i)}
+        {@const v = agentView(i)}
+        {@const r = Math.max(v.r, 14)}
+        <button
+          type="button"
+          class="hit tap"
+          style={`left:${v.x - r}px; top:${v.y - r}px; width:${r * 2}px; height:${r * 2}px;`}
+          aria-label={say('stop_tap', { share: formatNumber(gameRun.wealth()[i], { style: 'percent', maximumFractionDigits: 1 }) })}
+          onclick={() => tapRoom(i)}
+        ></button>
+      {/each}
     {/if}
 
     {#if !L.column && runShown && current <= indexOf('why.once')}
@@ -2170,7 +2769,8 @@
       {/if}
     {/each}
 
-    <div class="bubbles" aria-live="polite">
+    <!-- while the game plays, the talk steps back and lets taps through to the room -->
+    <div class="bubbles" class:through={game.playing} aria-live="polite">
       {#each said as bubble, i (bubble.id)}
         {@const place = placed[i]}
         {#if place}
@@ -2191,6 +2791,7 @@
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
             choices={bubble.choices}
+            control={bubble.control}
             onsize={(w, h) => (sizes[bubble.id] = { w, h })}
             onrest={(on) => stage?.pause(on)}
             reduced={stage?.reduced ?? false}
@@ -2227,22 +2828,26 @@
             </section>
           {/if}
         {/if}
-        {#if runShown}
+        {#if runShown && pose.roomMode === 'matched'}
+          {#if leftRun.state.done && leftRun.state.frames > 1}
+            <section class="chart live"><div class="dial">{@render player([leftRun, rightRun])}</div></section>
+          {/if}
+        {:else if runShown && !APART.includes(pose.roomMode)}
           <section class="chart live">
-            <p class="big">{formatNumber(run.state.share, { style: 'percent' })}</p>
-            <p class="small">{say('run_readout', { trades: formatNumber(run.state.trades), share: formatNumber(run.state.share, { style: 'percent' }) })}</p>
-            {#if run.state.done && run.state.frames > 1}
-              <div class="dial">{@render player()}</div>
+            <p class="big">{formatNumber(shown.state.share, { style: 'percent' })}</p>
+            <p class="small">{say('run_readout', { trades: formatNumber(shown.state.trades), share: formatNumber(shown.state.share, { style: 'percent' }) })}</p>
+            {#if shown.state.done && shown.state.frames > 1}
+              <div class="dial">{@render player([shown])}</div>
             {/if}
           </section>
         {/if}
-        {#each pose.thumbs as thumb (thumb)}
+        {#each APART.includes(pose.roomMode) ? [] : pose.thumbs as thumb (thumb)}
           <section class="chart">
             <h3>{say(`card_${thumb}_title`)}</h3>
             {#if thumb === 'histogram'}
-              <HistoMini wealth={run.wealth()} startDollars={START_DOLLARS} revision={run.state.revision} />
+              <HistoMini wealth={shown.wealth()} startDollars={START_DOLLARS} revision={shown.state.revision} />
             {:else if thumb === 'gini'}
-              <div class="lorenz-mini"><LorenzMini wealth={run.wealth()} revision={run.state.revision} /></div>
+              <div class="lorenz-mini"><LorenzMini wealth={shown.wealth()} revision={shown.state.revision} /></div>
             {:else if thumb === 'participants'}
               <p class="big">{`≈ ${formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
             {:else}
@@ -2253,14 +2858,14 @@
           </section>
         {/each}
       </aside>
-    {:else if PAIR_STEPS[current].pose.thumbs.length > 0}
+    {:else if PAIR_STEPS[current].pose.thumbs.length > 0 && !APART.includes(PAIR_STEPS[current].pose.roomMode)}
       <div class="rail" style={`inline-size:${RAIL_W}px`}>
         {#each PAIR_STEPS[current].pose.thumbs as thumb (thumb)}
           <div class="thumb">
             {#if thumb === 'histogram'}
-              <HistoMini wealth={run.wealth()} startDollars={START_DOLLARS} revision={run.state.revision} />
+              <HistoMini wealth={shown.wealth()} startDollars={START_DOLLARS} revision={shown.state.revision} />
             {:else if thumb === 'gini'}
-              <LorenzMini wealth={run.wealth()} revision={run.state.revision} />
+              <LorenzMini wealth={shown.wealth()} revision={shown.state.revision} />
             {:else if thumb === 'participants'}
               <p class="count">{`≈ ${formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
               <p class="of">{say('card_participants_title')}</p>
@@ -2485,6 +3090,125 @@
     fill: var(--ink-mid);
     font-family: var(--font-sans);
     font-size: 12px;
+  }
+
+  /* Scene 20: the stake dial, inside Red's bubble */
+  .stake-dial {
+    display: grid;
+    gap: 0.2rem;
+    margin-block-start: 0.5rem;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .stake-dial input {
+    inline-size: 100%;
+    min-inline-size: 11rem;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* Scene 21: the game's meter and clock, and the room under the reader's finger */
+  .meter {
+    position: absolute;
+    z-index: 4;
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgb(255 250 240 / 88%);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+
+  .meter.low {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .meter .clock {
+    display: block;
+    block-size: 3px;
+    border-radius: 2px;
+    background: var(--line);
+  }
+
+  .meter .clock span {
+    display: block;
+    block-size: 100%;
+    border-radius: 2px;
+    background: currentColor;
+  }
+
+  .taps {
+    position: absolute;
+    z-index: 2;
+    cursor: crosshair;
+    touch-action: manipulation;
+  }
+
+  .hit.tap {
+    cursor: crosshair;
+  }
+
+  /* Scene 22: the pool, and every pile's count */
+  .pool circle {
+    fill: none;
+    stroke: var(--ink-mid);
+    stroke-width: 1.4;
+    stroke-dasharray: 4 4;
+  }
+
+  .pool text,
+  .coin-count,
+  .match-labels text,
+  .map text {
+    fill: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 12px;
+  }
+
+  .coin-count,
+  .match-labels .count {
+    fill: var(--ink);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .match-labels text {
+    font-size: 13px;
+  }
+
+  /* Scene 24: the outcome map */
+  .map .axis {
+    fill: var(--ink);
+    font-size: 12.5px;
+  }
+
+  .map .fit {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 2;
+    stroke-dasharray: 6 5;
+    animation: fade-in 700ms ease-out both;
+  }
+
+  .map .fit-label {
+    fill: var(--ink);
+    font-weight: 700;
+    animation: fade-in 700ms ease-out both;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
   }
 
   /* "here he is": a ring that spreads from whoever speaks */
@@ -2749,6 +3473,16 @@
     position: absolute;
     inset: 0;
     z-index: 4;
+    pointer-events: none;
+  }
+
+  .bubbles.through {
+    opacity: 0.35;
+    pointer-events: none;
+    transition: opacity 300ms ease;
+  }
+
+  .bubbles.through :global(.bubble) {
     pointer-events: none;
   }
 

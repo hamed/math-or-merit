@@ -549,3 +549,27 @@ line that waits); the GPS pair; "Fifty-fifty? I've bet on worse odds." ★ and
 "Two players can't settle this…" ★ (replaced by the brief's ★ "We need more
 players. And many more rounds."); "How many?" / "A hundred. Everyone starts
 equal. Including us." (the room shows it).
+
+**Phase 5 (Scenes 19–24), made while building, 2026-09-26 — open to his veto:**
+
+- **The outcome map is measured once, offline** (`scripts/outcome-map.ts`: 8
+  rooms a square, 1,200 rooms, the guided protocol) and fills in on screen;
+  the reader no longer runs rooms onto it one by one (PhaseDiagram's "Run
+  this room" / "Fill in the rest" retired). The full machine stays in the
+  sandbox (Phase 6). Why: the old fill took ~20 s of page time and 4 rooms a
+  square; this is instant and twice the rooms.
+- **The tax game runs at 280 trades a second** at the essay's 50% stake. Robot
+  player, 20 rooms each: tapping the richest every 700 ms or faster held all
+  20; once a second held 9; never tapping closed all 20 in about 12 s. The
+  difficulty picker is gone (full-range stake belongs to the dial and the
+  sandbox).
+- **"Run it longer?" goes ten times closer to one owner per Yes** (40% → 94% →
+  99.4% …), the same room with fresh dice, logged in the talk each time.
+- **In the room, lines to the reader join the one chat column** (as on phones
+  and over pictures). Beside the speaker they stacked over the talk whenever
+  Red stood under it — a defect since Phase 4. Elsewhere asides stay on the
+  outer side, step off the talk when there is room, and the newest is never
+  hidden.
+- New draft labels (not his voice, rewrite freely): `dial.same`, `stop.tap`,
+  `match.left`, `match.right`, `levy.pool`, `map.stake`, `map.levy`,
+  `map.many`, `map.few`, `map.half`.

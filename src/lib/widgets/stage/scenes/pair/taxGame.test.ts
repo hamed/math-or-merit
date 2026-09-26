@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextClosureDuration } from './judge';
+import { nextClosureDuration } from './taxGame';
 
 describe('nextClosureDuration', () => {
   it('measures real time below the line instead of animation frames', () => {

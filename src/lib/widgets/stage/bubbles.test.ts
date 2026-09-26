@@ -76,6 +76,27 @@ describe('the talk, as a chat window', () => {
     expect(laid[1].tail!.tip.y).toBeGreaterThan(40);
   });
 
+  it('moves an aside off the talk when there is room outside it, and never hides the newest', () => {
+    const apart = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
+      a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+    // Red stands under the talk, but there is room to his outer side
+    const blue = { x: 300, y: 560, r: 60 };
+    const red = { x: 820, y: 470, r: 30 };
+    const roomy = chatColumn([blue, red], 1366, 60, 440);
+    const lines = [
+      { w: 300, h: 60, anchor: blue },
+      { w: 330, h: 80, anchor: red },
+      { w: 220, h: 50, anchor: red, aside: true },
+    ];
+    const laid = stackChat(lines, roomy).map((p, i) => ({ ...p, ...lines[i] }));
+    expect(laid.every((p) => !p.gone)).toBe(true);
+    for (const talk of laid.slice(0, 2)) expect(apart(laid[2], talk)).toBe(true);
+    // no room anywhere: the newest aside stays, even over the talk
+    const tight = chatColumn([blue, red], 700, 300, 440);
+    const crammed = stackChat([...lines.slice(0, 2), { w: 420, h: 90, anchor: red, aside: true }], tight);
+    expect(crammed[2].gone).toBe(false);
+  });
+
   it('keeps only the newest two asides on each side', () => {
     const asides = Array.from({ length: 4 }, () => ({ w: 150, h: 36, anchor: BLUE, aside: true }));
     const laid = stackChat(asides, { ...COLUMN, top: -10_000 });

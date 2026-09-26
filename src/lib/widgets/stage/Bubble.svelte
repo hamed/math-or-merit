@@ -12,6 +12,7 @@
    * taking its space from the start so nothing jumps. A screen reader gets the
    * whole bubble at once, name first.
    */
+  import type { Snippet } from 'svelte';
   import { fade } from 'svelte/transition';
   import Coin from './scenes/Coin.svelte';
   import { bubbleLines, comicOutline, shoutSegments, type BubbleChoice, type Tail } from './bubbles';
@@ -57,6 +58,8 @@
      * does this, on the speaker's outer side.
      */
     aside?: boolean;
+    /** A control the reader holds, set inside the bubble (the stake dial). */
+    control?: Snippet;
     reduced?: boolean;
   }
 
@@ -79,6 +82,7 @@
     onrest,
     hidden = false,
     aside = false,
+    control,
     reduced = false,
   }: Props = $props();
 
@@ -186,6 +190,9 @@
         </button>
       {/each}
     </p>
+  {/if}
+  {#if control}
+    <div class="control" class:waiting={shown < lines.length}>{@render control()}</div>
   {/if}
 </div>
 
@@ -341,8 +348,14 @@
   }
 
   .line.waiting,
-  .choices.waiting {
+  .choices.waiting,
+  .control.waiting {
     opacity: 0;
+  }
+
+  .control {
+    position: relative;
+    transition: opacity 260ms ease;
   }
 
   .shout {
