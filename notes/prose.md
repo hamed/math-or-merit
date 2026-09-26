@@ -233,6 +233,12 @@ still read plainly — the winner of the toss takes both stakes.
 > [ACTION] the coin turns; its faces change only when it is edge-on. Red
 > lands. Blue 4, Red 12.
 
+[log.toss] (draft) {winner} wins. Blue {blue}, Red {red}.
+
+> not a bubble: after every toss the result is logged in the talk, beside the
+> coin that landed, and moves up with the lines — so the reader can always see
+> what happened (owner, 2026-09-26).
+
 [r1.ouch] BLUE: Ouch! ★
 
 ---

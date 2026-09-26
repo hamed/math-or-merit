@@ -1,12 +1,13 @@
 /**
- * Comic bubbles, as geometry (iteration-2 brief 3.1). Pure; no DOM.
+ * Comic bubbles, as geometry (iteration-2 brief 3.1; owner review 2026-09-26).
+ * Pure; no DOM.
  *
- * Within a panel the bubbles pile up like one comic panel: reading order runs
- * top to bottom, each reply lower than the line before it, and a bubble only
- * has to clear the bubbles it would actually cover — on a wide stage Red's
- * answer tucks in beside Blue's line instead of under it. The pile hangs from
- * the speakers, newest lowest and nearest them; each new line lifts the older
- * ones, and when the panel is full the oldest slide up and out.
+ * The talk reads like a chat window: one shared column, and the vertical axis
+ * is time — every line sits below the one before it, newest lowest and nearest
+ * the two speakers. Each bubble leans to its speaker's side of the column and
+ * its tail leaves from the corner on that side. When the column is full the
+ * oldest lines slide up and out. What happened (a coin that landed) is logged
+ * in the same column, centred, as a line of its own.
  *
  * The outline is drawn, not boxed: a rounded rectangle whose edge wobbles a
  * little, deterministically, with a real tail pointing at whoever speaks.
@@ -19,13 +20,14 @@ export interface Anchor {
   readonly r: number;
 }
 
-export interface BubbleBox {
+export interface ChatItem {
   readonly w: number;
   readonly h: number;
-  readonly anchor: Anchor;
+  /** Who is speaking; null for a logged event, which sits centred. */
+  readonly anchor: Anchor | null;
 }
 
-export interface Region {
+export interface Column {
   readonly top: number;
   readonly bottom: number;
   readonly left: number;
@@ -44,9 +46,9 @@ export interface Tail {
 export interface Placed {
   readonly x: number;
   readonly y: number;
-  /** Scrolled out of the top of a full panel. */
+  /** Scrolled out of the top of a full column. */
   readonly gone: boolean;
-  readonly tail: Tail;
+  readonly tail: Tail | null;
 }
 
 /** A reader's choice, set as a link inside the speaker's bubble (3.1). */
@@ -55,56 +57,62 @@ export interface BubbleChoice {
   readonly act: () => void;
 }
 
-/** Space between bubbles that would otherwise touch. */
-export const BUBBLE_GAP = 10;
-/** A reply always sits at least this much lower than the line before it. */
-export const READING_STEP = 14;
+/** Space between one line and the next. */
+export const BUBBLE_GAP = 8;
 /** How far a tail reaches past its bubble. */
-export const TAIL_LENGTH = 16;
+export const TAIL_LENGTH = 14;
 const TAIL_HALF = 9;
-const SIDE_MARGIN = 8;
+/** Where a tail leaves its corner: this far in from the side. */
+const TAIL_INSET = 30;
 
-/** Lay a panel out. `boxes` in reading order, oldest first. */
-export function stackBubbles(boxes: readonly BubbleBox[], region: Region): Placed[] {
-  const placed: { x: number; y: number; w: number; h: number }[] = [];
-  for (const [i, box] of boxes.entries()) {
-    const x = clamp(box.anchor.x - box.w / 2, region.left, Math.max(region.left, region.right - box.w));
-    let y = region.top;
-    if (i > 0) y = Math.max(y, placed[i - 1].y + READING_STEP);
-    for (const other of placed) {
-      const overlaps = x < other.x + other.w + SIDE_MARGIN && other.x < x + box.w + SIDE_MARGIN;
-      if (overlaps) y = Math.max(y, other.y + other.h + BUBBLE_GAP);
-    }
-    placed.push({ x, y, w: box.w, h: box.h });
+/** The column the talk lives in: over and around the two speakers, never wider than a comfortable read. */
+export function chatColumn(anchors: readonly Anchor[], width: number, top: number, bottom: number): Column {
+  const margin = 16;
+  const xs = anchors.map((a) => a.x);
+  let left = Math.max(margin, Math.min(...xs) - 170);
+  let right = Math.min(width - margin, Math.max(...xs) + 170);
+  const want = Math.min(560, width - 2 * margin);
+  if (right - left < want) {
+    const mid = (left + right) / 2;
+    left = Math.max(margin, mid - want / 2);
+    right = Math.min(width - margin, left + want);
+    left = Math.max(margin, right - want);
   }
-  const lowest = Math.max(...placed.map((p) => p.y + p.h), region.top);
-  const shift = lowest + TAIL_LENGTH - region.bottom;
-  return placed.map((p, i) => {
-    const y = p.y - shift;
-    return {
-      x: p.x,
-      y,
-      gone: i < placed.length - 1 && y < region.top - 1,
-      tail: tailFor({ x: p.x, y, w: p.w, h: p.h }, boxes[i].anchor),
-    };
-  });
+  return { top, bottom, left, right };
 }
 
-/** A short tail from the edge nearest the speaker, leaning toward him. */
-export function tailFor(box: { x: number; y: number; w: number; h: number }, anchor: Anchor): Tail {
-  const below = box.y > anchor.y;
-  const edge = below ? 'top' : 'bottom';
-  const base = clamp(anchor.x - box.x, 30, Math.max(30, box.w - 30));
-  const edgeY = below ? 0 : box.h;
-  const lean = clamp((anchor.x - box.x - base) * 0.35, -14, 14);
-  return { edge, base, tip: { x: base + lean, y: edgeY + (below ? -TAIL_LENGTH : TAIL_LENGTH) } };
+/** Lay the column out. `items` in time order, oldest first. */
+export function stackChat(items: readonly ChatItem[], column: Column): Placed[] {
+  const mid = (column.left + column.right) / 2;
+  const laid: { x: number; y: number; tail: Tail | null }[] = [];
+  let y = 0;
+  for (const item of items) {
+    let x = mid - item.w / 2;
+    let tail: Tail | null = null;
+    if (item.anchor) {
+      const onLeft = item.anchor.x <= mid;
+      x = onLeft ? column.left : column.right - item.w;
+      const inset = Math.min(TAIL_INSET, item.w / 2);
+      const base = onLeft ? inset : item.w - inset;
+      tail = { edge: 'bottom', base, tip: { x: base + (onLeft ? -11 : 11), y: item.h + TAIL_LENGTH } };
+    }
+    laid.push({ x, y, tail });
+    y += item.h + BUBBLE_GAP + (item.anchor ? TAIL_LENGTH * 0.6 : 0);
+  }
+  const lastItem = items[items.length - 1];
+  const end = laid.length ? laid[laid.length - 1].y + lastItem.h + (lastItem.anchor ? TAIL_LENGTH : 0) : 0;
+  const shift = column.bottom - end;
+  return laid.map((p, i) => {
+    const top = p.y + shift;
+    return { x: p.x, y: top, gone: i < laid.length - 1 && top < column.top - 1, tail: p.tail };
+  });
 }
 
 /**
  * The drawn outline of a bubble, as an SVG path in the bubble's own px, tail
  * included. Seeded, so a bubble keeps the same wobble every time it is drawn.
  */
-export function comicOutline(w: number, h: number, tail: Tail, seed: string, wobble = 1.4): string {
+export function comicOutline(w: number, h: number, tail: Tail | null, seed: string, wobble = 1.4): string {
   const rand = seeded(seed);
   const radius = Math.min(18, h / 2, w / 2);
   const points: { x: number; y: number; nx: number; ny: number; sharp?: boolean }[] = [];
@@ -121,6 +129,7 @@ export function comicOutline(w: number, h: number, tail: Tail, seed: string, wob
   };
   // clockwise from the top-left, tail spliced into its edge
   const tailPoints = (forward: boolean) => {
+    if (!tail) return [];
     const a = tail.base + (forward ? -TAIL_HALF : TAIL_HALF);
     const b = tail.base + (forward ? TAIL_HALF : -TAIL_HALF);
     const y = tail.edge === 'top' ? 0 : h;
@@ -132,7 +141,7 @@ export function comicOutline(w: number, h: number, tail: Tail, seed: string, wob
     ];
   };
   const edge = (x0: number, x1: number, y: number, ny: number, which: 'top' | 'bottom') => {
-    if (tail.edge !== which) return along(x0, y, x1, y, 0, ny);
+    if (!tail || tail.edge !== which) return along(x0, y, x1, y, 0, ny);
     const forward = x1 > x0;
     const before = tail.base + (forward ? -TAIL_HALF : TAIL_HALF);
     const after = tail.base + (forward ? TAIL_HALF : -TAIL_HALF);

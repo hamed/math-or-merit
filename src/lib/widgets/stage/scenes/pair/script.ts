@@ -4,8 +4,11 @@
  * Every step says three things: how it lets go (its wait), what is said (a
  * message key, never words — A2), and the POSE it leaves the stage in. Key
  * lines wait for the reader; chit-chat (`CHAT`) moves on by itself once read.
- * A step that opens a `panel` clears the bubbles before it: within a panel
- * they pile up like one comic panel, so the reader can re-read. A pose is
+ * The talk reads like a chat window: lines stay while they are still context
+ * ("I'm the richest man in this world" while he says he worked hard for it),
+ * a `brief` line goes as soon as anyone says the next thing ("Psst. Over
+ * here."), and a `panel` starts a new conversation (the room). A step can
+ * `log` what just happened — a toss — as a line of its own. A pose is
  * everything the reader can see that the argument depends on: the title, the
  * crowd, who has been named, how many coins each of them holds, what is on the
  * table, where they stand. `settle` draws a pose; `play` animates from one pose
@@ -74,8 +77,12 @@ export type Action =
 export interface PairStep extends StepSpec {
   readonly pose: Pose;
   readonly action?: Action;
-  /** Clears the bubbles: a new topic, a new comic panel. */
+  /** Clears the talk: a new setting, a new conversation. */
   readonly panel?: true;
+  /** Its line goes as soon as the next one is said. */
+  readonly brief?: true;
+  /** A message logged in the talk once the step's action is over (the toss result). */
+  readonly log?: string;
 }
 
 const START: Pose = {
@@ -105,6 +112,8 @@ interface Draft {
   action?: Action;
   pose?: Partial<Pose>;
   panel?: true;
+  brief?: true;
+  log?: string;
 }
 
 const blue = (id: string, say: string, rest: Omit<Draft, 'id' | 'who' | 'say'> = {}): Draft => ({ id, who: 'blue', say, ...rest });
@@ -129,14 +138,14 @@ const DRAFTS: Draft[] = [
   { id: 'crowd.two', wait: auto(1500), action: 'gather', pose: { crowd: 'two' } },
 
   // ---- Scene 3: meeting them — Red calls, then Blue (holds: a click each) --
-  red('call.red', 'meet_red_call_1', { wait: HOLD, panel: true, pose: { compact: true, named: { blue: false, red: true } } }),
+  red('call.red', 'meet_red_call_1', { wait: HOLD, panel: true, brief: true, pose: { compact: true, named: { blue: false, red: true } } }),
   red('meet.red', 'meet_red', { wait: CHAT }),
-  blue('call.blue', 'meet_blue_call_1', { wait: HOLD, pose: { named: { blue: true, red: true } } }),
+  blue('call.blue', 'meet_blue_call_1', { wait: HOLD, brief: true, pose: { named: { blue: true, red: true } } }),
   blue('meet.blue', 'meet_blue', { wait: CHAT }),
-  red('meet.tip', 'meet_tip'),
+  red('meet.tip', 'meet_tip', { brief: true }),
 
   // ---- Scene 4: the merit debate — every line waits ------------------------
-  blue('merit.1b', 'merit_1b', { panel: true }),
+  blue('merit.1b', 'merit_1b'),
   red('merit.1r', 'merit_1r'),
   blue('merit.2b', 'merit_2b'),
   red('merit.2r', 'merit_2r'),
@@ -144,47 +153,46 @@ const DRAFTS: Draft[] = [
   red('merit.3r', 'merit_3r'),
 
   // ---- Scene 5: the invitation — numbers appear, then the reader evens them --
-  red('invite.1', 'invite_1', { panel: true, action: 'lattice', pose: { coins: true } }),
+  red('invite.1', 'invite_1', { action: 'lattice', pose: { coins: true } }),
   blue('invite.2', 'invite_2', { wait: CHAT }),
   red('invite.3', 'invite_3'),
   blue('invite.4', 'invite_4', { wait: CHAT }),
   red('invite.5', 'invite_5'),
   blue('invite.6', 'invite_6', { wait: CHAT }),
-  { id: 'clear', wait: auto(1500), action: 'clear', panel: true, pose: { cleared: true, place: 'seats' } },
+  { id: 'clear', wait: auto(1500), action: 'clear', pose: { cleared: true, place: 'seats' } },
   blue('equal', 'equal_ask', { wait: HOLD, pose: { holdings: held(0) } }),
   red('equal.done', 'equal_done', { wait: CHAT }),
 
   // ---- Scene 6: round one, with the incomplete rule -------------------------
-  red('r1.rules', 'r1_rules', { panel: true }),
+  red('r1.rules', 'r1_rules'),
   blue('r1.half', 'r1_half', { action: 'ante', pose: { holdings: minus(held(0), staked(0)), table: staked(0) } }),
   red('r1.flip', 'r1_flip', { pose: { flip: 'shown' } }),
   red('r1.winner', 'r1_winner'),
-  { id: 'r1.toss', wait: auto(3600), action: 'toss', pose: { holdings: held(1), table: NOTHING, flip: 'red' } },
+  { id: 'r1.toss', wait: auto(3600), action: 'toss', log: 'log_toss', pose: { holdings: held(1), table: NOTHING, flip: 'red' } },
   blue('r1.ouch', 'r1_ouch', { wait: CHAT }),
 
   // ---- Scene 7: round two — the rule breaks, and Blue says the fix ---------
-  blue('r2.wait', 'r2_wait', { panel: true, pose: { flip: 'hidden' } }),
+  blue('r2.wait', 'r2_wait', { pose: { flip: 'hidden' } }),
   red('r2.half', 'r2_half'),
   blue('r2.two', 'r2_two', { wait: CHAT }),
   red('r2.match', 'r2_match', { action: 'ante', pose: { holdings: minus(held(1), staked(1)), table: staked(1) } }),
   blue('r2.rule', 'r2_rule'),
   red('r2.why', 'r2_why'),
   blue('r2.go', 'r2_go', { wait: CHAT, pose: { flip: 'shown' } }),
-  { id: 'r2.toss', wait: auto(3600), action: 'toss', pose: { holdings: held(2), table: NOTHING, flip: 'blue' } },
+  { id: 'r2.toss', wait: auto(3600), action: 'toss', log: 'log_toss', pose: { holdings: held(2), table: NOTHING, flip: 'blue' } },
 
   // ---- Scene 8: round three, slower, said out loud ---------------------------
   red('r3.each', 'r3_each', {
     wait: CHAT,
-    panel: true,
     action: 'ante',
     pose: { holdings: minus(held(2), staked(2)), table: staked(2), flip: 'shown' },
   }),
-  blue('r3.flip', 'r3_flip', { wait: CHAT }),
-  { id: 'r3.toss', wait: auto(3600), action: 'toss', pose: { holdings: held(3), table: NOTHING, flip: 'blue' } },
+  blue('r3.flip', 'r3_flip', { wait: CHAT, brief: true }),
+  { id: 'r3.toss', wait: auto(3600), action: 'toss', log: 'log_toss', pose: { holdings: held(3), table: NOTHING, flip: 'blue' } },
   blue('r3.done', 'r3_done', { wait: CHAT }),
 
   // ---- Scene 9: the challenge ------------------------------------------
-  blue('dare.ahead', 'dare_ahead', { wait: CHAT, panel: true, pose: { flip: 'hidden' } }),
+  blue('dare.ahead', 'dare_ahead', { wait: CHAT, pose: { flip: 'hidden' } }),
   blue('dare.pointless', 'dare_pointless', { wait: CHAT }),
   red('dare.why', 'dare_why', { wait: CHAT }),
   blue('dare.edge', 'dare_edge'),
@@ -193,7 +201,7 @@ const DRAFTS: Draft[] = [
   red('dare.imagine', 'dare_imagine'),
   blue('dare.luck', 'dare_luck'),
   red('dare.math', 'dare_math'),
-  blue('dare.nice', 'dare_nice', { wait: CHAT, panel: true }),
+  blue('dare.nice', 'dare_nice', { wait: CHAT }),
   red('dare.prove', 'dare_prove'),
   blue('dare.bet', 'dare_bet'),
   red('dare.all', 'dare_all'),
@@ -208,7 +216,7 @@ const DRAFTS: Draft[] = [
   blue('more.watch', 'more_watch', { wait: CHAT }),
 
   // ---- Scene 11: the joke offer ----------------------------------------
-  blue('more.real', 'more_real', { panel: true }),
+  blue('more.real', 'more_real'),
   red('more.joke', 'more_joke', { pose: { choice: true } }),
 ];
 
@@ -223,6 +231,8 @@ function build(): PairStep[] {
       ...(draft.say ? { lines: [{ who: draft.who ?? null, message: draft.say }] } : {}),
       ...(draft.action ? { action: draft.action } : {}),
       ...(draft.panel ? { panel: true as const } : {}),
+      ...(draft.brief ? { brief: true as const } : {}),
+      ...(draft.log ? { log: draft.log } : {}),
     };
     return step;
   });

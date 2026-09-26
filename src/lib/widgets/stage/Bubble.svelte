@@ -12,8 +12,10 @@
    * taking its space from the start so nothing jumps. A screen reader gets the
    * whole bubble at once, name first.
    */
+  import { fade } from 'svelte/transition';
+  import Coin from './scenes/Coin.svelte';
   import { bubbleLines, comicOutline, shoutSegments, type BubbleChoice, type Tail } from './bubbles';
-  import { SPEAKER_TONES } from '../shared/agentStyle';
+  import { PROTAGONISTS, SPEAKER_TONES } from '../shared/agentStyle';
   import type { Speaker } from './steps';
 
   interface Props {
@@ -26,7 +28,14 @@
     name?: string;
     x: number;
     y: number;
-    tail: Tail;
+    /** None for a logged event. */
+    tail: Tail | null;
+    /** A line someone says, or something that happened (a coin landed), logged. */
+    kind?: 'line' | 'event';
+    /** An event's coin: the face that landed, in its owner's colour. */
+    coin?: Speaker;
+    /** The widest it may grow, px: a bubble never spans its whole column. */
+    maxWidth?: number;
     /** How many lines are showing; the rest keep their space, unseen. */
     shown?: number;
     /** Scrolled out of the top of a full panel. */
@@ -48,6 +57,9 @@
     x,
     y,
     tail,
+    kind = 'line',
+    coin,
+    maxWidth = 368,
     shown = Infinity,
     gone = false,
     onsize,
@@ -75,24 +87,37 @@
 <!-- the pointer resting on a bubble holds chit-chat (3.2); a click on it still steps -->
 <div
   class="bubble"
+  class:event={kind === 'event'}
   class:settled
   class:gone
   class:still={reduced}
   data-speaker={speaker ?? 'none'}
-  style={`left:${x}px; top:${y}px; --ink:${tone.ink}; visibility:${w > 0 ? 'visible' : 'hidden'}`}
+  style={`left:${x}px; top:${y}px; max-inline-size:${maxWidth}px; --ink:${tone.ink}; visibility:${w > 0 ? 'visible' : 'hidden'}`}
   bind:clientWidth={w}
   bind:clientHeight={h}
   onpointerenter={() => onrest?.(true)}
   onpointerleave={() => onrest?.(false)}
   role="presentation"
+  out:fade|global={{ duration: reduced ? 0 : 260 }}
 >
   {#if outline}
     <svg class="outline" width={w} height={h} aria-hidden="true">
       <path d={outline} class="paper" />
-      <path d={outline} fill={tone.wash} stroke={tone.edge} stroke-width="2.1" stroke-linejoin="round" />
+      <path
+        d={outline}
+        fill={kind === 'event' ? 'none' : tone.wash}
+        stroke={kind === 'event' ? 'var(--line)' : tone.edge}
+        stroke-width={kind === 'event' ? 1.3 : 2.1}
+        stroke-linejoin="round"
+      />
     </svg>
   {/if}
   <p class="words">
+    {#if coin}
+      <svg class="coin" viewBox="-17 -17 34 34" aria-hidden="true"
+        ><Coin r={16} face={coin === 'red' ? 'front' : 'back'} tint={PROTAGONISTS[coin].fill} /></svg
+      >
+    {/if}
     <span class="visually-hidden">{name ? `${name}: ` : ''}{plain}</span>
     <span class="lines" aria-hidden="true">
       {#each lines as line, i (i)}
@@ -118,7 +143,6 @@
     position: absolute;
     z-index: 3;
     inline-size: max-content;
-    max-inline-size: min(23rem, calc(100% - 32px));
     padding-block: 0.7rem 0.75rem;
     padding-inline: 1.1rem;
     color: var(--ink);
@@ -153,6 +177,27 @@
 
   .outline .paper {
     fill: var(--paper-bright);
+  }
+
+  /* something that happened, logged in the talk: quieter than anyone's voice */
+  .bubble.event {
+    padding-block: 0.3rem;
+    padding-inline: 0.75rem;
+    color: var(--ink-mid);
+    font-size: clamp(0.9rem, 1.4vw, 1rem);
+    font-weight: 400;
+  }
+
+  .bubble.event .words {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .coin {
+    flex: none;
+    inline-size: 1.35em;
+    block-size: 1.35em;
   }
 
   /* the essay's paragraph rhythm is for prose, not for a bubble */

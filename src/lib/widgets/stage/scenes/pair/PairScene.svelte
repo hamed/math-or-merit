@@ -9,8 +9,9 @@
    * it. The step player decides when; this file decides what.
    *
    * Words are never written here: every line is a message key (A2), and every
-   * number in a line is read off the pose on screen. Within a panel the lines
-   * pile up as comic bubbles (bubbles.ts), so the reader can re-read.
+   * number in a line is read off the pose on screen. The talk reads like a chat
+   * window (bubbles.ts): time runs down the column, lines stay while they are
+   * still context, and what happened is logged among them.
    */
   import { getContext, onMount } from 'svelte';
   import { gsap } from '../../gsap';
@@ -22,7 +23,7 @@
   import { CALLS, PAIR_STEPS, REACTIONS, indexOf, panelStart, valuesFor, type Pose } from './script';
   import { BIG, BITES, CROWD, SMALL } from './crowd';
   import { deciderFace, pairLayout, pile } from './layout';
-  import { bubbleLines, bubbleWords, stackBubbles, type BubbleChoice } from '../../bubbles';
+  import { bubbleLines, bubbleWords, chatColumn, stackChat, type BubbleChoice } from '../../bubbles';
   import {
     CLASSIC_AGENT_FILL,
     CLASSIC_AGENT_STROKE,
@@ -68,6 +69,17 @@
 
   let host: HTMLDivElement;
   let mathReel: HTMLSpanElement;
+  /** How far the reel's words may reach, from where MATH starts to the stage's edge (unscaled px). */
+  let reelRoom = $state(Infinity);
+
+  function measureReel(): void {
+    if (!mathReel || !host) return;
+    const box = mathReel.getBoundingClientRect();
+    const stage = host.getBoundingClientRect();
+    const scale = 1 - view.compact * (1 - COMPACT);
+    const reach = rtl ? box.right - stage.left : stage.right - box.left;
+    reelRoom = Math.max(40, (reach - 16) / scale);
+  }
   let width = $state(0);
   let height = $state(0);
   /** MERIT and Blue come first in the reading direction: in Farsi they stand on the right. */
@@ -232,6 +244,7 @@
     stopMotion();
     stopCalls();
     reaction = null;
+    logReady = true;
     draw(poseAt(index));
     showAll(index);
     enter(index);
@@ -245,6 +258,7 @@
     if (from >= 0) draw(poseAt(from));
     const step = PAIR_STEPS[index];
     const pose = poseAt(index);
+    logReady = !step.log;
     timeline = gsap.timeline();
     choreograph(step.action, pose, timeline);
     revealLines(index);
@@ -285,9 +299,12 @@
     id: string;
     /** Whose colours the bubble wears; null for a circle not yet introduced. */
     who: Speaker | null;
-    /** Which circle it points at. */
-    at: Speaker;
+    /** Which circle it points at; null for a logged event, which points at nobody. */
+    at: Speaker | null;
     text: string;
+    kind?: 'line' | 'event';
+    /** An event's coin: the face that landed. */
+    coin?: Speaker;
     choices?: readonly BubbleChoice[];
   }
 
@@ -298,12 +315,29 @@
 
   const callerOf = (id: string): Speaker | null => (id === CALLS.red ? 'red' : id === CALLS.blue ? 'blue' : null);
 
+  /** Whether the current step's result may be logged yet: a toss logs once it has landed. */
+  let logReady = $state(true);
+
+  /** A step that says something or logs something, as far as the reader can see it now. */
+  const speaks = (i: number) => !!PAIR_STEPS[i].lines?.[0]?.who || (!!PAIR_STEPS[i].log && (i < current || logReady));
+
   const said = $derived.by((): Said[] => {
     const out: Said[] = [];
     for (let i = panelStart(current); i <= current; i++) {
       const step = PAIR_STEPS[i];
       const line = step.lines?.[0];
+      if (step.log && (i < current || logReady)) {
+        const winner: Speaker = step.pose.flip === 'blue' ? 'blue' : 'red';
+        const text = say(step.log, { winner: say(`name_${winner}`), blue: step.pose.holdings.blue, red: step.pose.holdings.red });
+        out.push({ id: `log:${step.id}`, who: null, at: null, text, kind: 'event', coin: winner });
+      }
       if (!line || !line.who) continue;
+      // a brief line goes as soon as anyone says the next thing
+      if (step.brief) {
+        let superseded = false;
+        for (let k = i + 1; k <= current && !superseded; k++) superseded = speaks(k);
+        if (superseded) continue;
+      }
       const caller = callerOf(step.id);
       if (caller) {
         const waiting = !(view.paint[caller] > 0.5);
@@ -361,11 +395,15 @@
 
   const sizes = $state<Record<string, { w: number; h: number }>>({});
 
+  /** The title's size, as its CSS computes it: clamp(2.4rem, min(11.5vw, 19svh), 10rem). */
+  const titleFont = $derived(Math.min(160, Math.max(38.4, Math.min(width * 0.115, height * 0.19))));
+  /** How small the title gets once they start talking. */
+  const COMPACT = 0.4;
+
   /** The band the talk lives in: under the title (small by now), over the two. */
   const region = $derived.by(() => {
     const pose = poseAt(current);
-    const font = Math.min(108.8, Math.max(32, Math.min(width * 0.08, height * 0.13)));
-    const top = pose.cleared ? height * 0.05 : height * 0.03 + font * 0.72 + 12;
+    const top = pose.cleared ? height * 0.05 : height * 0.03 + titleFont * 1.2 * COMPACT + 12;
     const tops =
       pose.place === 'room'
         ? [L.room.top]
@@ -374,10 +412,20 @@
     return { top, bottom, left: 16, right: width - 16 };
   });
 
+  const column = $derived(
+    chatColumn(
+      PAIR.map((who) => anchorOf(who)),
+      width,
+      region.top,
+      region.bottom,
+    ),
+  );
+  const bubbleWidth = $derived(Math.min(368, (column.right - column.left) * 0.8));
+
   const placed = $derived(
-    stackBubbles(
-      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: anchorOf(b.at) })),
-      region,
+    stackChat(
+      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null })),
+      column,
     ),
   );
 
@@ -607,6 +655,8 @@
     for (const who of ['blue', 'red'] as Speaker[]) {
       tl.to(view.people[WHO[who]], { r: pairRadius(pose, who), duration: 0.35, ease: 'back.out(2)' }, done);
     }
+    // the result joins the talk once everything has come to rest
+    tl.call(() => (logReady = true), [], done + 0.4);
   }
 
   /** Where staked coins sit: each one's half-stack on his own side of the table. */
@@ -849,6 +899,7 @@
     const observer = new ResizeObserver(() => {
       width = host.clientWidth;
       height = host.clientHeight;
+      measureReel();
       // a resize re-lays everything out: draw the current step where it now belongs
       if (!timeline || !timeline.isActive()) draw(poseAt(current));
     });
@@ -856,6 +907,8 @@
     height = host.clientHeight;
     observer.observe(host);
     stage?.attach(PAIR_STEPS, { play, settle, nudge, hurry, readingMs: readingTime });
+    measureReel();
+    void document.fonts?.ready.then(measureReel);
     const stopAmbient = ambientClock((s) => (seconds = s), stage?.reduced ?? false);
     return () => {
       observer.disconnect();
@@ -886,12 +939,12 @@
     <h1
       class="title"
       aria-label={say('open_title')}
-      style={`transform: translateY(${(-view.compact * height * 0.18).toFixed(1)}px) scale(${(1 - view.compact * 0.42).toFixed(3)})`}
+      style={`transform: translateY(${(-view.compact * height * 0.18).toFixed(1)}px) scale(${(1 - view.compact * (1 - COMPACT)).toFixed(3)})`}
     >
       <span class="word merit" style={`opacity:${view.meritOn}`} aria-hidden="true">{say('open_title_merit')}</span>
       <span class="word or" style={`opacity:${view.orOn}`} aria-hidden="true">{say('open_title_or')}</span>
       <span class="word math" bind:this={mathReel}>
-        <Reel words={MATH_WORDS} answer={MATH_AT} position={view.mathPos} shown={view.mathOn} /><span
+        <Reel words={MATH_WORDS} answer={MATH_AT} position={view.mathPos} shown={view.mathOn} room={reelRoom} /><span
           class="mark"
           style={`opacity:${view.markOn}`}
           aria-hidden="true">{say('open_title_mark')}</span
@@ -1017,6 +1070,9 @@
             x={place.x}
             y={place.y}
             tail={place.tail}
+            kind={bubble.kind}
+            coin={bubble.coin}
+            maxWidth={bubbleWidth}
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
             choices={bubble.choices}
@@ -1070,7 +1126,7 @@
     gap: clamp(0.4rem, 1.4vw, 1.4rem);
     margin: 0;
     font-family: var(--font-serif);
-    font-size: clamp(2rem, min(8vw, 13svh), 6.8rem);
+    font-size: clamp(2.4rem, min(11.5vw, 19svh), 10rem);
     font-weight: 750;
     letter-spacing: -0.035em;
     line-height: 1.2;

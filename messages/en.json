@@ -51,6 +51,7 @@
   "r1_half": "Half of 8. / 4 each.",
   "r1_flip": "We flip a coin. / Blue side, you win. / Red side, I win.",
   "r1_winner": "The winner takes it all.",
+  "log_toss": "{winner} wins. Blue {blue}, Red {red}.",
   "r1_ouch": "Ouch!",
   "r2_wait": "Wait! / I have 4. I can't put in as much as you.",
   "r2_half": "Put in half of what you have.",

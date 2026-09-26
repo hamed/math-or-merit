@@ -50,6 +50,22 @@ describe('the pair stage as data', () => {
     expect(step('meet.tip').wait.kind).toBe('reader');
   });
 
+  it('logs every toss once it lands, with the numbers the pose shows', () => {
+    const tosses = PAIR_STEPS.filter((s) => s.action === 'toss');
+    expect(tosses.map((s) => s.log)).toEqual(['log_toss', 'log_toss', 'log_toss']);
+    expect(messages.log_toss).toMatch(/\{winner\}.*\{blue\}.*\{red\}/);
+    expect(tosses.map((s) => [s.pose.flip, s.pose.holdings.blue, s.pose.holdings.red])).toEqual([
+      ['red', 4, 12],
+      ['blue', 6, 10],
+      ['blue', 9, 7],
+    ]);
+  });
+
+  it('lets the calls and the tip go as soon as the talk moves on', () => {
+    for (const id of ['call.red', 'call.blue', 'meet.tip']) expect(step(id).brief, id).toBe(true);
+    expect(step('meet.blue').brief).toBeUndefined();
+  });
+
   it('lets every step belong to a panel that starts with a clear', () => {
     for (let i = indexOf('call.red'); i < PAIR_STEPS.length; i++) expect(PAIR_STEPS[panelStart(i)].panel, PAIR_STEPS[i].id).toBe(true);
   });
