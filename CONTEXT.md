@@ -80,10 +80,14 @@ State of the work, by the brief's own plan (Part 9):
 - **Owner review of Phase 1 (2026-09-26), done:** the talk is a chat column
   (time runs down; bubbles lean to their speaker, tails at that corner; `brief`
   lines go when the talk moves on; toss results logged as lines); bigger title;
-  the reel starts where MATH starts and never crops.
-- **Phase 2 done:** the crowd (crowd.ts: 16 coins RAIN at random — Red catches
-  exactly one and never bumps; bumps follow the rule; Blue ends at exactly 15
-  by conservation; emptied people stay as dashed rings, then bounce out); the
+  the reel starts where MATH starts and never crops. Second review: reel words
+  kept short and the WHOLE title sized so the widest fits (`fitTitle`);
+  bubbles reach past the middle (a Blue and a Red line overlap by a third,
+  `CROSS`) and every tail points at its speaker (`tailToward`).
+- **Phase 2 done:** the crowd (crowd.ts, revised by the owner the same day:
+  no bumps — coins fall and the crowd runs and jumps to catch them; Blue
+  catches 15, Red 1, everyone else 0–2 and leaves with it; empty-handed people
+  are dashed rings); the
   room of 100 in the lower third, scattered with no rows (`scatter`), costumes
   spread so neighbours differ (`spreadStyles`), filling as the view pulls back
   (`ROOM_ZOOM`); the guess inside the stage (four choices with pictures in

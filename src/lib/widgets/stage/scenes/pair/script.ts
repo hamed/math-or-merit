@@ -19,11 +19,11 @@
  * in `game.ts`.
  */
 import { HOLDINGS, ROUNDS } from './game';
-import { BIG, BITES_SECONDS, SMALL } from './crowd';
+import { BIG, RAIN_SECONDS, SMALL } from './crowd';
 import { CHAT, HOLD, READER, auto, type LineSpec, type StepSpec, type Wait } from '../../steps';
 
-/** Scene 2: not here yet · bounced in · coins landed · bumped · only the two left. */
-export type CrowdState = 'away' | 'idle' | 'paid' | 'bitten' | 'two';
+/** Scene 2: not here yet · bounced in · coins caught · only the two left. */
+export type CrowdState = 'away' | 'idle' | 'paid' | 'two';
 export type Place = 'marks' | 'seats' | 'room';
 export type Flip = 'hidden' | 'shown' | 'blue' | 'red';
 
@@ -71,7 +71,6 @@ export type Action =
   | 'or'
   | 'reel-math'
   | 'payout'
-  | 'bites'
   | 'gather'
   | 'lattice'
   | 'clear'
@@ -140,8 +139,7 @@ const DRAFTS: Draft[] = [
   { id: 'title.math', wait: auto(3800), action: 'reel-math', pose: { math: true } },
 
   // ---- Scene 2: the crowd ----------------------------------------------
-  { id: 'crowd.payout', wait: auto(3900), action: 'payout', pose: { crowd: 'paid', mark: true } },
-  { id: 'crowd.bites', wait: auto(Math.round(BITES_SECONDS * 1000) + 300), action: 'bites', pose: { crowd: 'bitten' } },
+  { id: 'crowd.payout', wait: auto(Math.round(RAIN_SECONDS * 1000) + 500), action: 'payout', pose: { crowd: 'paid', mark: true } },
   { id: 'crowd.two', wait: auto(2600), action: 'gather', pose: { crowd: 'two' } },
 
   // ---- Scene 3: meeting them — Red calls, then Blue (holds: a click each) --

@@ -1,16 +1,17 @@
 /**
- * Comic bubbles, as geometry (iteration-2 brief 3.1; owner review 2026-09-26).
+ * Comic bubbles, as geometry (iteration-2 brief 3.1; owner reviews 2026-09-26).
  * Pure; no DOM.
  *
  * The talk reads like a chat window: one shared column, and the vertical axis
  * is time — every line sits below the one before it, newest lowest and nearest
- * the two speakers. Each bubble leans to its speaker's side of the column and
- * its tail leaves from the corner on that side. When the column is full the
- * oldest lines slide up and out. What happened (a coin that landed) is logged
- * in the same column, centred, as a line of its own.
+ * the two speakers. Each bubble leans to its speaker's side but reaches past
+ * the middle: a Blue line and a Red line of the same width overlap by a third.
+ * Its tail leaves the corner on the speaker's side and points AT him. When the
+ * column is full the oldest lines slide up and out. What happened (a coin that
+ * landed) is logged in the same column, centred, as a line of its own.
  *
  * The outline is drawn, not boxed: a rounded rectangle whose edge wobbles a
- * little, deterministically, with a real tail pointing at whoever speaks.
+ * little, deterministically.
  */
 
 export interface Anchor {
@@ -30,8 +31,11 @@ export interface ChatItem {
 export interface Column {
   readonly top: number;
   readonly bottom: number;
+  /** How far any bubble may reach, sideways. */
   readonly left: number;
   readonly right: number;
+  /** Where the two sides meet: halfway between the speakers. */
+  readonly mid: number;
 }
 
 export interface Tail {
@@ -64,43 +68,54 @@ export interface BubbleChoice {
 /** Space between one line and the next. */
 export const BUBBLE_GAP = 8;
 /** How far a tail reaches past its bubble. */
-export const TAIL_LENGTH = 14;
+export const TAIL_LENGTH = 18;
+/** How much of a bubble crosses the middle toward the other speaker's side. */
+export const CROSS = 1 / 6;
 const TAIL_HALF = 9;
 /** Where a tail leaves its corner: this far in from the side. */
 const TAIL_INSET = 30;
 
-/** The column the talk lives in: over and around the two speakers, never wider than a comfortable read. */
+/** The column the talk lives in: the whole stage width, meeting halfway between the speakers. */
 export function chatColumn(anchors: readonly Anchor[], width: number, top: number, bottom: number): Column {
   const margin = 16;
   const xs = anchors.map((a) => a.x);
-  let left = Math.max(margin, Math.min(...xs) - 170);
-  let right = Math.min(width - margin, Math.max(...xs) + 170);
-  const want = Math.min(560, width - 2 * margin);
-  if (right - left < want) {
-    const mid = (left + right) / 2;
-    left = Math.max(margin, mid - want / 2);
-    right = Math.min(width - margin, left + want);
-    left = Math.max(margin, right - want);
+  const between = (Math.min(...xs) + Math.max(...xs)) / 2;
+  return { top, bottom, left: margin, right: width - margin, mid: Math.min(width - margin, Math.max(margin, between)) };
+}
+
+/** A tail from the bubble's corner on the speaker's side, pointing at the top of his circle. */
+export function tailToward(box: { x: number; y: number; w: number; h: number }, anchor: Anchor, onLeft: boolean): Tail {
+  const below = anchor.y - anchor.r < box.y;
+  const inset = Math.min(TAIL_INSET, box.w / 2);
+  const base = onLeft ? inset : box.w - inset;
+  const edgeY = below ? 0 : box.h;
+  const from = { x: box.x + base, y: box.y + edgeY };
+  const to = { x: anchor.x, y: below ? anchor.y + anchor.r : anchor.y - anchor.r };
+  const d = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+  let ux = (to.x - from.x) / d;
+  let uy = (to.y - from.y) / d;
+  // never flatter than 25° from its edge, or the tail lies along the bubble
+  const min = Math.sin((25 * Math.PI) / 180);
+  if (Math.abs(uy) < min) {
+    uy = below ? -min : min;
+    ux = Math.sign(ux || (onLeft ? -1 : 1)) * Math.sqrt(1 - min * min);
   }
-  return { top, bottom, left, right };
+  return { edge: below ? 'top' : 'bottom', base, tip: { x: base + ux * TAIL_LENGTH, y: edgeY + uy * TAIL_LENGTH } };
 }
 
 /** Lay the column out. `items` in time order, oldest first. */
 export function stackChat(items: readonly ChatItem[], column: Column): Placed[] {
-  const mid = (column.left + column.right) / 2;
-  const laid: { x: number; y: number; tail: Tail | null }[] = [];
+  const laid: { x: number; y: number; onLeft: boolean }[] = [];
   let y = 0;
   for (const item of items) {
-    let x = mid - item.w / 2;
-    let tail: Tail | null = null;
+    let x = column.mid - item.w / 2;
+    let onLeft = true;
     if (item.anchor) {
-      const onLeft = item.anchor.x <= mid;
-      x = onLeft ? column.left : column.right - item.w;
-      const inset = Math.min(TAIL_INSET, item.w / 2);
-      const base = onLeft ? inset : item.w - inset;
-      tail = { edge: 'bottom', base, tip: { x: base + (onLeft ? -11 : 11), y: item.h + TAIL_LENGTH } };
+      onLeft = item.anchor.x <= column.mid;
+      x = onLeft ? column.mid - item.w * (1 - CROSS) : column.mid - item.w * CROSS;
     }
-    laid.push({ x, y, tail });
+    x = Math.min(Math.max(x, column.left), Math.max(column.left, column.right - item.w));
+    laid.push({ x, y, onLeft });
     y += item.h + BUBBLE_GAP + (item.anchor ? TAIL_LENGTH * 0.6 : 0);
   }
   const lastItem = items[items.length - 1];
@@ -108,7 +123,9 @@ export function stackChat(items: readonly ChatItem[], column: Column): Placed[] 
   const shift = column.bottom - end;
   return laid.map((p, i) => {
     const top = p.y + shift;
-    return { x: p.x, y: top, gone: i < laid.length - 1 && top < column.top - 1, tail: p.tail };
+    const item = items[i];
+    const tail = item.anchor ? tailToward({ x: p.x, y: top, w: item.w, h: item.h }, item.anchor, p.onLeft) : null;
+    return { x: p.x, y: top, gone: i < laid.length - 1 && top < column.top - 1, tail };
   });
 }
 

@@ -1,53 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { ABSORB_BELOW, BIG, BITES, BITES_SECONDS, COINS, CROWD, RAIN, RAINED, SMALL } from './crowd';
+import { BIG, BLUE_CATCHES, COINS, CROWD, RAIN, RAINED, RAIN_SECONDS, RED_CATCHES, SMALL } from './crowd';
 
 describe("Scene 2's crowd", () => {
-  it('rains sixteen coins at random: Red catches one, Blue at least one, some catch none', () => {
+  it('catches coins: Blue the most, Red the least of the two, everyone else one or two or none', () => {
     expect(CROWD).toBe(16);
-    expect(RAIN).toHaveLength(COINS);
-    expect(RAINED.reduce((s, c) => s + c, 0)).toBe(16);
+    expect(RAINED[BIG]).toBe(15);
     expect(RAINED[SMALL]).toBe(1);
-    expect(RAINED[BIG]).toBeGreaterThanOrEqual(1);
+    expect(BLUE_CATCHES + RED_CATCHES).toBe(16);
+    for (const [i, c] of RAINED.entries()) if (i !== BIG && i !== SMALL) expect(c).toBeLessThanOrEqual(2);
     expect(RAINED.filter((c) => c === 0).length).toBeGreaterThanOrEqual(3);
+    expect(Math.max(...RAINED.filter((_, i) => i !== BIG))).toBeLessThan(RAINED[BIG]);
   });
 
-  it('conserves every coin through every bump', () => {
-    for (const bite of BITES) expect(bite.after.reduce((s, w) => s + w, 0)).toBe(16);
+  it('rains every coin exactly once, onto someone who catches it', () => {
+    expect(RAIN).toHaveLength(COINS);
+    const counts = new Array(CROWD).fill(0);
+    for (const who of RAIN) counts[who] += 1;
+    expect(counts).toEqual([...RAINED]);
   });
 
-  it('never breaks the rule: every stake is half of the smaller fortune', () => {
-    let wealth = [...RAINED];
-    for (const bite of BITES) {
-      expect(bite.stake).toBe(Math.min(wealth[bite.a], wealth[bite.b]) / 2);
-      wealth = [...bite.after];
-    }
+  it("spreads Blue's catches through the rain rather than in one run", () => {
+    const blue = RAIN.map((who, k) => (who === BIG ? k : -1)).filter((k) => k >= 0);
+    expect(blue[0]).toBeLessThan(RAIN.length / 3);
+    expect(blue[blue.length - 1]).toBeGreaterThan((RAIN.length * 2) / 3);
   });
 
-  it('empties a fortune only once it has reached nothing', () => {
-    let wealth = [...RAINED];
-    for (const bite of BITES) {
-      const loser = bite.winner === bite.a ? bite.b : bite.a;
-      const left = wealth[loser] - bite.stake;
-      expect(bite.absorbed === loser).toBe(left < ABSORB_BELOW);
-      wealth = [...bite.after];
-    }
-  });
-
-  it('ends at exactly 15 and 1, with everyone else at nothing', () => {
-    const final = BITES[BITES.length - 1].after;
-    expect(final[BIG]).toBe(15);
-    expect(final[SMALL]).toBe(1);
-    expect(final.filter((w, i) => i !== BIG && i !== SMALL).every((w) => w === 0)).toBe(true);
-  });
-
-  it('lets the trading pass Red by: he never bumps anyone', () => {
-    expect(BITES.filter((bite) => bite.a === SMALL || bite.b === SMALL)).toEqual([]);
-  });
-
-  it('gets faster and faster, and is over in a few seconds', () => {
-    for (let i = 2; i < BITES.length; i++) {
-      expect(BITES[i].at - BITES[i - 1].at).toBeLessThanOrEqual(BITES[i - 1].at - BITES[i - 2].at + 1e-12);
-    }
-    expect(BITES_SECONDS).toBeLessThan(9);
+  it('is over in a few seconds', () => {
+    expect(RAIN_SECONDS).toBeLessThan(7);
   });
 });

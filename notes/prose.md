@@ -70,11 +70,13 @@ Rules of the road:
 
 ~ adapt: [open.title.mark] is the language's own question mark ("؟" in Farsi).
 
-[open.reel.math] (draft) Horoscope · Lucky socks · Timing · Connections · Family money · Luck · **Math** · Coffee · Blue eyes
+[open.reel.math] (draft) Stars · Socks · Timing · Friends · Parents · Luck · **Math** · Coffee · Hair
 
 > the reel opens on two funny wrong words, passes the serious answers, lands on
 > MATH — always the THIRD FROM LAST — and the last two are the wrong words it
-> overshoots onto before settling back. Race, Genes, God's will and Class stay
+> overshoots onto before settling back. Short words only (owner, 2026-09-26):
+> the title is sized so the widest one never leaves the screen, so one long
+> word makes the whole title smaller. Race, Genes, God's will and Class stay
 > off it: they take political sides.
 
 ~ adapt: translate each word as the everyday explanation, not literally; keep

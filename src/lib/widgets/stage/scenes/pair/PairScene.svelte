@@ -22,7 +22,7 @@
   import Teletype from './Teletype.svelte';
   import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
   import { CALLS, PAIR_STEPS, REACTIONS, indexOf, panelStart, valuesFor, type Pose } from './script';
-  import { BIG, BITES, CROWD, RAIN, RAINED, SMALL } from './crowd';
+  import { BIG, COINS, CROWD, FALL, RAIN, RAINED, RAIN_GAP, SMALL } from './crowd';
   import { deciderFace, pairLayout, pile } from './layout';
   import { bubbleLines, bubbleWords, chatColumn, stackChat, type BubbleChoice } from '../../bubbles';
   import {
@@ -81,16 +81,24 @@
 
   let host: HTMLDivElement;
   let mathReel: HTMLSpanElement;
-  /** How far the reel's words may reach, from where MATH starts to the stage's edge (unscaled px). */
-  let reelRoom = $state(Infinity);
+  let titleEl: HTMLElement;
+  let widestWord = 0;
+  /**
+   * The largest the title may be so the reel's widest word stays on the stage
+   * (owner review 2026-09-26). Everything in the title scales together, so one
+   * measurement at any size gives the answer: the title is centred, and the
+   * widest word starts where MATH starts.
+   */
+  let titleMax = $state(Infinity);
 
-  function measureReel(): void {
-    if (!mathReel || !host) return;
-    const box = mathReel.getBoundingClientRect();
-    const stage = host.getBoundingClientRect();
-    const scale = 1 - view.compact * (1 - COMPACT);
-    const reach = rtl ? box.right - stage.left : stage.right - box.left;
-    reelRoom = Math.max(40, (reach - 16) / scale);
+  function fitTitle(): void {
+    if (!titleEl || !mathReel || !widestWord || !width) return;
+    const size = parseFloat(getComputedStyle(titleEl).fontSize);
+    const title = titleEl.offsetWidth;
+    const start = rtl ? title - (mathReel.offsetLeft + mathReel.offsetWidth) : mathReel.offsetLeft;
+    const reach = start + widestWord - title / 2;
+    if (reach <= 0) return;
+    titleMax = (size * (width / 2 - 16)) / reach;
   }
   let width = $state(0);
   let height = $state(0);
@@ -142,7 +150,7 @@
     /** 0 — a plain coin, nobody's colour yet; 1 — each face in its owner's colour. */
     flipTint: 0,
     roomOn: 0,
-    payout: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, on: 0, face: 'front' })) as Token[],
+    payout: Array.from({ length: COINS }, () => ({ x: 0, y: 0, on: 0, face: 'front' })) as Token[],
     fly: [] as Token[],
   });
 
@@ -183,9 +191,6 @@
           return { ...home, r: nobody, alpha: 1, empty: 1 };
         case 'paid':
           return RAINED[i] > 0 ? { ...home, r: L.radius(RAINED[i]), alpha: 1, empty: 0 } : { ...home, r: nobody, alpha: 1, empty: 1 };
-        case 'bitten':
-          if (!who) return { ...home, r: nobody, alpha: 1, empty: 1 };
-          return { ...home, r: L.radius(who === 'blue' ? 15 : 1), alpha: 1, empty: 0 };
         default: {
           if (!who) return { ...L.crowdExits[i], r: nobody, alpha: 0, empty: 1 };
           const spot = pairSpot(pose, who);
@@ -502,7 +507,7 @@
   const sizes = $state<Record<string, { w: number; h: number }>>({});
 
   /** The title's size, as its CSS computes it: clamp(2.4rem, min(11.5vw, 19svh), 10rem). */
-  const titleFont = $derived(Math.min(160, Math.max(38.4, Math.min(width * 0.115, height * 0.19))));
+  const titleFont = $derived(Math.min(titleMax, Math.min(160, Math.max(38.4, Math.min(width * 0.115, height * 0.19)))));
   /** How small the title gets once they start talking. */
   const COMPACT = 0.4;
 
@@ -609,9 +614,6 @@
       case 'payout':
         payout(tl);
         return;
-      case 'bites':
-        bites(tl);
-        return;
       case 'gather':
         leave(pose, tl);
         return;
@@ -659,58 +661,66 @@
     });
   }
 
-  /** Sixteen coins pop out of the MATH reel and fall where they fall — some catch two, some none. */
+  /**
+   * Coins pop out of the MATH reel and fall; the crowd runs and jumps for them
+   * (owner, 2026-09-26). Each coin's catcher gets under it and jumps to meet it;
+   * whoever stands nearest jumps too, and misses. One catches a lot, one very
+   * little — those two stay.
+   */
   function payout(tl: ReturnType<typeof gsap.timeline>): void {
     const hostBox = host.getBoundingClientRect();
     const reelBox = mathReel.getBoundingClientRect();
     const from = { x: reelBox.left - hostBox.left + reelBox.width / 2, y: reelBox.top - hostBox.top + reelBox.height / 2 };
     const caught = new Array<number>(CROWD).fill(0);
+    const one = L.radius(1);
+    const homes = L.crowdHomes;
     tl.to(view, { markOn: 1, duration: 0.5, ease: 'none' }, 0);
     RAIN.forEach((who, k) => {
       const token = view.payout[k];
       const person = view.people[who];
-      const at = 0.15 + k * 0.19;
+      const at = 0.2 + k * RAIN_GAP;
+      const before = caught[who];
       caught[who] += 1;
-      const r = L.radius(caught[who]);
+      const r = before > 0 ? L.radius(before) : L.presence;
+      // where it comes down: near the catcher, never quite where he stands
+      const spot = { x: homes[who].x + (jitter(who, k + 5) - 0.5) * one * 3, y: homes[who].y };
+      const jump = Math.max(one * 1.2, r * 0.5);
+      const meet = at + FALL;
+      tl.to(person, { x: spot.x, duration: FALL * 0.75, ease: 'power2.out' }, at);
+      tl.to(person, { y: spot.y - jump, duration: 0.16, ease: 'power2.out' }, meet - 0.16);
+      tl.to(person, { y: spot.y, duration: 0.22, ease: 'bounce.out' }, meet);
+      // the nearest other jumps for it too, and comes down with nothing
+      const rival = nearestTo(who);
+      if (rival >= 0) {
+        tl.to(view.people[rival], { y: homes[rival].y - one * 0.9, duration: 0.16, ease: 'power2.out' }, meet - 0.18);
+        tl.to(view.people[rival], { y: homes[rival].y, duration: 0.22, ease: 'bounce.in' }, meet - 0.02);
+      }
       tl.set(token, { x: from.x, y: from.y, on: 1 }, at);
-      tl.to(token, { x: L.crowdHomes[who].x, duration: 0.65, ease: 'power1.out' }, at);
-      tl.to(token, { y: L.crowdHomes[who].y, duration: 0.65, ease: 'power2.in' }, at);
-      tl.set(token, { on: 0 }, at + 0.65);
-      tl.set(person, { empty: 0 }, at + 0.65);
-      tl.to(person, { r, duration: 0.25, ease: 'back.out(3)' }, at + 0.65);
+      tl.to(token, { x: spot.x, duration: FALL, ease: 'power1.out' }, at);
+      tl.to(token, { y: spot.y - jump - r, duration: FALL, ease: 'power2.in' }, at);
+      tl.set(token, { on: 0 }, meet);
+      tl.set(person, { empty: 0 }, meet);
+      tl.to(person, { r: L.radius(caught[who]), duration: 0.25, ease: 'back.out(3)' }, meet);
     });
+    // everyone wanders back to where they were standing
+    const end = 0.2 + RAIN.length * RAIN_GAP + FALL + 0.15;
+    view.people.forEach((person, i) => tl.to(person, { x: homes[i].x, y: homes[i].y, duration: 0.5, ease: 'power2.inOut' }, end));
   }
 
-  /** The bumps, exactly as crowd.ts scripts them — the rule on every contact. */
-  function bites(tl: ReturnType<typeof gsap.timeline>): void {
-    const wealth = [...RAINED];
-    for (let k = 0; k < BITES.length; k++) {
-      const bite = BITES[k];
-      const next = BITES[k + 1]?.at ?? bite.at + 0.4;
-      const move = Math.min(0.22, (next - bite.at) * 0.55);
-      const a = bite.a;
-      const b = bite.b;
-      const loser = bite.winner === a ? b : a;
-      const ha = L.crowdHomes[a];
-      const hb = L.crowdHomes[b];
-      // they meet halfway, touch, and bounce back home
-      const ra = L.radius(wealth[a]);
-      const rb = L.radius(wealth[b]);
-      const d = Math.hypot(hb.x - ha.x, hb.y - ha.y) || 1;
-      const touch = Math.max(0, (d - ra - rb) / 2);
-      const ux = (hb.x - ha.x) / d;
-      const uy = (hb.y - ha.y) / d;
-      tl.to(view.people[a], { x: ha.x + ux * touch, y: ha.y + uy * touch, duration: move, ease: 'power2.in' }, bite.at);
-      tl.to(view.people[b], { x: hb.x - ux * touch, y: hb.y - uy * touch, duration: move, ease: 'power2.in' }, bite.at);
-      tl.to(view.people[a], { x: ha.x, y: ha.y, duration: move * 1.4, ease: 'back.out(2)' }, bite.at + move);
-      tl.to(view.people[b], { x: hb.x, y: hb.y, duration: move * 1.4, ease: 'back.out(2)' }, bite.at + move);
-      for (const who of [a, b]) {
-        const r = bite.after[who] > 0 ? L.radius(bite.after[who]) : L.presence;
-        tl.to(view.people[who], { r, duration: move, ease: 'power1.out' }, bite.at + move * 0.8);
+  /** Who stands closest to someone at home, other than the two who stay. */
+  function nearestTo(who: number): number {
+    const home = L.crowdHomes[who];
+    let best = -1;
+    let bestD = Infinity;
+    L.crowdHomes.forEach((h, i) => {
+      if (i === who || whoIs(i)) return;
+      const d = Math.hypot(h.x - home.x, h.y - home.y);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
       }
-      if (bite.absorbed === loser) tl.set(view.people[loser], { empty: 1 }, bite.at + move * 1.6);
-      for (let i = 0; i < CROWD; i++) wealth[i] = bite.after[i];
-    }
+    });
+    return best;
   }
 
   /** Everyone with nothing bounces off the stage; the two glide under their words. */
@@ -1067,7 +1077,7 @@
     const observer = new ResizeObserver(() => {
       width = host.clientWidth;
       height = host.clientHeight;
-      measureReel();
+      fitTitle();
       // a resize re-lays everything out: draw the current step where it now belongs
       if (!timeline || !timeline.isActive()) draw(poseAt(current));
     });
@@ -1075,8 +1085,8 @@
     height = host.clientHeight;
     observer.observe(host);
     stage?.attach(PAIR_STEPS, { play, settle, nudge, hurry, readingMs: readingTime });
-    measureReel();
-    void document.fonts?.ready.then(measureReel);
+    fitTitle();
+    void document.fonts?.ready.then(fitTitle);
     recallAnswers();
     const stopAmbient = ambientClock((s) => (seconds = s), stage?.reduced ?? false);
     return () => {
@@ -1107,13 +1117,23 @@
     <!-- In reading order: the common sense first, the question second. -->
     <h1
       class="title"
+      bind:this={titleEl}
       aria-label={say('open_title')}
-      style={`transform: translateY(${(-view.compact * height * 0.18).toFixed(1)}px) scale(${(1 - view.compact * (1 - COMPACT)).toFixed(3)})`}
+      style={`--title-max:${Number.isFinite(titleMax) ? `${titleMax.toFixed(1)}px` : '10rem'}; transform: translateY(${(-view.compact * height * 0.18).toFixed(1)}px) scale(${(1 - view.compact * (1 - COMPACT)).toFixed(3)})`}
     >
       <span class="word merit" style={`opacity:${view.meritOn}`} aria-hidden="true">{say('open_title_merit')}</span>
       <span class="word or" style={`opacity:${view.orOn}`} aria-hidden="true">{say('open_title_or')}</span>
       <span class="word math" bind:this={mathReel}>
-        <Reel words={MATH_WORDS} answer={MATH_AT} position={view.mathPos} shown={view.mathOn} room={reelRoom} /><span
+        <Reel
+          words={MATH_WORDS}
+          answer={MATH_AT}
+          position={view.mathPos}
+          shown={view.mathOn}
+          onmeasure={(w) => {
+            widestWord = w;
+            fitTitle();
+          }}
+        /><span
           class="mark"
           style={`opacity:${view.markOn}`}
           aria-hidden="true">{say('open_title_mark')}</span
@@ -1306,7 +1326,7 @@
     gap: clamp(0.4rem, 1.4vw, 1.4rem);
     margin: 0;
     font-family: var(--font-serif);
-    font-size: clamp(2.4rem, min(11.5vw, 19svh), 10rem);
+    font-size: min(clamp(2.4rem, min(11.5vw, 19svh), 10rem), var(--title-max, 10rem));
     font-weight: 750;
     letter-spacing: -0.035em;
     line-height: 1.2;

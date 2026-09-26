@@ -8,9 +8,9 @@
    *
    * Every word starts where the answer starts (owner review 2026-09-26: left
    * aligned, never cropped). A word longer than the answer runs on past it —
-   * the "?" has not arrived yet — and is set smaller only if it would otherwise
-   * run off the stage: `room` is how far it may reach, and each word's natural
-   * width is measured, not guessed from its letters.
+   * the "?" has not arrived yet. Every word is the title's own size; the reel
+   * reports its widest word (`onmeasure`) and the scene sizes the whole title
+   * so that word still fits on the stage.
    */
   import { onMount } from 'svelte';
 
@@ -21,21 +21,20 @@
     position: number;
     /** 0 before the reel arrives; 1 once it is on stage. */
     shown: number;
-    /** How far a word may reach from the reel's start, in the reel's own px. */
-    room?: number;
+    /** The widest word, px at the current size, whenever it may have changed. */
+    onmeasure?: (widest: number) => void;
   }
 
-  let { words, answer, position, shown, room = Infinity }: Props = $props();
+  let { words, answer, position, shown, onmeasure }: Props = $props();
 
   let box: HTMLSpanElement;
   const measures: HTMLSpanElement[] = [];
   let natural = $state<number[]>([]);
 
   function measure(): void {
-    natural = measures.map((m) => m?.getBoundingClientRect().width ?? 0);
+    natural = measures.map((m) => m?.offsetWidth ?? 0);
+    onmeasure?.(Math.max(0, ...natural));
   }
-
-  const scale = (i: number) => (natural[i] > 0 && Number.isFinite(room) ? Math.min(1, room / natural[i]) : 1);
 
   onMount(() => {
     measure();
@@ -54,7 +53,7 @@
   </span>
   <span class="strip" style={`transform: translateY(${(-position * 1.2).toFixed(4)}em)`}>
     {#each words as word, i (i)}
-      <span class="slot"><span style={`font-size:${scale(i).toFixed(3)}em`}>{word}</span></span>
+      <span class="slot">{word}</span>
     {/each}
   </span>
 </span>

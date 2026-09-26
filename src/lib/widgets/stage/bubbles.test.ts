@@ -16,35 +16,43 @@ const COLUMN = chatColumn([BLUE, RED], 1366, 100, 480);
 const said = (w: number, h: number, anchor: typeof BLUE | null = BLUE): ChatItem => ({ w, h, anchor });
 
 describe('the talk, as a chat window', () => {
-  const items = [said(300, 50), said(280, 50, RED), said(200, 76), said(80, 30, null), said(260, 50, RED)];
+  const items = [said(300, 50), said(300, 50, RED), said(200, 76), said(80, 30, null), said(260, 50, RED)];
   const placed = stackChat(items, COLUMN);
 
   it('reads in time order, top to bottom: every line starts below the end of the one before', () => {
     for (let i = 1; i < placed.length; i++) expect(placed[i].y).toBeGreaterThanOrEqual(placed[i - 1].y + items[i - 1].h);
   });
 
-  it("leans each bubble to its speaker's side of one shared column", () => {
-    expect(placed[0].x).toBe(COLUMN.left);
-    expect(placed[1].x + 280).toBe(COLUMN.right);
+  it('leans each bubble to its speaker, reaching past the middle: two alike overlap by a third', () => {
+    const blue = placed[0];
+    const red = placed[1];
+    expect(blue.x + 300 / 2).toBeLessThan(COLUMN.mid);
+    expect(red.x + 300 / 2).toBeGreaterThan(COLUMN.mid);
+    const overlap = blue.x + 300 - red.x;
+    expect(overlap).toBeCloseTo(300 / 3, 6);
   });
 
   it('sets a logged event in the middle, with no tail', () => {
-    expect(placed[3].x + 40).toBeCloseTo((COLUMN.left + COLUMN.right) / 2, 9);
+    expect(placed[3].x + 40).toBeCloseTo(COLUMN.mid, 9);
     expect(placed[3].tail).toBeNull();
   });
 
-  it("puts the tail at the corner on the speaker's side, pointing outward", () => {
-    const blue = placed[0].tail!;
-    const red = placed[1].tail!;
-    expect(blue.base).toBeLessThan(300 / 2);
-    expect(blue.tip.x).toBeLessThan(blue.base);
-    expect(red.base).toBeGreaterThan(280 / 2);
-    expect(red.tip.x).toBeGreaterThan(red.base);
+  it('points every tail at its speaker', () => {
+    for (const [i, item] of items.entries()) {
+      const p = placed[i];
+      if (!item.anchor || !p.tail) continue;
+      const base = { x: p.x + p.tail.base, y: p.y + (p.tail.edge === 'bottom' ? item.h : 0) };
+      const tip = { x: p.x + p.tail.tip.x, y: p.y + p.tail.tip.y };
+      const aim = { x: item.anchor.x - base.x, y: item.anchor.y - item.anchor.r - base.y };
+      const dir = { x: tip.x - base.x, y: tip.y - base.y };
+      const cos = (aim.x * dir.x + aim.y * dir.y) / (Math.hypot(aim.x, aim.y) * Math.hypot(dir.x, dir.y));
+      expect(cos, `bubble ${i}`).toBeGreaterThan(0.9);
+    }
   });
 
   it('hangs the newest line just above the speakers', () => {
     const last = placed[placed.length - 1];
-    expect(last.y + last.tail!.tip.y).toBeCloseTo(COLUMN.bottom, 6);
+    expect(last.y + 50 + 18).toBeCloseTo(COLUMN.bottom, 6);
   });
 
   it('scrolls the oldest out of a full column, never the newest', () => {
@@ -55,11 +63,13 @@ describe('the talk, as a chat window', () => {
     for (const p of laid.filter((q) => !q.gone)) expect(p.y).toBeGreaterThanOrEqual(COLUMN.top - 1);
   });
 
-  it('keeps the column on the stage and wide enough to lean in, on a phone too', () => {
+  it('keeps every bubble on the stage, on a phone too', () => {
     const phone = chatColumn([{ x: 117, y: 600, r: 70 }, { x: 273, y: 600, r: 20 }], 390, 80, 500);
-    expect(phone.left).toBeGreaterThanOrEqual(16);
-    expect(phone.right).toBeLessThanOrEqual(374);
-    expect(phone.right - phone.left).toBeGreaterThan(340);
+    const laid = stackChat([{ w: 300, h: 50, anchor: { x: 117, y: 600, r: 70 } }, { w: 300, h: 50, anchor: { x: 273, y: 600, r: 20 } }], phone);
+    for (const p of laid) {
+      expect(p.x).toBeGreaterThanOrEqual(16);
+      expect(p.x + 300).toBeLessThanOrEqual(374);
+    }
   });
 });
 
