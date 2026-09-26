@@ -155,6 +155,9 @@ describe('a crowd with no rows (brief 3.6)', () => {
       const blue = L.room.positions[L.room.blue];
       const red = L.room.positions[L.room.red];
       expect(red.x - blue.x).toBeCloseTo((L.seatRed.x - L.seatBlue.x) * ROOM_ZOOM, 6);
+      // in the middle of the room's own box, which leaves the charts their column
+      expect((blue.x + red.x) / 2).toBeCloseTo(L.room.box.x + L.room.box.w / 2, 6);
+      if (L.column) expect(L.room.box.x + L.room.box.w).toBeLessThan(L.column.x);
       expect(blue.y).toBeCloseTo(red.y, 9);
       for (const [i, p] of L.room.positions.entries()) {
         if (i === L.room.blue || i === L.room.red) continue;

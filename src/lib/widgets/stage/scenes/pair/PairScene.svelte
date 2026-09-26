@@ -22,7 +22,7 @@
   import Teletype from './Teletype.svelte';
   import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
   import { CALLS, PAIR_STEPS, REACTIONS, RUN_MS, indexOf, panelStart, valuesFor, type Pose, type RoomMode } from './script';
-  import { line, piles, ruler, type Tick } from './roomPoses';
+  import { effectiveCount, imaginedShares, line, piles, ruler, type Tick } from './roomPoses';
   import { toDollars } from '../../../distribution/binning';
   import HistoMini from '../../../shared/HistoMini.svelte';
   import LorenzMini from '../../../shared/LorenzMini.svelte';
@@ -54,7 +54,9 @@
     type BetId,
     type PredictionId,
   } from '../../../shared/runLog.svelte';
-  import { REVEAL_BETA, REVEAL_TRADES, START_DOLLARS } from '../../../shared/presets';
+  import { START_DOLLARS } from '../../../shared/presets';
+  import { loadTuning, runSettings, tuning } from './tuning.svelte';
+  import DebugPanel from './DebugPanel.svelte';
   import { collectStats, frontPageFor } from '../../../sandbox/newsroom';
   import { measureWealth } from '$lib/research';
   import { openBranch } from '../../branch';
@@ -153,7 +155,9 @@
     lift: 0,
     people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1, empty: 1, sx: 1, sy: 1 })) as Person[],
     /** The room's other ninety-eight (Scene 10), each on its way in or in place. */
-    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, r: 0, alpha: 0, sx: 1, sy: 1 })),
+    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, r: 0, alpha: 0, sx: 1, sy: 1, empty: 0 })),
+    /** How much of the turnover chart is drawn, 0–1 (Scene 18). */
+    turnDraw: 0,
     /** How much of the Lorenz curve is drawn, 0–1 (Scene 16's walk). */
     lorenzDraw: 0,
     /** The ruler's marks, keyed so a decade slides from the ordinary ruler to the multiplying one. */
@@ -228,7 +232,10 @@
   function roomPeople(pose: Pose) {
     const w = L.width;
     return L.room.positions.map((p, i) => {
-      if (pose.place === 'room') return { ...modeTarget(pose.roomMode, i), alpha: 1, sx: 1, sy: 1 };
+      if (pose.place === 'room') {
+        const t = modeTarget(pose.roomMode, i);
+        return { x: t.x, y: t.y, r: t.r, alpha: t.alpha, sx: 1, sy: 1, empty: t.empty ? 1 : 0 };
+      }
       return { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y, r: L.room.radius, alpha: 0, sx: 1, sy: 1 };
     });
   }
@@ -297,6 +304,7 @@
     roomPeople(pose).forEach((p, i) => Object.assign(view.room[i], p));
     view.ticks = Object.fromEntries(ticksFor(pose.roomMode).map((t) => [t.key, { x: t.x, alpha: t.shown ? 1 : 0 }]));
     view.lorenzDraw = pose.roomMode === 'line' && pose.lorenz >= 1 ? 1 : 0;
+    view.turnDraw = pose.roomMode === 'turnover' ? 1 : 0;
   }
 
   // ---- the player's verbs ----------------------------------------------------
@@ -309,13 +317,14 @@
     stopCalls();
     reaction = null;
     logReady = true;
-    cardOpen = PAIR_STEPS[index].pose.cardOpen;
+    cardOpen = cardsPop ? PAIR_STEPS[index].pose.cardOpen : null;
     stopBanter();
     banterShown = Infinity;
     dropPaper();
     arranging = false;
-    sheet = null;
-    fourCoins = null;
+    cardPlaying = null;
+    fourPick = null;
+    if (PAIR_STEPS[index].id === 'eff.try') fourCoins = [4, 4, 4, 4];
     if (PAIR_STEPS[index].pose.ran) run.ended();
     else run.clear();
     draw(poseAt(index));
@@ -332,13 +341,14 @@
     const step = PAIR_STEPS[index];
     const pose = poseAt(index);
     logReady = !step.log;
-    cardOpen = step.pose.cardOpen;
+    cardOpen = cardsPop ? step.pose.cardOpen : null;
     stopBanter();
     banterShown = Infinity;
     dropPaper();
     arranging = false;
-    sheet = null;
-    fourCoins = null;
+    cardPlaying = null;
+    fourPick = null;
+    if (step.id === 'eff.try') fourCoins = [4, 4, 4, 4];
     if (step.action === 'run') {
       if (stage?.reduced) {
         run.start();
@@ -387,6 +397,7 @@
 
   function readingTime(index: number): number {
     const step = PAIR_STEPS[index];
+    if (step.id === 'run') return Math.max(1500, tuning.runMs) + 5500;
     if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readingMs(bubbleWords(line.text)), 0);
     const concept = conceptLine(step.id);
     if (concept) return readingMs(bubbleWords(concept.text));
@@ -408,7 +419,11 @@
   // ---- Scene 13: the run --------------------------------------------------------
 
   /** The room of a hundred, played for real: unseeded, as the reveal always was. */
-  const run = createRun(100, REVEAL_BETA, REVEAL_TRADES, RUN_MS);
+  const run = createRun(
+    () => runSettings(100, START_DOLLARS),
+    () => tuning.runMs,
+  );
+  void RUN_MS;
   const ROOM_TOTAL_DOLLARS = 100 * START_DOLLARS;
 
   /** A room member's radius: area is wealth, and everyone started at the room's radius. */
@@ -449,35 +464,115 @@
   });
   const pilesPose = $derived(piles(amounts, L.room.box));
   const rulerPose = $derived(ruler(amounts, L.room.box));
-  const linePose = $derived(line(amounts, L.room.box));
+  const linePose = $derived(line(amounts, L.room.box, amounts.map((_, i) => roomR(i))));
   const metrics = $derived.by(() => {
     void run.state.revision;
     return measureWealth(run.wealth());
   });
 
   /** Room member `i`'s circle on the stage: Blue and Red are their own. */
-  function agentView(i: number): { x: number; y: number; r: number } {
+  function agentView(i: number): { x: number; y: number; r: number; alpha: number; empty: number } {
     if (i === L.room.blue) return view.people[BIG];
     if (i === L.room.red) return view.people[SMALL];
     return view.room[i];
   }
 
-  /** Where room member `i` stands, and how big, in a room pose. */
-  function modeTarget(mode: RoomMode, i: number): { x: number; y: number; r: number } {
+  /** The room member nearest the middle of the room, other than those in `not`. */
+  function nearMiddle(not: readonly number[]): number {
+    const box = L.room.box;
+    const c = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+    let best = 0;
+    let bestD = Infinity;
+    L.room.positions.forEach((p, i) => {
+      if (not.includes(i)) return;
+      const d = Math.hypot(p.x - c.x, p.y - c.y);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    });
+    return best;
+  }
+
+  /** Who Scene 17 empties, who gets that money, and the two who join Blue and Red in the four. */
+  const cast = $derived.by(() => {
+    const pair = [L.room.blue, L.room.red];
+    const emptied = nearMiddle(pair);
+    const given = nearMiddle([...pair, emptied]);
+    const third = nearMiddle([...pair, emptied, given]);
+    const fourth = nearMiddle([...pair, emptied, given, third]);
+    const medianX = [...L.room.positions].map((p) => p.x).sort((a, b) => a - b)[50];
+    return { emptied, given, four: [L.room.blue, L.room.red, emptied, given], spare: [third, fourth], medianX };
+  });
+
+  /** Scene 17's imagined rooms, as shares; the owner of everything is whoever the run made richest. */
+  function imagined(mode: 'equal' | 'zero' | 'double' | 'half' | 'one'): Float64Array {
+    return imaginedShares(mode, L.room.positions.length, {
+      emptied: cast.emptied,
+      given: cast.given,
+      owner: Math.max(0, run.state.winner),
+      half: (i) => L.room.positions[i].x < cast.medianX,
+    });
+  }
+
+  /** Scene 17's four: square corners in the middle of the room. */
+  function fourSpot(k: number): Point {
+    const box = L.room.box;
+    const side = Math.min(box.w, box.h) * 0.44;
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    return { x: cx + (k % 2 ? 1 : -1) * (side / 2), y: cy + (k < 2 ? -1 : 1) * (side / 2) };
+  }
+
+  /** Coins each of the four holds (sixteen between them), while the reader moves them. */
+  let fourCoins = $state([4, 4, 4, 4]);
+  let fourPick = $state<number | null>(null);
+
+  interface Target {
+    x: number;
+    y: number;
+    r: number;
+    alpha: number;
+    empty: boolean;
+  }
+
+  /** Where room member `i` stands, how big, and how visible, in a room pose. */
+  function modeTarget(mode: RoomMode, i: number): Target {
     const free = L.room.positions[i];
+    const real = runShown ? roomR(i) : L.room.radius;
+    const at = (x: number, y: number, r: number, alpha = 1, empty = false): Target => ({ x, y, r, alpha, empty });
     switch (mode) {
       case 'piles':
-        return { ...pilesPose.spots[i], r: pilesPose.marker };
+        return at(pilesPose.spots[i].x, pilesPose.spots[i].y, pilesPose.marker);
       case 'ruler':
-        return { ...rulerPose.spots[i], r: rulerPose.marker };
+        return at(rulerPose.spots[i].x, rulerPose.spots[i].y, rulerPose.marker);
       case 'line':
-        return { ...linePose.spots[i], r: linePose.marker };
+        return at(linePose.spots[i].x, linePose.spots[i].y, real);
       case 'equal':
-        return { x: free.x, y: free.y, r: L.room.radius };
-      case 'one':
-        return { x: free.x, y: free.y, r: i === Math.max(0, run.state.winner) ? L.room.radius * 10 : L.room.radius * 0.15 };
-      default:
-        return { x: free.x, y: free.y, r: runShown ? roomR(i) : L.room.radius };
+      case 'zero':
+      case 'double':
+      case 'half':
+      case 'one': {
+        const share = imagined(mode)[i];
+        return share > 0
+          ? at(free.x, free.y, L.room.radius * Math.sqrt(share * L.room.positions.length))
+          : at(free.x, free.y, L.room.radius * 0.45, 1, true);
+      }
+      case 'four': {
+        const k = cast.four.indexOf(i);
+        if (k < 0) return at(free.x, free.y, real, 0.18);
+        const spot = fourSpot(k);
+        return fourCoins[k] > 0 ? at(spot.x, spot.y, L.radius(fourCoins[k])) : at(spot.x, spot.y, L.presence * 1.6, 1, true);
+      }
+      case 'turnover':
+        return at(free.x, free.y, real, 0.16);
+      default: {
+        // a fortune that has grown past the room's edge is drawn a little further in
+        const box = L.room.box;
+        const x = real * 2 < box.w ? Math.min(Math.max(free.x, box.x + real), box.x + box.w - real) : free.x;
+        const y = real * 2 < box.h ? Math.min(Math.max(free.y, box.y + real), box.y + box.h - real) : free.y;
+        return at(x, y, real);
+      }
     }
   }
 
@@ -487,15 +582,24 @@
     return [];
   }
 
-  /** While the room is rearranging, sizes come from the tween, not from the run. */
+  /** While the room is rearranging, the tween owns everyone's place, not the run. */
   let arranging = $state(false);
 
-  // during the run the sizes follow the money, live
+  // the room follows the moment on screen: the run as it plays, or the time dial
   $effect(() => {
     void run.state.revision;
+    void fourCoins;
     const pose = PAIR_STEPS[current].pose;
-    if (!runShown || arranging || pose.place !== 'room' || pose.roomMode !== 'free') return;
-    for (let i = 0; i < L.room.positions.length; i++) agentView(i).r = roomR(i);
+    if (!runShown || arranging || pose.place !== 'room') return;
+    for (let i = 0; i < L.room.positions.length; i++) {
+      const t = modeTarget(pose.roomMode, i);
+      const v = agentView(i);
+      v.x = t.x;
+      v.y = t.y;
+      v.r = t.r;
+      v.alpha = t.alpha;
+      v.empty = t.empty ? 1 : 0;
+    }
   });
 
   /**
@@ -507,18 +611,20 @@
     arranging = true;
     const mode = pose.roomMode;
     const n = L.room.positions.length;
-    const inPlace = mode === 'equal' || mode === 'one' || PAIR_STEPS[current - 1]?.pose.roomMode === 'equal' || PAIR_STEPS[current - 1]?.pose.roomMode === 'one';
+    const still = ['equal', 'zero', 'double', 'half', 'one', 'turnover'];
+    const inPlace = still.includes(mode) && (still.includes(PAIR_STEPS[current - 1]?.pose.roomMode ?? '') || PAIR_STEPS[current - 1]?.pose.roomMode === 'free');
     const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => modeTarget(mode, a).x - modeTarget(mode, b).x);
     const slow = mode === 'ruler' ? 1.5 : 1;
     let end = 0;
     order.forEach((i, k) => {
       const v = agentView(i);
       const t = modeTarget(mode, i);
-      const at = inPlace ? noise(i, 60) * 0.25 : (0.05 + (k / n) * 1.1 + noise(i, 60) * 0.3) * slow;
+      const at = inPlace ? noise(i, 60) * 0.3 : (0.05 + (k / n) * 1.1 + noise(i, 60) * 0.3) * slow;
       const dur = (0.8 + noise(i, 61) * 0.5) * slow;
       tl.to(v, { x: t.x, duration: dur, ease: 'power1.inOut' }, at);
       tl.to(v, { y: t.y, duration: dur, ease: mode === 'piles' ? 'power2.in' : 'power2.inOut' }, at);
-      tl.to(v, { r: t.r, duration: Math.min(0.7, dur), ease: 'power1.inOut' }, at);
+      tl.to(v, { r: t.r, alpha: t.alpha, duration: Math.min(0.7, dur), ease: 'power1.inOut' }, at);
+      tl.set(v, { empty: t.empty ? 1 : 0 }, t.empty ? at + Math.min(0.7, dur) : at);
       end = Math.max(end, at + dur);
     });
     // the ruler's marks: a decade on both rulers slides; the rest fade
@@ -534,27 +640,99 @@
       tl.to(view.ticks[t.key], { alpha: t.shown ? 1 : 0, duration: 0.6 }, end * 0.6);
     }
     if (mode !== 'line') tl.to(view, { lorenzDraw: 0, duration: 0.4 }, 0);
-    tl.call(() => (arranging = false), [], end + 0.05);
+    if (mode === 'turnover') tl.fromTo(view, { turnDraw: 0 }, { turnDraw: 1, duration: 2.6, ease: 'power1.inOut' }, 0.4);
+    else tl.to(view, { turnDraw: 0, duration: 0.3 }, 0);
+    tl.call(() => (arranging = false), [], Math.max(end, mode === 'turnover' ? 3 : 0) + 0.05);
   }
 
-  /** Scene 16: walking along the line, the running total draws itself. */
+  /** Scene 16: walking along the line, the money is added up, poorest first, and each point plotted. */
   function walk(tl: Timeline): void {
-    tl.fromTo(view, { lorenzDraw: 0 }, { lorenzDraw: 1, duration: 3.2, ease: 'none' });
+    tl.fromTo(view, { lorenzDraw: 0 }, { lorenzDraw: 1, duration: 4.2, ease: 'none' });
   }
+
+  /** How far along the line the walk has come: the running total, and its point. */
+  const walker = $derived.by(() => {
+    const k = Math.min(L.room.positions.length, Math.floor(view.lorenzDraw * L.room.positions.length));
+    const point = linePose.curve[k];
+    const share = 1 - (point.y - linePose.frame.y) / Math.max(1, linePose.frame.h);
+    return { k, point, r: L.room.radius * Math.sqrt(Math.max(0, share) * L.room.positions.length) };
+  });
+
+  // ---- Scene 17's four: coins moved by the reader --------------------------------
+
+  const fourCount = $derived(effectiveCount(fourCoins));
+
+  /** Tap one of the four to take a coin from them, then another to give it. */
+  function tapFour(k: number): void {
+    if (current !== indexOf('eff.try')) return;
+    if (fourPick === null) {
+      if (fourCoins[k] > 0) fourPick = k;
+      return;
+    }
+    if (fourPick === k) {
+      fourPick = null;
+      return;
+    }
+    const from = fourPick;
+    fourPick = null;
+    const a = agentView(cast.four[from]);
+    const b = agentView(cast.four[k]);
+    const token = { x: a.x, y: a.y, on: 1, face: 'front' as const };
+    view.fly = [...view.fly, token];
+    const flying = view.fly[view.fly.length - 1];
+    fourCoins = fourCoins.map((c, j) => (j === from ? c - 1 : c));
+    gsap.to(flying, {
+      x: b.x,
+      y: b.y,
+      duration: stage?.reduced ? 0 : 0.45,
+      ease: 'power2.inOut',
+      onComplete: () => {
+        flying.on = 0;
+        fourCoins = fourCoins.map((c, j) => (j === k ? c + 1 : c));
+      },
+    });
+  }
+
+  // ---- Scene 18: turnover ------------------------------------------------------
+
+  /** Each round's turnover up to the moment on screen, and its mean at the start and near the end. */
+  const turnover = $derived.by(() => {
+    void run.state.revision;
+    const rec = run.recording();
+    if (!rec) return { rounds: [] as number[], early: 0, late: 0, max: 0 };
+    const raw = rec.turnover.slice(1, Math.max(1, run.state.frame) + 1);
+    const mean = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
+    // drawn as a five-round moving average, so the trend reads through the noise of single rounds
+    const rounds = raw.map((_, k) => mean(raw.slice(Math.max(0, k - 2), k + 3)));
+    return { rounds, early: mean(raw.slice(0, 3)), late: mean(raw.slice(-3)), max: Math.max(1e-9, ...rounds) };
+  });
 
   // ---- the side rail, the sheets (optional toys) --------------------------------
 
-  /** An optional toy open over the stage (brief 5.2, 5.3): the Gini toy, the four-person room. */
-  let sheet = $state<'gini-toy' | 'four-coins' | null>(null);
-  let fourCoins = $state<number | null>(null);
-
-  function closeSheet(): void {
-    sheet = null;
-    fourCoins = null;
-    stage?.advance();
-  }
 
   const RAIL_W = $derived(width < 760 ? 96 : 150);
+
+  /** What the debug panel shows (owner only, `?debug=1`). */
+  const debugLines = $derived.by((): [string, string][] => {
+    if (!tuning.debug) return [];
+    const step = PAIR_STEPS[current];
+    const pose = step.pose;
+    const w = run.wealth();
+    const dollars = Array.from(w, (x) => x * 100 * START_DOLLARS);
+    const rec = run.recording();
+    return [
+      ['step', `${current} ${step.id} (${step.wait.kind}${step.action ? ', ' + step.action : ''})`],
+      ['pose', `${pose.place}/${pose.roomMode} crowd:${pose.crowd} lorenz:${pose.lorenz} ran:${pose.ran}`],
+      ['run', `${run.state.running ? 'playing' : run.state.done ? 'done' : 'none'} · frame ${run.state.frame}/${Math.max(0, run.state.frames - 1)} · seed ${rec?.seed ?? '–'}`],
+      ['trades', formatNumber(run.state.trades)],
+      ['richest', `${(run.state.share * 100).toFixed(1)}% (#${run.state.winner})`],
+      ['gini', metrics.gini.toFixed(3)],
+      ['eff. N', metrics.effectiveParticipants.toFixed(2)],
+      ['≥10¢ / ≥$10', `${dollars.filter((d) => d >= 0.1).length} / ${dollars.filter((d) => d >= 10).length}`],
+      ['turnover', `first ${(turnover.early * 100).toFixed(2)}% · last ${(turnover.late * 100).toFixed(2)}% per round`],
+      ['stage', `${Math.round(width)}×${Math.round(height)} ${L.column ? 'wide' : 'narrow'}`],
+    ];
+  });
 
   /** The morning paper on whoever finished richest — the sandbox's own newsroom. */
   function frontPage(): Said['paper'] | null {
@@ -688,6 +866,8 @@
     coin?: Speaker;
     /** The morning paper's front page, printed in the talk. */
     paper?: { masthead: string; text: string; source: string; style: AgentStyle };
+    /** Said to the reader, not to the other one: on the speaker's outer side. */
+    aside?: boolean;
     choices?: readonly BubbleChoice[];
   }
 
@@ -726,7 +906,7 @@
       }
       if (step.id === 'guess.react') {
         const bet = session.bet ? REACTIONS.betLines[session.bet] : null;
-        if (bet) out.push({ id: `${step.id}:${session.bet}`, who: bet.who, at: bet.who, text: say(bet.message) });
+        if (bet) out.push({ id: `${step.id}:${session.bet}`, who: bet.who, at: bet.who, text: say(bet.message), aside: true });
         continue;
       }
       if (!line || !line.who) continue;
@@ -741,19 +921,25 @@
         const waiting = !(view.paint[caller] > 0.5);
         const level = waiting ? callLevel[caller] : 0;
         const pool = caller === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
-        out.push({ id: `${step.id}#${level}`, who: waiting ? null : caller, at: caller, text: say(pool[level]) });
+        out.push({ id: `${step.id}#${level}`, who: waiting ? null : caller, at: caller, text: say(pool[level]), aside: true });
         continue;
       }
-      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)) });
+      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside });
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
     const last = out[out.length - 1];
     // an open toy has its own Done: the offer's links go while it is open
-    const choices = sheet ? null : choicesAt(current);
+    const choices = choicesAt(current);
     if (last && choices) out[out.length - 1] = { ...last, choices };
-    if (sheet === 'four-coins' && fourCoins !== null) {
+    if (current === indexOf('eff.try')) {
       const line = REACTIONS.effReadout;
-      out.push({ id: `eff.readout:${fourCoins}`, who: line.who, at: line.who, text: say(line.message, { count: formatNumber(fourCoins, { maximumFractionDigits: 2 }) }) });
+      out.push({
+        id: `eff.readout:${fourCoins.join('-')}`,
+        who: line.who,
+        at: line.who,
+        text: say(line.message, { count: formatNumber(fourCount, { maximumFractionDigits: 2 }) }),
+        aside: true,
+      });
     }
     return out;
   });
@@ -803,6 +989,22 @@
         return said(REACTIONS.sortThere, { count: pilesPose.piles[pilesPose.pileOf[L.room.blue]].count - 1 });
       case 'gini.value':
         return said(REACTIONS.giniValue, { gini: formatNumber(metrics.gini, { maximumFractionDigits: 2 }) });
+      case 'eff.brutal':
+      case 'eff.give':
+      case 'eff.half':
+      case 'eff.one': {
+        const mode = ({ 'eff.brutal': 'zero', 'eff.give': 'double', 'eff.half': 'half', 'eff.one': 'one' } as const)[id];
+        const n = effectiveCount(imagined(mode));
+        return said((REACTIONS.effCases as Record<string, { who: Speaker; message: string }>)[id], {
+          count: formatNumber(n, { maximumFractionDigits: n > 10 ? 2 : 1 }),
+        });
+      }
+      case 'turn.busy':
+        return said(REACTIONS.turnBusy, { trades: formatNumber(run.state.trades) });
+      case 'turn.start':
+        return said(REACTIONS.turnStart, { early: formatNumber(turnover.early, { style: 'percent', maximumFractionDigits: 1 }) });
+      case 'turn.now':
+        return said(REACTIONS.turnNow, { late: formatNumber(turnover.late, { style: 'percent', maximumFractionDigits: 1 }) });
       case 'eff.room':
         return said(REACTIONS.effRoom, { count });
       case 'eff.end':
@@ -823,10 +1025,16 @@
     }
     const link = (REACTIONS.links as Record<string, string>)[id];
     if (link) return [{ label: say(link), act: () => stage?.advance() }];
-    if (id === 'gini.toy' || id === 'eff.try') {
-      const [yes, no] = id === 'gini.toy' ? REACTIONS.giniToy : REACTIONS.effTry;
+    if (id === 'gini.toy') {
+      const [yes, no] = REACTIONS.giniToy;
       return [
-        { label: say(yes), act: () => (sheet = id === 'gini.toy' ? 'gini-toy' : 'four-coins') },
+        {
+          label: say(yes),
+          act: () => {
+            cardOpen = 'gini';
+            cardPlaying = 'gini';
+          },
+        },
         { label: say(no), act: () => stage?.advance() },
       ];
     }
@@ -863,18 +1071,26 @@
   // ---- the concept cards -----------------------------------------------------
 
   let cardOpen = $state<string | null>(null);
+  /** The card whose toy is out (the Gini toy lives in the Gini card). */
+  let cardPlaying = $state<string | null>(null);
   let cardHeight = $state(0);
 
   /** The rule card reads the rule that is running: the live stake, never typed in. */
   function cardFor(id: string): Card | null {
     const lines = (key: string, count: number) => Array.from({ length: count }, (_, k) => say(`${key}_${k + 1}`));
-    if (id === 'histogram') return { id, title: say('card_histogram_title'), lines: lines('card_histogram', 3) };
-    if (id === 'gini') return { id, title: say('card_gini_title'), lines: lines('card_gini', 2) };
+    if (id === 'histogram') return { id, title: say('card_histogram_title'), lines: lines('card_histogram', 3), picture: histogramPicture };
+    if (id === 'gini') return { id, title: say('card_gini_title'), lines: lines('card_gini', 2), picture: giniPicture, toy: giniToy };
     if (id === 'participants') {
-      return { id, title: say('card_participants_title'), lines: [...lines('card_participants', 2), say('participation_formula')] };
+      return {
+        id,
+        title: say('card_participants_title'),
+        lines: [...lines('card_participants', 2), say('participation_formula')],
+        picture: participantsPicture,
+      };
     }
+    if (id === 'turnover') return { id, title: say('card_turnover_title'), lines: lines('card_turnover', 2), picture: turnoverPicture };
     if (id !== 'rule') return null;
-    const stake = formatNumber(REVEAL_BETA, { style: 'percent' });
+    const stake = formatNumber(tuning.beta, { style: 'percent' });
     return {
       id,
       title: say('card_rule_title'),
@@ -882,8 +1098,13 @@
     };
   }
 
+  /** On a wide stage the rule stands in the charts' column: nothing pops open over the room for it. */
+  const cardsPop = $derived(!L.column);
+
   const cards = $derived(
-    PAIR_STEPS[current].pose.cards.map(cardFor).filter((card): card is Card => card !== null),
+    [...PAIR_STEPS[current].pose.cards, ...(cardPlaying && !PAIR_STEPS[current].pose.cards.includes(cardPlaying) ? [cardPlaying] : [])]
+      .map(cardFor)
+      .filter((card): card is Card => card !== null),
   );
 
   /** The newest bubble's lines, arriving one by one. */
@@ -919,6 +1140,23 @@
 
   const sizes = $state<Record<string, { w: number; h: number }>>({});
 
+  /**
+   * Whoever speaks sends out a ripple, so the eye finds him — in a room of a
+   * hundred he is a dot (owner review 2026-09-26: "here he is").
+   */
+  let ripples = $state<{ id: number; x: number; y: number; r: number; ink: string }[]>([]);
+  let rippleId = 0;
+  let lastSpoken = '';
+  $effect(() => {
+    const newest = said[said.length - 1];
+    if (!newest || newest.id === lastSpoken || !newest.at || stage?.reduced) return;
+    lastSpoken = newest.id;
+    const a = anchorOf(newest.at);
+    const id = ++rippleId;
+    ripples = [...ripples, { id, x: a.x, y: a.y, r: a.r, ink: PROTAGONISTS[newest.at].stroke }];
+    window.setTimeout(() => (ripples = ripples.filter((q) => q.id !== id)), 1500);
+  });
+
   /** The title's size, as its CSS computes it: clamp(2.4rem, min(11.5vw, 19svh), 10rem). */
   const titleFont = $derived(Math.min(titleMax, Math.min(160, Math.max(38.4, Math.min(width * 0.115, height * 0.19)))));
   /** How small the title gets once they start talking. */
@@ -931,6 +1169,7 @@
     // in the room the talk floats over the crowd, down to just above the two;
     // over a picture, it stops above the picture
     const chartTop: Record<string, number> = {
+      four: fourSpot(0).y - L.radius(8) - 24,
       piles: Math.min(...pilesPose.piles.map((p) => p.top)) - 22,
       ruler: Math.min(...rulerPose.spots.map((p) => p.y)) - rulerPose.marker - 20,
       line: L.room.box.y + L.room.box.h * 0.5,
@@ -943,26 +1182,31 @@
     const card = cardOpen && width < 760 && cardHeight > 0 ? 12.8 + 44 + 8 + cardHeight + 10 : 0;
     const start = Math.max(top, card);
     // on a narrow stage an open toy takes the lower two thirds: talk above it
-    const toy = sheet && width < 760 ? [height * 0.34 - 10] : [];
-    const bottom = Math.max(start + 90, Math.min(...tops, ...toy) - 6);
+    const bottom = Math.max(start + 90, Math.min(...tops) - 6);
     return { top: start, bottom, left: 16, right: width - 16 };
   });
 
-  const column = $derived(
-    chatColumn(
-      PAIR.map((who) => anchorOf(who)),
-      width - (PAIR_STEPS[current].pose.thumbs.length > 0 ? RAIL_W + 8 : 0),
-      region.top,
-      region.bottom,
-    ),
-  );
+  /** Poses where Blue and Red are markers inside a picture, not people to talk beside. */
+  const PICTURES = ['piles', 'ruler', 'line', 'four', 'turnover'];
+  const inPicture = $derived(PAIR_STEPS[current].pose.place === 'room' && PICTURES.includes(PAIR_STEPS[current].pose.roomMode));
+
+  const column = $derived.by(() => {
+    const right = L.column ? L.column.x - 8 : width - (PAIR_STEPS[current].pose.thumbs.length > 0 ? RAIL_W + 8 : 0);
+    const c = chatColumn(PAIR.map((who) => anchorOf(who)), right, region.top, region.bottom);
+    if (!inPicture) return c;
+    const box = L.room.box;
+    return { ...c, mid: box.x + box.w / 2 };
+  });
   const bubbleWidth = $derived(Math.min(368, (column.right - column.left) * 0.8));
 
   const placed = $derived(
     stackChat(
-      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null })),
+      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null, aside: b.aside })),
       column,
       PAIR_STEPS[current].pose.place === 'room' ? 4 : 6,
+      2,
+      // asides beside their speaker need room on both sides; a phone keeps one column
+      !inPicture && width >= 700,
     ),
   );
 
@@ -1077,8 +1321,18 @@
    * crouch, stretch into the air, squash on landing, and no two hops alike.
    * Nobody flies: a long way is many small hops, never one big arc.
    */
-  function hopAlong(tl: Timeline, p: Hopper, from: Point, to: Point, depart: number, arrive: number, height: number, key: number): void {
-    const n = hopsFor(Math.hypot(to.x - from.x, to.y - from.y), L.radius(1) * 2.2);
+  function hopAlong(
+    tl: Timeline,
+    p: Hopper,
+    from: Point,
+    to: Point,
+    depart: number,
+    arrive: number,
+    height: number,
+    key: number,
+    hopLength = L.radius(1) * 2.2,
+  ): void {
+    const n = hopsFor(Math.hypot(to.x - from.x, to.y - from.y), hopLength);
     if (n === 0 || arrive <= depart) return;
     const weights = Array.from({ length: n }, (_, k) => 0.8 + noise(key, k) * 0.55);
     const total = weights.reduce((sum, w) => sum + w, 0);
@@ -1200,9 +1454,11 @@
     L.room.positions.forEach((spot, i) => {
       if (i === L.room.blue || i === L.room.red) return;
       const entry = { x: spot.x < w / 2 ? -L.room.radius * 3 : w + L.room.radius * 3, y: spot.y };
-      const depart = 0.4 + (i / L.room.positions.length) * 2.2 + noise(i, 4) * 0.3;
+      // one by one over five seconds or so, unhurried: long, low hops (owner review 2026-09-26)
+      const depart = 0.5 + (i / L.room.positions.length) * 4.6 + noise(i, 4) * 0.5;
+      const hops = Math.max(3, Math.round(Math.hypot(spot.x - entry.x, spot.y - entry.y) / (L.room.radius * 6)));
       tl.set(view.room[i], { ...entry, alpha: 1, sx: 1, sy: 1 }, depart);
-      hopAlong(tl, view.room[i], entry, spot, depart, depart + 0.9 + noise(i, 5) * 0.4, L.room.radius * 1.3, i * 3 + 9);
+      hopAlong(tl, view.room[i], entry, spot, depart, depart + hops * (0.36 + noise(i, 5) * 0.1), L.room.radius * 0.9, i * 3 + 9, L.room.radius * 6);
     });
     tl.call(() => {
       view.held = t.held;
@@ -1345,7 +1601,7 @@
   const holding = $derived(current === indexOf('equal') && !stage?.isReleased('equal') && stage?.index === indexOf('equal'));
 
   function react(key: string, who: Speaker): void {
-    reaction = { id: `react:${key}`, who, at: who, text: say(key) };
+    reaction = { id: `react:${key}`, who, at: who, text: say(key), aside: true };
   }
 
   /** A coin on its way from one fortune to the other, drawn where it is. */
@@ -1548,6 +1804,7 @@
     fitTitle();
     void document.fonts?.ready.then(fitTitle);
     recallAnswers();
+    loadTuning();
     const stopAmbient = ambientClock((s) => (seconds = s), stage?.reduced ?? false);
     return () => {
       observer.disconnect();
@@ -1561,6 +1818,30 @@
     };
   });
 </script>
+
+{#snippet histogramPicture()}
+  <HistoMini wealth={run.wealth()} startDollars={START_DOLLARS} revision={run.state.revision} />
+{/snippet}
+
+{#snippet giniPicture()}
+  <div class="card-lorenz"><LorenzMini wealth={run.wealth()} revision={run.state.revision} /></div>
+{/snippet}
+
+{#snippet participantsPicture()}
+  <p class="card-big">{`≈ ${formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
+{/snippet}
+
+{#snippet turnoverPicture()}
+  <svg class="turn-mini" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points={turnover.rounds.map((t, k) => `${((k / Math.max(1, turnover.rounds.length - 1)) * 200).toFixed(1)},${(58 - (t / turnover.max) * 54).toFixed(1)}`).join(' ')} />
+  </svg>
+{/snippet}
+
+{#snippet giniToy()}
+  {#await import('../../../distribution/GiniStage.svelte') then toy}
+    <toy.default />
+  {/await}
+{/snippet}
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="pair-scene" bind:this={host} onpointermove={dragMove}>
@@ -1619,8 +1900,9 @@
               <path
                 d={svgShapePath(roomStyles[i].shape, Math.max(0.6, spot.r))}
                 transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`}
-                fill={roomStyles[i].fill}
+                fill={spot.empty > 0.5 ? 'none' : roomStyles[i].fill}
                 stroke={roomStyles[i].stroke}
+                stroke-dasharray={spot.empty > 0.5 ? '2.5 2.5' : undefined}
                 fill-opacity="0.75"
                 stroke-width="1.3"
                 opacity={spot.alpha}
@@ -1735,6 +2017,54 @@
         {/if}
       {/if}
 
+      {#if PAIR_STEPS[current].pose.place === 'room'}
+        {@const mode = PAIR_STEPS[current].pose.roomMode}
+        {@const box = L.room.box}
+        {#if mode === 'line' && view.lorenzDraw > 0 && view.lorenzDraw < 1}
+          <!-- the walk: added up, poorest first, each point plotted as it is reached -->
+          <g class="walker">
+            {#each linePose.curve.slice(1, walker.k + 1) as p, k (k)}
+              <circle class="dot" cx={p.x} cy={p.y} r="2" />
+            {/each}
+            <circle class="total" cx={walker.point.x} cy={walker.point.y} r={Math.max(2, walker.r)} />
+          </g>
+        {/if}
+        {#if mode === 'four'}
+          {#each cast.four as agent, k (agent)}
+            {@const v = agentView(agent)}
+            <g transform={`translate(${v.x.toFixed(1)} ${v.y.toFixed(1)})`}>
+              {#if fourPick === k}<circle class="pick" r={v.r + 7} />{/if}
+              {#each pile(fourCoins[k], L.coinRadius, Math.max(v.r, L.coinRadius)) as c, j (j)}
+                <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
+              {/each}
+            </g>
+          {/each}
+        {/if}
+        {#if view.turnDraw > 0.001 && turnover.rounds.length > 1}
+          {@const chart = { x: box.x + 40, y: box.y + box.h * 0.12, w: box.w - 60, h: box.h * 0.7 }}
+          {@const n = turnover.rounds.length}
+          {@const shown = Math.max(2, Math.round(view.turnDraw * n))}
+          <g class="turnover" opacity={Math.min(1, view.turnDraw * 3)}>
+            <line class="axis" x1={chart.x} y1={chart.y + chart.h} x2={chart.x + chart.w} y2={chart.y + chart.h} />
+            <line class="axis" x1={chart.x} y1={chart.y} x2={chart.x} y2={chart.y + chart.h} />
+            <polyline
+              points={turnover.rounds
+                .slice(0, shown)
+                .map((t, k) => `${(chart.x + (k / (n - 1)) * chart.w).toFixed(1)},${(chart.y + chart.h - (t / turnover.max) * chart.h).toFixed(1)}`)
+                .join(' ')}
+            />
+            <text x={chart.x} y={chart.y - 8}>{formatNumber(turnover.max, { style: 'percent', maximumFractionDigits: 1 })}</text>
+            <text x={chart.x + chart.w} y={chart.y + chart.h + 18} text-anchor="end">{formatNumber(run.state.trades)}</text>
+            <text x={chart.x} y={chart.y + chart.h + 18}>0</text>
+          </g>
+        {/if}
+      {/if}
+
+      {#each ripples as ripple (ripple.id)}
+        <circle class="ripple" cx={ripple.x} cy={ripple.y} r={ripple.r} style={`--ink:${ripple.ink}`} />
+        <circle class="ripple late" cx={ripple.x} cy={ripple.y} r={ripple.r} style={`--ink:${ripple.ink}`} />
+      {/each}
+
       {#each view.payout as token, i (i)}
         {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius * 0.8} face={i % 2 ? 'back' : 'front'} />{/if}
       {/each}
@@ -1767,13 +2097,35 @@
       {/if}
     </svg>
 
-    {#if runShown && current <= indexOf('why.once')}
+    {#if !L.column && runShown && run.state.done && run.state.frames > 1 && current > indexOf('run') && !inPicture}
+      <label class="dial phone">
+        <span>{say('dial_label', { trades: formatNumber(run.state.trades) })}</span>
+        <input type="range" min="0" max={run.state.frames - 1} value={run.state.frame} oninput={(e) => run.scrub(+e.currentTarget.value)} />
+      </label>
+    {/if}
+
+    {#if !L.column && runShown && current <= indexOf('why.once')}
       <p class="readout" aria-live="off">
         {say('run_readout', {
           trades: formatNumber(run.state.trades),
           share: formatNumber(run.state.share, { style: 'percent' }),
         })}
       </p>
+    {/if}
+
+    {#if current === indexOf('eff.try')}
+      {#each cast.four as agent, k (agent)}
+        {@const v = agentView(agent)}
+        {@const r = Math.max(v.r, 28)}
+        <button
+          type="button"
+          class="hit"
+          style={`left:${v.x - r}px; top:${v.y - r}px; width:${r * 2}px; height:${r * 2}px;`}
+          aria-pressed={fourPick === k}
+          aria-label={`${formatNumber(fourCoins[k])} ${fourPick === null ? '' : '←'}`}
+          onclick={() => tapFour(k)}
+        ></button>
+      {/each}
     {/if}
 
     <!-- the two circles as controls, over the art: each clicked in Scene 3, handed coins in Scene 5 -->
@@ -1817,6 +2169,7 @@
             coin={bubble.coin}
             paper={bubble.paper}
             hidden={bubble.kind === 'paper' && bigPaper !== null}
+            aside={bubble.aside ?? false}
             maxWidth={bubbleWidth}
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
@@ -1844,7 +2197,49 @@
       </article>
     {/if}
 
-    {#if PAIR_STEPS[current].pose.thumbs.length > 0}
+    {#if L.column && PAIR_STEPS[current].pose.place === 'room'}
+      {@const col = L.column}
+      {@const pose = PAIR_STEPS[current].pose}
+      <aside class="charts" style={`left:${col.x}px; top:${col.y}px; width:${col.w}px; max-height:${col.h}px`}>
+        {#if pose.cards.includes('rule') && !pose.ran}
+          {@const rule = cardFor('rule')}
+          {#if rule}
+            <section class="chart rule" class:glow={pose.cardOpen === 'rule'}>
+              <h3>{rule.title}</h3>
+              <ol>{#each rule.lines as line, k (k)}<li>{line}</li>{/each}</ol>
+            </section>
+          {/if}
+        {/if}
+        {#if runShown}
+          <section class="chart live">
+            <p class="big">{formatNumber(run.state.share, { style: 'percent' })}</p>
+            <p class="small">{say('run_readout', { trades: formatNumber(run.state.trades), share: formatNumber(run.state.share, { style: 'percent' }) })}</p>
+            {#if run.state.done && run.state.frames > 1}
+              <label class="dial">
+                <span>{say('dial_label', { trades: formatNumber(run.state.trades) })}</span>
+                <input type="range" min="0" max={run.state.frames - 1} value={run.state.frame} oninput={(e) => run.scrub(+e.currentTarget.value)} />
+              </label>
+            {/if}
+          </section>
+        {/if}
+        {#each pose.thumbs as thumb (thumb)}
+          <section class="chart">
+            <h3>{say(`card_${thumb}_title`)}</h3>
+            {#if thumb === 'histogram'}
+              <HistoMini wealth={run.wealth()} startDollars={START_DOLLARS} revision={run.state.revision} />
+            {:else if thumb === 'gini'}
+              <div class="lorenz-mini"><LorenzMini wealth={run.wealth()} revision={run.state.revision} /></div>
+            {:else if thumb === 'participants'}
+              <p class="big">{`≈ ${formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
+            {:else}
+              <svg class="turn-mini" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
+                <polyline points={turnover.rounds.map((t, k) => `${((k / Math.max(1, turnover.rounds.length - 1)) * 200).toFixed(1)},${(58 - (t / turnover.max) * 54).toFixed(1)}`).join(' ')} />
+              </svg>
+            {/if}
+          </section>
+        {/each}
+      </aside>
+    {:else if PAIR_STEPS[current].pose.thumbs.length > 0}
       <div class="rail" style={`inline-size:${RAIL_W}px`}>
         {#each PAIR_STEPS[current].pose.thumbs as thumb (thumb)}
           <div class="thumb">
@@ -1852,34 +2247,34 @@
               <HistoMini wealth={run.wealth()} startDollars={START_DOLLARS} revision={run.state.revision} />
             {:else if thumb === 'gini'}
               <LorenzMini wealth={run.wealth()} revision={run.state.revision} />
-            {:else}
+            {:else if thumb === 'participants'}
               <p class="count">{`≈ ${formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
               <p class="of">{say('card_participants_title')}</p>
+            {:else}
+              <svg class="turn-mini" viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
+                <polyline points={turnover.rounds.map((t, k) => `${((k / Math.max(1, turnover.rounds.length - 1)) * 200).toFixed(1)},${(58 - (t / turnover.max) * 54).toFixed(1)}`).join(' ')} />
+              </svg>
             {/if}
           </div>
         {/each}
       </div>
     {/if}
 
-    {#if sheet}
-      <section class="sheet" aria-label={sheet === 'gini-toy' ? say('card_gini_title') : say('card_participants_title')}>
-        {#if sheet === 'gini-toy'}
-          {#await import('../../../distribution/GiniStage.svelte') then toy}
-            <toy.default />
-          {/await}
-        {:else}
-          {#await import('../../../distribution/EffectiveParticipantsStage.svelte') then toy}
-            <toy.default onmeasure={(n: number) => (fourCoins = n)} />
-          {/await}
-        {/if}
-        <button type="button" class="done" onclick={closeSheet}>{say(REACTIONS.effDone)}</button>
-      </section>
+
+    {#if tuning.debug}
+      <DebugPanel lines={debugLines} onreplay={() => stage?.replay('run')} />
     {/if}
 
     <CardStack
       {cards}
       open={cardOpen}
-      ontoggle={(id) => (cardOpen = id)}
+      ontoggle={(id) => {
+        cardOpen = id;
+        if (id !== cardPlaying) cardPlaying = null;
+      }}
+      playing={cardPlaying}
+      onplay={(id) => (cardPlaying = id)}
+      playLabel={say('card_play')}
       label={say('card_stack')}
       closeLabel={say('card_close')}
       onsize={(h) => (cardHeight = h)}
@@ -2023,6 +2418,187 @@
     font-weight: 750;
   }
 
+  .card-lorenz {
+    inline-size: min(100%, 11rem);
+    margin-inline: auto;
+  }
+
+  .card-big {
+    margin: 0;
+    color: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 1.9rem;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .walker .dot {
+    fill: var(--accent);
+  }
+
+  .walker .total {
+    fill: rgb(139 63 43 / 22%);
+    stroke: var(--accent);
+    stroke-width: 1.4;
+  }
+
+  .pick {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-dasharray: 5 4;
+  }
+
+  .turnover .axis {
+    stroke: var(--ink-mid);
+    stroke-width: 1.2;
+  }
+
+  .turnover polyline,
+  .turn-mini polyline {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.4;
+    stroke-linejoin: round;
+  }
+
+  .turn-mini polyline {
+    stroke-width: 1.6;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .turnover text {
+    fill: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 12px;
+  }
+
+  /* "here he is": a ring that spreads from whoever speaks */
+  .ripple {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 2.4;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ripple 1100ms ease-out both;
+  }
+
+  .ripple.late {
+    animation-delay: 280ms;
+  }
+
+  @keyframes ripple {
+    from {
+      opacity: 0.9;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(2.6);
+    }
+  }
+
+  /* the charts' own column on a wide stage: big enough to read */
+  .charts {
+    position: absolute;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    overflow-y: auto;
+  }
+
+  .chart {
+    padding: 0.5rem 0.65rem 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: 0.55rem;
+    background: rgb(255 250 240 / 92%);
+    animation: drop 380ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  }
+
+  .chart h3 {
+    margin: 0 0 0.25rem;
+    padding: 0;
+    border: 0;
+    color: var(--ink);
+    font-family: var(--font-hand);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .chart :global(svg) {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+  }
+
+  .chart .lorenz-mini {
+    inline-size: min(100%, 8.5rem);
+    margin-inline: auto;
+  }
+
+  .chart :global(svg) {
+    max-block-size: 7.5rem;
+  }
+
+  .chart.glow {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgb(139 63 43 / 18%);
+    transition: box-shadow 400ms ease;
+  }
+
+  .chart .big {
+    margin: 0;
+    color: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 1.7rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .chart .small {
+    margin: 0.15rem 0 0;
+    color: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    line-height: 1.3;
+  }
+
+  .chart.rule ol {
+    margin: 0;
+    padding-inline-start: 1.1rem;
+    font-family: var(--font-hand);
+    font-size: 0.92rem;
+    line-height: 1.3;
+  }
+
+  .dial {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-block-start: 0.45rem;
+    color: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+  }
+
+  .dial input {
+    inline-size: 100%;
+    accent-color: var(--accent);
+  }
+
+  .dial.phone {
+    position: absolute;
+    z-index: 5;
+    inset-block-end: 0.4rem;
+    inset-inline: 1rem;
+    margin: 0;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.5rem;
+    background: rgb(255 250 240 / 88%);
+  }
+
   /* concepts already built, small, on the far side */
   .rail {
     position: absolute;
@@ -2064,44 +2640,6 @@
     font-size: 0.68rem;
     line-height: 1.2;
     text-align: center;
-  }
-
-  /* an optional toy, opened over the stage */
-  .sheet {
-    position: absolute;
-    z-index: 6;
-    inset-block-start: 11%;
-    inset-inline-start: 1rem;
-    inline-size: min(34rem, 46vw);
-    max-block-size: 82%;
-    overflow: auto;
-    padding: 0.6rem 0.8rem 0.8rem;
-    border: 1px solid var(--line);
-    border-radius: 0.7rem;
-    background: var(--paper-bright);
-    box-shadow: 0 0.8rem 2rem rgb(65 50 29 / 18%);
-  }
-
-  .sheet .done {
-    margin-block-start: 0.4rem;
-    padding: 0.2rem 0;
-    border: 0;
-    background: none;
-    color: var(--accent);
-    font-family: var(--font-hand);
-    font-size: 1.1rem;
-    font-weight: 700;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  @media (max-width: 760px) {
-    .sheet {
-      inset-block-start: 34%;
-      inset-inline: 0.5rem;
-      inline-size: auto;
-      max-block-size: 64%;
-    }
   }
 
   @keyframes drop {

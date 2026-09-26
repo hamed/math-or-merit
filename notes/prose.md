@@ -494,6 +494,8 @@ real fortune.
 
 [card.close] (draft) Close
 
+[card.play] (draft) Play with it
+
 ---
 
 ## 13 · The run — Scene 13 (inside the stage)
@@ -503,7 +505,7 @@ real fortune.
 > The biggest fortune wears the dashed ring. A forward press finishes the run
 > at once. The result and the morning paper are logged in the talk.
 
-[run.go] RED: (draft) Here we go. A hundred thousand fair trades.
+[run.go] RED: (draft) Here we go. / Fair trades, one after another.
 
 [run.readout] (draft) {trades} trades. The biggest holds {share}.
 
@@ -654,26 +656,33 @@ nothing about what kind of distribution this is.
 
 ## 17 · How many still count? — Scene 17 (inside the stage)
 
-> picture: the room itself imagines the two ends — everyone the same, then one
-> person with everything — and comes back to how it really is.
+> picture: the room itself tries the cases (owner, 2026-09-26): everyone the
+> same; one person emptied; that person's money given to one other; half the
+> room owning it all; one owner; and back to how it really is. Each time Red
+> says the number. Then four people step out of the crowd, four coins each,
+> and the reader moves the coins.
 
 [eff.ask] BLUE: (draft) A hundred players. / That's a lot of competition.
 
 [eff.equal] RED: (draft) If all hundred had the same, / all hundred would count.
 
-[eff.one] RED: (draft) If one had everything, / only one would count.
+[eff.brutal] RED: (draft) This game is brutal. / No money, and you don't count at all. {count} left.
+
+[eff.give] RED: (draft) Now give his money to one other person. / {count}. A bit less.
+
+[eff.half] RED: (draft) Half of them own it all, equally? / {count}.
+
+[eff.one] RED: (draft) One owns everything? / {count}.
 
 [eff.room] RED: (draft) This room? / About {count}.
 
-> {count} is 1 / Σsᵢ² of the room on screen, rounded to one decimal.
+> {count} is 1 / Σsᵢ² of the room on screen, to one decimal.
 
-[eff.try] RED: (draft) Want to try it with four people?
-
-[eff.try.choice] (draft) Yes · Not now
+[eff.try] RED: (draft) Your turn. Four of them, four coins each. / Move the coins.
 
 [eff.readout] RED: (draft) Four people. {count} of them count.
 
-> Red, beside the four-person toy, reading it out as the reader moves coins.
+> Red, beside the four, reading the number out as the reader moves coins.
 
 [eff.done] (draft) Done
 
@@ -689,11 +698,41 @@ This is the inverse Herfindahl concentration index.
 
 [card.participants.1] (draft) How many equal fortunes would be just as concentrated as this room.
 
-[card.participants.2] (draft) Everyone equal: all of them. One owner: 1.
-
-> Turnover is cut from the main flow (owner, 2026-09-26, D20 answer 8).
+[card.participants.2] (draft) Everyone equal: all of them. One owner: 1. No money: you don't count.
 
 ---
+
+## 18 · Is anything moving? — Scene 18 (inside the stage)
+
+> picture: the room dims; over it, how much of the room's money changed hands
+> in each round of the run, from the first to the last (owner, 2026-09-26:
+> "people want an active economy; low turnover is bad even for the right").
+
+[turn.busy] BLUE: (draft) At least it's a busy economy. / {trades} trades!
+
+[turn.count] RED: (draft) Count the money that actually changes hands.
+
+[turn.start] RED: (draft) At first, {early} of the room changed hands every round.
+
+[turn.now] RED: (draft) By the end, {late}. / The trades go on. The money barely moves.
+
+[turn.dead] BLUE: (draft) A dead economy. / Even I don't like that.
+
+[card.turnover.title] (draft) Turnover
+
+[card.turnover.1] (draft) How much of all the money changes hands in one round: one trade per person.
+
+[card.turnover.2] (draft) A busy room moves a lot of its money. A concentrated one barely moves any, however many trades it makes.
+
+! keep true: only trades count as turnover. Levies and shared returns are kept
+in their own ledger; the remedy never pads this number.
+
+[dial.label] (draft) Rewind: {trades} trades
+
+> the time dial, beside the charts: the same run, any round of it.
+
+---
+
 
 ## 19 · More of them · Where it ends · Your hand on the dial (chapters `crowd`, `where-it-ends`, `dial`)
 

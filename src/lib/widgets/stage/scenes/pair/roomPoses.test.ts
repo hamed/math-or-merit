@@ -116,3 +116,33 @@ for (const [name, box] of [['wide', BOX], ['phone', PHONE]] as const) {
     });
   });
 }
+
+describe("Scene 17's imagined rooms", async () => {
+  const { effectiveCount, imaginedShares } = await import('./roomPoses');
+  const who = { emptied: 3, given: 7, owner: 9, half: (i: number) => i < 50 };
+  const count = (mode: 'equal' | 'zero' | 'double' | 'half' | 'one') => effectiveCount(imaginedShares(mode, 100, who));
+
+  it('counts all hundred when everyone is equal', () => expect(count('equal')).toBeCloseTo(100, 9));
+  it("drops to 99 when one has nothing — no money, you don't count", () => expect(count('zero')).toBeCloseTo(99, 9));
+  it('drops a bit more when that money goes to one other', () => expect(count('double')).toBeCloseTo(98.039, 2));
+  it('is 50 when half own it all equally', () => expect(count('half')).toBeCloseTo(50, 9));
+  it('is 1 when one owns everything', () => expect(count('one')).toBeCloseTo(1, 9));
+  it('matches the four-coin case exactly: four equal is 4, all to one is 1', () => {
+    expect(effectiveCount([4, 4, 4, 4])).toBe(4);
+    expect(effectiveCount([16, 0, 0, 0])).toBe(1);
+    expect(effectiveCount([8, 8, 0, 0])).toBe(2);
+  });
+});
+
+describe('the line keeps everyone\'s size', () => {
+  it('stands each on the floor at their own size, poorest first, the richest last', () => {
+    const amounts = room();
+    const radii = amounts.map((a) => 12 * Math.sqrt(a / 100));
+    const pose = line(amounts, BOX, radii);
+    const floor = BOX.y + BOX.h - 4;
+    for (let i = 0; i < 100; i++) expect(pose.spots[i].y + Math.max(0.6, radii[i])).toBeCloseTo(floor, 6);
+    const byX = Array.from({ length: 100 }, (_, i) => i).sort((a, b) => pose.spots[a].x - pose.spots[b].x);
+    expect(byX[99]).toBe(42);
+    expect(pose.frame.y + pose.frame.h).toBeLessThan(floor - 2 * Math.max(...radii));
+  });
+});

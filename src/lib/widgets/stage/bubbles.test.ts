@@ -63,6 +63,26 @@ describe('the talk, as a chat window', () => {
     for (const p of laid.filter((q) => !q.gone)) expect(p.y).toBeGreaterThanOrEqual(COLUMN.top - 1);
   });
 
+  it('puts what is said to the reader on the speaker\'s outer side, not in the middle', () => {
+    const mixed = [said(240, 50), { w: 200, h: 40, anchor: BLUE, aside: true }, said(240, 50, RED), { w: 200, h: 40, anchor: RED, aside: true }];
+    const laid = stackChat(mixed, COLUMN);
+    // Blue's aside ends near Blue and reaches out, away from the middle
+    expect(laid[1].x + 200).toBeLessThan(BLUE.x + BLUE.r);
+    expect(laid[1].x).toBeLessThan(laid[0].x);
+    // Red's reaches out the other way
+    expect(laid[3].x).toBeGreaterThan(RED.x - RED.r);
+    // just above the speaker, pointing at him
+    expect(laid[1].y + 40).toBeLessThanOrEqual(BLUE.y - BLUE.r);
+    expect(laid[1].tail!.tip.y).toBeGreaterThan(40);
+  });
+
+  it('keeps only the newest two asides on each side', () => {
+    const asides = Array.from({ length: 4 }, () => ({ w: 150, h: 36, anchor: BLUE, aside: true }));
+    const laid = stackChat(asides, { ...COLUMN, top: -10_000 });
+    expect(laid.map((p) => p.gone)).toEqual([true, true, false, false]);
+    expect(laid[3].y).toBeGreaterThan(laid[2].y);
+  });
+
   it('keeps only the newest few when asked to', () => {
     const many = Array.from({ length: 6 }, (_, i) => said(200, 40, i % 2 ? RED : BLUE));
     const laid = stackChat(many, { ...COLUMN, top: -10_000 }, 4);

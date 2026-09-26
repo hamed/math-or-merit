@@ -120,7 +120,7 @@ function fitMarker(counts: readonly number[], width: number, height: number, mos
   return { r, perRow: Math.max(1, Math.floor((width - 6) / (2 * r + MARKER_GAP))) };
 }
 
-export function piles(amounts: ArrayLike<number>, box: Box, bins = 8, most = 7): PilesPose {
+export function piles(amounts: ArrayLike<number>, box: Box, bins = 8, most = 12): PilesPose {
   const n = amounts.length;
   let max = 0;
   for (let i = 0; i < n; i++) max = Math.max(max, amounts[i]);
@@ -209,15 +209,32 @@ export function ruler(amounts: ArrayLike<number>, box: Box, most = 7): RulerPose
   throw new Error('unreachable: the smallest marker always fits');
 }
 
-export function line(amounts: ArrayLike<number>, box: Box): LinePose {
+/**
+ * Everyone in a line, poorest first. With `radii`, everyone keeps their own
+ * size (owner review 2026-09-26: "you must keep the size"): side by side on
+ * the floor, squeezed together only if the room is too narrow for them all.
+ */
+export function line(amounts: ArrayLike<number>, box: Box, radii?: ArrayLike<number>): LinePose {
   const n = amounts.length;
   const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => amounts[a] - amounts[b] || a - b);
   const pitch = box.w / n;
-  const r = Math.max(1.2, Math.min(6, pitch / 2 - 0.6));
-  const baseY = box.y + box.h - r - 4;
-  const frame = { x: box.x, y: box.y + 6, w: box.w, h: baseY - r - 10 - (box.y + 6) };
+  const uniform = Math.max(1.2, Math.min(6, pitch / 2 - 0.6));
+  const r = (i: number) => (radii ? Math.max(0.6, radii[i]) : uniform);
+  const floor = box.y + box.h - 4;
+  const tallest = Math.max(...order.map((i) => r(i)));
+  // side by side, then squeezed to fit the room if they do not
+  const widths = order.map((i) => 2 * r(i) + 0.8);
+  const needed = widths.reduce((sum, w) => sum + w, 0);
+  const squeeze = Math.min(1, box.w / needed);
   const spots = new Array<Point>(n);
-  order.forEach((i, rank) => (spots[i] = { x: box.x + (rank + 0.5) * pitch, y: baseY }));
+  let x = box.x;
+  order.forEach((i, rank) => {
+    const w = widths[rank] * squeeze;
+    spots[i] = { x: x + w / 2, y: floor - r(i) };
+    x += w;
+  });
+  const top = box.y + 6;
+  const frame = { x: box.x, y: top, w: box.w, h: floor - 2 * tallest - 10 - top };
   let total = 0;
   for (let i = 0; i < n; i++) total += amounts[i];
   const curve: Point[] = [{ x: frame.x, y: frame.y + frame.h }];
@@ -228,7 +245,7 @@ export function line(amounts: ArrayLike<number>, box: Box): LinePose {
   });
   return {
     spots,
-    marker: r,
+    marker: uniform,
     frame,
     curve,
     diagonal: [
@@ -236,4 +253,49 @@ export function line(amounts: ArrayLike<number>, box: Box): LinePose {
       { x: frame.x + frame.w, y: frame.y },
     ],
   };
+}
+
+/** 1 / Σ s², for shares of any total: how many equal fortunes would be as concentrated. */
+export function effectiveCount(shares: ArrayLike<number>): number {
+  let sum = 0;
+  let squares = 0;
+  for (let i = 0; i < shares.length; i++) {
+    sum += shares[i];
+    squares += shares[i] * shares[i];
+  }
+  return squares > 0 ? (sum * sum) / squares : 0;
+}
+
+/**
+ * Scene 17's imagined rooms, as everyone's share (owner, 2026-09-26): all
+ * equal · `emptied` has nothing (the money is simply gone) · `emptied`'s money
+ * went to `given` instead · the first half (by `half`) own it all, equally ·
+ * `owner` owns everything.
+ */
+export function imaginedShares(
+  mode: 'equal' | 'zero' | 'double' | 'half' | 'one',
+  n: number,
+  who: { emptied: number; given: number; owner: number; half: (i: number) => boolean },
+): Float64Array {
+  const shares = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    switch (mode) {
+      case 'equal':
+        shares[i] = 1 / n;
+        break;
+      case 'zero':
+        shares[i] = i === who.emptied ? 0 : 1 / n;
+        break;
+      case 'double':
+        shares[i] = i === who.emptied ? 0 : i === who.given ? 2 / n : 1 / n;
+        break;
+      case 'half':
+        shares[i] = who.half(i) ? 2 / n : 0;
+        break;
+      case 'one':
+        shares[i] = i === who.owner ? 1 : 0;
+        break;
+    }
+  }
+  return shares;
 }

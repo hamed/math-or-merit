@@ -38,7 +38,7 @@ describe('the pair stage as data', () => {
   it('speaks every scripted line of Scenes 3–11 somewhere, in script order', () => {
     // what a character SAYS in these scenes — not the buttons and labels
     const scripted = parseProse(readFileSync('notes/prose.md', 'utf8'))
-      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess|run|why|sort|gini|eff)\./.test(line.tag))
+      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess|run|why|sort|gini|eff|turn)\./.test(line.tag))
       .flatMap((line) => (line.parts ? line.parts.map((_, i) => `${line.key}_${i + 1}`) : [line.key]));
     const spoken = new Set([
       ...PAIR_STEPS.flatMap((s) => s.lines?.map((l) => l.message) ?? []),
@@ -101,7 +101,7 @@ describe('the pair stage as data', () => {
   it('runs the room once, and every step after it shows how the run ended', () => {
     const run = indexOf('run');
     expect(step('run').action).toBe('run');
-    expect(step('run').wait.kind).toBe('auto');
+    expect(step('run').wait.kind).toBe('chat');
     for (const [i, s] of PAIR_STEPS.entries()) expect(s.pose.ran, s.id).toBe(i >= run);
   });
 
@@ -109,13 +109,25 @@ describe('the pair stage as data', () => {
     expect(step('sort.piles').pose.roomMode).toBe('piles');
     expect(step('sort.log').pose.roomMode).toBe('ruler');
     expect(step('gini.line').pose.roomMode).toBe('line');
-    expect(step('eff.equal').pose.roomMode).toBe('equal');
-    expect(step('eff.one').pose.roomMode).toBe('one');
-    for (const id of ['sort.home', 'gini.home', 'eff.room']) expect(step(id).pose.roomMode, id).toBe('free');
+    expect(['eff.equal', 'eff.brutal', 'eff.give', 'eff.half', 'eff.one'].map((id) => step(id).pose.roomMode)).toEqual([
+      'equal',
+      'zero',
+      'double',
+      'half',
+      'one',
+    ]);
+    expect(step('eff.try').pose.roomMode).toBe('four');
+    expect(step('turn.count').pose.roomMode).toBe('turnover');
+    for (const id of ['sort.home', 'gini.home', 'eff.room', 'eff.end', 'turn.home']) expect(step(id).pose.roomMode, id).toBe('free');
     const last = PAIR_STEPS[PAIR_STEPS.length - 1].pose;
-    expect(last.thumbs).toEqual(['histogram', 'gini', 'participants']);
-    expect(last.cards).toEqual(['rule', 'histogram', 'gini', 'participants']);
+    expect(last.thumbs).toEqual(['histogram', 'gini', 'participants', 'turnover']);
+    expect(last.cards).toEqual(['rule', 'histogram', 'gini', 'participants', 'turnover']);
     for (const s of PAIR_STEPS) expect(s.pose.place === 'room' || s.pose.roomMode === 'free', s.id).toBe(true);
+  });
+
+  it('sets what is said to the reader apart from what the two say to each other', () => {
+    for (const id of ['call.red', 'meet.red', 'meet.tip', 'guess.what', 'run.go', 'why.once', 'eff.try']) expect(step(id).aside, id).toBe(true);
+    for (const id of ['merit.1b', 'merit.1r', 'dare.edge', 'why.paper', 'sort.there', 'gini.gap']) expect(step(id).aside, id).toBeUndefined();
   });
 
   it('lets every step belong to a panel that starts with a clear', () => {

@@ -51,6 +51,12 @@
     onrest?: (on: boolean) => void;
     /** Laid out and measured, but not seen yet (the paper while its big front page shows). */
     hidden?: boolean;
+    /**
+     * Said to the reader, not to the other one. Comics set these apart from
+     * dialogue with a caption box — squarer, in the speaker's colour — and so
+     * does this, on the speaker's outer side.
+     */
+    aside?: boolean;
     reduced?: boolean;
   }
 
@@ -72,6 +78,7 @@
     choices,
     onrest,
     hidden = false,
+    aside = false,
     reduced = false,
   }: Props = $props();
 
@@ -92,7 +99,7 @@
   const lines = $derived(bubbleLines(text));
   const plain = $derived(lines.join(' ').replace(/\*\*/g, ''));
   const tone = $derived(SPEAKER_TONES[speaker ?? 'none']);
-  const outline = $derived(w > 0 && h > 0 && kind !== 'paper' ? comicOutline(w, h, tail, id) : '');
+  const outline = $derived(w > 0 && h > 0 && kind !== 'paper' ? comicOutline(w, h, tail, id, aside ? 0.9 : 1.4, aside ? 5 : 18) : '');
   /** Moves between places glide, but the first placement never slides in from a corner. */
   let settled = $state(false);
 
@@ -106,6 +113,7 @@
   class="bubble"
   class:event={kind === 'event'}
   class:paper={kind === 'paper'}
+  class:aside
   class:settled
   class:gone
   class:still={reduced}
@@ -275,6 +283,18 @@
     font-family: var(--font-sans);
     font-size: 0.7rem;
     line-height: 1.3;
+  }
+
+  /* to the reader: a caption box in the speaker's hand, a little quieter than dialogue */
+  .bubble.aside {
+    padding-block: 0.5rem 0.55rem;
+    padding-inline: 0.85rem;
+    font-size: clamp(1rem, 1.7vw, 1.18rem);
+    font-style: italic;
+  }
+
+  .bubble.aside .outline .paper {
+    fill: rgb(255 250 240 / 90%);
   }
 
   /* something that happened, logged in the talk: quieter than anyone's voice */

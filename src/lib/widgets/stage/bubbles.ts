@@ -26,6 +26,12 @@ export interface ChatItem {
   readonly h: number;
   /** Who is speaking; null for a logged event, which sits centred. */
   readonly anchor: Anchor | null;
+  /**
+   * Said to the reader (or to nobody), not to the other one: it goes on the
+   * speaker's OUTER side, close to him, and never into the middle where the two
+   * talk to each other (owner review 2026-09-26).
+   */
+  readonly aside?: boolean;
 }
 
 export interface Column {
@@ -104,13 +110,22 @@ export function tailToward(box: { x: number; y: number; w: number; h: number }, 
 }
 
 /**
- * Lay the column out. `items` in time order, oldest first. Only the newest
- * `keep` stay: the talk is context, not a transcript (owner review 2026-09-26).
+ * Lay the talk out. `items` in time order, oldest first.
+ *
+ * What the two say to each other runs down the middle column; only the newest
+ * `keep` stay — the talk is context, not a transcript. What either says to the
+ * reader stacks on his outer side, just above him, newest lowest; only the
+ * newest `asides` per side stay.
  */
-export function stackChat(items: readonly ChatItem[], column: Column, keep = Infinity): Placed[] {
-  const laid: { x: number; y: number; onLeft: boolean }[] = [];
+export function stackChat(items: readonly ChatItem[], column: Column, keep = Infinity, asides = 2, outer = true): Placed[] {
+  const placed = new Array<Placed>(items.length);
+
+  // the middle: the two, to each other, and what happened between them — and,
+  // when the speakers are markers inside a picture, everything
+  const talk = items.map((item, i) => ({ item, i })).filter(({ item }) => !outer || !item.aside || !item.anchor);
+  const laid: { i: number; x: number; y: number; onLeft: boolean }[] = [];
   let y = 0;
-  for (const item of items) {
+  for (const { item, i } of talk) {
     let x = column.mid - item.w / 2;
     let onLeft = true;
     if (item.anchor) {
@@ -118,28 +133,54 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
       x = onLeft ? column.mid - item.w * (1 - CROSS) : column.mid - item.w * CROSS;
     }
     x = Math.min(Math.max(x, column.left), Math.max(column.left, column.right - item.w));
-    laid.push({ x, y, onLeft });
+    laid.push({ i, x, y, onLeft });
     y += item.h + BUBBLE_GAP + (item.anchor ? TAIL_LENGTH * 0.6 : 0);
   }
-  const lastItem = items[items.length - 1];
-  const end = laid.length ? laid[laid.length - 1].y + lastItem.h + (lastItem.anchor ? TAIL_LENGTH : 0) : 0;
-  const shift = column.bottom - end;
-  return laid.map((p, i) => {
-    const top = p.y + shift;
-    const item = items[i];
-    const tail = item.anchor ? tailToward({ x: p.x, y: top, w: item.w, h: item.h }, item.anchor, p.onLeft) : null;
-    const old = i < laid.length - keep;
-    return { x: p.x, y: top, gone: i < laid.length - 1 && (old || top < column.top - 1), tail };
-  });
+  if (laid.length) {
+    const last = items[laid[laid.length - 1].i];
+    const end = laid[laid.length - 1].y + last.h + (last.anchor ? TAIL_LENGTH : 0);
+    const shift = column.bottom - end;
+    laid.forEach((p, k) => {
+      const item = items[p.i];
+      const top = p.y + shift;
+      const tail = item.anchor ? tailToward({ x: p.x, y: top, w: item.w, h: item.h }, item.anchor, p.onLeft) : null;
+      const old = k < laid.length - keep;
+      placed[p.i] = { x: p.x, y: top, gone: k < laid.length - 1 && (old || top < column.top - 1), tail };
+    });
+  }
+
+  // the outer sides: to the reader, beside and above whoever says it
+  for (const side of outer ? [true, false] : []) {
+    const own = items
+      .map((item, i) => ({ item, i }))
+      .filter(({ item }) => item.aside && item.anchor && item.anchor.x <= column.mid === side);
+    let bottom = Infinity;
+    own
+      .slice()
+      .reverse()
+      .forEach(({ item, i }, k) => {
+        const a = item.anchor!;
+        const reach = Math.max(a.r, 12);
+        // the outer edge of the bubble lines up a little past the speaker's own outer edge
+        let x = side ? a.x + reach * 0.35 - item.w : a.x - reach * 0.35;
+        x = Math.min(Math.max(x, column.left), Math.max(column.left, column.right - item.w));
+        const floor = Math.min(bottom, a.y - reach - TAIL_LENGTH - 4);
+        const top = floor - item.h;
+        bottom = top - BUBBLE_GAP;
+        const tail = tailToward({ x, y: top, w: item.w, h: item.h }, a, !side);
+        placed[i] = { x, y: top, gone: k >= asides || top < column.top - 1, tail };
+      });
+  }
+  return placed;
 }
 
 /**
  * The drawn outline of a bubble, as an SVG path in the bubble's own px, tail
  * included. Seeded, so a bubble keeps the same wobble every time it is drawn.
  */
-export function comicOutline(w: number, h: number, tail: Tail | null, seed: string, wobble = 1.4): string {
+export function comicOutline(w: number, h: number, tail: Tail | null, seed: string, wobble = 1.4, roundness = 18): string {
   const rand = seeded(seed);
-  const radius = Math.min(18, h / 2, w / 2);
+  const radius = Math.min(roundness, h / 2, w / 2);
   const points: { x: number; y: number; nx: number; ny: number; sharp?: boolean }[] = [];
   const along = (x0: number, y0: number, x1: number, y1: number, nx: number, ny: number) => {
     const length = Math.hypot(x1 - x0, y1 - y0);

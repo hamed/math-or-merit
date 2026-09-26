@@ -121,6 +121,20 @@ State of the work, by the brief's own plan (Part 9):
   the four-person room as optional panels (Red reads the four-person number
   out). Retired: DistributionStage and the three chapters' narration; turnover
   cut.
+- **Owner review of Phase 4, done (2026-09-26):** the run is a RECORDING
+  (`pair/recording.ts`: every round kept with its turnover; stops when the
+  richest first holds 40% by default — "stop sooner, a few in between"), played
+  back, rewound by a time dial, and every measure follows the moment on
+  screen. `?debug=1` shows the owner's panel (`pair/DebugPanel.svelte`,
+  `pair/tuning.svelte.ts` — delete both when tuning is done). Wide stages get a
+  charts column (`L.column`), the room moves up. Lines to the reader are
+  asides (`aside` in script.ts): caption boxes on the speaker's outer side.
+  A ripple marks whoever speaks. The Gini line keeps everyone's size and adds
+  them up poorest first. Effective participants walks the owner's cases in
+  the room (equal 100 · one emptied 99 · given away 98.04 · half 50 · one 1 ·
+  the room) and then four step out of the crowd with coins (`roomPoses.ts`
+  `imaginedShares`, `effectiveCount`). Turnover is back as Scene 18. Cards are
+  browsable short memos with a picture each; the Gini toy lives in its card.
 - **Next:** Phase 5 — the levy acts (5.5–5.9: the dial, the tax game, the
   levy lesson, matched rooms, the outcome map) with full-range dials; the
   theorem line and "Run it longer?" (5.4). Then the sandbox (5.10).

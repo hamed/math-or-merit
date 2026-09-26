@@ -76,9 +76,22 @@ export interface Pose {
 /**
  * How the room stands (ADR-018 room poses): scattered as people · dropped into
  * piles on an ordinary ruler · on a multiplying ruler · in a line, poorest
- * first · imagined all equal · imagined with one owner of everything.
+ * first · the imagined cases of Scene 17 (all equal; one emptied; that one's
+ * money given to one other; half owning it all; one owner) · four stepped out
+ * of the crowd with coins · dimmed under the turnover chart.
  */
-export type RoomMode = 'free' | 'piles' | 'ruler' | 'line' | 'equal' | 'one';
+export type RoomMode =
+  | 'free'
+  | 'piles'
+  | 'ruler'
+  | 'line'
+  | 'equal'
+  | 'zero'
+  | 'double'
+  | 'half'
+  | 'one'
+  | 'four'
+  | 'turnover';
 
 /** What a step does on the way in, for the scene's choreography. */
 export type Action =
@@ -104,6 +117,12 @@ export interface PairStep extends StepSpec {
   readonly panel?: true;
   /** Its line goes as soon as the next one is said. */
   readonly brief?: true;
+  /**
+   * Said to the reader (or to nobody) rather than to the other one: it sits on
+   * the speaker's outer side, not in the middle where the two talk to each
+   * other (owner review 2026-09-26).
+   */
+  readonly aside?: true;
   /** A message logged in the talk once the step's action is over (the toss result). */
   readonly log?: string;
 }
@@ -142,6 +161,7 @@ interface Draft {
   pose?: Partial<Pose>;
   panel?: true;
   brief?: true;
+  aside?: true;
   log?: string;
 }
 
@@ -172,11 +192,11 @@ const DRAFTS: Draft[] = [
   { id: 'crowd.two', wait: auto(2600), action: 'gather', pose: { crowd: 'two' } },
 
   // ---- Scene 3: meeting them — Red calls, then Blue (holds: a click each) --
-  red('call.red', 'meet_red_call_1', { wait: HOLD, panel: true, brief: true, pose: { compact: true, named: { blue: false, red: true } } }),
-  red('meet.red', 'meet_red', { wait: CHAT }),
-  blue('call.blue', 'meet_blue_call_1', { wait: HOLD, brief: true, pose: { named: { blue: true, red: true } } }),
-  blue('meet.blue', 'meet_blue', { wait: CHAT }),
-  red('meet.tip', 'meet_tip', { brief: true }),
+  red('call.red', 'meet_red_call_1', { wait: HOLD, panel: true, brief: true, aside: true, pose: { compact: true, named: { blue: false, red: true } } }),
+  red('meet.red', 'meet_red', { wait: CHAT, aside: true }),
+  blue('call.blue', 'meet_blue_call_1', { wait: HOLD, brief: true, aside: true, pose: { named: { blue: true, red: true } } }),
+  blue('meet.blue', 'meet_blue', { wait: CHAT, aside: true }),
+  red('meet.tip', 'meet_tip', { brief: true, aside: true }),
 
   // ---- Scene 4: the merit debate — every line waits ------------------------
   blue('merit.1b', 'merit_1b'),
@@ -194,7 +214,7 @@ const DRAFTS: Draft[] = [
   red('invite.5', 'invite_5'),
   blue('invite.6', 'invite_6', { wait: CHAT }),
   { id: 'clear', wait: auto(1500), action: 'clear', pose: { cleared: true, place: 'seats' } },
-  blue('equal', 'equal_ask', { wait: HOLD, pose: { holdings: held(0) } }),
+  blue('equal', 'equal_ask', { wait: HOLD, aside: true, pose: { holdings: held(0) } }),
   red('equal.done', 'equal_done', { wait: CHAT }),
 
   // ---- Scene 6: round one, with the incomplete rule -------------------------
@@ -203,7 +223,7 @@ const DRAFTS: Draft[] = [
   red('r1.flip', 'r1_flip', { pose: { flip: 'shown' } }),
   red('r1.winner', 'r1_winner'),
   { id: 'r1.toss', wait: auto(3600), action: 'toss', log: 'log_toss', pose: { holdings: held(1), table: NOTHING, flip: 'red' } },
-  blue('r1.ouch', 'r1_ouch', { wait: CHAT }),
+  blue('r1.ouch', 'r1_ouch', { wait: CHAT, aside: true }),
 
   // ---- Scene 7: round two — the rule breaks, and Blue says the fix ---------
   blue('r2.wait', 'r2_wait', { pose: { flip: 'hidden' } }),
@@ -223,10 +243,10 @@ const DRAFTS: Draft[] = [
   }),
   blue('r3.flip', 'r3_flip', { wait: CHAT, brief: true }),
   { id: 'r3.toss', wait: auto(3600), action: 'toss', log: 'log_toss', pose: { holdings: held(3), table: NOTHING, flip: 'blue' } },
-  blue('r3.done', 'r3_done', { wait: CHAT }),
+  blue('r3.done', 'r3_done', { wait: CHAT, aside: true }),
 
   // ---- Scene 9: the challenge ------------------------------------------
-  blue('dare.ahead', 'dare_ahead', { wait: CHAT, pose: { flip: 'hidden' } }),
+  blue('dare.ahead', 'dare_ahead', { wait: CHAT, aside: true, pose: { flip: 'hidden' } }),
   blue('dare.pointless', 'dare_pointless', { wait: CHAT }),
   red('dare.why', 'dare_why', { wait: CHAT }),
   blue('dare.edge', 'dare_edge'),
@@ -251,28 +271,28 @@ const DRAFTS: Draft[] = [
 
   // ---- Scene 11: the joke offer ----------------------------------------
   blue('more.real', 'more_real'),
-  red('more.joke', 'more_joke', { pose: { choice: true } }),
+  red('more.joke', 'more_joke', { aside: true, pose: { choice: true } }),
 
   // ---- Scene 12: your guess, inside the stage (holds: a guess, then a bet) --
-  red('guess.ask', 'guess_ask', { panel: true, pose: { choice: false } }),
-  red('guess.rule', 'guess_rule', { pose: { cardOpen: 'rule' } }),
-  red('guess.what', 'guess_what', { wait: HOLD, log: 'log_guess' }),
-  red('guess.stake', 'guess_stake', { wait: HOLD, log: 'log_bet', pose: { cardOpen: null } }),
-  { id: 'guess.react', wait: CHAT },
+  red('guess.ask', 'guess_ask', { panel: true, aside: true, pose: { choice: false } }),
+  red('guess.rule', 'guess_rule', { aside: true, pose: { cardOpen: 'rule' } }),
+  red('guess.what', 'guess_what', { wait: HOLD, aside: true, log: 'log_guess' }),
+  red('guess.stake', 'guess_stake', { wait: HOLD, aside: true, log: 'log_bet', pose: { cardOpen: null } }),
+  { id: 'guess.react', wait: CHAT, aside: true },
 
   // ---- Scene 13: the run, in the same room ---------------------------------
-  red('run.go', 'run_go', { panel: true }),
-  { id: 'run', wait: auto(RUN_MS + 5500), action: 'run', log: 'log_run', pose: { ran: true } },
+  red('run.go', 'run_go', { panel: true, aside: true }),
+  { id: 'run', wait: CHAT, action: 'run', log: 'log_run', pose: { ran: true } },
   { id: 'run.banter', wait: CHAT },
-  red('run.again', 'run_again'),
+  red('run.again', 'run_again', { aside: true }),
 
   // ---- Scene 14: so why did they win? -------------------------------------
   blue('why.paper', 'why_paper'),
   { id: 'why.after', wait: READER },
-  red('why.once', 'why_once'),
+  red('why.once', 'why_once', { aside: true }),
 
   // ---- Scene 15: line them up — the histogram, in the room -----------------
-  red('sort.ask', 'sort_ask', { panel: true }),
+  red('sort.ask', 'sort_ask', { panel: true, aside: true }),
   { id: 'sort.piles', wait: auto(2600), action: 'arrange', pose: { roomMode: 'piles' } },
   blue('sort.real', 'sort_real'),
   red('sort.edge', 'sort_edge'),
@@ -284,7 +304,7 @@ const DRAFTS: Draft[] = [
   red('sort.times', 'sort_times'),
   blue('sort.even', 'sort_even', { wait: CHAT }),
   red('sort.dust', 'sort_dust'),
-  red('sort.back', 'sort_back'),
+  red('sort.back', 'sort_back', { aside: true }),
   {
     id: 'sort.home',
     wait: auto(2000),
@@ -299,7 +319,7 @@ const DRAFTS: Draft[] = [
   red('gini.equal', 'gini_equal', { pose: { lorenz: 2 } }),
   red('gini.gap', 'gini_gap', { pose: { lorenz: 3 } }),
   { id: 'gini.value', wait: READER },
-  red('gini.toy', 'gini_toy'),
+  red('gini.toy', 'gini_toy', { aside: true }),
   {
     id: 'gini.home',
     wait: auto(2000),
@@ -307,18 +327,40 @@ const DRAFTS: Draft[] = [
     pose: { roomMode: 'free', lorenz: 0, thumbs: ['histogram', 'gini'], cards: ['rule', 'histogram', 'gini'] },
   },
 
-  // ---- Scene 17: how many still count? — effective participants -------------
+  // ---- Scene 17: how many still count? — the room tries the cases -----------
   blue('eff.ask', 'eff_ask', { panel: true }),
   red('eff.equal', 'eff_equal', { action: 'arrange', pose: { roomMode: 'equal' } }),
-  red('eff.one', 'eff_one', { action: 'arrange', pose: { roomMode: 'one' } }),
+  { id: 'eff.brutal', wait: READER, action: 'arrange', pose: { roomMode: 'zero' } },
+  { id: 'eff.give', wait: READER, action: 'arrange', pose: { roomMode: 'double' } },
+  { id: 'eff.half', wait: READER, action: 'arrange', pose: { roomMode: 'half' } },
+  { id: 'eff.one', wait: READER, action: 'arrange', pose: { roomMode: 'one' } },
   { id: 'eff.room', wait: READER, action: 'arrange', pose: { roomMode: 'free' } },
-  red('eff.try', 'eff_try'),
+  red('eff.try', 'eff_try', { aside: true, action: 'arrange', pose: { roomMode: 'four' } }),
   {
     id: 'eff.end',
     wait: READER,
+    action: 'arrange',
     pose: {
+      roomMode: 'free',
       thumbs: ['histogram', 'gini', 'participants'],
       cards: ['rule', 'histogram', 'gini', 'participants'],
+    },
+  },
+
+  // ---- Scene 18: is anything moving? — turnover -----------------------------
+  { id: 'turn.busy', wait: READER, panel: true },
+  red('turn.count', 'turn_count', { action: 'arrange', pose: { roomMode: 'turnover' } }),
+  { id: 'turn.start', wait: READER },
+  { id: 'turn.now', wait: READER },
+  blue('turn.dead', 'turn_dead'),
+  {
+    id: 'turn.home',
+    wait: auto(1800),
+    action: 'arrange',
+    pose: {
+      roomMode: 'free',
+      thumbs: ['histogram', 'gini', 'participants', 'turnover'],
+      cards: ['rule', 'histogram', 'gini', 'participants', 'turnover'],
     },
   },
 ];
@@ -335,6 +377,7 @@ function build(): PairStep[] {
       ...(draft.action ? { action: draft.action } : {}),
       ...(draft.panel ? { panel: true as const } : {}),
       ...(draft.brief ? { brief: true as const } : {}),
+      ...(draft.aside ? { aside: true as const } : {}),
       ...(draft.log ? { log: draft.log } : {}),
     };
     return step;
@@ -392,12 +435,21 @@ export const REACTIONS = {
   sortThere: { who: 'red', message: 'sort_there' },
   giniValue: { who: 'red', message: 'gini_value' },
   effRoom: { who: 'red', message: 'eff_room' },
+  effCases: {
+    'eff.brutal': { who: 'red', message: 'eff_brutal' },
+    'eff.give': { who: 'red', message: 'eff_give' },
+    'eff.half': { who: 'red', message: 'eff_half' },
+    'eff.one': { who: 'red', message: 'eff_one' },
+    'eff.room': { who: 'red', message: 'eff_room' },
+  },
+  turnBusy: { who: 'blue', message: 'turn_busy' },
+  turnStart: { who: 'red', message: 'turn_start' },
+  turnNow: { who: 'red', message: 'turn_now' },
   effReadout: { who: 'red', message: 'eff_readout' },
   effEnd: { who: 'blue', message: 'eff_end' },
   /** Scenes 15–17: the one-link choices, and the yes/no offers of a toy. */
-  links: { 'sort.ask': 'sort_do', 'sort.ruler': 'sort_ruler_do', 'sort.back': 'sort_back_do' },
+  links: { 'sort.ask': 'sort_do', 'sort.ruler': 'sort_ruler_do', 'sort.back': 'sort_back_do', 'eff.try': 'eff_done' },
   giniToy: ['gini_toy_choice_1', 'gini_toy_choice_2'],
-  effTry: ['eff_try_choice_1', 'eff_try_choice_2'],
   effDone: 'eff_done',
   /** Scene 14: Red's answer to the paper — after one run, or after several. */
   whyAfter: { who: 'red', message: 'why_after' },

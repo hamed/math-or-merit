@@ -53,6 +53,8 @@ export interface PairLayout {
   readonly ground: number;
   /** One coin's radius: money is one size everywhere. */
   readonly coinRadius: number;
+  /** The charts' own column on a wide stage (Scenes 13–18); none on a narrow one. */
+  readonly column: { readonly x: number; readonly y: number; readonly w: number; readonly h: number } | null;
   /** The room of Scene 10: positions, everyone's radius, and the pair's seats in it. */
   readonly room: {
     /** The room's top edge. */
@@ -87,13 +89,18 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
   const seatY = portrait ? h * 0.66 : h * 0.64;
   const left = portrait ? 0.3 : 0.33;
 
-  // most of the stage: the talk floats over the crowd's upper half, see-through
-  // (owner review 2026-09-26: "the room is too down, and too small")
-  const roomBox = { x: w * 0.04, y: h * 0.3, w: w * 0.92, h: h * 0.66 };
+  // On a wide stage the room takes the left three quarters, from near the top
+  // down (owner review 2026-09-26: "use the free space at top for the room"),
+  // and the charts get a column of their own on the right, big enough to read.
+  // On a narrow one the room is the lower two thirds and the charts are thumbnails.
+  const wide = w >= 900 && w > h * 1.15;
+  const column = wide ? { x: w * 0.755, y: h * 0.1, w: w * 0.228, h: h * 0.87 } : null;
+  const roomBox = wide ? { x: w * 0.03, y: h * 0.13, w: w * 0.7, h: h * 0.83 } : { x: w * 0.04, y: h * 0.3, w: w * 0.92, h: h * 0.66 };
   const roomRadius = radiusScale(roomSize, roomBox.w, roomBox.h) * Math.sqrt(1 / roomSize);
   // The camera pulls back about the middle as the room fills: the two keep
   // their places relative to each other, and everyone else scatters around.
-  const zoomed = (seat: Point): Point => ({ x: w / 2 + (seat.x - w / 2) * ROOM_ZOOM, y: roomBox.y + roomBox.h * 0.5 });
+  const middle = roomBox.x + roomBox.w / 2;
+  const zoomed = (seat: Point): Point => ({ x: middle + (seat.x - w / 2) * ROOM_ZOOM, y: roomBox.y + roomBox.h * 0.55 });
   const pairInRoom = [zoomed({ x: w * left, y: 0 }), zoomed({ x: w * (1 - left), y: 0 })];
   const cell = Math.sqrt((roomBox.w * roomBox.h) / roomSize);
   const inset = roomRadius * 1.6;
@@ -134,9 +141,10 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
     crowdBand: band,
     ground,
     coinRadius: whole * Math.sqrt(COIN_DENSITY / UNITS),
+    column: column && mirror ? { ...column, x: w - column.x - column.w } : column,
     room: {
       top: roomBox.y,
-      box: roomBox,
+      box: mirror ? { ...roomBox, x: w - roomBox.x - roomBox.w } : roomBox,
       positions: room,
       radius: roomRadius,
       blue: blueSeatInRoom,
