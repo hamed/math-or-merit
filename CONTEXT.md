@@ -178,8 +178,34 @@ State of the work, by the brief's own plan (Part 9):
   stage; turnover and the map have ticks and labels; piles and ruler say
   what they measure. The sandbox `Histogram` thins its log ticks when labels
   would touch (a 1e-11 room wrote "1e-11" into "1e-8").
-- **Next:** Phase 6 — the verdict as dialogue, the sandbox with Blue and Red,
-  the invitation.
+- **His second review of Phase 5, done (2026-09-26, `287431f`):** piles —
+  everyone first flies at their own size to above their bin, then all take one
+  size and drop in; Gini — the walk's circle IS the running total: it rolls
+  along the row eating each person it adds, one circle at the end (eaten
+  speakers' tails point at it); the four (Scenes 17, 22) are circles; the
+  stake dial is the sandbox's `StopSlider` over `RATE_STOPS` (0.1%…99.99%),
+  in Red's bubble during the talk and under the player in the right panel
+  after; the time player's play at the end PLAYS ON (live, fresh dice, the
+  dials as they stand, until paused — `run.playOn`, capped at 2M trades); the
+  speaker ripple is one faint ring, only for a dot in the room; matched rooms
+  — an exact copy lifts off the room and slides into its half, both framed.
+  Deferred by him: single-file histogram stacks ("point 2").
+- **Phase 6 done (2026-09-26):** Scene 25, the verdict — everyone else hops
+  out (`emptyRoom`), Blue and Red back on their seats with eight coins each,
+  the verdict lines as dialogue. Scene 26, the machine is yours — the hundred
+  hop back in, equal, Blue and Red among them, and the room is the reader's:
+  `sandboxRun` trades LIVE with the sandbox's dials in one tidy deck in the
+  right panel (Play/Pause, New room, stake, levy per round, levy every k
+  rounds, speed 1×/4×/16×, a tap levies or photographs — the Morning Ledger on
+  anyone), plots beside it; on a phone the deck folds to one row. Recorder:
+  `levyEvery`, `setRules` (dials turned mid-run), runs get `setPace`. The old
+  full Sandbox is kept, whole, as the "All the dials" side trip (Branch
+  `workshop`, opens on `#sandbox`), offered in Blue's last bubble; the
+  narrator's verdict and the sandbox intro are retired.
+- **Next:** the owner's call on the workshop (tidy it into the stage's style,
+  or port its extras — people, money per head, expert numbers, the measured
+  map, CSV — into the stage's deck); acts as chapters in the index (ADR-018);
+  single-file histogram stacks (his "point 2").
 - **Stage input rules** (2026-09-26, `claim()` in `steps.ts`): while the reader
   is in the stage every wheel event is the stage's, sub-pixel ones included —
   letting a trackpad's tail through slid the page and every later flick went

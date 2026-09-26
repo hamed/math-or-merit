@@ -585,3 +585,16 @@ equal. Including us." (the room shows it).
 - The phone's side rail of thumbnails is removed; on a phone the plots live
   in the cards (open the stack). Veto if you want the rail back.
 
+**Phase 6, made while building, 2026-09-26 — open to his veto:**
+
+- The sandbox is now the stage's last act, on the same room with Blue and Red
+  in it, and its tidy form is ONE deck of the sandbox's own dials beside the
+  same plots as the rest of the essay (brief 5.10). The old full machine is
+  kept whole as an optional side trip, "All the dials", rather than deleted:
+  it has features the deck does not (people count, money per head, expert
+  unclamped numbers, the reader-measured map, CSV). Its layout is unchanged.
+- At the verdict Blue and Red sit on their seats with eight coins each — as
+  the reader once made them equal — not at the sizes their run left them.
+- On a phone the deck folds to one row (Play · New room · Dials) so the room
+  stays in sight and in reach of a tap.
+

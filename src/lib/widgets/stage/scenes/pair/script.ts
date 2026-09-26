@@ -74,18 +74,18 @@ export interface Pose {
   /**
    * Whose fortunes the room shows: the run of Scene 13 (played on in Scene
    * 19) · the dial's fresh room (20) · the tax game, live (21–22) · the
-   * matched pair, trades only on the left (23).
+   * matched pair, trades only on the left (23) · the reader's own machine (26).
    */
   readonly source: RoomSource;
-  /** A control the reader holds in this step: the stake dial, the tax game. */
-  readonly control: 'stake' | 'tax' | null;
+  /** A control the reader holds in this step: the stake dial, the tax game, the whole machine. */
+  readonly control: 'stake' | 'tax' | 'sandbox' | null;
   /** Scene 22's lesson: 0 before · 1 a quarter of every pile in the pool · 2 the pool shared back. */
   readonly levy: 0 | 1 | 2;
   /** Scene 24: 0 no map · 1 every square filled in · 2 and the fitted curve. */
   readonly map: 0 | 1 | 2;
 }
 
-export type RoomSource = 'run' | 'dial' | 'game' | 'pair';
+export type RoomSource = 'run' | 'dial' | 'game' | 'pair' | 'sandbox';
 
 /**
  * How the room stands (ADR-018 room poses): scattered as people · dropped into
@@ -132,7 +132,8 @@ export type Action =
   | 'game'
   | 'coins'
   | 'match'
-  | 'map';
+  | 'map'
+  | 'empty';
 
 export interface PairStep extends StepSpec {
   readonly pose: Pose;
@@ -449,6 +450,24 @@ const DRAFTS: Draft[] = [
   blue('map.ask', 'map_ask', { panel: true, action: 'arrange', pose: { roomMode: 'free', source: 'run' } }),
   red('map.all', 'map_all', { action: 'map', pose: { roomMode: 'map', map: 1 } }),
   red('map.fit', 'map_fit', { pose: { map: 2 } }),
+
+  // ---- Scene 25: the verdict — everyone leaves but the two ------------------
+  red('verdict.1', 'verdict_1', {
+    panel: true,
+    action: 'empty',
+    pose: { place: 'seats', holdings: { blue: 8, red: 8 }, table: NOTHING, flip: 'hidden', roomMode: 'free', source: 'run', map: 0 },
+  }),
+  blue('verdict.2', 'verdict_2'),
+  red('verdict.3', 'verdict_3'),
+  red('verdict.4', 'verdict_4'),
+  blue('verdict.5', 'verdict_5', { wait: CHAT }),
+  red('verdict.6', 'verdict_6'),
+  blue('verdict.7', 'verdict_7'),
+  red('verdict.8', 'verdict_8'),
+
+  // ---- Scene 26: the machine is yours — the room comes back, and it is the reader's
+  red('sandbox.1', 'sandbox_1', { panel: true, action: 'room', pose: { place: 'room', source: 'sandbox', control: 'sandbox', roomMode: 'free' } }),
+  blue('sandbox.2', 'sandbox_2', { aside: true }),
 ];
 
 function build(): PairStep[] {
@@ -549,6 +568,8 @@ export const REACTIONS = {
   effEnd: { who: 'blue', message: 'eff_end' },
   /** Scenes 15–17: the one-link choices, and the yes/no offers of a toy. */
   links: { 'sort.ask': 'sort_do', 'sort.ruler': 'sort_ruler_do', 'sort.back': 'sort_back_do', 'eff.try': 'eff_done' },
+  /** Scene 26: the whole old machine, as a side trip. */
+  workshop: 'sandbox_more',
   stopStart: 'stop_start',
   giniToy: ['gini_toy_choice_1', 'gini_toy_choice_2'],
   effDone: 'eff_done',

@@ -953,7 +953,11 @@ clocks, compared by their measured effects, not interchangeable percentages.
 
 ---
 
-## 22 · The verdict (chapter `verdict`)
+## 25 · The verdict — Scene 25 (inside the stage)
+
+> picture: everyone else hops out of the room; Blue and Red go back to their
+> seats, eight coins each, as the reader once made them — equal (brief 5.10:
+> "everything leaves except the two. They talk").
 
 [verdict.1] RED: (draft) The coin was fair the whole time. It never saw a name.
 
@@ -981,11 +985,46 @@ and is not an argument against merit.
 
 ---
 
-## 23 · The sandbox (chapter `sandbox`)
+## 26 · The machine is yours — Scene 26 (inside the stage)
+
+> picture: the hundred hop back in, equal, Blue and Red among them (brief
+> 5.10: "Blue and Red stay in the sandbox too"). The room is the reader's now:
+> Play, the stake, the levy and how often, the speed, and what a tap does, in
+> the right panel beside the plots; a tap on a fortune levies it or
+> photographs it for the paper. "All the dials" opens the whole old machine
+> (people, money, expert numbers, the measured map) as a side trip.
 
 [sandbox.1] RED: (draft) I'm done touching the controls.
 
 [sandbox.2] BLUE: (draft) The machine is yours. Break our argument.
+
+[sandbox.play] (draft) Play
+
+[sandbox.pause] (draft) Pause
+
+[sandbox.new] (draft) New room
+
+[sandbox.levy] (draft) levy per round
+
+[sandbox.every] (draft) levy every
+
+[sandbox.rounds] (draft) {count} rounds
+
+[sandbox.speed] (draft) speed
+
+[sandbox.tap] (draft) A tap:
+
+[sandbox.tap.levy] (draft) levies
+
+[sandbox.tap.photo] (draft) photographs
+
+[sandbox.take] (draft) a tap takes
+
+[sandbox.more] (draft) All the dials
+
+[sandbox.dials] (draft) Dials
+
+[workshop.offer] (draft) All the dials: the whole machine — people, money, expert numbers, the measured map
 
 ! keep true: the levy here is a toy. No claim about real tax policy.
 

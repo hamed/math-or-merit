@@ -73,6 +73,7 @@ const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2
 const freshSeed = () => Math.floor(Math.random() * 0xffff_ffff);
 
 export function createRun(settings: () => RunSettings, durationMs: () => number, options: RunOptions = { remember: true, log: true }) {
+  const settingsNow = settings;
   const n = settings().n;
   const state = $state<RunState>({
     revision: 0,
@@ -182,6 +183,8 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
   /** Trades owed to the live room: a fraction of a trade carries into the next frame. */
   let owed = 0;
   let livePerSecond = 0;
+  /** Trades a second for playing on; the sandbox's speed dial sets it. */
+  let pace = options.pace ?? 1_000;
   let liveTick: ((dt: number) => void) | null = null;
   const liveTicker = createTicker((dt) => {
     if (!live) return;
@@ -221,10 +224,11 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
     const last = recording.trades[recording.trades.length - 1];
     if (last >= PLAY_ON_CAP) return;
     before = recording;
-    const settings: RunSettings = { ...recording.settings, stop: { kind: 'trades', trades: PLAY_ON_CAP - last }, cap: PLAY_ON_CAP - last };
+    // the rules as the dials stand now: the room plays on by whatever the reader has turned
+    const settings: RunSettings = { ...settingsNow(), stop: { kind: 'trades', trades: PLAY_ON_CAP - last }, cap: PLAY_ON_CAP - last };
     live = recorder(settings, freshSeed(), recording.frames[recording.frames.length - 1]);
     owed = 0;
-    livePerSecond = options.pace ?? 1_000;
+    livePerSecond = pace;
     liveTick = null;
     state.playing = true;
     liveTicker.start();
@@ -298,6 +302,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
       from = 0;
       state.done = false;
       state.running = true;
+      state.playing = true;
       state.frame = 0;
       showLive();
       liveTicker.start();
@@ -366,8 +371,17 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
     },
     pause(): void {
       replayer.stop();
-      if (before) endLive();
+      if (live) endLive();
       state.playing = false;
+    },
+    /** A dial turned while the room trades live: the next trade plays by it. */
+    setRules(rules: { beta?: number; levy?: number; levyEvery?: number }): void {
+      live?.setRules(rules);
+    },
+    /** Trades a second, live and for playing on. */
+    setPace(perSecond: number): void {
+      pace = perSecond;
+      if (live) livePerSecond = perSecond;
     },
     /** Before any run: everyone equal. */
     clear(): void {

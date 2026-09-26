@@ -97,6 +97,19 @@ describe('the shared rule and the longer run', () => {
     expect(Array.from(live.recording().frames.at(-1)!)).toEqual(Array.from(once.frames.at(-1)!));
   });
 
+  it('levies only every k rounds when asked, and plays by a dial turned mid-run', () => {
+    const plain = { n: 100, beta: 0.25, stop: { kind: 'trades', trades: 3_000 }, cap: 3_000 } as const;
+    const every = record({ ...plain, levy: 0.05, levyEvery: 1 }, 7);
+    const sparse = record({ ...plain, levy: 0.05, levyEvery: 10 }, 7);
+    const open = (r: typeof every) => measureWealth(r.frames.at(-1)!).effectiveParticipants;
+    expect(open(every)).toBeGreaterThan(open(sparse));
+    const live = recorder({ ...plain, stop: { kind: 'trades', trades: 100_000 }, cap: 100_000 }, 7);
+    live.setRules({ beta: 0 });
+    live.play(5_000);
+    // no stake, nothing moves
+    expect(Array.from(live.wealth).every((w) => Math.abs(w - 0.01) < 1e-12)).toBe(true);
+  });
+
   it('lets a tap take a quarter of one fortune into a pool shared by everyone, keeping every coin', () => {
     const live = recorder({ ...DEFAULT_RUN, stop: { kind: 'trades', trades: 5_000 } }, 5);
     live.play(3_000);

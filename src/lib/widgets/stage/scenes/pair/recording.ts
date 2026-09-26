@@ -36,6 +36,8 @@ export interface RunSettings {
    * Only trades count as turnover; the levy never pads it.
    */
   readonly levy?: number;
+  /** The levy comes every this many rounds (the sandbox's cadence); every round when absent. */
+  readonly levyEvery?: number;
 }
 
 export interface Recording {
@@ -83,13 +85,18 @@ export interface Recorder {
   play(count: number): void;
   /** A tap: `rate` of one fortune goes into a pool, shared back equally. Returns what was taken. */
   take(index: number, rate: number): number;
+  /** The reader turns a dial while the room trades (the sandbox): the next trade plays by it. */
+  setRules(rules: { readonly beta?: number; readonly levy?: number; readonly levyEvery?: number }): void;
   /** Everything kept so far. */
   recording(): Recording;
 }
 
 export function recorder(settings: RunSettings, seed: number, start?: ArrayLike<number>): Recorder {
-  const { n, beta, stop, cap } = settings;
-  const levy = Math.min(1, Math.max(0, settings.levy ?? 0));
+  const { n, stop, cap } = settings;
+  let beta = settings.beta;
+  let levy = Math.min(1, Math.max(0, settings.levy ?? 0));
+  let levyEvery = Math.max(1, Math.round(settings.levyEvery ?? 1));
+  let rounds = 0;
   const random = createRandomSource(seed);
   const wealth = start ? Float64Array.from(start) : new Float64Array(n).fill(1 / n);
   const frames: Float64Array[] = [Float64Array.from(wealth)];
@@ -101,7 +108,8 @@ export function recorder(settings: RunSettings, seed: number, start?: ArrayLike<
   let finished = cap <= 0 || stopped(stop, wealth, 0);
 
   function endRound(): void {
-    if (levy > 0) applyFlatWealthLevy(wealth, levy);
+    rounds++;
+    if (levy > 0 && rounds % levyEvery === 0) applyFlatWealthLevy(wealth, levy);
     frames.push(Float64Array.from(wealth));
     trades.push(done);
     turnover.push(moved);
@@ -134,6 +142,11 @@ export function recorder(settings: RunSettings, seed: number, start?: ArrayLike<
     },
     take(index: number, rate: number): number {
       return applyTargetedWealthLevy(wealth, index, rate);
+    },
+    setRules(rules): void {
+      if (rules.beta !== undefined) beta = Math.min(1, Math.max(0, rules.beta));
+      if (rules.levy !== undefined) levy = Math.min(1, Math.max(0, rules.levy));
+      if (rules.levyEvery !== undefined) levyEvery = Math.max(1, Math.round(rules.levyEvery));
     },
     recording: (): Recording => ({ seed, settings, frames: frames.slice(), trades: trades.slice(), turnover: turnover.slice() }),
   };

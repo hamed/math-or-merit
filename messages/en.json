@@ -280,5 +280,19 @@
   "verdict_7": "If merit is supposed to win…",
   "verdict_8": "…keep the game open long enough for merit to play.",
   "sandbox_1": "I'm done touching the controls.",
-  "sandbox_2": "The machine is yours. Break our argument."
+  "sandbox_2": "The machine is yours. Break our argument.",
+  "sandbox_play": "Play",
+  "sandbox_pause": "Pause",
+  "sandbox_new": "New room",
+  "sandbox_levy": "levy per round",
+  "sandbox_every": "levy every",
+  "sandbox_rounds": "{count} rounds",
+  "sandbox_speed": "speed",
+  "sandbox_tap": "A tap:",
+  "sandbox_tap_levy": "levies",
+  "sandbox_tap_photo": "photographs",
+  "sandbox_take": "a tap takes",
+  "sandbox_more": "All the dials",
+  "sandbox_dials": "Dials",
+  "workshop_offer": "All the dials: the whole machine — people, money, expert numbers, the measured map"
 }

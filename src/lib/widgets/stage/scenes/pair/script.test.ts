@@ -38,7 +38,7 @@ describe('the pair stage as data', () => {
   it('speaks every scripted line of Scenes 3–11 somewhere, in script order', () => {
     // what a character SAYS in these scenes — not the buttons and labels
     const scripted = parseProse(readFileSync('notes/prose.md', 'utf8'))
-      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess|run|why|sort|gini|eff|turn|end|dial|stop|levy|match|map)\./.test(line.tag))
+      .filter((line) => line.speaker !== null && /^(meet|merit|invite|equal|r1|r2|r3|dare|more|guess|run|why|sort|gini|eff|turn|end|dial|stop|levy|match|map|verdict|sandbox)\./.test(line.tag))
       .flatMap((line) => (line.parts ? line.parts.map((_, i) => `${line.key}_${i + 1}`) : [line.key]));
     const spoken = new Set([
       ...PAIR_STEPS.flatMap((s) => s.lines?.map((l) => l.message) ?? []),
@@ -132,8 +132,16 @@ describe('the pair stage as data', () => {
     expect(step('levy.ask').pose.roomMode).toBe('levy4');
     expect([step('match.ask').pose.roomMode, step('match.ask').pose.source]).toEqual(['matched', 'pair']);
     expect([step('map.ask').pose.source, step('map.all').pose.map, step('map.fit').pose.map]).toEqual(['run', 1, 2]);
-    const last = PAIR_STEPS[PAIR_STEPS.length - 1].pose;
-    expect(last.cards).toEqual(['rule', 'histogram', 'gini', 'participants', 'turnover', 'limit', 'stake', 'levy']);
+    expect(step('map.fit').pose.cards).toEqual(['rule', 'histogram', 'gini', 'participants', 'turnover', 'limit', 'stake', 'levy']);
+  });
+
+  it('ends with the two alone, equal, then hands the reader the machine with them in it', () => {
+    const verdict = step('verdict.1').pose;
+    expect([verdict.place, verdict.holdings.blue, verdict.holdings.red, verdict.table.blue + verdict.table.red]).toEqual(['seats', 8, 8, 0]);
+    const last = PAIR_STEPS[PAIR_STEPS.length - 1];
+    expect(last.id).toBe('sandbox.2');
+    expect([last.pose.place, last.pose.source, last.pose.control]).toEqual(['room', 'sandbox', 'sandbox']);
+    expect(last.pose.named).toEqual({ blue: true, red: true });
   });
 
   it('keeps every coin in the levy lesson, and nets out the way Red says', () => {

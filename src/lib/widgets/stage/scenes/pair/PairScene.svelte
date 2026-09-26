@@ -483,6 +483,11 @@
       gameRun.clear();
       game.result = null;
     }
+    if (pose.source === 'sandbox' && entering === 'room') {
+      sandboxRun.clear();
+      sandboxPapers = [];
+    }
+    if (pose.source !== 'sandbox' && sandboxRun.isLive()) sandboxRun.pause();
     if (pose.source === 'pair') {
       if (entering === 'match') {
         leftRun.clear();
@@ -573,11 +578,20 @@
     gameRun.endLive();
   }
 
-  /** A tap on a fortune: a quarter of it into the pool, shared back by everyone. */
+  /** A tap on a fortune: in the game, a quarter of it into the pool, shared back by everyone; in the machine, whatever the reader chose. */
   function tapRoom(i: number): void {
-    if (!game.playing) return;
-    gameRun.take(i, GAME.rate);
-    game.taps++;
+    if (PAIR_STEPS[current].pose.control === 'sandbox') {
+      if (sb.tap === 'photo') {
+        photograph(i);
+        return;
+      }
+      if (!sandboxRun.isLive()) return;
+      sandboxRun.take(i, sb.take);
+    } else {
+      if (!game.playing) return;
+      gameRun.take(i, GAME.rate);
+      game.taps++;
+    }
     if (stage?.reduced) return;
     const v = agentView(i);
     const id = ++rippleId;
@@ -601,10 +615,13 @@
     if (best >= 0) tapRoom(best);
   }
 
+  /** Where a tap lands: the game, or the reader's machine. */
+  const tapping = $derived((game.playing && current === indexOf('stop.how')) || PAIR_STEPS[current].pose.control === 'sandbox');
+
   /** The five largest fortunes, as buttons for the keyboard. */
   const topFive = $derived.by(() => {
-    void gameRun.state.revision;
-    const w = gameRun.wealth();
+    void shown.state.revision;
+    const w = shown.wealth();
     return Array.from(w.keys())
       .sort((a, b) => w[b] - w[a])
       .slice(0, 5);
@@ -708,7 +725,56 @@
   const leftRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES), () => MATCH_MS, OWN);
   const rightRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES, MATCH_LEVY), () => MATCH_MS, OWN);
 
-  const RUNS: Record<RoomSource, Run> = { run, dial: dialRun, game: gameRun, pair: leftRun };
+  /**
+   * Scene 26: the reader's machine — the sandbox's dials, on the same room,
+   * with Blue and Red in it (brief 5.10). It trades live while played, and
+   * rewinds like any run when paused.
+   */
+  const SPEEDS = [1, 4, 16];
+  const PER_SPEED = 250;
+  const EVERY_STOPS = [1, 2, 5, 10, 20, 50, 100];
+  const sb = $state({ stake: DEFAULT_RUN.beta, levy: 0, every: 1, speed: 4, tap: 'levy' as 'levy' | 'photo', take: 0.25 });
+  const sandboxRun = createRun(
+    () => ({ n: 100, beta: sb.stake, stop: { kind: 'trades', trades: 2_000_000 }, cap: 2_000_000, levy: sb.levy, levyEvery: sb.every }),
+    () => 0,
+    { remember: false, log: false, pace: sb.speed * PER_SPEED },
+  );
+  // a dial turned while the room trades plays from the next trade on
+  $effect(() => {
+    sandboxRun.setRules({ beta: sb.stake, levy: sb.levy, levyEvery: sb.every });
+    sandboxRun.setPace(sb.speed * PER_SPEED);
+  });
+
+  /** Play: a fresh room goes live; a paused one plays on from where it stands. */
+  function sandboxPlay(): void {
+    if (sandboxRun.isLive()) return;
+    if (!sandboxRun.recording()) sandboxRun.live(sb.speed * PER_SPEED, () => {});
+    else sandboxRun.play();
+  }
+
+  function sandboxNew(): void {
+    const wasPlaying = sandboxRun.isLive();
+    sandboxRun.clear();
+    sandboxPapers = [];
+    if (wasPlaying) sandboxRun.live(sb.speed * PER_SPEED, () => {});
+  }
+
+  /** The papers the reader has had printed, in the talk. */
+  let sandboxPapers = $state<Said[]>([]);
+  /** A phone's deck, folded to one row until the reader opens the dials. */
+  let deckOpen = $state(false);
+  let photos = 0;
+
+  function photograph(i: number): void {
+    const paper = paperOn(i, Float64Array.from(sandboxRun.wealth()), photos++);
+    sandboxPapers = [...sandboxPapers.slice(-2), { id: `paper:sandbox:${photos}`, who: null, at: null, text: paper.text, kind: 'paper', paper }];
+    dropPaper();
+    if (stage?.reduced) return;
+    bigPaper = paper;
+    paperTimer = window.setTimeout(shrinkPaper, 3200);
+  }
+
+  const RUNS: Record<RoomSource, Run> = { run, dial: dialRun, game: gameRun, pair: leftRun, sandbox: sandboxRun };
   /** The room on screen now. */
   const shown = $derived(RUNS[PAIR_STEPS[current].pose.source]);
 
@@ -1144,7 +1210,9 @@
 
 
   /** The charts column's plots, two across and two down, as large as the column allows. */
-  const plotCell = $derived(L.column ? Math.max(120, Math.min((L.column.w - 10) / 2, (L.column.h - 140) / 2)) : 0);
+  const plotCell = $derived(
+    L.column ? Math.max(110, Math.min((L.column.w - 10) / 2, (L.column.h - (PAIR_STEPS[current].pose.control === 'sandbox' ? 330 : 140)) / 2)) : 0,
+  );
 
   /** What the debug panel shows (owner only, `?debug=1`). */
   const debugLines = $derived.by((): [string, string][] => {
@@ -1171,9 +1239,11 @@
 
   /** The morning paper on whoever finished richest — the sandbox's own newsroom. */
   function frontPage(): Said['paper'] | null {
-    const winner = run.state.winner;
-    if (winner < 0) return null;
-    const w = run.wealth();
+    return run.state.winner < 0 ? null : paperOn(run.state.winner, run.wealth(), Math.max(0, run.state.finished - 1));
+  }
+
+  /** The morning paper on room member `who`, whatever their fortune — the sandbox's newsroom. */
+  function paperOn(winner: number, w: Float64Array, edition: number): NonNullable<Said['paper']> {
     const style = styleOfRoom(winner);
     let poorer = 0;
     for (let i = 0; i < w.length; i++) if (w[i] < w[winner]) poorer++;
@@ -1183,7 +1253,6 @@
       m.gini,
       m.topShare,
     );
-    const edition = Math.max(0, run.state.finished - 1);
     const page = frontPageFor(
       'ledger',
       { noun: styleNoun(style), dollars: w[winner] * ROOM_TOTAL_DOLLARS, percentile: poorer / w.length },
@@ -1220,7 +1289,8 @@
   function shrinkPaper(): void {
     if (paperTimer !== undefined) window.clearTimeout(paperTimer);
     paperTimer = undefined;
-    const target = host?.querySelector<HTMLElement>('.bubble.paper');
+    const all = host?.querySelectorAll<HTMLElement>('.bubble.paper');
+    const target = all && all.length > 0 ? all[all.length - 1] : null;
     if (!bigPaper || !bigEl || !target) {
       bigPaper = null;
       return;
@@ -1383,6 +1453,7 @@
       out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside });
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
+    if (PAIR_STEPS[current].pose.control === 'sandbox') out.push(...sandboxPapers);
     const last = out[out.length - 1];
     // an open toy has its own Done: the offer's links go while it is open
     const choices = choicesAt(current);
@@ -1536,6 +1607,7 @@
       ];
     }
     if (id === 'stop.how') return game.playing ? null : [{ label: say(REACTIONS.stopStart), act: startGame }];
+    if (id === 'sandbox.2') return [{ label: say(REACTIONS.workshop), act: () => openBranch('workshop') }];
     if (id === 'run.again') {
       return [
         { label: say(REACTIONS.runChoices[0]), act: () => stage?.replay('run') },
@@ -1846,6 +1918,9 @@
         arrange(pose, tl);
         tl.fromTo(view, { mapOn: 0 }, { mapOn: 1, duration: 2.4, ease: 'power1.inOut' }, 0.5);
         return;
+      case 'empty':
+        emptyRoom(pose, tl);
+        return;
       default:
         tweenTo(pose, tl, 0, 0.6);
     }
@@ -1983,6 +2058,28 @@
       hopAlong(tl, person, from, { x: exit.x, y: from.y }, depart, depart + hops * 0.22, one * 0.6, i * 11 + 4);
       tl.set(person, { alpha: 0 }, depart + hops * 0.22);
     });
+  }
+
+  /**
+   * Scene 25: everyone but the two hops out of the room, each to the nearer
+   * side; Blue and Red go back to their seats, equal, as the reader once
+   * made them (brief 5.10: "everything leaves except the two").
+   */
+  function emptyRoom(pose: Pose, tl: Timeline): void {
+    const w = L.width;
+    arranging = true;
+    L.room.positions.forEach((spot, i) => {
+      if (i === L.room.blue || i === L.room.red) return;
+      const v = view.room[i];
+      const exit = { x: v.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: v.y };
+      const depart = noise(i, 7) * 1.2;
+      const hops = Math.max(3, Math.round(Math.abs(exit.x - v.x) / (L.room.radius * 6)));
+      hopAlong(tl, v, { x: v.x, y: v.y }, exit, depart, depart + hops * 0.28, L.room.radius * 0.8, i * 7 + 5, L.room.radius * 6);
+      tl.set(v, { alpha: 0 }, depart + hops * 0.28);
+    });
+    tweenTo(pose, tl, 1.4, 1.2);
+    tl.to(view, { roomOn: 0, duration: 0.4 }, 2.8);
+    tl.call(() => (arranging = false), [], 3.3);
   }
 
   /**
@@ -2409,6 +2506,40 @@
   />
 {/snippet}
 
+{#snippet sandboxDeck(folded: boolean)}
+  <!-- the sandbox's own dials and stops, in one tidy panel (brief 5.10: "much tidier");
+       on a phone it folds to one row, so the room stays in sight and in reach -->
+  <div class="deck">
+    <div class="deck-buttons">
+      {#if sandboxRun.state.playing}
+        <button type="button" class="primary" onclick={() => sandboxRun.pause()}>{say('sandbox_pause')}</button>
+      {:else}
+        <button type="button" class="primary" onclick={sandboxPlay}>{say('sandbox_play')}</button>
+      {/if}
+      <button type="button" onclick={sandboxNew}>{say('sandbox_new')}</button>
+      {#if folded}
+        <button type="button" class:on={deckOpen} aria-expanded={deckOpen} onclick={() => (deckOpen = !deckOpen)}>{say('sandbox_dials')}</button>
+      {/if}
+    </div>
+    {#if !folded || deckOpen}
+    <div class="deck-dials">
+      <StopSlider label={say('dial_name')} bind:value={sb.stake} stops={RATE_STOPS} format={stakeLabel} />
+      <StopSlider label={say('sandbox_levy')} bind:value={sb.levy} stops={RATE_STOPS} format={stakeLabel} />
+      <StopSlider label={say('sandbox_every')} bind:value={sb.every} stops={EVERY_STOPS} format={(v) => say('sandbox_rounds', { count: v })} />
+      <StopSlider label={say('sandbox_speed')} bind:value={sb.speed} stops={SPEEDS} format={(v) => `${v}×`} />
+    </div>
+    <div class="deck-tap" role="group" aria-label={say('sandbox_tap')}>
+      <span>{say('sandbox_tap')}</span>
+      <button type="button" class:on={sb.tap === 'levy'} aria-pressed={sb.tap === 'levy'} onclick={() => (sb.tap = 'levy')}>{say('sandbox_tap_levy')}</button>
+      <button type="button" class:on={sb.tap === 'photo'} aria-pressed={sb.tap === 'photo'} onclick={() => (sb.tap = 'photo')}>{say('sandbox_tap_photo')}</button>
+    </div>
+    {#if sb.tap === 'levy'}
+      <div class="deck-dials one"><StopSlider label={say('sandbox_take')} bind:value={sb.take} stops={RATE_STOPS} format={stakeLabel} /></div>
+    {/if}
+    {/if}
+  </div>
+{/snippet}
+
 {#snippet stakeDial()}
   <!-- the sandbox's own slider and stops: 0.1% to 99.99% (owner review 2026-09-26) -->
   <div class="stake-dial">
@@ -2424,7 +2555,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- while the reader's hand is in the live room, a click anywhere in it is a tap, never a step -->
-<div class="pair-scene" bind:this={host} onpointermove={dragMove} data-control={game.playing ? '' : undefined}>
+<div class="pair-scene" bind:this={host} onpointermove={dragMove} data-control={game.playing || PAIR_STEPS[current].pose.control === 'sandbox' ? '' : undefined}>
   <!-- Once the stage is cleared (Scene 5) its words are gone, so their links
        must not stay in the tab order, invisible. -->
   <div class="words" style={`opacity:${view.titleOn}; transform: translateY(${view.lift}px)`} inert={view.titleOn < 0.5}>
@@ -2812,7 +2943,9 @@
       {/if}
     </svg>
 
-    {#if !L.column && runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run') && !inPicture}
+    {#if !L.column && PAIR_STEPS[current].pose.control === 'sandbox'}
+      <div class="dial phone deck-phone">{@render sandboxDeck(true)}</div>
+    {:else if !L.column && runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run') && !inPicture && PAIR_STEPS[current].pose.place === 'room'}
       <div class="dial phone">
         {@render player([shown])}
         {#if PAIR_STEPS[current].pose.source === 'dial' && PAIR_STEPS[current].pose.control !== 'stake'}{@render stakeDial()}{/if}
@@ -2829,7 +2962,7 @@
       </div>
     {/if}
 
-    {#if game.playing && current === indexOf('stop.how')}
+    {#if tapping}
       {@const box = L.room.box}
       <!-- a tap on any fortune; the five largest are buttons for the keyboard -->
       <div
@@ -2846,7 +2979,9 @@
           type="button"
           class="hit tap"
           style={`left:${v.x - r}px; top:${v.y - r}px; width:${r * 2}px; height:${r * 2}px;`}
-          aria-label={say('stop_tap', { share: formatNumber(gameRun.wealth()[i], { style: 'percent', maximumFractionDigits: 1 }) })}
+          aria-label={PAIR_STEPS[current].pose.control === 'sandbox' && sb.tap === 'photo'
+            ? `${say('sandbox_tap_photo')} ${formatNumber(shown.wealth()[i], { style: 'percent', maximumFractionDigits: 1 })}`
+            : say('stop_tap', { share: formatNumber(shown.wealth()[i], { style: 'percent', maximumFractionDigits: 1 }) })}
           onclick={() => tapRoom(i)}
         ></button>
       {/each}
@@ -2960,7 +3095,18 @@
             </section>
           {/if}
         {/if}
-        {#if runShown && pose.roomMode === 'matched'}
+        {#if pose.control === 'sandbox'}
+          <section class="chart live">
+            {#if runShown}
+              <p class="big">{formatNumber(shown.state.share, { style: 'percent' })}</p>
+              <p class="small">{say('run_readout', { trades: formatNumber(shown.state.trades), share: formatNumber(shown.state.share, { style: 'percent' }) })}</p>
+            {/if}
+            {#if shown.state.done && !shown.state.playing && shown.state.frames > 1}
+              <div class="dial">{@render player([shown])}</div>
+            {/if}
+            {@render sandboxDeck(false)}
+          </section>
+        {:else if runShown && pose.roomMode === 'matched'}
           {#if leftRun.state.done && leftRun.state.frames > 1}
             <section class="chart live"><div class="dial">{@render player([leftRun, rightRun])}</div></section>
           {/if}
@@ -3241,6 +3387,59 @@
 
   .stake-dial :global(.dial) {
     font-size: 0.8rem;
+  }
+
+  /* Scene 26: the reader's machine — one tidy deck of the sandbox's dials */
+  .deck {
+    display: grid;
+    gap: 0.45rem;
+    margin-block-start: 0.35rem;
+  }
+
+  .deck-buttons,
+  .deck-tap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    color: var(--ink-mid);
+  }
+
+  .deck-buttons button,
+  .deck-tap button {
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper-bright, #fffaf0);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .deck-buttons .primary,
+  .deck-buttons .on,
+  .deck-tap .on {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fffaf0;
+  }
+
+  .deck-dials {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.8rem;
+  }
+
+  .deck-dials.one {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-phone {
+    max-block-size: 46%;
+    overflow-y: auto;
   }
 
   /* Scene 21: the game's meter and clock, and the room under the reader's finger */

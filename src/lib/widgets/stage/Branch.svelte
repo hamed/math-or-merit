@@ -21,10 +21,12 @@
     id: BranchId;
     /** The line on the collapsed branch. */
     offer: string;
+    /** A link to this fragment opens the branch on arrival (`#sandbox` still lands on the machine). */
+    opensOn?: string;
     children: Snippet;
   }
 
-  let { id, offer, children }: Props = $props();
+  let { id, offer, opensOn, children }: Props = $props();
 
   let open = $state(false);
   let host: HTMLDivElement;
@@ -61,6 +63,7 @@
       if ((event as CustomEvent<BranchId>).detail === id) void take();
     };
     window.addEventListener(BRANCH_EVENT, onBranch);
+    if (opensOn && location.hash === `#${opensOn}`) void take();
     return () => window.removeEventListener(BRANCH_EVENT, onBranch);
   });
 </script>
