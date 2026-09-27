@@ -10,6 +10,7 @@
     "script:lint": "node scripts/script.ts lint",
     "script:pdf": "cd script && latexmk",
     "script:watch": "cd script && latexmk -pvc -view=none main.tex",
+    "script:diff": "vite-node scripts/script-diff.ts",
     "messages": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy localStorage baseLocale --emit-ts-declarations",
     "check": "npm run messages && svelte-check --no-tsconfig --ignore \"archive\" --fail-on-warnings && tsc --noEmit",
     "test": "vitest run",

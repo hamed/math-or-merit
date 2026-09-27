@@ -1,5 +1,9 @@
 # The words
 
+> **Frozen 2026-09-27 — edit `script/` instead** (ADR-019): `script/script.tex`
+> and its PDF (`npm run script:watch`). This file still feeds the build until
+> the switch, so it stays as it is; changes made here are lost.
+
 Every word the reader sees, in order, with just enough of the picture to know
 what you are writing over. **Edit this file only.** Getting it back into the
 essay, the scenes and the widgets is my job.
