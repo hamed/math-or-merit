@@ -60,6 +60,7 @@ const WINNER_FILL = 'rgb(139 63 43 / 45%)';
 const WINNER_STROKE = '#4d271c';
 const HOT_STROKE = '#2e2a23';
 const DUST_FILL = 'rgb(110 85 62 / 60%)';
+const PRESENCE_STROKE = 'rgb(110 85 62 / 55%)';
 
 export interface DrawAgentsOptions {
   readonly positions: readonly Point[];
@@ -76,6 +77,14 @@ export interface DrawAgentsOptions {
   readonly pulses?: ReadonlyMap<number, number>;
   /** Fill opacity for styled agents (pastels want ~0.75). */
   readonly fillAlpha?: number;
+  /**
+   * An agent whose true radius is below this still gets a dashed ring at this
+   * radius. Area stays honest — the fill inside is still exactly what they own
+   * — but a person with nothing does not vanish, and a room that lets the
+   * reader hand coins back must show where the empty-handed are standing.
+   * Off (0) by default, so no existing room changes.
+   */
+  readonly presenceRadius?: number;
 }
 
 export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOptions): void {
@@ -89,6 +98,7 @@ export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOption
     highlight,
     pulses,
     fillAlpha = 0.75,
+    presenceRadius = 0,
   } = opts;
 
   for (const i of order) {
@@ -99,6 +109,16 @@ export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOption
       x += Math.sin(pulseT * 26) * 2.4 * (1 - pulseT);
     }
     const r = scale * Math.sqrt(Math.max(0, displayed[i]));
+    if (r < presenceRadius) {
+      const presenceStyle = styles ? styles[i] : null;
+      ctx.beginPath();
+      ctx.arc(x, p.y, presenceRadius, 0, Math.PI * 2);
+      ctx.setLineDash([4, 5]);
+      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = presenceStyle ? presenceStyle.stroke : PRESENCE_STROKE;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
     if (r < 0.7) {
       ctx.fillStyle = DUST_FILL;
       ctx.fillRect(x - 0.7, p.y - 0.7, 1.4, 1.4);

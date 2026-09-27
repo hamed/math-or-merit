@@ -3,6 +3,7 @@
   import Essay from './content/essay.en.svx';
   import ChapterIndex from '$lib/nav/ChapterIndex.svelte';
   import { installScrollRestore } from '$lib/nav/scrollRestore';
+  import { say } from '$lib/i18n';
 
   // Review-copy chrome only. VITE_REVIEW_ISSUES_URL is set by the Pages
   // workflow; a public build leaves it unset and renders no footer at all,
@@ -15,7 +16,7 @@
 </script>
 
 <svelte:head>
-  <title>Merit or Math?</title>
+  <title>{say('open_title')}</title>
   <meta
     name="description"
     content="An interactive explanation of how fair local trades can produce extreme wealth concentration."

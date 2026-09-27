@@ -130,3 +130,26 @@ dense-but-complete, because they are read cold.
 private: Pages has no access control outside Enterprise Cloud, and on the Free
 plan it requires a public repo. `robots.txt` + `noindex` are the only controls —
 leave them while the draft is under review.
+
+## 2026-09-24 — the essay is a dialogue
+
+- **Direction (D19):** two characters, Blue and Red, argue; the reader decides.
+  The narrator is retired. Only lines marked ★ in `notes/prose.md` are the
+  owner's approved wording; every other line is marked `(draft)` and is not his
+  voice — don't polish drafts, don't treat existing essay text as his.
+- **Words first, still.** `prose.md` leads; code follows it. Narrator lines are
+  not deleted until the scene replacing them ships — they wait, word for word,
+  in its "Retiring" appendix so he can claim any he wrote.
+- **A keep-true claim outlives its wording.** Deleting a card must never delete
+  a qualifier; move the claim into a dialogue line or a claim note first.
+- **Two briefs can overlap.** The 2026-09-24 brief was written against `main`
+  while `feat/circle-overture` implemented the 2026-09-20 note. When a new brief
+  lands, check it against open branches before building on either, and say
+  which one wins.
+- **Tooling, paid for twice:** stop the preview server by port
+  (`lsof -ti:4173 | xargs -r kill`), never `pkill -f "vite preview"` — the
+  pattern matches the killing shell's own command line and kills the session's
+  command mid-run.
+- **Tooling:** in headless checks, read SVG `<text>` with `textContent`;
+  `innerText` returns null for it.
+

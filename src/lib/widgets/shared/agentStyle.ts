@@ -77,16 +77,95 @@ export interface AgentStyle {
 }
 
 /**
+ * The two people the whole essay follows (D19, brief 4.2). Existing tokens
+ * only: Blue wears the blue fill with the RED stroke, Red the red fill with the
+ * BLUE stroke — the crossed stroke is what separates Red's pastel from the
+ * neutral rose-brown wash. Both are circles.
+ */
+export const PROTAGONISTS: Readonly<Record<'blue' | 'red', AgentStyle>> = Object.freeze({
+  blue: { fill: FILLS.blue, stroke: STROKES.red, fillName: 'blue', strokeName: 'red', shape: 'circle' },
+  red: { fill: FILLS.red, stroke: STROKES.blue, fillName: 'red', strokeName: 'blue', shape: 'circle' },
+});
+
+/**
+ * How each speaker's bubble wears his colours (iteration-2 brief 3.1): text in
+ * very dark ink leaning toward his name's colour, the outline a pastel of his
+ * circle's stroke, the paper a faint wash of his fill. Never colour alone —
+ * the tail and the hidden name say who speaks too. Contrast is a test.
+ */
+export interface SpeakerTone {
+  readonly ink: string;
+  readonly edge: string;
+  readonly wash: string;
+}
+
+export const SPEAKER_TONES: Readonly<Record<'blue' | 'red' | 'none', SpeakerTone>> = Object.freeze({
+  blue: { ink: '#1f2c4d', edge: 'rgb(157 53 51 / 62%)', wash: 'rgb(183 207 249 / 26%)' },
+  red: { ink: '#4a221e', edge: 'rgb(40 78 153 / 62%)', wash: 'rgb(246 190 184 / 26%)' },
+  none: { ink: '#28251f', edge: 'rgb(117 108 93 / 55%)', wash: 'rgb(255 250 240 / 0%)' },
+});
+
+/**
+ * Colour pairs (fill/stroke) a CIRCLE in a crowd may not wear (A5).
+ *
+ * The brief reserves the protagonists' colours in crowds. Reserving only the
+ * exact pairs is not enough for a reader with colour-vision deficiency: to a
+ * protanope a violet circle with a red edge IS Blue (CIEDE2000 1.1), and to a
+ * deuteranope a green circle with a blue edge IS Red (0.3). These are every pair
+ * within ΔE 10 of a protagonist under normal, protan, deutan or tritan vision —
+ * 10 being the palette's own documented worst pair — measured by `cvd.ts` and
+ * pinned by a test that recomputes them. Only circles are held to it: shape is
+ * the palette's secondary encoding, so a violet TRIANGLE with a red edge is
+ * never mistaken for Blue.
+ */
+export const RESERVED_CIRCLE_PAIRS: ReadonlySet<string> = new Set([
+  'red/blue',
+  'red/violet',
+  'blue/red',
+  'green/red',
+  'green/blue',
+  'green/violet',
+  'violet/red',
+  'teal/red',
+  'teal/blue',
+  'teal/violet',
+  'pink/red',
+  'pink/blue',
+]);
+
+/**
+ * Skip on collision: a circle that would wear a reserved pair moves to the next
+ * stroke that is safe. Only that agent changes — no other index moves.
+ */
+function safeStroke(fillIdx: number, strokeIdx: number, shape: AgentShape): number {
+  if (shape !== 'circle') return strokeIdx;
+  const hues = COLOR_NAMES.length;
+  for (let step = 0; step < hues; step++) {
+    const candidate = (strokeIdx + step) % hues;
+    if (candidate === fillIdx) continue;
+    if (!RESERVED_CIRCLE_PAIRS.has(`${COLOR_NAMES[fillIdx]}/${COLOR_NAMES[candidate]}`)) return candidate;
+  }
+  return strokeIdx;
+}
+
+/**
  * Deterministic style table: fill cycles the 6 hues; the stroke sits 1–5 hue
  * slots away (never the fill's own hue); shapes cycle the 5 kinds. The cycle
- * lengths are coprime, so 30 consecutive agents show 30 distinct fill/stroke
- * pairs — a "unique mix" without randomness.
+ * lengths are coprime, so 30 consecutive agents wear 30 distinct costumes
+ * (fill, stroke, shape) — a "unique mix" without randomness. Three of every
+ * thirty (0, 5, 20) are circles that would have looked like a protagonist; they
+ * take the next safe stroke instead (A5).
  */
 export function assignStyles(n: number): AgentStyle[] {
   const styles: AgentStyle[] = [];
   for (let i = 0; i < n; i++) {
     const fillIdx = i % COLOR_NAMES.length;
-    const strokeIdx = (fillIdx + 1 + (i % (COLOR_NAMES.length - 1))) % COLOR_NAMES.length;
+    const shape = AGENT_SHAPES[i % AGENT_SHAPES.length];
+    const strokeIdx = safeStroke(
+      fillIdx,
+      (fillIdx + 1 + (i % (COLOR_NAMES.length - 1))) % COLOR_NAMES.length,
+      shape,
+    );
     const fillName = COLOR_NAMES[fillIdx];
     const strokeName = COLOR_NAMES[strokeIdx];
     styles.push({
@@ -94,7 +173,7 @@ export function assignStyles(n: number): AgentStyle[] {
       stroke: STROKES[strokeName],
       fillName,
       strokeName,
-      shape: AGENT_SHAPES[i % AGENT_SHAPES.length],
+      shape,
     });
   }
   return styles;
@@ -105,11 +184,47 @@ export function assignStyles(n: number): AgentStyle[] {
  * stroke-never-matches-fill rule, but shuffled — the deterministic cycle
  * reads as one shape per column on a grid room.
  */
+/**
+ * Costumes for people who stand at `points`, so that no two neighbours within
+ * `reach` share a shape or a fill where it can be helped (iteration-2 brief 3.6:
+ * clusters of one shape or colour read as a pattern that is not there). Greedy
+ * and deterministic: each person takes the costume that clashes least with the
+ * neighbours already dressed, cycling through the palette to break ties. The
+ * protagonists' reserved circle pairs are skipped as everywhere (A5).
+ */
+export function spreadStyles(points: readonly { x: number; y: number }[], reach: number): AgentStyle[] {
+  const styles: AgentStyle[] = [];
+  const combos: { fillIdx: number; shape: AgentShape }[] = [];
+  for (const shape of AGENT_SHAPES) for (let f = 0; f < COLOR_NAMES.length; f++) combos.push({ fillIdx: f, shape });
+  points.forEach((p, i) => {
+    const near = styles.filter((_, j) => Math.hypot(points[j].x - p.x, points[j].y - p.y) < reach);
+    let best = 0;
+    let bestScore = Infinity;
+    for (let k = 0; k < combos.length; k++) {
+      const c = combos[(i * 7 + k) % combos.length];
+      const score = near.reduce((sum, n) => sum + (n.shape === c.shape ? 1 : 0) + (n.fillName === COLOR_NAMES[c.fillIdx] ? 1 : 0), 0);
+      if (score < bestScore) {
+        bestScore = score;
+        best = (i * 7 + k) % combos.length;
+        if (score === 0) break;
+      }
+    }
+    const { fillIdx, shape } = combos[best];
+    const strokeIdx = safeStroke(fillIdx, (fillIdx + 1 + (i % (COLOR_NAMES.length - 1))) % COLOR_NAMES.length, shape);
+    const fillName = COLOR_NAMES[fillIdx];
+    const strokeName = COLOR_NAMES[strokeIdx];
+    styles.push({ fill: FILLS[fillName], stroke: STROKES[strokeName], fillName, strokeName, shape });
+  });
+  return styles;
+}
+
 export function randomStyles(n: number, rand: () => number = Math.random): AgentStyle[] {
   const styles: AgentStyle[] = [];
   for (let i = 0; i < n; i++) {
     const fillIdx = Math.floor(rand() * COLOR_NAMES.length);
-    const strokeIdx = (fillIdx + 1 + Math.floor(rand() * (COLOR_NAMES.length - 1))) % COLOR_NAMES.length;
+    const drawnStroke = (fillIdx + 1 + Math.floor(rand() * (COLOR_NAMES.length - 1))) % COLOR_NAMES.length;
+    const shape = EXTENDED_SHAPES[Math.floor(rand() * EXTENDED_SHAPES.length)];
+    const strokeIdx = safeStroke(fillIdx, drawnStroke, shape);
     const fillName = COLOR_NAMES[fillIdx];
     const strokeName = COLOR_NAMES[strokeIdx];
     styles.push({
@@ -117,7 +232,7 @@ export function randomStyles(n: number, rand: () => number = Math.random): Agent
       stroke: STROKES[strokeName],
       fillName,
       strokeName,
-      shape: EXTENDED_SHAPES[Math.floor(rand() * EXTENDED_SHAPES.length)],
+      shape,
     });
   }
   return styles;

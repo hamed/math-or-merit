@@ -136,7 +136,7 @@ Originally dropped to avoid causal-claim risk. Reinstated 2026-06-23 — see D5.
   a second, equally confident headline about a different winner. Guards unchanged (inert traits,
   no named bias).
 
-## D8 — Writing stance: narration is voiceover to a stage (architecture NOT fixed) — **stance (2026-06-23)**
+## D8 — Writing stance: narration is voiceover to a stage (architecture NOT fixed) — **SUPERSEDED by D19 (2026-09-24)**
 
 - **What this is:** a *writing* stance, not an architecture decision. The user explicitly does
   not want the presentation model fixed yet; the prose should be written AWARE of it instead.
@@ -423,3 +423,178 @@ unlisted. It does not stay for the public launch.
   that as well as GA does.
 - **Not now.** While the copy is unlisted GA is fine, and it is already counting
   our own visits — filter those before reading anything into the numbers.
+
+## D19 — The essay becomes a dialogue (2026-09-24)
+
+Owner's call, from the design session recorded in `inbox/2026-09-24 note.md`
+(the dialogue brief, v3). **Reverses D8.** The narrator is gone; two characters
+argue and the reader decides — Galileo's *Dialogue*, with the reader as
+Sagredo.
+
+**Decided:**
+
+- **Blue and Red carry the whole essay**, title to sandbox. Blue is "the richest
+  man in this world" — *like* a tech billionaire, never a real person, never
+  quoting one (D1 stands). Red is "the poorest man in this world", a physicist.
+  A fair fight: Blue gets strong lines and is sometimes right; the math beats
+  him, never the script.
+- **The reader takes part** — makes the pair equal, predicts, bets, runs the
+  experiments — and their answers are paid off later.
+- **Narrator words are deleted by default.** A line survives only if it is ★
+  (owner-approved) or the owner confirms he wrote it, or if it carries a
+  `! keep true:` claim — and then the CLAIM survives, moved into dialogue or a
+  claim note, not the wording. Qualifiers are never deleted with their cards.
+- **Characters may be wrong; the essay may not.** Every false thing Blue says is
+  corrected later by a line or by the picture. Every number in dialogue equals
+  the number on screen.
+- **A2 — everything is translatable, Farsi included.** Words are content, never
+  code; live values are full-sentence messages with named variables; bubbles are
+  HTML over the stage, not SVG text; numbers through `Intl.NumberFormat`.
+  **One deliberate exception to ADR-006:** the title words and the two
+  protagonists use PHYSICAL left/right, because the political association is
+  spatial — MATH and Red stay on the left in Farsi too. Wordplay lines carry a
+  `~ adapt:` note in `prose.md`.
+- **A3 — the title merges into the stage.** Teletype, both reels and the crowd
+  are the stage's first automatic steps.
+- **A4 — the cow and the spherical human are optional branches**, offered by
+  choice. How they blend in, and any references system, the owner designs later.
+- **A5 — protagonist colours are reserved in crowds.** Skip on collision, so no
+  other agent's index moves.
+- **A6 — outside a bubble, a line is set in its speaker's colour**:
+  `--agent-stroke-blue` / `--agent-stroke-red` (6.9:1 and 6.1:1 on paper; the
+  fills are never text). Colour is never the only cue: the speaker's name is
+  there as visually hidden text. Revisit after the first pass.
+- **Protagonist costumes (4.2), existing tokens only:** Blue = blue fill, RED
+  stroke; Red = red fill, BLUE stroke; both circles. Neutral classic wash until
+  the introductions. A minimum visible radius so neither vanishes when poor. The
+  dashed winner halo is NOT a speaker marker — it already means "the richest".
+- **Title (4.5):** "Math or Merit?" — MATH and Red on the left, MERIT and Blue on
+  the right. MERIT arrives first, through its own reel; then "or"; then MATH
+  through its reel; then "?". Both reels start on funny wrong words, stay
+  readable, overshoot by two wrong words and come back. Never stacked, on any
+  screen. The owner writes the two word lists.
+
+**Answered by the owner, 2026-09-24 (same day):**
+
+- **ADR-017 accepted — the step stage — with Paraglide** for A2.
+- **The reveal runs at 0.5**, exactly the "half of the poorer" rule the game
+  teaches ("sooner, bigger, more drama; fits the teaching round"). Was 0.35.
+- **Red on the left, the colour of the left, is FINAL and permanent.** Not to be
+  reopened by any later note or brief.
+- **Reel word lists:** the agent picks sensible ones now; tuned later.
+- **The cow:** keep every plate; cut its text wherever the joke survives
+  without it.
+- **Which narrator lines are his:** he does not know. So none is claimed, and
+  each retires when the scene replacing it ships.
+- **B2's framing:** he does not know. Keep the guard ("I am not going to
+  explain how he got rich") and leave the framing as a hook.
+- **The top-k participation view** overlaps the existing four-coin stage and
+  points the same way. It goes in the effective-participants chapter, built on
+  the reader's own last run, with the four-coin stage kept for whoever wants to
+  dig further (as in the 2026-09-20 note).
+
+**Still open:** the ending and the payoff of both bets; A6 after the first pass.
+
+**Consequence for `feat/circle-overture` (2026-09-21…23, unmerged):** it
+implemented the 2026-09-20 note, which this brief supersedes — red was rich,
+the title read "Merit or Math?", and the two protagonists had same-hue strokes.
+Its front half is not to be merged as it stands. Its circle physics, reel code,
+one-line title pose and side-trip wrapper are raw material for the stage.
+
+
+## D20 — Iteration 2: one stage, comic talk, honest coins (2026-09-26)
+
+Source: `inbox/merit-or-math-iteration-2.md` — an agent's brief from the
+owner's 70-minute recorded play-through of the v3 build (2026-09-25). It wins
+over v3 where they conflict. **ADR-018 accepted:** the whole essay becomes one
+step stage of acts on one persistent room, Blue and Red present throughout;
+shipped act by act.
+
+**Answered by the owner, 2026-09-26:**
+
+1. ADR-018: yes.
+2. **Title "Merit or Math?"** — "the left should come first, because English is
+   left to right; the common sense is merit, the question is math." MERIT
+   fades in plain, "or", MATH through its reel, "?". Blue under MERIT, Red
+   under MATH; colours unchanged (Red poor). This REVERSES the 2026-09-24
+   "final and permanent" sides, by the owner's own choice; the ADR-006
+   amendment is withdrawn and the stage mirrors in RTL.
+3. **The crowd** (Phase 2): people come in bouncing and jumping; coins fall at
+   random, some grow and some do not; they bump into each other and every bump
+   is a trade; one becomes very big, one small; the rest bounce and move out;
+   those two stay.
+4. "Success finds the people who deserve it" — cut, with its reply.
+5. "Anyone could be where I am" / "standing here first…" — the pair goes.
+6. The bias is described without its name ("the paper finds the reason after
+   the result"); C12 stands.
+7. **Coins:** each coin claims a fixed area a little larger than itself, so a
+   circle's area is truly its coin count; nice if the counts pack tight. Built:
+   density 0.7325, where 8 (the two made equal) and 15 (Blue at the start) are
+   the tightest known packings; 2–6 coins overlap slightly, like a small pile.
+   The transfer stays an interaction but every coin visibly travels (tap sends
+   one, a drag carries one under the finger). He also floated giving up the
+   interaction; not taken — the reader making them equal is v3's core beat.
+8. Turnover and the 1,000-person crowd leave the main flow; the theorem ("a
+   limit, not a date") survives as Red's line after the run, with the
+   time-lapse offered in the same room.
+9. Comic font: Comic Neue (OFL, self-hosted) for Latin now; Farsi later — the
+   owner's pick to try is Koodak.
+10. The cow stays the answer to "Want to hear a joke?"; the spherical human is
+    offered at the cow's end.
+
+**Removed with Phase 1 (words):** "'This world' means the one on your screen"
+and "Small world. But it's mine."; the five-bubble controls tip (now one
+line that waits); the GPS pair; "Fifty-fifty? I've bet on worse odds." ★ and
+"Another round?" ★ (absent from the brief's rewritten rounds); "Told you.";
+"Two players can't settle this…" ★ (replaced by the brief's ★ "We need more
+players. And many more rounds."); "How many?" / "A hundred. Everyone starts
+equal. Including us." (the room shows it).
+
+**Phase 5 (Scenes 19–24), made while building, 2026-09-26 — open to his veto:**
+
+- **The outcome map is measured once, offline** (`scripts/outcome-map.ts`: 8
+  rooms a square, 1,200 rooms, the guided protocol) and fills in on screen;
+  the reader no longer runs rooms onto it one by one (PhaseDiagram's "Run
+  this room" / "Fill in the rest" retired). The full machine stays in the
+  sandbox (Phase 6). Why: the old fill took ~20 s of page time and 4 rooms a
+  square; this is instant and twice the rooms.
+- **The tax game runs at 280 trades a second** at the essay's 50% stake. Robot
+  player, 20 rooms each: tapping the richest every 700 ms or faster held all
+  20; once a second held 9; never tapping closed all 20 in about 12 s. The
+  difficulty picker is gone (full-range stake belongs to the dial and the
+  sandbox).
+- **"Run it longer?" goes ten times closer to one owner per Yes** (40% → 94% →
+  99.4% …), the same room with fresh dice, logged in the talk each time.
+- **In the room, lines to the reader join the one chat column** (as on phones
+  and over pictures). Beside the speaker they stacked over the talk whenever
+  Red stood under it — a defect since Phase 4. Elsewhere asides stay on the
+  outer side, step off the talk when there is room, and the newest is never
+  hidden.
+- New draft labels (not his voice, rewrite freely): `dial.same`, `stop.tap`,
+  `match.left`, `match.right`, `levy.pool`, `map.stake`, `map.levy`,
+  `map.many`, `map.few`, `map.half`.
+
+**His review of Phase 5, 2026-09-26 (made as asked):**
+
+- The stake is 25%, not 50% ("too large and jittery"). [more.rule] ★ "They
+  bet half…" → "They bet a quarter…" (his line, one word; the coin game above
+  it still plays at half, so the room's smaller bet is new information).
+- Every plot is a proper plot, the sandbox's frame and style; the Gini plot is
+  square with the lined-up room under it and the talk beside it; the running
+  sum is read off the axes instead of drawn as a circle that ate the line.
+- The phone's side rail of thumbnails is removed; on a phone the plots live
+  in the cards (open the stack). Veto if you want the rail back.
+
+**Phase 6, made while building, 2026-09-26 — open to his veto:**
+
+- The sandbox is now the stage's last act, on the same room with Blue and Red
+  in it, and its tidy form is ONE deck of the sandbox's own dials beside the
+  same plots as the rest of the essay (brief 5.10). The old full machine is
+  kept whole as an optional side trip, "All the dials", rather than deleted:
+  it has features the deck does not (people count, money per head, expert
+  unclamped numbers, the reader-measured map, CSV). Its layout is unchanged.
+- At the verdict Blue and Red sit on their seats with eight coins each — as
+  the reader once made them equal — not at the sizes their run left them.
+- On a phone the deck folds to one row (Play · New room · Dials) so the room
+  stays in sight and in reach of a tap.
+

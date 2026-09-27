@@ -19,12 +19,20 @@ function sourceFiles(dir: string): string[] {
 }
 
 const FORBIDDEN = /from\s+['"](gsap|svelte)['"/]/;
+// Words are presentation too (ADR-017, A2): the model never speaks.
+const WORDS = /from\s+['"][^'"]*(paraglide|\/i18n)['"]/;
 
 describe('headless layers never import presentation libraries', () => {
   for (const layer of ['sim', 'research']) {
     it(`src/lib/${layer} is free of gsap and svelte imports`, () => {
       const dir = join(__dirname, layer);
       const offenders = sourceFiles(dir).filter((file) => FORBIDDEN.test(readFileSync(file, 'utf8')));
+      expect(offenders).toEqual([]);
+    });
+
+    it(`src/lib/${layer} never imports the words`, () => {
+      const dir = join(__dirname, layer);
+      const offenders = sourceFiles(dir).filter((file) => WORDS.test(readFileSync(file, 'utf8')));
       expect(offenders).toEqual([]);
     });
   }

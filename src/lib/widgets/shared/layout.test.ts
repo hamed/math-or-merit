@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { radiusScale, roomPositions } from './layout';
+import { ROOM_JITTER, radiusScale, roomPositions } from './layout';
 
 describe('roomPositions', () => {
   it('returns an empty layout for unmeasured canvases instead of hanging', () => {
@@ -66,4 +66,24 @@ describe('room shapes stay inside the canvas', () => {
       }
     });
   }
+});
+
+describe('an exact room', () => {
+  it('puts four people on the corners of a square when asked for no jitter', () => {
+    const size = 400;
+    const margin = 48;
+    const quarter = (size - 2 * margin) / 4;
+    const near = margin + quarter;
+    const far = size - margin - quarter;
+    expect(roomPositions(4, size, size, margin, 0)).toEqual([
+      { x: near, y: near },
+      { x: far, y: near },
+      { x: near, y: far },
+      { x: far, y: far },
+    ]);
+  });
+
+  it('leaves every other room exactly where it was', () => {
+    expect(roomPositions(100, 480, 320)).toEqual(roomPositions(100, 480, 320, undefined, ROOM_JITTER));
+  });
 });

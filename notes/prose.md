@@ -9,430 +9,1067 @@ Rules of the road:
 - Rewrite anything. Cut anything. Add lines, drop lines, merge them.
 - Keep the `[tags]` — they are how I find the line again. Text after the tag is
   yours.
+- **★** marks wording you approved. I keep it exactly.
+- **(draft)** marks everything else: placeholders from the design brief or from
+  me, kept to the length and the claim, not to your voice. Rewrite freely.
+- Dialogue reads `[tag] BLUE: …` or `[tag] RED: …`. One bubble per tag, one
+  sentence per line inside it (` / ` between lines). `**…**` is said louder.
+  Aim for 12 words, never more than 18.
+- `{name}` is a live value. The line around it is one whole sentence, never
+  glued from pieces — word order changes in other languages.
+- `~ adapt:` is a note for translators on wordplay: replace the idea, not the
+  words.
+- ` / ` inside a line is a line break on screen.
 - `> picture:` tells you what is on screen while that line is read. Never
-  displayed.
+  displayed. `[ACTION]`, `[HOLD]` and `[CHOICE]` inside it say what happens and
+  what waits for the reader.
 - `! keep true:` marks the handful of places where a claim is load-bearing. Say
-  it any way you like; just don't make it say more than that.
-- Captions ride over a moving picture, so short wins. Body prose can breathe.
+  it any way you like; just don't make it say more than that. **Characters may
+  be wrong; the essay may not** — when Blue says something false, a later line
+  or the picture corrects it.
+
+> STATUS (2026-09-26). This file LEADS the build: it holds the dialogue script
+> from the design briefs (v3 `inbox/2026-09-24 note.md`, decision D19;
+> iteration 2 `inbox/merit-or-math-iteration-2.md`, D20), and
+> `messages/en.json` is generated from it — after editing, run
+> `npx vite-node scripts/prose-to-messages.ts` (a test refuses a stale file).
+> BUILT so far: Scenes 1–11 on the stage, and both branches (B1, B2).
+> Still the narrator on screen: the guess onward. Those lines are at the
+> bottom, under "Retiring" — each goes when the act replacing it ships.
+> One sentence per line: ` / ` starts a new line inside a bubble, and the
+> lines of a bubble arrive one after another.
 
 ---
 
-## 1 · Opening
+## 1 · Title — Scene 1 (chapter `question`)
 
-> picture: a teletype types a news line, then the title arrives one word at a
-> time. The third line is a slot machine that cycles folk explanations for
-> wealth and settles on "Math".
+> picture: the teletype types the news line, as today. Then the title builds in
+> reading order: MERIT fades in, plain, with no reel; then "or"; then MATH
+> arrives through its reel; then "?". Blue sits under MERIT, Red under MATH,
+> breathing. The reel starts on a couple of funny wrong words, turns slowly
+> enough to read every word, runs two wrong words past the answer and comes
+> back to rest on it. On a phone the words shrink; they are never stacked.
+> In Farsi the whole line mirrors like everything else: MERIT comes first, on
+> the right, and Blue with it.
 
 [open.headline] The world has its first trillionaire.
 
 [open.source] (on paper · Reuters · June 14, 2026)
 
-[open.title] Merit or Math?
+! keep true: "on paper" and the dated source stay attached to the headline.
+
+[open.title] Merit or Math? ★
+
+> the common sense comes first, the question second (owner, 2026-09-26).
+
+[open.title.merit] Merit
+
+[open.title.or] or
+
+[open.title.mark] ?
+
+~ adapt: [open.title.mark] is the language's own question mark ("؟" in Farsi).
+
+[open.reel.math] (draft) Stars · Socks · Timing · Friends · Parents · Luck · **Math** · Coffee · Hair
+
+> the reel opens on two funny wrong words, passes the serious answers, lands on
+> MATH — always the THIRD FROM LAST — and the last two are the wrong words it
+> overshoots onto before settling back. Short words only (owner, 2026-09-26):
+> the title is sized so the widest one never leaves the screen, so one long
+> word makes the whole title smaller. Race, Genes, God's will and Class stay
+> off it: they take political sides.
+
+~ adapt: translate each word as the everyday explanation, not literally; keep
+the answer third from last and the two after it wrong.
 
 [open.credit] Created & directed by Hamed
 
-[open.reel] Hard work · Luck · Talent · Family money · Connections · IQ ·
-Education · Grit · Class · Timing · Race · Charisma · God's will · Genes ·
-**Math** · Blue eyes
+---
 
-> the reel spins down that list, passes Math, shows half of "Blue eyes", and
-> falls back onto Math like a real reel finding its detent. One smooth curve —
-> slow, fast, slow — then the settle. Reorder, cut, add. Long ones are set
-> smaller so they fit.
+## 2 · The crowd — Scene 2
+
+> picture (owner, 2026-09-26 — Phase 2; the v3 bites are on screen until then):
+> people come in from different directions, bouncing and jumping, and settle as
+> a loose crowd — truly random, no rows, no clusters of one shape or colour,
+> everyone the same size. Coins fall at random: some people catch them and
+> grow, some do not. Then they bump into each other, and every bump is a trade.
+> One grows very big, one ends up small. The rest bounce and jump and move out.
+> Those two stay: the big one under MERIT, the small one under MATH. No words,
+> no numbers.
+
+! keep true: every trade follows the game's own rule — the stake is half of the
+smaller fortune, the winner takes it. It ends at 15 and 1.
 
 ---
 
-## 2 · The cow
+## 3 · Meeting them — Scene 3
 
-> picture: your illustrated cast. A farmer's cow, then a biologist, a chemist,
-> a physicist, then the cow as a sphere, then in a vacuum, then a football
-> pitch.
+> picture: the two survivors, still neutral. Red calls first. A click makes a
+> circle take its colours and introduce itself at once; then the other one
+> calls. If the reader waits, the caller tries again, a little louder.
+> [HOLD] until Red is clicked, then [HOLD] until Blue is clicked.
 
-[cow.bridge] I built a tiny machine / for one enormous argument:
+[meet.red.call] RED: (draft) Hi. · Hello? · Anybody there? · Click on me.
 
-[cow.bridge2] Should we tax wealth? / Medicine — or poison?
+[meet.red] RED: I'm the poorest man in this world. ★
 
-[cow.bridge3] First, a cow.
+[meet.blue.call] BLUE: (draft) Psst. Over here. · Over here! · Click me. I'm the important one.
 
-> the reel has just stopped on Math. Three short cards name the political
-> question and then step sideways into the joke.
+[meet.blue] BLUE: I'm the richest man in this world. ★
 
-[cow.once] Once upon a time, a farmer's cow stopped giving milk.
+[name.blue] Blue
 
-> big, alone, no picture yet — the words are the stage.
+[name.red] Red
 
-[cow.0] He called in three scientists.
+> the names themselves. A screen reader says the name before each of that
+> character's lines, and it labels his circle.
+
+[meet.tip] RED: (draft) Click, press a key, or scroll to go on.
+
+> the one line about controls, and it waits for the reader. Removed
+> 2026-09-26: "'This world' means the one on your screen" and Blue's "Small
+> world. But it's mine." ("Everybody knows that.")
+
+! keep true: Blue is LIKE a tech billionaire and is never a real person; he
+quotes and imitates no one. The essay explains no real person's fortune.
+
+---
+
+## 4 · The merit debate — Scene 4
+
+> picture: Blue argues from under MERIT, Red answers from under MATH. Every
+> line here is a key line: it waits for the reader. Red hints at chance
+> without a technical word — no coins, no games, no probability.
+
+[merit.1b] BLUE: I work hard for it. ★
+
+[merit.1r] RED: I work two shifts to pay the bills. ★
+
+[merit.2b] BLUE: I'm smart. ★
+
+[merit.2r] RED: I'm smart too. / I have a PhD in physics. ★
+
+[merit.3b] BLUE: I take big risks, and win big. ★
+
+[merit.3r] RED: I take risks too. / But nobody catches me when I fall. ★
+
+> cut 2026-09-26: the GPS pair (too long), "Look, anyone could be where I am"
+> with Red's "standing here first…" (out of character; the pair goes), and
+> "Success finds the people who deserve it" with its reply.
+
+! keep true: these are two characters' opinions, not the essay's findings.
+Nothing here is shown true until the game shows it.
+
+---
+
+## 5 · The invitation — Scene 5
+
+> picture: numbers appear for the first time — each fortune shown as its coins,
+> packed tight. Every coin is the same size everywhere, and a circle's area is
+> its coins' area.
+
+[invite.1] RED: (draft) Let's play a game.
+
+[invite.2] BLUE: (draft) I don't play games. / I build things.
+
+[invite.3] RED: (draft) Just try it. We start equal.
+
+[invite.4] BLUE: (draft) Equal? / Why would I give up my wealth?
+
+[invite.5] RED: It's only a simulation. ★
+
+[invite.6] BLUE: Fine. / I like a good experiment. ★
+
+> [ACTION] the title and every other word move up and out. Only the two remain.
+
+[equal.ask] BLUE: Give him some of my coins. ★
+
+> picture: a tap on a circle sends one of its coins, visibly, to the other; or
+> drag a coin across and it follows the finger. Moving coins back is allowed.
+> Each circle re-sizes by area after every move.
+> [HOLD] until 8 and 8.
+
+[equal.give] (draft) Give one of {name}'s coins to {other}. {name} has {count}.
+
+> not a bubble: what a screen reader hears on each circle while coins are being
+> moved, and the keyboard path through this hold.
+
+[equal.first] BLUE: (draft) Hey!
+
+> after the first coin moves.
+
+[equal.eleven] BLUE: (draft) I liked that one.
+
+> when Blue is down to 11.
+
+[equal.over.b] BLUE: (draft) Whoa. Equal, not upside down.
+
+[equal.over.r] RED: (draft) Tempting. But give him one back.
+
+> when Red goes above 8.
+
+[equal.done] RED: (draft) Eight and eight. Perfect.
+
+---
+
+## 6 · Round one — Scene 6
+
+> picture: Blue is trader A, Red is trader B. The stakes are the same coins,
+> on the table below the pair. The decider is one plain coin until it is
+> tossed: Marx is Red's side, the bank is Blue's. The rule is deliberately
+> incomplete here.
+
+[r1.rules] RED: The rules are simple. / We each put half on the table. ★
+
+[r1.half] BLUE: Half of 8. / 4 each. ★
+
+> [ACTION] four coins from each circle move to the table.
+
+[r1.flip] RED: We flip a coin. / Blue side, you win. / Red side, I win. ★
+
+[r1.winner] RED: The winner takes it all. ★
+
+~ adapt: [r1.winner] echoes a well-known song title in English. The line must
+still read plainly — the winner of the toss takes both stakes.
+
+> [ACTION] the coin turns; its faces change only when it is edge-on. Red
+> lands. Blue 4, Red 12.
+
+[log.toss] (draft) {winner} wins. Blue {blue}, Red {red}.
+
+> not a bubble: after every toss the result is logged in the talk, beside the
+> coin that landed, and moves up with the lines — so the reader can always see
+> what happened (owner, 2026-09-26).
+
+[r1.ouch] BLUE: Ouch! ★
+
+---
+
+## 7 · Round two — the rule breaks and gets fixed — Scene 7
+
+[r2.wait] BLUE: Wait! / I have 4. I can't put in as much as you. ★
+
+[r2.half] RED: Put in half of what you have. ★
+
+[r2.two] BLUE: Only 2? ★
+
+[r2.match] RED: Yes. And I'll match that. ★
+
+> [ACTION] two coins from each circle move to the table.
+
+[r2.rule] BLUE: So we always put in half / of what the poorer one has. ★
+
+[r2.why] RED: Yes. That way everybody can keep playing. ★
+
+[r2.go] BLUE: Smart. / Okay, let's go. / I'll win it back. ★
+
+> [ACTION] blue lands. Blue 6, Red 10. Blue says the rule himself and Red
+> confirms it; the stakes are already known to be equal, so nobody says "half
+> of each".
+
+---
+
+## 8 · Round three — Scene 8
+
+> slower than before, and the two say what is happening.
+
+[r3.each] RED: (draft) 3 each.
+
+> [ACTION] three coins from each circle move to the table.
+
+[r3.flip] BLUE: (draft) Flip!
+
+> [ACTION] blue lands. Blue 9, Red 7.
+
+[r3.done] BLUE: (draft) And that's how it's done.
+
+! keep true: the three rounds are the real rule played with authored tosses:
+8-8, then 4-12, then 6-10, then 9-7. The total never changes, and every stake
+is half of the poorer fortune.
+
+---
+
+## 9 · The challenge — Scene 9
+
+[dare.ahead] BLUE: Back where I started. / Well, I'm a bit ahead. Naturally. ★
+
+[dare.pointless] BLUE: This is pointless. ★
+
+[dare.why] RED: (draft) Why?
+
+[dare.edge] BLUE: Nobody has an edge. / Same odds, same rule. / Nobody gets rich. ★
+
+[dare.what] RED: What if one does? / **Very riiich.** ★
+
+[dare.no] BLUE: **Impossible.** ★
+
+> `**…**` in a bubble is said louder: bigger and heavier.
+
+[dare.imagine] RED: But what if that happens? ★
+
+[dare.luck] BLUE: That being rich means nothing. / No talent, no hard work. Just luck. ★
+
+[dare.math] RED: Not merit. Just math. ★
+
+~ adapt: [dare.math] must use the SAME two words as the title in each language.
+
+[dare.nice] BLUE: (draft) Nice line. It won't happen.
+
+[dare.prove] RED: I can prove it. ★
+
+[dare.bet] BLUE: I'll bet half my wealth you can't. ★
+
+[dare.all] RED: I'll bet all of mine. ★
+
+[dare.sure] BLUE: You're either very sure / or very foolish. ★
+
+[dare.laugh] RED: (draft) Let's see who laughs last.
+
+[dare.more] RED: We need more players. / And many more rounds. ★
+
+! keep true: a run shows something; it cannot prove it. Red's "prove" is honest
+only because the proof arrives later — the reveal says so, and the theorem pays
+it off.
+
+---
+
+## 10 · The crowd arrives — Scene 10
+
+> picture: the room fills around the two (Phase 2: people arrive from all
+> sides and the view zooms out, the pair keeping its place). The crowd keeps
+> its costumes; Blue and Red keep their unique colours.
+
+[more.shapes] RED: (draft) Different colours. Different shapes. / Only the size counts. The size is the wealth.
+
+[more.random] RED: Each time, / two people are picked at random. ★
+
+! keep true: [more.random] is REQUIRED — the two-person game never taught
+random pairing, and every room after this one uses it.
+
+[more.rule] RED: They bet a quarter of what the poorer one has. / Flip. The winner takes it all. ★
+
+> 2026-09-26: "half" → "a quarter" — the room's stake is 25% now (owner:
+> "0.5 is too large and jittery, maybe .25?"). The two-player game above
+> still plays at half.
+
+[more.watch] BLUE: Nobody gets rich. ★
+
+> Blue laughs.
+
+---
+
+## 11 · The joke offer — Scene 11
+
+[more.real] BLUE: Real life is / much more complicated than this. ★
+
+[more.joke] RED: Of course it is. / Want to hear a joke? ★
+
+[more.choice] (draft) Yes · Not now
+
+> [CHOICE] — links inside Red's bubble: "Yes" opens the cow (B1); "Not now"
+> moves on.
+
+---
+
+## B1 · The cow — optional (chapter `cow`)
+
+> picture: your illustrated cast, exactly as it stands. Offered by choice from
+> Scene 14.
+
+[cow.offer] (draft) A joke about a cow, and why this model is so simple
+
+> the collapsed branch: this line on a button, where the cow would be. Red's
+> "Tell me" opens it too.
+
+> the joke, cut to what it needs — your call, 2026-09-24: every plate stays,
+> the text goes wherever the joke survives without it. These five are what
+> is left; the rest retired with the narrator.
+
+[cow.once] Once upon a time, / a farmer's cow stopped giving milk.
 
 [cow.0b] A biologist, a chemist, and a physicist.
-
-> open: the picture shows Darwin, Curie and Einstein. Name them instead, if
-> you want the reader to know who they are looking at.
-
-[cow.1] The biologist explained where cows come from.
-
-[cow.2] Then the chemist spoke of the molecule the cow was failing to produce.
-
-[cow.silence] No words. One gesture plays four panels over three seconds: the
-room waits, the cow looks at us, the cow answers, and Albert scratches his head.
-
-[cow.3] Then the physicist shouted "I have solved it!"
 
 [cow.4] "Assume a spherical cow."
 
 [cow.5] "In a vacuum and no gravity!"
 
-[cow.6] A model throws almost everything away,
-[cow.6b] to see whether what remains
-[cow.6c] is enough.
-
-> three lines on the empty stage, arriving one after another.
-
-> the picture leaves again for this one — it is not about anything you can draw.
-
-[cow.7] The spherical cow is still too heavy to kick.
-
 [cow.7b] The sphere alone answered this question. / Not every question. This one.
 
-> the football picture arrives under cow.7, then pushes into the ball as cow.7b
-> lands.
+> after the pitch beat, the two of them close the joke:
 
-! keep true: cow.7b is the model boundary. The minimal model answers one narrow
-question; it does not claim that every omitted detail is powerless.
+[cow.frame.you] BLUE: (draft) That's you. That's exactly you.
+
+[cow.frame.mine] RED: (draft) And this game is my spherical cow. Simple on purpose.
+
+[cow.frame.next] RED: (draft) Want to see how a person becomes a circle?
+
+[cow.choice] (draft) Show me · Skip
+
+> after the pitch beat. [CHOICE] — "Show me" opens B2.
+
+~ adapt: "spherical cow" is a physicists' joke. Keep a cow and a sphere; the
+exact phrase may not exist in your language.
+
+! keep true: the minimal model answers one narrow question; it does not claim
+that every omitted detail is powerless. (Today [cow.7b] carries this.)
 
 ---
 
-## 3 · The spherical human
+## B2 · The spherical human — optional, after the cow (chapter `spherical-human`)
 
-[human.head] Now, the spherical human
+> picture: the reduction plates, split out of the old merged scene — the
+> richest man stripped detail by detail down to one circle.
 
-[human.intro] Same trick. More dangerous subject.
+[human.offer] (draft) How a person becomes a circle
 
-> picture: the richest man, stripped detail by detail down to one circle; the
-> circle becomes sixteen gold coins and back; then a second, smaller circle
-> walks in and they trade.
-
-[human.0] Take the richest man in the world.
+> the collapsed branch: this line on a button. The cow's "Show me" opens it too.
 
 [human.1] I am not going to explain how he got rich.
 
-[human.2] I erase the face, the name, every difference.
+[human.back] (draft) Back to the story
 
-[human.3] Until one thing remains: wealth.
+> at the end of the branch: a link back into the stage, at the guess (Scene 12).
 
-[human.4] Area is wealth. These coins are the same fortune.
+! keep true: this guard stays with the plates. The essay does not explain any
+real fortune.
 
-[human.5] In this model, you are your money and nothing else.
-
-> big, but still under the circle — a verdict about the picture, not a card
-> replacing it.
-
-[human.7] Now someone else walks in with exactly as much.
-
-> they start EQUAL. The game is what makes one of them poorer, and the rule is
-> taught at the moment that starts to matter.
-
-[human.8] Both stake half.
-
-> four gold coins out of each of them, stacked on the table below. At this
-> scale each fortune is eight coins, so four is half.
-
-[human.9] Fair coin. One color or the other.
-
-[human.10] The color that lands takes both stakes.
-
-[human.11] Again. Now one of them is poorer.
-
-[human.12] Same rule, sharper edge: half of what the *poorer* one has.
-
-[human.13] Toss.
-
-[human.14] The poorer one wins.
-
-[human.15] Again: half the poorer fortune.
-
-[human.16] Toss.
-
-[human.17] The poorer one wins again.
-
-[human.18] Almost where they began. Same total. Fair coin. Fair rule. Remember this picture.
-
-> the numbers, in coins: 8-8, then 4-12, then 6-10, then 9-7. The poorer one
-> claws it back and they end up looking level — which is the illusion this
-> scene hands you before the room takes it away.
-
-! keep true: we never say how he actually got rich. The essay does not explain
-any real fortune.
+> OPEN — the plates show a real person, while Blue is only LIKE one. The branch
+> must never imply Blue is that person. Is the framing enough?
 
 ---
 
-## 4 · Your turn to guess
+## 12 · Your guess — Scene 12 (inside the stage)
 
-> picture: no scene — plain page, then a multiple-choice card the reader commits
-> to before scrolling.
+> picture: the same room. No jump to another page: the question, the rule and
+> the choices are all in front of the reader at once (brief Scene 12). The rule
+> card opens beside Red's bubble; the choices sit inside a large bubble.
 
-[guess.head] Your turn to guess
+[guess.ask] RED: (draft) Now it's your turn to guess.
 
-[guess.body]
-Now remove the script. Put one hundred equal fortunes in the room.
+[guess.rule] RED: (draft) Remember the rule.
 
-1. Everyone starts with the same money.
-2. Pick two people at random.
-3. Both put up half of whatever the poorer one has.
-4. Toss for it. One wins, one loses. Fifty-fifty.
-5. Go back to 2.
+[guess.what] RED: (draft) What do you think will happen?
 
-After a hundred thousand fair trades, what survives? Pick one before the coin speaks.
+[guess.choice] (draft) Still roughly equal · A gentle spread · A split: some rich, some poor · One giant, the rest near nothing
 
----
+> [HOLD] until one is picked. Links inside Red's bubble, each with a small
+> picture of the room it means.
 
-## 5 · Now run it
+[guess.stake] RED: (draft) And how much would you bet on that?
 
-> picture: a room of shapes trading live; area is money. When it finishes, a
-> morning-paper card prints the winner's portrait and a confident headline about
-> their colour or corners.
+[guess.bet] (draft) A coffee · A lunch · A vacation · 1% of my wealth
 
-[run.head] Now run it
+> [HOLD] until one is picked. Both answers are remembered, and logged in the
+> talk as the reader's own lines:
 
-[run.intro] A hundred equal fortunes. The colors and corners are costumes. The game cannot see them.
+[log.guess] (draft) Your guess: {choice}.
 
-[run.after]
-The largest shape holds [the measured result] of everything.
+[log.bet] (draft) Your bet: {bet}.
 
-Every trade was fair. No coin was loaded. Nobody cheated. Nobody was smarter.
+[guess.coffee] BLUE: (draft · proposed — first to cut) A coffee. Careful with your money. I respect that.
 
-[run.after.first] Chance chose which shape finished first.
+[guess.lunch] RED: (draft · proposed — first to cut) A lunch. Fair. The winner picks the place.
 
-[run.after.same] The same shape finished first again. A fair coin is allowed to repeat itself.
+[guess.vacation] BLUE: (draft · proposed — first to cut) A vacation! Now it's serious.
 
-[run.after.different] This time a different shape finished first.
+[guess.percent] RED: (draft · proposed — first to cut) One percent. Careful. That's how it starts.
 
-[run.after.shared] The process needed no difference in merit to make the gap.
+> the run plays at exactly a quarter of the poorer fortune — the same bet Red
+> names (owner 2026-09-26: half was too jittery; it used to be 35%, then half).
 
-! keep true: claims here are about one finite run. No "always", no distribution
-family, no naming a psychological bias.
+### The rule card
 
----
+> the first concept card (brief 1.6): like the rule card in a board game, it
+> shows the rule that is running right now, read from the room's own settings
+> — {stake} is the live stake. It drops into the stack in the corner once Red
+> has said the whole rule (Scene 10), and opens at "Remember the rule."
 
-## 6 · So why did they win?
+[card.stack] (draft) Cards
 
-> picture: the paper's headline from the run above, then the same room re-run
-> with a different winner and an equally confident headline.
+[card.rule.title] (draft) The rule
 
-[why.head] So why did they win?
+[card.rule.1] (draft) Pick two people at random.
 
-[why.body]
-The Morning Ledger has already found the secret of success:
+[card.rule.2] (draft) Each puts in {stake} of what the poorer one has.
 
-(show the exact headline generated by the latest run here; update it after every rerun.)
+[card.rule.3] (draft) Flip a coin. The winner takes both.
 
-It sounds almost reasonable. That is how the trick works.
+[card.rule.4] (draft) Do it again.
 
-The result came first. The explanation came second. Color, corners and edges never touched the game.
+[card.close] (draft) Close
 
-Run it again. Maybe a new winner. Maybe the same one twice. The paper never prints “chance.” It simply finds another reason.
-
-Remember the headline we started with? How many reasons did you add before seeing the mechanism?
+[card.play] (draft) Play with it
 
 ---
 
-## 7 · Line them up
+## 13 · The run — Scene 13 (inside the stage)
 
-> picture: the same circles you watched trade — scattered, then sorted, then
-> dropped into piles, then the ruler switches to multiplying by ten.
+> picture: the same room, the same hundred, Blue and Red among them. One live
+> run — unseeded, slowed down so people can see it (brief: "it was very fast").
+> The biggest fortune wears the dashed ring. A forward press finishes the run
+> at once. The result and the morning paper are logged in the talk.
 
-[sort.head] Line them up
+[run.go] RED: (draft) Here we go. / Fair trades, one after another.
 
-[sort.body]
-A hundred circles, all different sizes, scattered around the room. I can spot the winner. I cannot read the room.
+[run.readout] (draft) {trades} trades. The biggest holds {share}.
 
-So I cheat. First sort them. Then cut the wealth ruler into equal bins and drop one circle into the matching pile. Move the number of piles and watch the picture change. The fortunes do not.
+[log.run] (draft) After {trades} trades, one of them holds {share} of everything.
 
-[sort.after]
-Now it is a histogram: the bars are the people you just watched. The cuts between bars are my choice, not nature's. That is why the slider matters.
+> after the run, in the talk; then the morning paper prints there too, on the
+> winner, as today.
 
-But the richest circle also owns the ruler. Fit it on a straight, adding scale and much of the room is squeezed against zero. So change the ruler. Each step now *multiplies* by ten. Equal distance means ten times the money; the hidden crowd opens up.
+[run.where] BLUE: Red? Where are you? ★
 
-Below one cent goes in the dust box. Exact zero belongs there too: zero has no position on a multiplying ruler. The new ruler reveals what the old one hid. It does not explain why the shape exists.
+[run.here] RED: Here. What do you have? ★
+
+[run.have] BLUE: (draft) {blue}. You?
+
+[run.havetoo] RED: (draft) {red}.
+
+[run.told] RED: Told you. ★
+
+> when someone else finishes richest (the most likely case); {blue} and {red}
+> are what they actually hold, in dollars (everyone started with $100).
+
+[run.blue.b] BLUE: (draft) See? Talent rises.
+
+[run.blue.r] RED: (draft) Run it again and see if your talent comes along.
+
+> when Blue finishes richest.
+
+[run.red.r] RED: (draft) Look at that. Am I a genius now?
+
+[run.red.b] BLUE: (draft) …Run it again.
+
+> when Red finishes richest.
+
+[run.again] RED: (draft) Let's try again?
+
+[run.choice] (draft) Again · Go on
+
+> [CHOICE] links inside Red's bubble. "Again" runs a new room, right here.
+
+---
+
+## 14 · So why did they win? — Scene 14 (inside the stage)
+
+> picture: the paper is in the talk. Blue takes the paper's side; Red refuses.
+> The bias is described, never named (owner, 2026-09-26; research.md C12).
+
+[why.paper] BLUE: (draft) See? The paper knows why.
+
+[why.after] RED: (draft) The paper found the reason after the result. / The coin never saw a thing.
+
+[why.again] RED: (draft) New winner. New reason. / The paper never prints "chance."
+
+> instead of [why.after] once the reader has run the room more than once.
+
+[why.once] RED: (draft) And that's one run. It shows, it doesn't prove. / The proof comes later.
+
+! keep true: every claim here is about one finite run. No "always", no
+distribution family, no naming a psychological bias. The result comes first and
+the explanation second; colour, corners and edges never touch the game.
+
+> OPEN — the payoff of Blue and Red's bet, and of the reader's.
+
+---
+
+## 15 · Line them up — Scene 15 (inside the stage)
+
+> picture: the same room. The people drop and sort into piles by how much they
+> hold, keeping their costumes; the count is written above each pile; the ruler
+> is ordinary, its ticks round. Then the ruler changes to multiplying by ten, a
+> touch slower, so the labels can be seen moving. Then everyone goes back.
+
+[sort.ask] RED: (draft) A hundred people. / Too many to read at a glance.
+
+[sort.do] (draft) Sort them
+
+[sort.real] BLUE: (draft) Most have almost nothing. A few have a lot. / That's just real life.
+
+[sort.edge] RED: (draft) It's also this room. / And here, nobody had an edge.
+
+[sort.where] BLUE: (draft) Where am I?
+
+[sort.there] RED: (draft) There. With {count} others.
+
+> {count} is how many others share Blue's pile, off the screen.
+
+[sort.squeeze] BLUE: (draft) This chart is useless, though. / Everyone is squeezed into one corner.
+
+[sort.ruler] RED: (draft) Then let's change the ruler.
+
+[sort.ruler.do] (draft) Change the ruler
+
+[sort.times] RED: (draft) Now each step means ten times more, / not ten more.
+
+[sort.even] BLUE: (draft) One, ten, a hundred, a thousand. / Even steps. Huh.
+
+[sort.dust] RED: (draft) Less than a cent goes in the dust box. / Zero has no place on this ruler.
+
+[sort.back] RED: (draft) That's a histogram. / Back to the room?
+
+[sort.back.do] (draft) Put them back
 
 ! keep true: the multiplying ruler only makes hidden values visible. It proves
 nothing about what kind of distribution this is.
 
----
+[sort.axis.money] (draft) money each holds
 
-## 8 · Measure the room
+[sort.axis.people] (draft) people
 
-> picture: equal circles merging one by one into a straight line, then an
-> unequal room doing the same and sagging; the gap is hatched; then a slider
-> bends the curve.
+[card.histogram.title] (draft) Histogram
 
-[gini.head] Measure the room
+[card.histogram.1] (draft) Sort everyone into piles by how much they have.
 
-[gini.body]
-A picture is excellent until I want to compare two rooms. Then I need a number.
+[card.histogram.2] (draft) A pile's height is how many people are in it.
 
-Start with Gini. I like it because you can watch the number being built.
-
-[gini.after]
-Zero means equal. One is the theoretical horizon: as a room grows, one owner and everybody else at nothing gets closer and closer to it.
-
-Useful. But the question I care about is plainer: how many people still carry enough economic weight to matter?
-
-### Four people. How many still matter?
-
-Four people enter with four coins each. Move the coins yourself. The people never leave. The black box watches only where the wealth goes.
-
-The box asks how many equal fortunes would be just as concentrated as this room. Four equal fortunes give 4. Split everything equally between two and it gives 2. Give every coin to one owner and it gives 1. In between, it can say 3.88 or 1.47.
-
-That is **effective participants**. Four bodies remain in the room. The number measures the field they have left.
-
-[participation.formula] Open the black box: write each person's share of the room as sᵢ. Square the shares, add them, then take the reciprocal: 1 / Σsᵢ². This is the inverse Herfindahl concentration index.
-
-### A million trades can move almost nothing
-
-The trade counter keeps racing after most people have almost nothing left to risk. A million crumbs still prints as a million trades.
-
-So I count the money that crossed between people. One **measurement round** is one trade per person on average. Add the stakes transferred in those ordinary trades and divide by all wealth in the room. That is **ordinary turnover**. A result of 0.30 roomfuls means wealth equal to 30% of the room changed hands during that round.
-
-Only trades count. Later, levies and shared returns get their own ledger. The remedy does not get to pad this number.
+[card.histogram.3] (draft) A multiplying ruler shows what an ordinary one squeezes into a corner.
 
 ---
 
-## 9 · More of them
+## 16 · Measure the room — Scene 16 (inside the stage)
 
-> picture: a thousand circles, two million trades, the histogram forming live.
+> picture: everyone steps into a line, poorest first. Walking along the line,
+> their money is added up as it goes: the running total climbs as a curve above
+> them. Equal shares would climb the straight diagonal. The gap between the two
+> is the Gini.
 
-[crowd.head] More of them
+[gini.ask] BLUE: (draft) Economists love a single number. / What's ours?
 
-[crowd.body] A small room is good for learning the instruments. Now invite a crowd: one thousand equal fortunes, two million fair trades, fresh luck.
+[gini.line] RED: (draft) Line everyone up, poorest first.
 
-[crowd.after]
-The histogram says where the people sit. Gini says how far the room bent from equality. Effective participants says how broad the field remains. Turnover says whether all those trades still move meaningful wealth.
+[gini.add] RED: (draft) Now walk along the line / and add up their money as you go.
 
-Do not ask one number to impersonate another. Read the room with all of them.
+[gini.equal] RED: (draft) If everyone had the same, / the total would climb this straight line.
 
----
+[gini.gap] RED: (draft) The gap between them is the Gini. / Zero: all the same. One: a single owner.
 
-## 10 · Where it ends
+[gini.value] RED: (draft) This room: {gini}.
 
-> picture: time accelerating; the tail thins until one circle holds everything
-> the screen can show.
+[gini.toy] RED: (draft) Want to see the equal case / and play with it?
 
-[end.head] Where it ends
+[gini.toy.choice] (draft) Yes · Not now
 
-[end.body]
-That crowd was one run. A run can show you something. It cannot prove it.
+> [CHOICE] "Yes" opens the old Gini toy in a panel on the stage; its Done
+> link, or "Not now", goes on.
 
-Here mathematics says something stronger. Keep the room finite. Pick pairs at random. Use one fixed stake strictly between zero and one hundred percent, and an independent fair coin. Then continue without end. With probability one, wealth converges to a single owner.
+[gini.axis.people] (draft) people, poorest first
 
-[end.after]
-The animation is not the proof. It only lets the pixels chase the theorem.
+[gini.axis.money] (draft) share of all the money
 
-"Without end" is doing serious work. This is a limit, not a date. At any finite time the room can be deeply concentrated without literally reaching one owner. The path can wobble, too: a poorer circle can win and the room can briefly grow fairer on the way.
+[card.gini.title] (draft) Gini
 
-[end.citation] For a fixed finite number of agents and a fixed stake fraction 0 < β < 1, the wealth vector converges almost surely to one of the room's one-owner states. “Almost surely” means probability one; it does not mean every imaginable sequence of coin tosses. The proof is in Börgers & Greengard (2023).
+[card.gini.1] (draft) Line everyone up, poorest first, and add up their money as you go.
 
-! keep true: the single-owner ending is a limit result, not a prediction of a
-date, and the citation stays.
-
----
-
-## 11 · Your hand on the dial
-
-> picture: a stake dial; dragging it re-runs the room at that stake.
-
-[stake.head] Your hand on the dial
-
-[stake.body]
-You have seen the destination. Now put your hand on the clock.
-
-The stake — the fraction of the poorer fortune placed on each toss — has been fixed until now. Turn it down. Turn it up. Every change starts a fresh room, so luck is allowed to heckle your comparison.
-
-[stake.after]
-Look for the pattern across runs, not a promise from one of them. Smaller stakes usually take longer to produce a dominant fortune. Larger stakes usually get there faster. I am not claiming an exact stopwatch law here.
-
-The theorem says every fixed positive stake has the same limiting destination. The dial changes the journey, not the limit. Exactly zero is not a very slow game. It switches the game off.
-
-! keep true: the stake changes the speed, not the ending. Don't state a formula
-for how much faster.
+[card.gini.2] (draft) 0: everyone has the same. 1: one owner, nothing for the rest.
 
 ---
 
-## 12 · Now you try to stop it
+## 17 · How many still count? — Scene 17 (inside the stage)
 
-> picture: a live room falling the usual way; tapping a fat circle takes a
-> quarter of it and shares it out. The room keeps trading while you tap.
+> picture: the room itself tries the cases (owner, 2026-09-26): everyone the
+> same; one person emptied; that person's money given to one other; half the
+> room owning it all; one owner; and back to how it really is. Each time Red
+> says the number. Then four people step out of the crowd, four coins each,
+> and the reader moves the coins.
 
-[tax.head] Now you try to stop it
+[eff.ask] BLUE: (draft) A hundred players. / That's a lot of competition.
 
-[tax.body]
-Enough watching. Put your hand in the room.
+[eff.equal] RED: (draft) If all hundred had the same, / all hundred would count.
 
-Keep at least twenty effective participants in the game. Tap a large fortune: one quarter of it goes into a common pool and returns in equal shares to all one hundred people. Choose the stake before you start. That changes the difficulty, not the rule.
+[eff.brutal] RED: (draft) This game is brutal. / No money, and you don't count at all. {count} left.
 
-The room keeps trading while you work. Can your hand preserve the field, or will the game close around you? Nothing is locked behind winning. I want you to feel the job.
+[eff.give] RED: (draft) Now give his money to one other person. / {count}. A bit less.
 
-[tax.after]
-Whatever your score, notice what your hand did. It watched, chose one holder, reacted, and did it again. That is a targeted intervention.
+[eff.half] RED: (draft) Half of them own it all, equally? / {count}.
 
-What comes next is not a robot finger. It is a different rule: nobody is selected. The same percentage applies to every fortune, the pieces enter one pool, and the pool returns equally to everyone.
+[eff.one] RED: (draft) One owns everything? / {count}.
 
-! keep true: whether a fast hand can hold the room is genuinely open. The game
-is not rigged to make you lose.
+[eff.room] RED: (draft) This room? / About {count}.
 
----
+> {count} is 1 / Σsᵢ² of the room on screen, to one decimal.
 
-## 13 · Put the levy in the rules
+[eff.try] RED: (draft) Your turn. Four of them, four coins each. / Move the coins.
 
-> picture: the levy running by itself, trading frozen, so the tool is visible
-> alone.
+[eff.readout] RED: (draft) Four people. {count} of them count.
 
-[rule.head] Put the levy in the rules
+> Red, beside the four, reading the number out as the reader moves coins.
 
-[rule.body]
-Your hand gets tired. A rule does not.
+[eff.done] (draft) Done
 
-Once per measurement round, collect the same percentage of every fortune. Put every piece in one pool. Return the pool equally. That complete loop — levy plus shared return — is the counterforce I am testing.
+[eff.end] BLUE: (draft) A hundred people. / About {count} players.
 
-First, see the tool alone — freeze the trading.
+[participation.formula] Open the black box: write each person's share of the
+room as sᵢ. Square the shares, add them, then take the reciprocal: 1 / Σsᵢ².
+This is the inverse Herfindahl concentration index.
 
-[rule.after] Do not skip the return. Collection alone shrinks every circle by the same proportion and leaves the shares unchanged. The equal return changes them: below-average fortunes receive more than they contributed, an average fortune breaks even, and above-average fortunes contribute net. The room keeps every coin.
+> a claim note (the fold-out "Open the black box"), not dialogue — on the card.
 
-Here the return is literal coins. Outside this room it could be a dividend or a universally shared service. This model does not choose a budget. It only tests the shared return.
+[card.participants.title] (draft) Effective participants
 
----
+[card.participants.1] (draft) How many equal fortunes would be just as concentrated as this room.
 
-## 14 · Trade and return together
-
-> picture: an empty grid — stake on one axis, levy on the other. The reader runs
-> rooms and each result enters its square until the selected participation contour appears.
-
-[phase.head] Trade and return together
-
-[phase.body]
-Now unfreeze trading. I refuse to compare two unrelated lucky stories and call the difference tax. Instead, write one fresh random script of partners and coin tosses, then photocopy it. One room gets only the trades. The other gets the exact same trades plus the shared rule.
-
-One matched pair is still one finite experiment. Run another and the numbers move. But within each pair, luck is held still. The only changed ingredient is the levy plus equal return.
-
-### One pair is not a landscape
-
-Now vary both dials. Stake goes across. Levy per round goes up. Each fresh finite run enters one square, and color answers the question we learned to ask: how many effective participants remain?
-
-[phase.after]
-Fifty effective participants is my challenge line, not a law of nature. If you fill the map, the pale line connects settings that reached that chosen finite-run outcome. It is not a border between two phases.
-
-The dashed fit follows `levy ≈ c × stake²` over this measured range. Double the stake and the fitted levy for the same target grows by roughly four. That is not a universal tax formula. It is the relationship this room asks us to notice: a shared levy numerically much smaller than the risk on each trade can preserve a broad field for risk-taking.
-
-Those percentages live on different clocks: stake is at risk in each trade; levy is applied once per measurement round of one hundred trades. The fit compares their measured effects. It does not say the displayed percentages are interchangeable.
-
-! keep true: effective participants is the primary field; 50 is a chosen target;
-the map is finite-run evidence; the square curve is fitted, not a phase boundary or law.
+[card.participants.2] (draft) Everyone equal: all of them. One owner: 1. No money: you don't count.
 
 ---
 
-## 15 · The earned conclusion
+## 18 · Is anything moving? — Scene 18 (inside the stage)
 
-> picture: no new spectacle. The argument lands before the reader receives the
-> whole machine.
+> picture: the room dims; over it, how much of the room's money changed hands
+> in each round of the run, from the first to the last (owner, 2026-09-26:
+> "people want an active economy; low turnover is bad even for the right").
+
+[turn.busy] BLUE: (draft) At least it's a busy economy. / {trades} trades!
+
+[turn.count] RED: (draft) Count the money that actually changes hands.
+
+[turn.start] RED: (draft) At first, {early} of the room changed hands every round.
+
+[turn.now] RED: (draft) By the end, {late}. / The trades go on. The money barely moves.
+
+[turn.dead] BLUE: (draft) A dead economy. / Even I don't like that.
+
+[turn.axis.trades] (draft) trades
+
+[turn.axis.share] (draft) money changing hands, each round
+
+[turn.axis.short] (draft) moved per round
+
+[card.turnover.title] (draft) Turnover
+
+[card.turnover.1] (draft) How much of all the money changes hands in one round: one trade per person.
+
+[card.turnover.2] (draft) A busy room moves a lot of its money. A concentrated one barely moves any, however many trades it makes.
+
+! keep true: only trades count as turnover. Levies and shared returns are kept
+in their own ledger; the remedy never pads this number.
+
+[dial.label] (draft) {trades} trades
+
+> the time player, beside the charts: the same run, any round of it — minimal,
+> like a video player (owner, 2026-09-26). The buttons' names, for screen readers:
+
+[player.play] (draft) Play the run again
+
+[player.pause] (draft) Pause
+
+[player.start] (draft) Back to the start
+
+[player.end] (draft) To the end
+
+[player.scrub] (draft) Where in the run
+
+---
+
+
+## 19 · Where it ends — Scene 19 (inside the stage)
+
+> picture: the same room. Red states what the mathematics says; "Run it
+> longer?" plays the same room on, fast, in place: closer and closer to one
+> owner, never on a date. The 1,000-person crowd is cut from the main flow
+> (D20 answer 8).
+
+[end.one] RED: (draft) That was one run. / It shows. It doesn't prove.
+
+[end.proof] RED: (draft) The math says more. / Keep playing forever, and one person ends up with everything.
+
+[end.when] BLUE: (draft) When?
+
+[end.limit] RED: (draft) Never on a date. It's a limit. / At any moment, it can still wobble.
+
+[end.longer] RED: (draft) Want to see it run longer?
+
+[end.choice] (draft) Yes · Not now
+
+! keep true: for a fixed finite room, random pairs, a fixed stake strictly
+between 0 and 100%, and a fair coin, wealth converges to a single owner with
+probability one — a limit, not a date; at any finite time the room can be
+deeply concentrated without one owner, and the path can wobble. The animation
+is not the proof. Börgers & Greengard (2023), https://arxiv.org/abs/2308.01485.
+
+[card.limit.title] (draft) Where it ends
+
+[card.limit.1] (draft) Keep playing forever: with probability one, one person ends up with everything.
+
+[card.limit.2] (draft) A limit, not a date. At any moment the room can still wobble.
+
+[card.limit.3] (draft) Proof: Börgers & Greengard, 2023.
+
+---
+
+## 20 · Your hand on the dial — Scene 20 (inside the stage)
+
+> picture: a stake dial inside Red's bubble, from nothing to everything
+> (brief 1.5: nothing is capped). Every change runs a fresh room of the same
+> length, so luck is allowed to heckle the comparison.
+
+[dial.ask] RED: (draft) Your turn. / Pick a stake, from nothing to everything.
+
+[dial.stake] (draft) Stake: {stake}
+
+[dial.name] (draft) stake
+
+[dial.zero] RED: (draft) Zero: nothing moves. / That's no game at all.
+
+[dial.slow] RED: (draft) {stake}: slower. / The richest holds {share}.
+
+[dial.fast] RED: (draft) {stake}: faster. / The richest holds {share}.
+
+[dial.all] RED: (draft) Everything on the table: / one loss and you're out. The richest holds {share}.
+
+[dial.same] RED: (draft) {stake}: the stake you watched. / The richest holds {share}.
+
+> Red's one line about the reader's last room, whichever fits.
+
+[dial.law] RED: (draft) Every stake above zero ends the same way. / The stake changes the journey, not the end.
+
+! keep true: the qualitative split only — every fixed stake in (0, 1) has the
+same limit (C4); the rate is what these runs did, not a law. Exactly zero
+switches the game off.
+
+[card.stake.title] (draft) The stake
+
+[card.stake.1] (draft) How much of the poorer one's money goes on each toss.
+
+[card.stake.2] (draft) Any stake above zero ends the same way. Smaller only takes longer. Zero is no game.
+
+---
+
+## 21 · Now you try to stop it — Scene 21 (inside the stage)
+
+> picture: the room trades live. Tapping a fortune takes a quarter of it into
+> a pool and shares it back equally — a manual WEALTH levy (C13). Keep at least
+> twenty effective participants for thirty seconds. The pace is tuned so a
+> diligent hand genuinely can.
+
+[stop.ask] RED: (draft) Enough watching. / Keep at least twenty players in the game.
+
+[stop.how] RED: (draft) Tap a big fortune: a quarter goes into a pool / and comes back to everyone, equally.
+
+[stop.start] (draft) Start
+
+[stop.won] RED: (draft) Thirty seconds, and still {count} players. / Your hand did it.
+
+[stop.lost] RED: (draft) It closed after {seconds} seconds. / {taps} taps weren't enough.
+
+[stop.hand] RED: (draft) Notice what your hand did: / watch, pick one, react. Again and again.
+
+[stop.rule] RED: (draft) Next, not a hand. A rule. / Nobody gets picked.
+
+[stop.meter] (draft) {count} players
+
+[stop.tap] (draft) Take a quarter of {share}
+
+---
+
+## 22 · Put the levy in the rules — Scene 22 (inside the stage)
+
+> picture: trading frozen; four step out with coins — Blue 16, two others 8
+> and 4, Red 4 (the average is 8). A quarter of every pile goes to one pool;
+> the pool comes back in equal parts: Blue 14, 8, 5, Red 5.
+
+[levy.ask] RED: (draft) Your hand gets tired. / A rule doesn't.
+
+[levy.collect] RED: (draft) Once a round, the same share from everyone: / a quarter.
+
+[levy.same] BLUE: (draft) Everyone lost a quarter. / Nothing changed.
+
+[levy.shares] RED: (draft) Right. Everyone shrank the same. / The shares didn't move.
+
+[levy.return] RED: (draft) Now the pool goes back, / in equal parts.
+
+[levy.net] RED: (draft) The average broke even. / Below it, more came back. Above it, less.
+
+[levy.paid] BLUE: (draft) I paid in.
+
+[levy.kept] RED: (draft) And the room kept every coin.
+
+[levy.pool] (draft) pool
+
+! keep true: the return is literal coins here; outside the room it could be a
+dividend or a shared service — the model chooses no budget, it only tests the
+shared return.
+
+[card.levy.title] (draft) The shared levy
+
+[card.levy.1] (draft) Once a round: the same share of every fortune into one pool.
+
+[card.levy.2] (draft) The pool comes back in equal parts.
+
+[card.levy.3] (draft) Below the average gains, the average breaks even, above it pays in. Nothing is lost.
+
+---
+
+## 23 · Trade and return together — Scene 23 (inside the stage)
+
+> picture: the room shrinks to one side and a mirror copy appears beside it — a
+> parallel universe with the same start and the same luck. Left: trades only.
+> Right: the same trades plus a 2% levy and equal return every round (60,000 trades at the quarter stake: about 4 still count on the left, about 42 on the right).
+
+[match.ask] RED: (draft) Now let it trade. Same luck, twice: / one room without the rule, one with it.
+
+[match.result] RED: (draft) Without the rule: about {a} players. / With it: about {b}.
+
+[match.left] (draft) Trades only
+
+[match.right] (draft) Trades, and a {levy} levy shared back
+
+[match.luck] BLUE: (draft) Same coin, same partners?
+
+[match.same] RED: (draft) Every toss the same. / Only the rule changed.
+
+! keep true: one matched pair is one finite experiment; within the pair luck is
+held still, and the only changed ingredient is the levy plus equal return.
+
+---
+
+## 24 · The outcome map — Scene 24 (inside the stage)
+
+> picture: the map of stake against levy, each square a finished room,
+> coloured by how many still count. The dashed fit is drawn only over the
+> range it was measured on; neither it nor the contour is a phase boundary.
+
+[map.ask] BLUE: (draft) One pair is confusing. / Which settings keep the room open?
+
+[map.all] RED: (draft) Try them all: stake across, levy up. / Each square, how many still count.
+
+[map.fit] RED: (draft) A small levy can hold a big stake: / double the stake, about four times the levy.
+
+! keep true: the fit is descriptive, drawn only over the measured range; each
+square is the mean of 8 finished rooms (200,000 trades, levy once a round);
+the stake is at risk each trade, the levy comes once a round — different
+clocks, compared by their measured effects, not interchangeable percentages.
+
+[map.stake] (draft) stake per trade
+
+[map.levy] (draft) levy per round
+
+[map.many] (draft) all 100 count
+
+[map.few] (draft) one counts
+
+[map.half] (draft) half still count
+
+---
+
+## 25 · The verdict — Scene 25 (inside the stage)
+
+> picture: everyone else hops out of the room; Blue and Red go back to their
+> seats, eight coins each, as the reader once made them — equal (brief 5.10:
+> "everything leaves except the two. They talk").
+
+[verdict.1] RED: (draft) The coin was fair the whole time. It never saw a name.
+
+[verdict.2] BLUE: (draft) Then how did one of us end up with everything?
+
+[verdict.3] RED: (draft) Money didn't buy better odds. It bought more tosses you could survive.
+
+[verdict.4] RED: (draft) Then a shared levy with an equal return kept more people able to play.
+
+[verdict.5] BLUE: (draft) So you're against merit.
+
+[verdict.6] RED: (draft) No. I'm worried about the field merit plays on.
+
+[verdict.7] BLUE: (draft · proposed) If merit is supposed to win…
+
+[verdict.8] RED: (draft · proposed) …keep the game open long enough for merit to play.
+
+> proposed: the essay's closing line goes to the merit defender.
+
+! keep true: the conclusion distinguishes fair odds from staying power, names
+the full levy-plus-equal-return mechanism, explains no real person's wealth,
+and is not an argument against merit.
+
+> OPEN — the ending as a whole, including the payoff of both bets.
+
+---
+
+## 26 · The machine is yours — Scene 26 (inside the stage)
+
+> picture: the hundred hop back in, equal, Blue and Red among them (brief
+> 5.10: "Blue and Red stay in the sandbox too"). The room is the reader's now:
+> Play, the stake, the levy and how often, the speed, and what a tap does, in
+> the right panel beside the plots; a tap on a fortune levies it or
+> photographs it for the paper. "All the dials" opens the whole old machine
+> (people, money, expert numbers, the measured map) as a side trip.
+
+[sandbox.1] RED: (draft) I'm done touching the controls.
+
+[sandbox.2] BLUE: (draft) The machine is yours. Break our argument.
+
+[sandbox.play] (draft) Play
+
+[sandbox.pause] (draft) Pause
+
+[sandbox.new] (draft) New room
+
+[sandbox.levy] (draft) levy per round
+
+[sandbox.every] (draft) levy every
+
+[sandbox.rounds] (draft) {count} rounds
+
+[sandbox.speed] (draft) speed
+
+[sandbox.tap] (draft) A tap:
+
+[sandbox.tap.levy] (draft) levies
+
+[sandbox.tap.photo] (draft) photographs
+
+[sandbox.take] (draft) a tap takes
+
+[sandbox.more] (draft) All the dials
+
+[sandbox.dials] (draft) Dials
+
+[workshop.offer] (draft) All the dials: the whole machine — people, money, expert numbers, the measured map
+
+! keep true: the levy here is a toy. No claim about real tax policy.
+
+---
+
+# Appendix · buttons and labels
+
+Not prose. Edit only if a word annoys you.
+
+[ui.run] Run this room · Run it again · Run it again — new dice · Start the room
+
+[ui.dist] Stack them into piles · Change the ruler · Add them up · Bend it yourself
+
+[ui.tax] Start levying · Keep levying
+
+[ui.hint] Clicking an agent levies them · Clicking an agent photographs them for the front page
+
+[ui.lorenz] Lorenz curve and Gini
+
+[ui.end] Close enough for pixels
+
+---
+
+# Retiring — the narrator's lines
+
+Deleted by default (D19): the essay is a dialogue now. They stay here, word for
+word, until the scene that replaces them ships, so nothing disappears silently.
+Nobody has claimed any of them (2026-09-24), so each one goes when the scene
+replacing it ships.
+
+Every `! keep true:` these lines carried has already moved up into the script.
+
+> Gone from the build 2026-09-24: the cow's bridge cards and every caption the
+> owner's cut left out, and the spherical human's narration and its trade —
+> Blue and Red play that game on the pair stage now.
+>
+> Gone 2026-09-26: "Your turn to guess" and its five-step rule list — the guess
+> happens inside the stage now (Scene 12), and the rule lives on the rule card.
+> Gone the same day: "Now run it" and "So why did they win?" — the run and the
+> paper happen in the stage (Scenes 13–14); and "Line them up", "Measure the
+> room" and turnover — the histogram, the Gini and effective participants are
+> acts on the same room (Scenes 15–17); and "More of them" through "Trade and
+> return together" — Scenes 19–24 on the stage; the 1,000-person crowd is cut.
+
+## The earned conclusion
 
 [close.head] So — merit, or math?
 
@@ -454,38 +1091,9 @@ the map is finite-run evidence; the square curve is fitted, not a phase boundary
 
 [close.8] The machine is yours. Break my argument.
 
-! keep true: the conclusion distinguishes fair odds from staying power, names
-the full levy-plus-equal-return mechanism, and does not claim to explain any
-real person's wealth.
-
----
-
-## 16 · The sandbox
-
-> picture: the whole machine, every dial exposed, full screen. This is the last
-> guided destination; no narrative verdict follows it.
+## The sandbox
 
 [sandbox.head] The sandbox
 
 [sandbox.body]
 Everything you have seen was this one machine wearing different costumes. Here it is with every dial exposed: people, stake, levy rate, levy timing — and the room itself answers to your finger. It begins equal, with fresh dice. Effective participants is the first reading; Gini is one button away. Tap anyone, change anything, and see what it takes.
-
-! keep true: the levy here is a toy. No claim about real tax policy.
-
----
-
-# Appendix · buttons and labels
-
-Not prose. Edit only if a word annoys you.
-
-[ui.run] Run this room · Run it again · Run it again — new dice · Start the room
-
-[ui.dist] Stack them into piles · Change the ruler · Add them up · Bend it yourself
-
-[ui.tax] Start levying · Keep levying
-
-[ui.hint] Clicking an agent levies them · Clicking an agent photographs them for the front page
-
-[ui.lorenz] Lorenz curve and Gini
-
-[ui.end] Close enough for pixels

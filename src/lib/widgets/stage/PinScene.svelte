@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import { WHEEL_GESTURE_REST_MS } from '../shared/gesture';
+  import { WHEEL_GESTURE_REST_MS, keyDirection, keyIsClaimed } from '../shared/gesture';
 
   let fontsRefreshHooked = false;
 
@@ -30,14 +30,6 @@
     wheelRestTimer = undefined;
   }
 
-  /** Space belongs to the focused control, not to the page. */
-  function keyIsClaimed(el: Element | null): boolean {
-    if (!el || el === document.body) return false;
-    const tag = el.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'A') return true;
-    return (el as HTMLElement).isContentEditable === true;
-  }
-
   function activeNav(strictOnly = false): SceneNav | undefined {
     const y = window.scrollY;
     for (const nav of navs) {
@@ -45,13 +37,6 @@
       if (y >= nav.from() - 4 && y <= nav.to() + 4) return nav;
     }
     return undefined;
-  }
-
-  function keyDirection(e: KeyboardEvent): -1 | 0 | 1 {
-    if ((e.key === ' ' || e.key === 'Spacebar') && e.shiftKey) return -1;
-    if ([' ', 'Spacebar', 'Enter', 'ArrowRight', 'ArrowDown', 'PageDown'].includes(e.key)) return 1;
-    if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key)) return -1;
-    return 0;
   }
 
   function onBeatKey(e: KeyboardEvent): void {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { chapters, loadFurthest, saveFurthest } from './chapters.svelte';
+  import { STAGE_STATE_ATTRIBUTE } from '$lib/deferredEvents';
 
   /**
    * Where you are, and how to leave.
@@ -48,8 +49,11 @@
       }
     }
     // The opening owns the first screen alone: a timed teletype and a title
-    // that spins. Nothing slides in over it.
-    shown = window.scrollY > window.innerHeight * 0.6;
+    // that spins. Nothing slides in over it. A stage waiting on the reader is
+    // different: it can sit at the very top of the page for its whole dialogue,
+    // and the index is the way out of it.
+    const stage = document.documentElement.getAttribute(STAGE_STATE_ATTRIBUTE);
+    shown = stage === 'reading' || (stage !== 'playing' && window.scrollY > window.innerHeight * 0.6);
   }
 
   function go(id: string): void {
@@ -87,6 +91,9 @@
     window.addEventListener('resize', onScroll, { passive: true });
     window.addEventListener('keydown', onKey);
     window.addEventListener('pointerdown', onPointer);
+    // the stage changes state without the page scrolling
+    const watch = new MutationObserver(onScroll);
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: [STAGE_STATE_ATTRIBUTE] });
     measure();
 
     // A shared link lands on its chapter: the anchor exists before we do, but
@@ -99,6 +106,7 @@
       window.removeEventListener('resize', onScroll);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('pointerdown', onPointer);
+      watch.disconnect();
     };
   });
 </script>

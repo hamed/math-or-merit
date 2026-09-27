@@ -7,13 +7,16 @@
     "build": "vite build",
     "preview": "vite preview",
     "research": "vite-node scripts/research.ts",
-    "check": "svelte-check --no-tsconfig --ignore \"archive\" --fail-on-warnings && tsc --noEmit",
+    "messages": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy localStorage baseLocale --emit-ts-declarations",
+    "check": "npm run messages && svelte-check --no-tsconfig --ignore \"archive\" --fail-on-warnings && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:browser": "playwright test --grep-invert @visual",
     "test:visual": "playwright test --grep @visual"
   },
   "devDependencies": {
+    "@inlang/paraglide-js": "^2.25.4",
+    "@inlang/plugin-message-format": "^4.4.4",
     "@playwright/test": "^1.62.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "@types/node": "^24.13.2",

@@ -4,7 +4,236 @@ Read `AGENTS.md` first (architecture law) and `MEMORY.md` (durable lessons and
 owner preferences). This file is the *state* snapshot: what is built, what was
 decided, how to verify, what remains. Written 2026-07-06 after the scrollytelling
 rebuild; last updated 2026-08-26 after the prose pass and the opening/trade
-rounds (R16–R28).
+rounds (R16–R28). **2026-09-24: see "The dialogue brief" directly below — the
+essay's direction changed, and it overrides older notes here where they
+disagree.** PRs #9–#17 (phases 4–10) merged after 2026-08-27 and are not
+written up in this file; trust `git log` and `notes/outline.md` for them.
+
+## The dialogue brief (2026-09-24) — READ THIS FIRST
+
+The owner's design brief `inbox/2026-09-24 note.md` (v3) turns the essay from a
+narrator into a dialogue: **Blue** ("the richest man in this world", on the
+right, under MERIT) and **Red** ("the poorest man in this world", a physicist,
+on the left, under MATH) argue from the title to the sandbox, and the reader
+decides. Decision record: `notes/draft-decisions.md` D19 (supersedes D8).
+
+State of the work, by the brief's own plan (Part 9):
+
+- **Phase 0 — decisions and words: done, on `feat/dialogue-groundwork`.**
+  ADR-017 (the step stage) is drafted and **PROPOSED, not accepted — nothing is
+  built until the owner says yes.** `notes/prose.md` now holds the whole
+  dialogue script and LEADS the build; the narrator's lines wait, word for
+  word, under its "Retiring" appendix until their replacement ships.
+- **Phase 1 — no-decision fixes: done, same branch.** `DistributionStage`
+  (pile counts on demand; the same decade marks on both rulers, sliding from
+  crowded to even) and `EffectiveParticipantsStage` (exact square; an emptied
+  holder stays visible as a dashed ring).
+- **Owner's answers (2026-09-24):** ADR-017 yes, with Paraglide; reveal at 0.5;
+  Red on the left "permanent" (REVERSED by the owner 2026-09-26, D20); agent picks the reel lists; the cow keeps every
+  plate and loses text where it can. Recorded in D19.
+- **Phases 2–4: done, on `feat/step-stage`** (stacked on the groundwork PR, #19):
+  - *Words:* Paraglide 2, locales en + fa (fa empty, falls back to English).
+    `scripts/prose-to-messages.ts` generates `messages/en.json` from prose.md;
+    `src/lib/content/prose.test.ts` refuses a stale file and enforces bubble
+    limits. `src/lib/i18n.ts` is the seam (`say(key, values)`, locale digits,
+    the one `dir`). **After any prose.md edit, run the script.**
+  - *The player:* `stage/steps.ts` (headless machine, holds, restore) and
+    `stage/StepStage.svelte` (engagement, one input rule, arrival, auto steps).
+    `stage/Bubble.svelte`, `stage/SpeakerText.svelte`, `stage/ambient.ts`.
+  - *Costumes:* `PROTAGONISTS` and `RESERVED_CIRCLE_PAIRS` in `agentStyle.ts`,
+    measured by `shared/cvd.ts` (Machado 2009 + CIEDE2000). Exact-pair
+    reservation was not enough for CVD readers; circles now avoid 12 pairs.
+  - *The pair stage:* `stage/scenes/pair/` — `script.ts` (79 steps as data, each
+    with the POSE it leaves: tests prove every spoken number is the number on
+    screen), `crowd.ts` (the authored bites, rule-shaped, ending exactly 15/1),
+    `layout.ts`, `game.ts` (ROUNDS/HOLDINGS, moved unchanged), `PairScene.svelte`.
+    Mounted at the top of the essay in place of the timed opening.
+  - *Branches:* `stage/Branch.svelte` + `stage/branch.ts`. B1 is CowCastScene
+    with its bridge/model beats removed and five captions; B2 is
+    `PersonTradeScene part="reduction"`. The old spherical-human chapter and
+    its narrated trade are gone from the main flow.
+- **Verified (2026-09-24):** 319 tests; build 0 warnings; wheel sweep reaches
+  both ends at 1280 px, 390 px and reduced motion with 0 stalls and 0 console
+  errors (the sweep performs the two holds itself, as a reader must);
+  keyboard-only through both holds; restore on reload; under the `fa` locale
+  everything mirrors (since 2026-09-26 the stage too);
+  skipped branches download 0 plates.
+- **Phases 5–6 of v3: folded into iteration 2** (below).
+
+### Iteration 2 (2026-09-26) — one stage for the whole essay
+
+- **Brief:** `inbox/merit-or-math-iteration-2.md` (owner's recorded
+  play-through). **ADR-018 accepted:** the back half becomes acts on the one
+  stage, around one persistent room, Blue and Red always present. Owner's
+  answers in D20. **The title is "Merit or Math?" again** — Blue under MERIT,
+  Red under MATH, in reading order; the ADR-006 physical-sides amendment is
+  withdrawn and the stage mirrors in RTL (`pairLayout(…, mirror)`).
+- **Branch `feat/one-stage`** (from `feat/step-stage`). Phase 1 (the story)
+  done: prose Scenes 1–11 rewritten; comic bubbles (`stage/bubbles.ts` —
+  panel stacking, drawn outline with tail, `**shout**`; `Bubble.svelte`;
+  Comic Neue self-hosted under `src/assets/fonts/`); key lines wait, chit-chat
+  is `CHAT` (1.5 s + 0.4 s/word, pauses on hover, `hurry` finishes a bubble's
+  lines before moving on); coins one size at density 0.7325 with the tightest
+  known packings (`pair/packings.ts`, generated by `scripts/coin-packings.ts`);
+  a coin visibly travels when given (tap or drag); the decider turns faces
+  only edge-on, Marx is Red's side, plain before the toss.
+- **Owner review of Phase 1 (2026-09-26), done:** the talk is a chat column
+  (time runs down; bubbles lean to their speaker, tails at that corner; `brief`
+  lines go when the talk moves on; toss results logged as lines); bigger title;
+  the reel starts where MATH starts and never crops. Second review: reel words
+  kept short and the WHOLE title sized so the widest fits (`fitTitle`);
+  bubbles reach past the middle (a Blue and a Red line overlap by a third,
+  `CROSS`) and every tail points at its speaker (`tailToward`).
+- **Phase 2 done:** the crowd (crowd.ts, revised by the owner the same day:
+  no bumps — coins fall and the crowd runs and jumps to catch them; Blue
+  catches 15, Red 1, everyone else 0–2 and leaves with it; empty-handed people
+  are dashed rings); the
+  room of 100 in the lower third, scattered with no rows (`scatter`), costumes
+  spread so neighbours differ (`spreadStyles`), filling as the view pulls back
+  (`ROOM_ZOOM`); the guess inside the stage (four choices with pictures in
+  Red's bubble, then the bet; answers logged and remembered in `session` +
+  localStorage); the first concept card (`stage/CardStack.svelte`, the rule,
+  reading `REVEAL_BETA`). The old guess section and `Prediction.svelte` are
+  gone; "Skip" after the cow and "Back to the story" after B2 return into the
+  stage (`goToStep`).
+- **Phase 3 done:** the run happens in the stage's room (Scene 13,
+  `pair/run.svelte.ts`: unseeded, 16 s eased, a forward press finishes it,
+  the last run remembered in sessionStorage, every run logged to `session` for
+  the chapters below); the richest wears the dashed ring; a readout in the top
+  bar; the result and the Morning Ledger's front page are printed INTO the talk
+  (`Bubble` kind `paper`); banter branches on who actually won and quotes what
+  the two hold in dollars; "Again · Go on" (`StepStageContext.replay`). Scene
+  14 argues over the paper (the bias described, never named). Retired:
+  RevealRun, RevealInterpretation, WinnerStory, their guidance/interpretation
+  modules, and the "Now run it" / "So why did they win?" sections.
+- **Owner review of Phase 3, done:** the room fills most of the stage and the
+  talk floats over it, see-through, newest four lines only; the paper lands
+  big then shrinks into the talk; the richest's dashed outline takes its
+  shape; the crowd hops like the Pixar lamp (squash and stretch, no one flies);
+  the rain is a planned scramble (`pair/rain.ts`, pure, tested).
+- **Phase 4 done:** the room's poses (`pair/roomPoses.ts`, pure, tested) —
+  `piles` (histogram, round ticks, counts above), `ruler` (multiplying, dust
+  box, decade marks keyed to slide), `line` (poorest first, Lorenz curve drawn
+  by walking, diagonal, gap, Gini), and imagined `equal` / `one` rooms for
+  effective participants. Every one of the hundred, Blue and Red included,
+  moves between poses (`arrange`, staggered, uneven). Side rail thumbnails
+  (HistoMini, LorenzMini, the count), cards for each concept, the Gini toy and
+  the four-person room as optional panels (Red reads the four-person number
+  out). Retired: DistributionStage and the three chapters' narration; turnover
+  cut.
+- **Owner review of Phase 4, done (2026-09-26):** the run is a RECORDING
+  (`pair/recording.ts`: every round kept with its turnover; stops when the
+  richest first holds 40% by default — "stop sooner, a few in between"), played
+  back, rewound by a time dial, and every measure follows the moment on
+  screen. `?debug=1` shows the owner's panel (`pair/DebugPanel.svelte`,
+  `pair/tuning.svelte.ts` — delete both when tuning is done). Wide stages get a
+  charts column (`L.column`), the room moves up. Lines to the reader are
+  asides (`aside` in script.ts): caption boxes on the speaker's outer side.
+  A ripple marks whoever speaks. The Gini line keeps everyone's size and adds
+  them up poorest first. Effective participants walks the owner's cases in
+  the room (equal 100 · one emptied 99 · given away 98.04 · half 50 · one 1 ·
+  the room) and then four step out of the crowd with coins (`roomPoses.ts`
+  `imaginedShares`, `effectiveCount`). Turnover is back as Scene 18. Cards are
+  browsable short memos with a picture each; the Gini toy lives in its card.
+- **Phase 5 done (2026-09-26):** Scenes 19–24 on the same room, each with
+  its own source of fortunes (`pose.source`: `run` · `dial` · `game` ·
+  `pair`, one `createRun` instance each; the reader's own rooms are neither
+  remembered nor logged). 19: the theorem, and "Run it longer?" plays the same
+  room on with fresh dice, ten times closer to one owner per Yes
+  (`run.longer`, `extend`). 20: the stake dial (0–100%) inside Red's bubble
+  (`Bubble` `control` snippet); every turn plays a fresh 20,000-trade room;
+  Red's line reads it (zero · slower · the stake you watched · faster ·
+  everything). 21: the tax game LIVE in the room (`recorder()` — a run
+  recorded as it trades, so it rewinds after; `pair/taxGame.ts`: 280 trades/s,
+  30 s, tap = a quarter shared back, closes after 5 s under 20; robot: every
+  700 ms wins 20/20, once a second 9/20, never 0/20); while it plays a click
+  anywhere is a tap, never a step, and the talk lets taps through. 22: four
+  with coins 16/4/8/4, a quarter each into the pool, 2 each back → 14/5/8/5
+  (`levyLesson`, tested). 23: the room and its mirror on one seed, 20,000
+  trades, the right with a 3% levy (`levy` in `RunSettings`; ≈3 vs ≈30 count).
+  24: the outcome map measured offline (`scripts/outcome-map.ts` →
+  `pair/outcomeMap.ts`, 8 rooms a square under the guided protocol), the fit
+  drawn only over the measured range. Cards: limit, stake, levy. In the room,
+  lines to the reader join the one chat column (they stacked over the talk);
+  elsewhere an aside steps off the talk, and the newest is never hidden.
+  Retired: CrowdRun, TimeLapse, StakeDial, TaxGame, LevyLesson, MatchedRooms,
+  PhaseDiagram and their essay sections (the 1,000 crowd is cut, D20).
+- **Owner review of Phase 5 (2026-09-26), done:** the stake is a QUARTER
+  (`DEFAULT_RUN.beta` 0.25 — "0.5 is too large and jittery"): the run still
+  stops when the richest holds 40% (now after ~46,000 trades, 32k–66k; effN
+  ≈ 4, Gini 0.95); the dial plays 40,000 trades a turn; the tax game 1,000
+  trades/s (robot: every 700 ms 20/20, once a second 12/20, never 0/20);
+  matched rooms 60,000 trades with a 2% levy (≈4–6 vs ≈42–46 count, the map's
+  own square). The tuning key moved to v2 so knobs saved at a half reset.
+  [more.rule] ★ now says "a quarter"; the two-player coin game stays at half.
+  Plots are proper plots: the charts column is 2×2 of the sandbox's own
+  `Histogram` and `LorenzPlot`, the count, and `pair/TurnoverPlot.svelte` on
+  `PlotFrame` (column now 0.32w, room box 0.615w); cards show the same plots;
+  the phone rail is gone (thumbnails were unreadable — the cards carry the
+  plots). The room's pictures draw real axes in the sandbox's style
+  (`pair/StageAxes.svelte`): the Lorenz plot is SQUARE with the row of people
+  under it at their own sizes scaled together (`line(…, beside)`), the walk
+  plots each point with guides read off both axes (the growing sum circle
+  that ate the line is gone), and the talk sits beside the plot on a wide
+  stage; turnover and the map have ticks and labels; piles and ruler say
+  what they measure. The sandbox `Histogram` thins its log ticks when labels
+  would touch (a 1e-11 room wrote "1e-11" into "1e-8").
+- **His second review of Phase 5, done (2026-09-26, `287431f`):** piles —
+  everyone first flies at their own size to above their bin, then all take one
+  size and drop in; Gini — the walk's circle IS the running total: it rolls
+  along the row eating each person it adds, one circle at the end (eaten
+  speakers' tails point at it); the four (Scenes 17, 22) are circles; the
+  stake dial is the sandbox's `StopSlider` over `RATE_STOPS` (0.1%…99.99%),
+  in Red's bubble during the talk and under the player in the right panel
+  after; the time player's play at the end PLAYS ON (live, fresh dice, the
+  dials as they stand, until paused — `run.playOn`, capped at 2M trades); the
+  speaker ripple is one faint ring, only for a dot in the room; matched rooms
+  — an exact copy lifts off the room and slides into its half, both framed.
+  Deferred by him: single-file histogram stacks ("point 2").
+- **Phase 6 done (2026-09-26):** Scene 25, the verdict — everyone else hops
+  out (`emptyRoom`), Blue and Red back on their seats with eight coins each,
+  the verdict lines as dialogue. Scene 26, the machine is yours — the hundred
+  hop back in, equal, Blue and Red among them, and the room is the reader's:
+  `sandboxRun` trades LIVE with the sandbox's dials in one tidy deck in the
+  right panel (Play/Pause, New room, stake, levy per round, levy every k
+  rounds, speed 1×/4×/16×, a tap levies or photographs — the Morning Ledger on
+  anyone), plots beside it; on a phone the deck folds to one row. Recorder:
+  `levyEvery`, `setRules` (dials turned mid-run), runs get `setPace`. The old
+  full Sandbox is kept, whole, as the "All the dials" side trip (Branch
+  `workshop`, opens on `#sandbox`), offered in Blue's last bubble; the
+  narrator's verdict and the sandbox intro are retired.
+- **Next:** the owner's call on the workshop (tidy it into the stage's style,
+  or port its extras — people, money per head, expert numbers, the measured
+  map, CSV — into the stage's deck); acts as chapters in the index (ADR-018);
+  single-file histogram stacks (his "point 2").
+- **Stage input rules** (2026-09-26, `claim()` in `steps.ts`): while the reader
+  is in the stage every wheel event is the stage's, sub-pixel ones included —
+  letting a trackpad's tail through slid the page and every later flick went
+  past; a stage that only slipped is aligned, never "arrived at" (which jumps
+  to the end); auto steps run only when reached going forward.
+- **Dead code removed (2026-09-27, nothing on screen changed — the person
+  branch pixel-compared identical at 16 scroll positions, desktop and phone):**
+  the trade half of `PersonTradeScene` (its `part` prop with it; the coin
+  game's checks moved to `pair/game.test.ts`), `OpeningScene` and its tests,
+  `EffectiveParticipantsStage` + `participation.ts`, `HistoMini`, `LorenzMini`
+  + `lorenzPath.ts`, `BaselineWorlds`, `roomRun.ts` (its `LoggedRun` type moved
+  to `runLog`), `scripts/reveal-calibrate.ts`, the reveal/crowd presets, and
+  unread exports (`dollarsPow10`, `giniRampColor`, `predictionLabel`,
+  `latestRun`, `frameAt`, `CROWD_INDEX`, `linearBins`, `logBins`).
+
+**Two things the brief assumes that are not true of the code:** (1) A2's locale
+machinery does not exist — no Paraglide, no `dir`, nothing reads a locale (see
+ADR-017's sub-decision); (2) the brief was written against `main` and does not
+know `feat/circle-overture`.
+
+**`feat/circle-overture` (3 commits, 2026-09-21…23, NOT merged):** built the
+earlier 2026-09-20 note — circles behind the title, a coin payout, bites via
+`applyYardSaleTrade`, two survivors named red (rich) and blue (poor), the cow
+and the reduction as side trips, the trade entered at the seated pair. The brief
+reverses its roles and colours and replaces its three-section structure with one
+step stage, so **do not merge it as it stands.** Raw material worth taking:
+`circleField.ts` (tested headless physics), the reel helper and the one-line
+title pose in `OpeningScene`, `SideTrip.svelte`, `scripts/opening-calibrate.ts`.
 
 ## Where things stand
 
@@ -512,6 +741,36 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 
 ## GSAP + Svelte gotchas (each cost a bug this session)
 
+- **`npm run build` only compiles what is imported.** A new component nobody
+  mounts yet can carry errors and warnings the build never reports. Compile it
+  directly (`svelte/compiler`'s `compile`) until it is wired in.
+- **A local named `state` beside the `$state` rune** is a store/rune conflict
+  in Svelte 5. Name it anything else.
+- **`bind:this` inside `{#if}`** trips `non_reactive_update` for every bound
+  element. When a part is only sometimes needed, keep it rendered and hide it
+  (`style:display`) instead.
+- **A GSAP tween's target cannot be a function.** Make the objects to be
+  tweened before the timeline is built (hidden if need be), so the timeline owns
+  every tween it plays and `kill()` stops them all.
+- **Focus scrolls the page.** Tabbing onto a control near the foot of a
+  viewport-tall stage (inside `scroll-padding-block`) moved the page 416px and
+  silently disengaged the stage. `StepStage` realigns on `focusin`. Anything
+  invisible but still in the DOM (a cleared title's links) must be `inert`, or
+  the tab order walks through things nobody can see.
+- **The wheel sweep must wait out the gesture window** before calling a step a
+  stall: inside a step stage one gesture is one step by design, so a probe
+  wheel 80ms after the last one is swallowed on purpose.
+- **Scroll to lazily loaded content only after it mounts** (listen for
+  `DEFERRED_MOUNTED_EVENT`): aiming at the placeholder lands the reader
+  hundreds of pixels off once the pin it creates moves the page.
+
+- **A pinned scene inside a flex container loses its scroll length.** GSAP
+  inserts its pin-spacer as a child of the parent; as a flex item its height
+  stopped contributing to the page, and a 16-beat scene played inside one
+  viewport of scroll (found on `feat/circle-overture`, 2026-09-23). A full
+  `ScrollTrigger.refresh()` does not fix it because nothing is wrong with the
+  trigger. Any wrapper around a `PinScene` is `display: block`.
+
 - gsap reads an SVG `transform="translate(x y)"` attr into its x/y — tweens are
   ABSOLUTE. `fromTo(el, {y: -14}, {y: 0})` sends the element to the viewBox top;
   write `{y: POS.y - 14} → {y: POS.y}`.
@@ -561,69 +820,63 @@ scripts/phase-calibrate.ts` / `phase-stability.ts`.
 
 ## Open items (the real backlog)
 
-1. Progressivity dial: owner-promised parametric rate ~ log wealth, ONE slider;
-   the dummy slider and the `endRound` seam are waiting for it.
-2. Phase map default display style: cells / dots / shade all live (map body
-   click cycles) — owner hasn't picked; also consider stamping the reader's own
-   run-dots onto any future backdrop.
-2b. **PhaseDiagram onto the shared `phaseGrid` record** (the R30 item that was
-   priced and deferred). The prize is continuity: the rooms the reader plays at
-   beat 9 are still on the finale's map, persisted and CSV-exportable. The
-   blocker is that `phaseGrid` keys points by n, and `PEOPLE_STOPS` has no 100.
-   Fixing it means N 100→128, `LEVY_EVERY` 100→128, and re-running
-   `phase-calibrate.ts` + `phase-stability.ts` — which MOVES the printed fitted
-   c ≈ 0.37. A calibration job under claim discipline, not a refactor.
-2c. **CrowdRun's histogram**, if `Histogram` ever grows a floor/dust option.
-   See R30 for why the plain swap fails. Even then it is a judgement call: the
-   bespoke chart also prints per-decade counts.
-2e. **"Looks like an embedded image until it gets to stage, then snapped."**
-   The owner asked for this and I could not tell what he is seeing — the pinned
-   sections already scroll up in normal flow and pin at top-top. Ask him what
-   is on screen when it looks wrong (blank paper, or art in the wrong place)
-   before building anything.
-2f. **The figure that sometimes does not appear** (`person/00-figure.webp`).
-   NOT reproduced in six controlled runs including heavy throttling; the plate
-   show/hide fired correctly every time. `PinScene` now decodes plates before
-   refreshing, which is the best remaining candidate. R31 also added 1.1MB of
-   cast plates, which makes the suspected cause MORE likely, not less. If it
-   recurs, get the browser and the position, and consider loading each scene's
-   plates only as the reader approaches it.
-2d. `LorenzPlot`, `CcdfChart`, `GiniCurve` and `PhaseMap` still have no
-   importer outside `sandbox/`. Checked in R30, and that is the right answer
-   for now: `GiniStage` is an explainer rather than a plot, the 10rem sidebars
-   are too small for a 170-unit square, no beat shows a CCDF, and `GiniCurve`
-   measures a different quantity from StakeDial's observations list. Do not
-   force these in for tidiness.
-3. Turn earlier beats into `Sandbox` presets (`layout="column"` +
-   `panels`/`controls`) — the seam exists. R29 did the invisible half (they all
-   run on `SandboxWorld` now); the visible half is still unbuilt and needs the
-   owner, because it replaces the mini charts, the sliders and the toolbars.
-4. Ending scene: owner said "not clear about it" — still the old ClosingScene.
-5. Reader studies A–D (`notes/research/reader-study.md`) — widgets exist.
-6. Redistribute-to-poorest fork (beat 19 parenthetical still flags it).
-7. Full language pass (owner-deferred; rounds added prose — all flagged). R13–R15
-   added three lines that are NOT his: the biologist caption, "Keep going. Take
-   the face too.", and the football line's tightening.
-8. Three build warnings, all shipping in the live build: two a11y in
-   `PlotFrame.svelte` (axis-toggle `<rect>`, no key handler) and one unused CSS
-   selector in `PinScene.svelte`.
-9. CI logs a Node 20 deprecation for `actions/checkout@v4` and friends.
-10. Trader entrance/exit shapes scale about their bbox corner in the crowd
-    entrance (pre-existing, cosmetic, ends at scale 1 so it never rests wrong).
-11. Deferred seams unchanged: Rust/WASM core, Persian/RTL, audio.
-12. Title layout variants (`stack`/`center`) still one word away in
-    `essay.en.svx`.
-13. Analytics: swap GA4 for a cookieless counter before the site is public, and
+Pruned 2026-09-27 after iteration 2: items about widgets the one-stage essay
+retired (PhaseDiagram's map record, CrowdRun's histogram, Sandbox presets for
+earlier beats, the old ClosingScene, the crowd entrance, title layout variants)
+and the three build warnings (gone: `npm run build` prints none) are removed.
+
+**The stage (iteration 2)**
+
+1. **The wording pass.** Every scene exists; most lines are `(draft)` in
+   `notes/prose.md`, including the ending. Open inside it: the payoff of the
+   bets — Blue and Red's (Scene 9) and the reader's guess and bet (Scene 12) —
+   which the ending never cashes.
+2. **Owner decisions postponed (2026-09-27):** the "All the dials" workshop
+   (tidy it into the stage's style, port its extras into the stage's deck, or
+   leave it as the expert corner); Blue and Red equal at the verdict or at
+   their run's sizes; acts as chapters in the index (ADR-018 — needs a stage
+   chapter kind in `src/lib/nav`, plus a deep link per act).
+3. **Histogram as single-file stacks** — the owner's "point 2", deferred by him.
+4. **The outcome map's interactions (brief 5.9):** a click on a square sets
+   the dials and resizes Blue and Red to that square's outcome; a Gini ↔
+   effective-participants toggle. Today it is a picture that fills in.
+5. **A screen-reader transcript** of each act's lines (ADR-018 accessibility);
+   today the talk is only announced as it appears.
+6. **Delete the debug panel** (`?debug=1`: `pair/DebugPanel.svelte`,
+   `pair/tuning.svelte.ts`) once the owner finishes tuning.
+7. **Split `PairScene.svelte`** (~3,500 lines) into act modules, as ADR-018
+   intends, so a change to one act stays local.
+8. The sandbox's plot labels (and the workshop) are hard-coded English; they
+   join the translation work.
+
+**The rest of the essay**
+
+9. Progressivity dial: owner-promised parametric rate ~ log wealth, ONE slider;
+   the dummy slider and the `endRound` seam in `SandboxWorld` are waiting.
+10. Phase map default display style in the workshop: cells / dots / shade all
+    live (map body click cycles) — owner hasn't picked.
+11. `CcdfChart`, `GiniCurve` and `PhaseMap` live only in the workshop now
+    (`Histogram` and `LorenzPlot` are the stage's charts). Do not force them in.
+12. **"Looks like an embedded image until it gets to stage, then snapped."**
+    (pinned scenes: the cow and the person branches). Ask him what is on screen
+    when it looks wrong before building anything.
+13. **The figure that sometimes does not appear** (`person/00-figure.webp`).
+    Not reproduced in six controlled runs; `PinScene` now decodes plates before
+    refreshing. If it recurs, get the browser and the position, and consider
+    loading each scene's plates only as the reader approaches it.
+14. Owner reported cow plates overlapping on scroll-back once; not
+    reproducible, switching is deterministic by construction. If it recurs, get
+    the browser and the position.
+15. Three lines in the cow/person branches are not his: the biologist caption,
+    "Keep going. Take the face too.", and the football line's tightening.
+16. Reader studies A–D (`notes/research/reader-study.md`).
+17. CI logs a Node 20 deprecation for `actions/checkout@v4` and friends.
+18. Deferred seams unchanged: Rust/WASM core, Persian/RTL, audio.
+19. Analytics: swap GA4 for a cookieless counter before the site is public, and
     add scroll-depth events — no consent banner in front of the opening. See the
     deploy section above.
-14. `notes/prose.md` §4–16 have never been edited by the owner — he worked
-    through §3 and stopped. The ending is untouched.
-15. Coin photograph rights: asked the mint for permission and sponsorship,
+20. Coin photograph rights: asked the mint for permission and sponsorship,
     awaiting reply. Settle before the site is listed publicly.
-16. Owner reported cow plates overlapping on scroll-back once; NOT reproducible
-    (forward, reverse, fast fling, reload-parked all show exactly one plate).
-    Switching is now deterministic by construction. If it recurs, get the
-    browser and the position.
 
 ## Untracked local files that are NOT yours
 

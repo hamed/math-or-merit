@@ -43,16 +43,28 @@ function roomGrid(n: number, width: number, height: number, margin?: number) {
   return { cols, rows, inset, cellX, cellY, cell: Math.min(cellX, cellY) };
 }
 
+/** How far, in cells, an agent may sit off its cell centre by default. */
+export const ROOM_JITTER = 0.16;
+
 /**
  * Slightly jittered grid positions for n agents inside width × height.
  * Rows are balanced (each holds ⌈n/rows⌉ or ⌊n/rows⌋) and centered, so a
  * remainder never leaves a half-empty last row (owner review 2026-07-13).
+ *
+ * `jitter` 0 gives the exact cell centres — for a composition whose words
+ * promise a shape ("four people at the corners of a square room"). Every room
+ * that does not ask keeps the default, so no existing room moves.
  */
-export function roomPositions(n: number, width: number, height: number, margin?: number): Point[] {
+export function roomPositions(
+  n: number,
+  width: number,
+  height: number,
+  margin?: number,
+  jitter: number = ROOM_JITTER,
+): Point[] {
   // unmeasured canvases ask with width 0 — cols would be 0 and rows ∞
   if (!(n > 0) || !(width > 0) || !(height > 0)) return [];
   const { cols, rows, inset, cellX, cellY } = roomGrid(n, width, height, margin);
-  const jitter = 0.16;
   const points: Point[] = [];
   let i = 0;
   for (let row = 0; row < rows; row++) {

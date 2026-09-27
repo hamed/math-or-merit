@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { radiusScale, roomPositions, type Point } from './layout';
+  import { ROOM_JITTER, radiusScale, roomPositions, type Point } from './layout';
   import { drawAgents } from './roomRenderer';
   import type { AgentStyle } from './agentStyle';
 
@@ -16,6 +16,10 @@
     height?: number;
     /** Optional room inset for compositions that need fixed breathing room. */
     margin?: number;
+    /** Cell jitter; 0 for an exact grid. Defaults to the shared room jitter. */
+    jitter?: number;
+    /** Dashed ring for anyone smaller than this (see drawAgents). Off by default. */
+    presenceRadius?: number;
     label: string;
     onTap?: ((index: number) => void) | null;
   }
@@ -28,6 +32,8 @@
     highlight = [],
     height = 300,
     margin,
+    jitter = ROOM_JITTER,
+    presenceRadius = 0,
     label,
     onTap = null,
   }: Props = $props();
@@ -48,7 +54,7 @@
   function ensureLayout(): void {
     const n = wealth.length;
     if (positions.length !== n || scale === 0) {
-      positions = roomPositions(n, width, height, margin);
+      positions = roomPositions(n, width, height, margin, jitter);
       scale = radiusScale(n, width, height, margin);
     }
     if (displayed.length !== n) {
@@ -92,6 +98,7 @@
       winner,
       highlight: new Set(highlight),
       pulses: pulseProgress,
+      presenceRadius,
     });
   }
 
@@ -155,12 +162,14 @@
     void highlight;
     void wealth;
     void styles;
+    void presenceRadius;
     start();
   });
 
   $effect(() => {
     void height; // flexible rooms (sandbox) resize in both axes
     void margin;
+    void jitter;
     if (width > 0) {
       positions = [];
       scale = 0;

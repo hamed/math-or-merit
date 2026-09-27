@@ -1,9 +1,13 @@
 <script>
   import PinScene from '$lib/widgets/stage/PinScene.svelte';
   import Caption from '$lib/widgets/stage/Caption.svelte';
-  import OpeningScene from '$lib/widgets/stage/scenes/OpeningScene.svelte';
-  import RevealInterpretation from '$lib/widgets/reveal/RevealInterpretation.svelte';
-  import WinnerStory from '$lib/widgets/reveal/WinnerStory.svelte';
+  import StepStage from '$lib/widgets/stage/StepStage.svelte';
+  import PairScene from '$lib/widgets/stage/scenes/pair/PairScene.svelte';
+  import { say } from '$lib/i18n';
+  import Branch from '$lib/widgets/stage/Branch.svelte';
+  import SpeakerText from '$lib/widgets/stage/SpeakerText.svelte';
+  import ChoiceRow from '$lib/widgets/stage/ChoiceRow.svelte';
+  import { goToStep, openBranch } from '$lib/widgets/stage/branch';
   import Deferred from '$lib/widgets/shared/Deferred.svelte';
   import Chapter from '$lib/nav/Chapter.svelte';
 </script>
@@ -44,27 +48,34 @@
 -->
 <Chapter id="question" label="The question" />
 
-<PinScene driver="time">
-  <OpeningScene />
-</PinScene>
+<!--
+  THE PAIR STAGE (ADR-017; dialogue brief Scenes 1–14). One step stage carries
+  the title, the crowd, Blue and Red, their argument, the reader making them
+  equal, the three rounds, the challenge and the room. It replaces the timed
+  opening and — once Phase 4 lands — the merged PersonTradeScene in the main
+  flow. Every word it speaks is a message generated from notes/prose.md.
+-->
+<StepStage id="pair" label={say('open_title')}>
+  <PairScene />
+</StepStage>
 
 <!--
-  BUILD NOTE (2026-08-25, R13 per owner): the joke is now the author's illustrated cast
-  (CowCastScene, plates in scenes/cast/) instead of the drawn SVG morph. The experts fail
-  in order of increasing abstraction — biologist, chemist, physicist — which is the spine
-  of the joke: each answers in his own model and none of them produces milk. Then sphere,
-  vacuum, and the pitch.
+  BRANCHES (A4, D19, 2026-09-24). The cow and the person who becomes a circle
+  are no longer the way in: they are offered by choice — Red's "Want to hear a
+  joke first?" opens the cow, and the cow's "Want to see how a person becomes a
+  circle?" opens the reduction. Collapsed, each is one line on a button; nothing
+  inside loads until it opens.
 
-  The uphill push was REPLACED, not supplemented: it argued the same a fortiori point as
-  the football beat, and the essay cannot close on both. Football was chosen because the
-  whole essay is a fair game with a lopsided outcome, so the metaphor family matches the
-  subject; the hill's Sisyphus framing did not. The old SVG choreography is archived
-  under archive/scenes-pre-r13/ if this ever needs reverting.
+  B1 keeps every one of the owner's plates and only the five lines the joke
+  needs (owner: "keep the images, cut the text if must"). Beat indices refer to
+  CowCastScene.BEATS, which lost its bridge and model beats with their cards.
 
-  Beat indices refer to CowCastScene.BEATS. One gesture plays the four silent reaction
-  panels; the visuals carry the pause without four compulsory advances. The football ending
-  makes the limited model-literacy claim: the sphere answers this question, not every question.
+  B2 is PersonTradeScene (its trade half deleted 2026-09-27): the plates down to one circle,
+  and the guard that it never explains how anyone got rich. The two-person game
+  that used to follow is played by Blue and Red on the pair stage now.
 -->
+<Branch id="cow" offer={say('cow_offer')}>
+
 <Chapter id="cow" label="The cow" />
 
 <Deferred
@@ -75,496 +86,115 @@
   {#snippet content(CowCastScene)}
     <PinScene pace={0.75} navigation="step" deferAssets>
       <CowCastScene />
-      <Caption beat={3} display>Once upon a time,<br />a farmer's cow stopped giving milk.</Caption>
-      <Caption beat={4}>He called in three scientists.</Caption>
-      <Caption beat={5}>A biologist, a chemist, and a physicist.</Caption>
-      <Caption beat={6}>The biologist explained where cows come from.</Caption>
-      <Caption beat={7}>Then the chemist spoke of the molecule<br />the cow was failing to produce.</Caption>
-      <Caption beat={9}>Then the physicist shouted "I have solved it!"</Caption>
-      <Caption beat={10}>"Assume a spherical cow."</Caption>
-      <Caption beat={11}>"In a vacuum and no gravity!"</Caption>
-      <Caption beat={13}>The spherical cow is still too heavy to kick.</Caption>
-      <Caption beat={14}>The sphere alone answered this question.<br />Not every question. This one.</Caption>
+      <Caption beat={0} display>{#each say('cow_once').split(' / ') as part, i}{#if i}<br />{/if}{part}{/each}</Caption>
+      <Caption beat={2}>{say('cow_0b')}</Caption>
+      <Caption beat={7}>{say('cow_4')}</Caption>
+      <Caption beat={8}>{say('cow_5')}</Caption>
+      <Caption beat={10}>{#each say('cow_7b').split(' / ') as part, i}{#if i}<br />{/if}{part}{/each}</Caption>
     </PinScene>
   {/snippet}
 </Deferred>
 
+<SpeakerText speaker="blue" name={say('name_blue')} text={say('cow_frame_you')} />
+<SpeakerText speaker="red" name={say('name_red')} text={say('cow_frame_mine')} />
+<SpeakerText speaker="red" name={say('name_red')} text={say('cow_frame_next')} />
+
+<ChoiceRow
+  options={[
+    { label: say('cow_choice_1'), act: () => openBranch('human') },
+    { label: say('cow_choice_2'), act: () => goToStep('pair', 'guess.ask') },
+  ]}
+/>
+
+</Branch>
+
+<Branch id="human" offer={say('human_offer')}>
+
 <Chapter id="spherical-human" label="Now, the spherical human" />
 
-## Now, the spherical human
-
-Same trick. More dangerous subject.
-
-<!--
-  REMARK(beat 5 via shared canvas): the Musk→circle morph happens ON THE SAME canvas as the
-  cow — the place stays, the occupant changes. Causal-claim guard kept in the words ("we are
-  not going to explain how he got it"); brief §4. Logged in notes/draft-decisions.md (D5).
--->
-<!--
-  BUILD NOTE (2026-08-25, R15 per owner): the reduction and the first trade are ONE
-  pinned scene (PersonTradeScene), not two. As two sections the first unpinned and
-  scrolled off the top while the second scrolled up from the bottom, so the circle left
-  the screen and an identical one arrived — a swap the reader notices and learns nothing
-  from. Merged, there is one timeline and one circle ELEMENT: the person reduces onto it,
-  it becomes money and back, then it slides aside and a second circle walks in from the
-  right. Trader A is not a redraw of the person's circle, it IS that circle. Beat indices
-  refer to PersonTradeScene.BEATS; beat 6 ('slide') carries no caption on purpose.
-
-  M4 note, still true: OneTrade + ScriptedRounds are one scrub-reversible teaching
-  sequence. Numbers come from the real trade rule with authored outcomes only (presets.ts
-  honesty note). The two-sided coin wears the traders' fill colors: no heads/tails to
-  remember, the color that lands wins (storyboard p5–6).
--->
-<!--
-  REMARK(reduction line): authored, crude, UNATTRIBUTED; "money" not "net worth" (jargon).
-  See notes/draft-decisions.md D6. The area-honesty lesson rides the 'coins' beat caption.
-  TEST(Study A, reader-study.md): can readers rank circles and judge rough ratios from
-  area alone? Revisit if area is misread as radius.
--->
 <Deferred
   load={() => import('$lib/widgets/stage/scenes/PersonTradeScene.svelte')}
-  label="trade scene"
+  label="the spherical human"
   reserve="100svh"
 >
   {#snippet content(PersonTradeScene)}
     <PinScene navigation="step" deferAssets>
       <PersonTradeScene />
-      <Caption beat={0}>Take the richest man in the world.</Caption>
-      <Caption beat={1}>I am not going to explain how he got rich.</Caption>
-      <Caption beat={2}>I erase the face, the name, every difference.</Caption>
-      <Caption beat={3}>Until one thing remains: wealth.</Caption>
-      <Caption beat={4}>Area is wealth.<br />These coins are the same fortune.</Caption>
-      <Caption beat={5} big>In this model, you are your money and nothing else.</Caption>
-      <Caption beat={7}>Now someone else walks in with exactly as much.</Caption>
-      <Caption beat={8}>Both stake half.</Caption>
-      <Caption beat={9}>Fair coin.<br />One color or the other.</Caption>
-      <Caption beat={10}>The color that lands takes both stakes.</Caption>
-      <Caption beat={11}>Again.<br />Now one of them is poorer.</Caption>
-      <Caption beat={12}>Same rule, sharper edge:<br />half of what the <em>poorer</em> one has.</Caption>
-      <Caption beat={13}>Toss.</Caption>
-      <Caption beat={14}>The poorer one wins.</Caption>
-      <Caption beat={15}>Again:<br />half the poorer fortune.</Caption>
-      <Caption beat={16}>Toss.</Caption>
-      <Caption beat={17}>The poorer one wins again.</Caption>
-      <Caption beat={18}>Almost where they began.<br />Same total. Fair coin. Fair rule.<br />Remember this picture.</Caption>
+      <Caption beat={1}>{say('human_1')}</Caption>
     </PinScene>
   {/snippet}
 </Deferred>
 
+<ChoiceRow options={[{ label: say('human_back'), act: () => goToStep('pair', 'guess.ask') }]} />
 
-<Chapter id="guess" label="Your turn to guess" />
-
-## Your turn to guess
-
-Now remove the script. Put one hundred equal fortunes in the room.
-
-1. Everyone starts with the same money.
-2. Pick two people at random.
-3. Both put up half of whatever the poorer one has.
-4. Toss for it. One wins, one loses. Fifty-fifty.
-5. Go back to 2.
-
-After a hundred thousand fair trades, what survives? Pick one before the coin speaks.
-<!--
-  WIDGET: Prediction — the reader commits to an outcome before the reveal; the choice is
-  quoted back by the reveal widget. Stored locally only.
--->
-<Deferred load={() => import('$lib/widgets/predict/Prediction.svelte')} label="prediction" reserve="18rem" />
-
-<Chapter id="run" label="Now run it" />
-
-## Now run it
-
-A hundred equal fortunes. The colors and corners are costumes. The game cannot see them.
+</Branch>
 
 <!--
-  WIDGET: RevealRun (R4, owner review 2026-07-08) — the real Yard-Sale rule, UNSEEDED
-  ("do not use seed, or even bother its concept"). Aggressive REVEAL_BETA = 0.35 so one
-  giant appears fast: calibrated median top share 75%, p5 47% over 120 runs. The interpretation
-  below waits for the run and reads its actual top share. When a run finishes, the widget prints
-  a morning-paper card with the winner's portrait and a machine-confident headline about
-  their inert traits (folds the old WinnerStory beat in; the separate rerun widget was
-  redundant — this one reruns forever, logging every room for Chapter III's histogram).
-  GUARD (critical failure mode + widget contract): styles are dealt BEFORE the run and
-  NEVER enter pair selection, the stake, or the coin — the sim core has no import path to
-  them. Do NOT name a cognitive bias in prose (research.md C12). Claim discipline: finite
-  run only; NO power-law or distribution-family claim here. Asymptotics are beat 17.
--->
-<Deferred load={() => import('$lib/widgets/reveal/RevealRun.svelte')} label="main run" reserve="30rem" />
-
-<RevealInterpretation />
-
-<Chapter id="why" label="So why did they win?" />
-
-## So why did they win?
-
-The Morning Ledger has already found the secret of success:
-
-<WinnerStory />
-
-It sounds almost reasonable. That is how the trick works.
-
-The result came first. The explanation came second. Color, corners and edges never touched
-the game.
-
-Run it again. Maybe a new winner. Maybe the same one twice. The paper never prints
-“chance.” It simply finds another reason.
-
-Remember the headline we started with? How many reasons did you add before seeing the
-mechanism?
-
-<Chapter id="line-them-up" label="Line them up" />
-
-## Line them up
-
-A hundred circles, all different sizes, scattered around the room. I can spot the winner.
-I cannot read the room.
-
-So I cheat. First sort them. Then cut the wealth ruler into equal bins and drop one circle
-into the matching pile. Move the number of piles and watch the picture change. The fortunes
-do not.
-
-<!--
-  WIDGET: DistributionStage (R5, owner review 2026-07-08: "one stage for both sorting and
-  log scale") — BinsStage + AxisStage merged into one stepper: room → sorted → binned →
-  multiplying ruler. Built FROM the same circles the reader watched trade (latest logged
-  run; the seeded reveal room as fallback). Bin width is a reader-visible choice, not
-  nature's. Original circle coloring; no shape vocabulary needed here.
--->
-<Deferred
-  load={() => import('$lib/widgets/distribution/DistributionStage.svelte')}
-  label="distribution stage"
-  reserve="34rem"
-/>
-
-Now it is a histogram: the bars are the people you just watched. The cuts between bars are
-my choice, not nature's. That is why the slider matters.
-
-But the richest circle also owns the ruler. Fit it on a straight, adding scale and much of
-the room is squeezed against zero. So change the ruler. Each step now *multiplies* by ten.
-Equal distance means ten times the money; the hidden crowd opens up.
-
-Below one cent goes in the dust box. Exact zero belongs there too: zero has no position on
-a multiplying ruler. The new ruler reveals what the old one hid. It does not explain why
-the shape exists.
-
-<!-- TEST(Study B, reader-study.md): histogram vs cumulative/Lorenz as the first distribution view; choose by comprehension, not familiarity. -->
-<!--
-  GATE(no power law): the log view only reveals values a linear scale hid. It does NOT show or
-  prove a power-law / heavy-tailed distribution family — omit "power law" from the baseline arc
-  entirely (research.md; narrative-sources.md log note). A fit + goodness-of-fit + model
-  comparison would be required first.
-  TEST(Study C, reader-study.md): does a side-by-side linear↔log transform plus a comprehension
-  check leave readers able to read ratios? A bare label is not enough (Ryan & Evers).
+  YOUR GUESS (iteration 2, Scene 12, 2026-09-26) happens inside the pair stage
+  now: the question, the rule card and the four choices in Red's bubble, then
+  the bet. The narrator's rule list and the Prediction widget are retired; the
+  stage writes the same session.prediction the run below quotes back.
 -->
 
-<Chapter id="gini" label="Measure the room" />
-
-## Measure the room
-
-A picture is excellent until I want to compare two rooms. Then I need a number.
-
-Start with Gini. I like it because you can watch the number being built.
-
 <!--
-  WIDGET: GiniStage (R5, owner storyboard 2026-07-08) — the Gini built from first
-  principles: equal circles merge one by one into a running total (the diagonal); keep the
-  graph, deal an unequal teaching room (Gini ≈ 0.5), sort, merge again (the sagging Lorenz
-  curve); hatch the gap; then a slider bends parametric Lorenz curves (L = x^k) for
-  intuition. Axes are the same scale, exactly square. TOY discipline: slider rooms are
-  parametric, not simulation output; the number shown is the discrete Gini of the twelve
-  on-screen circles. Beat 21 discipline: introduced only for comparing whole rooms; no
-  per-trade Gini claims (C5).
--->
-<Deferred
-  load={() => import('$lib/widgets/distribution/GiniStage.svelte')}
-  label="Gini stage"
-  reserve="34rem"
-/>
-
-Zero means equal. One is the theoretical horizon: as a room grows, one owner and everybody
-else at nothing gets closer and closer to it.
-
-Useful. But the question I care about is plainer: how many people still carry enough
-economic weight to matter?
-
-### Four people. How many still matter?
-
-Four people enter with four coins each. Move the coins yourself. The people never leave.
-The black box watches only where the wealth goes.
-
-<Deferred
-  load={() => import('$lib/widgets/distribution/EffectiveParticipantsStage.svelte')}
-  label="effective participants stage"
-  reserve="48rem"
-/>
-
-The box asks how many equal fortunes would be just as concentrated as this room. Four equal
-fortunes give 4. Split everything equally between two and it gives 2. Give every coin to
-one owner and it gives 1. In between, it can say 3.88 or 1.47.
-
-That is **effective participants**. Four bodies remain in the room. The number measures the
-field they have left.
-
-<details class="claim-note">
-  <summary>Open the black box</summary>
-  <p>Write each person's share of the room as <em>sᵢ</em>. Square the shares, add them,
-  then take the reciprocal: <em>1 / Σsᵢ²</em>. This is the inverse Herfindahl
-  concentration index.</p>
-</details>
-
-### A million trades can move almost nothing
-
-The trade counter keeps racing after most people have almost nothing left to risk. A
-million crumbs still prints as a million trades.
-
-So I count the money that crossed between people. One **measurement round** is one trade
-per person on average. Add the stakes transferred in those ordinary trades and divide by
-all wealth in the room. That is **ordinary turnover**. A result of 0.30 roomfuls means
-wealth equal to 30% of the room changed hands during that round.
-
-Only trades count. Later, levies and shared returns get their own ledger. The remedy does
-not get to pad this number.
-
-<Chapter id="crowd" label="More of them" />
-
-## More of them
-
-A small room is good for learning the instruments. Now invite a crowd: one thousand equal
-fortunes, two million fair trades, fresh luck.
-
-<!--
-  WIDGET: CrowdRun — a much larger fresh population (1,000 agents, 2M trades) runs the same
-  fair trades; the log-ruled histogram forms live. Gini, effective participants, and
-  ordinary turnover are recorded from the same state. One measurement round is N trades;
-  levy flow is absent and cannot contaminate turnover.
--->
-<Deferred load={() => import('$lib/widgets/crowd/CrowdRun.svelte')} label="crowd run" reserve="26rem" />
-
-The histogram says where the people sit. Gini says how far the room bent from equality.
-Effective participants says how broad the field remains. Turnover says whether all those
-trades still move meaningful wealth.
-
-Do not ask one number to impersonate another. Read the room with all of them.
-
-<Chapter id="where-it-ends" label="Where it ends" />
-
-## Where it ends
-
-That crowd was one run. A run can show you something. It cannot prove it.
-
-Here mathematics says something stronger. Keep the room finite. Pick pairs at random. Use
-one fixed stake strictly between zero and one hundred percent, and an independent fair coin.
-Then continue without end. With probability one, wealth converges to a single owner.
-
-<!--
-  WIDGET: TimeLapse — time accelerates; the tail thins until one circle holds everything the
-  pixels can show. Picks up the reveal room where it stopped; a fresh room ends the same way
-  with a different owner.
--->
-<Deferred load={() => import('$lib/widgets/ending/TimeLapse.svelte')} label="time lapse" reserve="30rem" />
-
-The animation is not the proof. It only lets the pixels chase the theorem.
-
-"Without end" is doing serious work. This is a limit, not a date. At any finite time the
-room can be deeply concentrated without literally reaching one owner. The path can wobble,
-too: a poorer circle can win and the room can briefly grow fairer on the way.
-
-<details class="claim-note">
-  <summary>Show the math</summary>
-  <p>For a fixed finite number of agents and a fixed stake fraction
-  <em>0 &lt; β &lt; 1</em>, the wealth vector converges almost surely to one of the room's
-  one-owner states. “Almost surely” means probability one; it does not mean every imaginable
-  sequence of coin tosses.</p>
-  <p>The proof is in <a href="https://arxiv.org/abs/2308.01485">Börgers &amp; Greengard
-  (2023)</a>.</p>
-</details>
-
-<Chapter id="dial" label="Your hand on the dial" />
-
-## Your hand on the dial
-
-You have seen the destination. Now put your hand on the clock.
-
-The stake — the fraction of the poorer fortune placed on each toss — has been fixed until
-now. Turn it down. Turn it up. Every change starts a fresh room, so luck is allowed to heckle
-your comparison.
-
-<!--
-  WIDGET: StakeDial — dragging the stake starts a fresh room at the chosen value. Its Gini,
-  effective-participant count, and ordinary turnover share one N-trade measurement clock.
-  GATE(β timing): the qualitative split is safe — asymptotic concentration is the same for
-  every fixed β in (0,1) (C4); the *rate* is shown as what the live runs do, not a precise
-  law. Do NOT state a precise timing relationship (e.g. a formula in β or N) until the
-  confirmatory grid across N, β, seeds lands (research/baseline.md). The widget's own
-  footnote says "what these runs did — not a law."
--->
-<Deferred load={() => import('$lib/widgets/dial/StakeDial.svelte')} label="stake dial" reserve="28rem" />
-
-Look for the pattern across runs, not a promise from one of them. Smaller stakes usually
-take longer to produce a dominant fortune. Larger stakes usually get there faster. I am not
-claiming an exact stopwatch law here.
-
-The theorem says every fixed positive stake has the same limiting destination. The dial
-changes the journey, not the limit. Exactly zero is not a very slow game. It switches the
-game off.
-
-<Chapter id="stop-it" label="Now you try to stop it" />
-
-## Now you try to stop it
-
-Enough watching. Put your hand in the room.
-
-Keep at least twenty effective participants in the game. Tap a large fortune: one quarter
-of it goes into a common pool and returns in equal shares to all one hundred people. Choose
-the stake before you start. That changes the difficulty, not the rule.
-
-<!--
-  WIDGET: TaxGame — the live room keeps trading while the reader taps; tapping a circle
-  levies a quarter of its current wealth and shares it back equally; the tapped circle
-  flinches (display affect only). This is a manual WEALTH levy (taxes current wealth, not
-  income) — named in the widget copy, C13.
-  DESIGN GUARD honored: the pace is NOT tuned so the reader provably cannot win — a diligent
-  hand genuinely can hold the room (robot-player tuning notes in the build log). Whether a
-  fast enough hand can keep a room fair is left as the real, open question the prose asks.
--->
-The room keeps trading while you work. Can your hand preserve the field, or will the game
-close around you? Nothing is locked behind winning. I want you to feel the job.
-
-<Deferred load={() => import('$lib/widgets/tax/TaxGame.svelte')} label="tax game" reserve="30rem" />
-
-Whatever your score, notice what your hand did. It watched, chose one holder, reacted, and
-did it again. That is a targeted intervention.
-
-What comes next is not a robot finger. It is a different rule: nobody is selected. The same
-percentage applies to every fortune, the pieces enter one pool, and the pool returns equally
-to everyone.
-
-<!--
-  BUILD NOTE (updated 2026-09-04) — the formerly gated middle, now built to the storyboard with
-  claim discipline intact:
-    13  structural levy lesson: LevyLesson keeps trading off and follows the proportional
-        collection, common pool, equal return, and net result as separate reversible states.
-    14  matched rooms: the same fresh trade script runs with and without levy plus equal return.
-    15  outcome map: protocol-v2 finite runs, effective participation as the primary field,
-        a chosen 50-of-100 challenge contour, and a descriptive fitted levy ≈ c·stake² curve.
-        Neither the contour nor the fit is described as a phase boundary or policy rule.
+  THE RUN and SO WHY DID THEY WIN? (iteration 2, Scenes 13–14, 2026-09-26)
+  happen inside the pair stage now: the same room, run for real (unseeded,
+  slowed down), the dashed ring on the richest, the morning paper printed into
+  the talk, banter on the actual result, "Again · Go on", and the paper argued
+  over. RevealRun, RevealInterpretation and WinnerStory are retired; the stage
+  logs every run into the same session the chapters below read.
 -->
 
-<Chapter id="levy" label="Put the levy in the rules" />
-
-## Put the levy in the rules
-
-Your hand gets tired. A rule does not.
-
-Once per measurement round, collect the same percentage of every fortune. Put every piece
-in one pool. Return the pool equally. That complete loop — levy plus shared return — is the
-counterforce I am testing.
-
-First freeze the trading. Four fortunes are enough to see every piece move.
-
-<Deferred load={() => import('$lib/widgets/tax/LevyLesson.svelte')} label="levy lesson" reserve="42rem" />
-
-Do not skip the return. Collection alone shrinks every circle by the same proportion and
-leaves the shares unchanged. The equal return changes them: below-average fortunes receive
-more than they contributed, an average fortune breaks even, and above-average fortunes
-contribute net. The room keeps every coin.
-
-Here the return is literal coins. Outside this room it could be a dividend or a universally
-shared service. This model does not choose a budget. It only tests the shared return.
-
-<Chapter id="tax-against-trade" label="Trade and return together" />
-
-## Trade and return together
-
-Now unfreeze trading. I refuse to compare two unrelated lucky stories and call the difference
-tax. Instead, write one fresh random script of partners and coin tosses, then photocopy it.
-One room gets only the trades. The other gets the exact same trades plus the shared rule.
-
-<Deferred load={() => import('$lib/widgets/tax/MatchedRooms.svelte')} label="matched room comparison" reserve="38rem" />
-
-One matched pair is still one finite experiment. Run another and the numbers move. But within
-each pair, luck is held still. The only changed ingredient is the levy plus equal return.
-
-### One pair is not a landscape
-
-Now vary both dials. Stake goes across. Levy per round goes up. Each fresh finite run enters
-one square, and color answers the question we learned to ask: how many effective participants
-remain?
-
 <!--
-  WIDGET: PhaseDiagram (legacy component name) — the reader
-  runs live rooms (SandboxWorld, fresh dice, ~2.3 s each) with snap-to-grid stake/levy dials;
-  every independent finished room contributes its complete outcome bundle to the shared
-  evidence store and updates its cell's effective-participant mean. Reader runs pulse into
-  the aggregate instead of becoming a permanent second layer. After three plays, "fill in
-  the rest" completes the 10×15 grid in-page with at least four independent runs per cell,
-  chunked under a frame budget and cached per session. White contour = the chosen 50-of-100
-  participation challenge. Dashed curve = FITTED τ ≈ c·β². Neither is phase evidence.
+  LINE THEM UP, MEASURE THE ROOM, HOW MANY STILL COUNT (iteration 2, Scenes
+  15–17, 2026-09-26) are acts on the stage's own room now: the same hundred
+  sort into piles on an ordinary ruler, then a multiplying one; step into a
+  line for the Lorenz curve and the Gini; imagine everyone equal and one owner
+  of everything; each concept leaves a thumbnail in the side rail and a card.
+  The Gini toy and the four-person room open as optional panels on the stage.
+  Turnover is cut (D20). DistributionStage and the narrator's text are retired.
 -->
-<Deferred load={() => import('$lib/widgets/phase/PhaseDiagram.svelte')} label="outcome map" reserve="42rem" />
-
-Fifty effective participants is my challenge line, not a law of nature. If you fill the map,
-the pale line connects settings that reached that chosen finite-run outcome. It is not a
-border between two phases.
-
-The dashed fit follows `levy ≈ c × stake²` over this measured range. Double the stake and
-the fitted levy for the same target grows by roughly four. That is not a universal tax formula.
-It is the relationship this room asks us to notice: a shared levy numerically much smaller
-than the risk on each trade can preserve a broad field for risk-taking.
-
-Those percentages live on different clocks: stake is at risk in each trade; levy is applied
-once per measurement round of one hundred trades. The fit compares their measured effects.
-It does not say the displayed percentages are interchangeable.
-
-<Chapter id="verdict" label="So — merit, or math?" />
-
-## So — merit, or math?
-
-The coin is still fair.
-
-It never saw talent, effort, inheritance, power — or even a name. Money did not buy better
-odds. It bought tosses it could survive. Enough money kept one player at the table while everyone
-else's chance to make a meaningful bet disappeared.
-
-Left alone, the fair game closed itself. Fewer people could put meaningful wealth at risk,
-and less wealth moved when they traded.
-
-Then one shared counterforce kept the field open: collect the same percentage from every
-fortune, put it in one pool, and return that pool equally. The coin stayed fair. More people
-stayed able to play.
-
-This room cannot tell me why any real person is rich. I threw that world away on purpose. It
-can tell me something narrower: talent and effort were not required to build the trap.
-
-So this is not an argument against merit. It is a warning about the field merit enters.
-
-**If merit is supposed to win, keep the game open long enough for merit to play.**
-
-I am done touching the controls.
-
-The machine is yours. Break my argument.
-
-## The sandbox
-
-Everything you have seen was this one machine wearing different costumes. Here it is with
-every dial exposed: people, stake, levy rate, levy timing — and the room itself answers to
-your finger. It begins equal, with fresh dice. Effective participants is the first reading;
-Gini is one button away. Tap anyone, change anything, and see what it takes.
 
 <!--
-  WIDGET: Sandbox — the full-screen finale (owner review 2026-07-13). SandboxWorld composes
+  WHERE IT ENDS, YOUR HAND ON THE DIAL, NOW YOU TRY TO STOP IT, PUT THE LEVY IN
+  THE RULES, TRADE AND RETURN TOGETHER, and THE OUTCOME MAP (iteration 2,
+  Scenes 19–24, 2026-09-26) happen inside the pair stage now, on its one room:
+  the theorem and "Run it longer?" (the same room played on); the stake dial
+  inside Red's bubble (a fresh 40,000-trade room per turn, at the quarter stake); the tax game live
+  in the room (a tap levies a quarter, shared back equally); four with coins
+  for the levy lesson; the room and its mirror on the same luck, one with a 2%
+  levy; the outcome map measured offline (scripts/outcome-map.ts). The
+  1,000-person crowd is cut from the main flow (D20). CrowdRun, TimeLapse,
+  StakeDial, TaxGame, LevyLesson, MatchedRooms and PhaseDiagram are retired.
+-->
+
+<!--
+  THE VERDICT and THE MACHINE IS YOURS (iteration 2, Scenes 25–26, 2026-09-26)
+  happen inside the pair stage now: everyone else hops out, Blue and Red talk
+  on their seats, equal, and then the hundred hop back in and the room is the
+  reader's — the sandbox's own dials (stake, levy and how often, speed, what a
+  tap does) in the right panel beside the plots, Blue and Red among them (brief
+  5.10). The narrator's verdict and the sandbox's introduction are retired.
+
+  The whole old machine stays, as a side trip Blue offers at the very end:
+  "All the dials" opens it here — people, money per head, expert numbers, the
+  measured map, the CSV (owner: "there are many good things in the sandbox").
+-->
+<Branch id="workshop" offer={say('workshop_offer')} opensOn="sandbox">
+
+<!--
+  WIDGET: Sandbox — the full machine (owner review 2026-07-13). SandboxWorld composes
   engine primitives (shares sum 1 + totalDollars scalar). Flat levy rate and cadence dials;
-  click-tax mini-game via RoomCanvas onTap. The component
-  doubles as the reusable core: layout/panels/controls props let earlier beats become
-  presets of it. Beat-22 discipline still holds: the levy is a TOY — no empirical claim
-  about real tax design (Lima/Vieira/Anteneodo gate still open).
+  click-tax mini-game via RoomCanvas onTap. The levy is a TOY — no empirical claim about
+  real tax design (Lima/Vieira/Anteneodo gate still open).
 -->
-<Chapter id="sandbox" label="The sandbox" flush />
+<Chapter id="sandbox" label="All the dials" flush />
 
 <Deferred load={() => import('$lib/widgets/sandbox/Sandbox.svelte')} label="sandbox" reserve="100svh" />
 
+</Branch>
+
 <!--
-  END OF GUIDED ESSAY. The sandbox is the final experience. Only methods, references,
-  credits, real links, and clearly separated support material may follow it.
+  END OF GUIDED ESSAY. The stage's last act is the reader's machine. Only methods,
+  references, credits, real links, and clearly separated support material may follow it.
 -->
