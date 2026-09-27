@@ -1812,14 +1812,6 @@
     ),
   );
 
-  /** Talk leans toward its speaker; an aside beside a circle leans toward it (owner review 2026-09-27). */
-  function alignOf(bubble: Said, place: { tail: { edge: string } | null }): 'left' | 'right' | null {
-    if (!bubble.at || bubble.kind) return null;
-    if (place.tail?.edge === 'right') return 'right';
-    if (place.tail?.edge === 'left') return 'left';
-    return anchorOf(bubble.at).x <= column.mid ? 'left' : 'right';
-  }
-
   function anchorOf(who: Speaker) {
     const p = view.people[WHO[who]];
     // eaten by the walk's circle: they are in it
@@ -3139,7 +3131,6 @@
             hidden={bubble.kind === 'paper' && bigPaper !== null}
             aside={bubble.aside ?? false}
             maxWidth={span && !bubble.aside && bubble.at ? Math.min(bubbleWidth, span.right - span.left) : bubbleWidth}
-            align={alignOf(bubble, place)}
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
             choices={bubble.choices}

@@ -24,9 +24,9 @@ describe('the talk, as a chat window', () => {
     for (let i = 1; i < placed.length; i++) expect(placed[i].y).toBeGreaterThanOrEqual(placed[i - 1].y + items[i - 1].h);
   });
 
-  it('runs the talk between the third lines of the two centres, each line flush with its own side', () => {
-    // owner review 2026-09-27: centre to centre is the full width; the talk is its middle third
-    const third = (RED.x - BLUE.x) / 3;
+  it('runs the talk over the middle two thirds of centre to centre, each line flush with its own side', () => {
+    // owner review 2026-09-27: the talk is two thirds of centre to centre
+    const third = (RED.x - BLUE.x) / 6;
     const left = BLUE.x + third;
     const right = RED.x - third;
     const width = Math.max(right - left, TALK_MIN);

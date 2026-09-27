@@ -231,12 +231,11 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
 export function talkSpan(items: readonly ChatItem[], column: Column): { left: number; right: number } | null {
   const xs = items.flatMap((item) => (item.anchor ? [item.anchor.x] : []));
   if (xs.length === 0) return null;
-  // the rule of thirds (owner review 2026-09-27): centre to centre is the full
-  // width; the talk runs between its two third lines
+  // owner review 2026-09-27: the talk is two thirds of centre to centre, centred between them
   const lo = Math.min(...xs, column.mid);
   const hi = Math.max(...xs, column.mid);
-  let left = lo + (hi - lo) / 3;
-  let right = hi - (hi - lo) / 3;
+  let left = lo + (hi - lo) / 6;
+  let right = hi - (hi - lo) / 6;
   const least = Math.min(TALK_MIN, column.right - column.left);
   if (right - left < least) [left, right] = [column.mid - least / 2, column.mid + least / 2];
   left = Math.max(left, column.left);
