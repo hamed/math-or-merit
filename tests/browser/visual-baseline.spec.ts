@@ -1,5 +1,4 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { loadDeferred } from './helpers';
 
 const sandboxScreenshotOptions = {
   animations: 'disabled' as const,
@@ -26,23 +25,29 @@ async function alignSandboxCapture(sandbox: Locator) {
   });
 }
 
-test('@visual opening at 390 × 844', async ({ page }) => {
+test('@visual title at 390 × 844', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  const opening = page.locator('.pin-scene').first();
-  await expect(opening).toHaveClass(/reduced/);
-  await page.waitForTimeout(250);
-  await expect(opening).toHaveScreenshot('opening-390x844.png', {
-    animations: 'disabled',
+  // the whole title: the stage restored at the step where MATH has landed
+  const index = await page.evaluate(async () => {
+    const script = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    return script.PAIR_STEPS.findIndex((s: { id: string }) => s.id === 'title.math');
   });
+  await page.evaluate((i) => sessionStorage.setItem('merit-or-math:stage:pair:v1', JSON.stringify({ index: i, released: [] })), index);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  const stage = page.locator('.step-stage');
+  await expect(stage).toHaveAttribute('data-step', String(index));
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(400);
+  await expect(stage).toHaveScreenshot('title-390x844.png', { animations: 'disabled' });
 });
 
 test('@visual sandbox at 844 × 390', async ({ page }) => {
   await page.setViewportSize({ width: 844, height: 390 });
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
   const sandbox = page.locator('.sandbox.full');
-  await loadDeferred(page, 'sandbox', sandbox);
+  await expect(sandbox).toBeVisible();
   await alignSandboxCapture(sandbox);
   await hideRandomRoom(sandbox);
   await expectSandboxScreenshot(sandbox, 'sandbox-844x390.png');
@@ -50,9 +55,9 @@ test('@visual sandbox at 844 × 390', async ({ page }) => {
 
 test('@visual sandbox at 1440 × 900', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
   const sandbox = page.locator('.sandbox.full');
-  await loadDeferred(page, 'sandbox', sandbox);
+  await expect(sandbox).toBeVisible();
   await alignSandboxCapture(sandbox);
   await hideRandomRoom(sandbox);
   await expectSandboxScreenshot(sandbox, 'sandbox-1440x900.png');

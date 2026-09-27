@@ -23,6 +23,8 @@ export default defineConfig({
       project: './project.inlang',
       outdir: './src/paraglide',
       strategy: ['localStorage', 'baseLocale'],
+      // typed output, so `tsc --noEmit` (CI's check) sees the messages' types
+      emitTsDeclarations: true,
     }),
     svelte(),
   ],
