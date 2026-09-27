@@ -4,24 +4,33 @@ Every word the reader sees lives in `script/`, in plain LaTeX that a person
 reads first and a small parser reads second. This file is the contract between
 the two (ADR-019). Changing it goes back to the owner.
 
-**Build.** `npm run script:watch` rebuilds `script/out/main.pdf` (and
-`main-fa.pdf`) on every save, in about 3 seconds; keep the PDF open in an
-editor tab and it refreshes. `npm run script:pdf` builds once. Lint runs first:
-a script that breaks this grammar makes no PDF, and the error names its file
-and line. `npm run script:lint` lists the warnings too; `npm run script:diff`
-lists how the script differs from the game that is running now.
+**Build.** `npm run script:watch` rebuilds `script/out/main.pdf` on every save,
+in a few seconds; keep the PDF open in an editor tab and it refreshes.
+`npm run script:pdf` builds English and Farsi once. Lint runs first: a script
+that breaks this grammar makes no PDF, and the error names its file and line.
+`npm run script:lint` lists the warnings too; `npm run script:diff` lists how
+the script differs from the game that is running now.
 
 ## Files
 
 | File | Holds |
 |---|---|
-| `main.tex` | the PDF's style, and the order the files are read in |
-| `decl.tex` | speakers, facts, events, timing |
-| `script.tex` | the timeline: every bubble, action and choice, in order |
-| `pool.tex` | lines picked by what happened, reactions to events, the cards |
+| `script.tex` | **the timeline**: every bubble, action and choice, in the order it plays |
 | `branches/*.tex` | side trips a choice opens (the cow, the spherical human, all the dials) |
+| `cards/<id>.tex` | one concept card per file |
+| `widgets/<id>.tex` | one widget per file: the words on its buttons, axes and labels |
+| `decl.tex` | speakers, facts, events, timing |
+| `main.tex` | the PDF's style, and which files it reads in which order |
+| `render.lua` | draws the plain paragraphs for the PDF; the app never needs it |
 | `fa/…` | one folder per language, same file names |
-| `render.lua` | draws the plain paragraphs for the PDF; never needed by the app |
+
+**The timeline shows everything the reader could see at that moment, in
+place.** What stands on its own — a card, a widget — is a **unit**: a file of
+its own, which doesn't know what it is. Whoever includes it decides: `\card{gini}`
+in the timeline drops `cards/gini.tex` as a card, and the PDF draws it right
+there; `main.tex` prints every widget at the back. A pool file (`pool.tex`,
+sections picked with `\pick`) is for material reused in more than one place,
+such as newspaper headlines; nothing needs one yet.
 
 ## 1. Paragraphs
 
@@ -33,16 +42,25 @@ A paragraph is the text between blank lines. How it starts says what it is:
 | `\` and an action | an **action** paragraph, one action per line |
 | `\section` / `\subsection` + `\label{…}` | **structure**: an **act** / a **scene** |
 | `\begin{description}` | **UI strings**: `\item[key] words` |
-| `\begin{figure}` | a **figure** |
-| anything else | a **stage direction**: for readers and screen readers, never a bubble |
+| `\begin{figure}` | a **figure** (§1.4) |
+| `\[` | a **formula**, closed by `\]` in the same paragraph |
+| anything else | in the timeline, a **stage direction**; in a unit, its **words** |
 
-- `%` comments sit on their own lines: notes for agents and history. Never output.
-- **One paragraph is one step** of the stage. A bubble is a step; an action
-  paragraph is a step.
-- **The talk clears at every act** (`\section`). A scene (`\subsection`) is a
-  heading inside the act; the talk goes on across it.
+- `%` comments sit on their own lines: notes for agents, and history. Never output.
+- **One paragraph is one step** of the stage, with one exception: a run of
+  conditioned bubbles (§5).
+- **Stage directions say what is on screen**, plainly: they become the
+  screen-reader text and the transcript. Dates, sources and reasons go in `%`
+  comments.
 
-### 1.1 Lines inside a bubble
+### 1.1 Acts and scenes
+
+`\section{…}\label{act:…}` is an **act**: where the talk clears. Every act is
+made of **scenes**, `\subsection{…}\label{…}`, and every bubble belongs to one.
+The PDF numbers scenes straight through (Scene 1, 2, … 26) and side trips B1,
+B2, B3. A scene's label is what jumps and bubble ids use.
+
+### 1.2 Lines inside a bubble
 
 ```latex
 Red: Yes. And I'll match that.     % words: this line and the next are the bubble
@@ -52,12 +70,12 @@ Red: Yes. And I'll match that.     % words: this line and the next are the bubbl
 ```
 
 - A line holding only `\label`, `\marginpar`, `\todo` or `\adapt` **attaches**
-  to the bubble. It is not a line of words.
+  to the bubble. It is not a line of words, and it may run over several lines.
 - A line holding an action is a **cue**: it plays as the bubble arrives. A
   reader action as a cue (`\meet{red}`) makes the bubble wait for the reader.
 - Put words first, then cues, then attachments.
 
-### 1.2 Variants
+### 1.3 Variants
 
 A bubble can hold a list where its lines would go. The reader sees one item at
 a time.
@@ -74,6 +92,22 @@ Red (aside, brief):
 `enumerate`: in order; the last one repeats. `itemize`: any order, picked by
 the stage. A list right after an action line is that action's body (the
 title's reel: `\reveal{math}` and its words). A list anywhere else is an error.
+
+### 1.4 Figures and formulas
+
+```latex
+\begin{figure}
+  \plot{lorenz}                          % what the stage draws there
+  \axes{people, poorest first}{share}    % optional: its axes' words
+  \caption{How far the room bent}        % optional
+\end{figure}
+
+\[ N = \frac{1}{\sum_i s_i^2} \]
+```
+
+A figure never floats: it stays where it is written. Code owns the picture;
+`\plot` names it (`\thumb{id}` for a still). A formula is typeset in the PDF
+and by KaTeX on the web.
 
 ## 2. Speakers and manner
 
@@ -99,8 +133,9 @@ Any other word is kept as a delivery hint, with a warning.
 
 Inside words, only these: `\emph{}`, `\textbf{}`, `{\large …}`, `{\Large …}`
 (said louder), `$…$` (math), `\val{name}` or `\val{name}{example}` (a live
-value), `\plural{one}{many}`, `\gls{id}`, `\footnote{}`, `\cite{}`, `\ref{}`,
-and the escapes `\% \$ \& \# \_ \{ \} ~ -- ---` ``` ``…'' ```.
+value), `\plural{one}{many}`, `\gls{card}` or `\gls{card}{words}` (the words
+open that card), `\footnote{}`, `\cite{}`, `\ref{}`, and the escapes
+`\% \$ \& \# \_ \{ \} ~ -- ---` ``` ``…'' ```.
 
 Notes: `\todo{…}` (not the owner's words yet), `\marginpar{…}` (a claim that
 must stay true), `\adapt{…}` (a note to the translator: exported with the text,
@@ -125,11 +160,13 @@ on) or **reader** (it waits for the reader; the wait is never written).
 | `\control{x}` | the reader holds `stake`, `tax`, `sandbox`, or `none` |
 | `\levy{x}` | the lesson's pool: `collect`, `return` |
 | `\match` | the room and its mirror, on the same luck |
-| `\card{id}` | drops a concept card into the stack |
+| `\card{id}` | drops `cards/<id>.tex` into the stack; the PDF draws the card where it first drops |
 | `\pin{id}` | pins the concept's picture to the side rail |
+| `\toy{id}` | in a unit: a widget inside it, opened on request |
 | `\meet{who}` | *reader*: clicks the circle |
 | `\equalize` | *reader*: moves coins until 8 and 8 |
 | `\choice{words}` | *reader*: a choice; see below |
+| `\when{…}` / `\on{…}` | a bubble's condition (§5) |
 | `\pick{group}` | plays the first pool section labelled `group:…` whose `\when` holds |
 | `\pause` / `\pause[n]` | n beats |
 | `\return` | back to where the branch was opened |
@@ -146,31 +183,39 @@ group. The target says what the choice does:
 | Target | Does |
 |---|---|
 | *(none)*: `\choice{Go on}` | goes on |
-| a section or scene label: `{cow}` | jumps there |
+| a scene or act label: `{cow}` | jumps there |
 | `fact=value`: `{bet=coffee}` | records the answer; the bubble waits for it |
 | an action: `{\run}` | does it |
 
 Jump targets are structure labels only: a translation may merge bubbles, so a
 bubble label is not in every language.
 
-## 5. Pool, facts, events
+## 5. Conditions
 
-`decl.tex` declares `\facts{…}` and `\events{…}`. A pool section is a small
-scene with exactly one condition:
+`decl.tex` declares `\facts{…}` (what happened: the bet, the winner) and
+`\events{…}` (moments: the first coin moves). A bubble with a condition cue
+plays only when it holds:
 
 ```latex
-\section{They react: Red passes eight}\label{react:red-above-eight}
-\on{red-above-eight}
+Red (aside): And how much would you bet on that?
+\choice{A coffee}{bet=coffee}
+\choice{A lunch}{bet=lunch}
 
-Blue (flow): Whoa. Equal, not upside down.
+Blue (aside, flow): A coffee. Careful with your money. I respect that.
+\when{bet=coffee}
 
-Red (flow): Tempting. But give him one back.
+Red (aside, flow): A lunch. Fair. The winner picks the place.
+\when{bet=lunch}
 ```
 
-`\when{fact=value}` for what happened, `\on{event}` for a moment. **The
-tripwire:** a compound condition ("and", "or", a comparison) is a lint error and
-goes to the owner. Pool sections without a condition hold timeless material:
-the cards, as UI strings.
+- **`\when{fact=value}`:** a run of consecutive `\when` bubbles is **one step**:
+  the stage plays the ones whose condition holds, in order. Several bubbles
+  under the same condition are a small scene.
+- **`\on{event}`:** reactions. They belong to the step before them and play
+  when the event happens during it.
+- **The tripwire:** one condition per bubble, and a condition is exactly one
+  `fact=value` or one event. "And", "or" or a comparison is a lint error and
+  goes to the owner.
 
 ## 6. Timing
 
@@ -182,31 +227,38 @@ stay in code.
 
 ## 7. IDs, skeleton, translation
 
-- A bubble's id is `<label>.<n>`: the nearest act or scene label, n counting
-  bubbles only. The PDF prints it at the end of the bubble.
-- **The skeleton** is the structure labels, the actions with their arguments,
-  and the choice targets. It is identical in every language; between two
-  skeleton points the words are free (Farsi may use two bubbles where English
-  uses one).
+- A bubble's id is `<scene label>.<n>`, n counting bubbles only. The PDF prints
+  it at the end of the bubble.
+- **The skeleton** is the timeline's structure labels, its actions with their
+  arguments (conditions included), and the choice targets. It is identical in
+  every language; between two skeleton points the words are free (Farsi may use
+  two bubbles where English uses one). Units are matched by file name.
 - UI strings keep their keys (`\item[log.toss]`) in every language.
 
 ## 8. Lint
 
 Errors: an undeclared speaker, fact or event; a command outside the grammar; a
-bare `%`; a `$` before a digit; a section or scene without a label; a label used
-twice; a compound condition; a choice target that is none of the four; a list
-outside a bubble or an action; more than 18 words in an English bubble; a
-translation whose skeleton differs from English. Warnings: more than 12 words;
-an unknown manner word.
+bare `%`; a `$` before a digit; an act or scene without a label; an act with
+content before its first scene; a label used twice; a compound condition, or two
+conditions on one bubble; a choice target that is none of the four; a list
+outside a bubble or an action; `\card{id}` with no `cards/<id>.tex`; a unit that
+doesn't start with its title, or has someone speaking; more than 18 words in an
+English bubble; a translation whose skeleton differs from English. Warnings:
+more than 12 words; an unknown manner word; a card that is never dropped.
 
 ## Changes from v0 (the brief of 2026-09-26)
 
-Proposed and accepted in v0.1: attachment lines (1.1); variants (1.2); `\adapt`;
-manner words stay English; `\expect` checks and `\params` never sets holdings;
-jump targets are structure labels; `\pick{group}`; pool sections are small
-scenes; `\nudge`; bubble numbers count bubbles only; LuaLaTeX.
+Proposed and accepted in v0.1: attachment lines; variants; `\adapt`; manner
+words stay English; `\expect` checks and `\params` never sets holdings; jump
+targets are structure labels; `\pick{group}`; `\nudge`; bubble numbers count
+bubbles only; LuaLaTeX.
 
 Added while transcribing the running game: one paragraph is one step, and
-action lines in a bubble are its cues; the talk clears at acts, not scenes;
-the manners `brief` and `interrupts`; choice targets beyond a label (go on, an
-answer, an action); the story's action list (§4).
+action lines in a bubble are its cues; the talk clears at acts; the manners
+`brief` and `interrupts`; choice targets beyond a label; the story's actions.
+
+Reorganised 2026-09-27 (owner): cards and widgets are units, one file each, that
+don't know what they are; alternatives and reactions are conditioned bubbles in
+the scene where they play, not pool sections; every act is made of numbered
+scenes; directions say only what is on screen; figures (`\plot`, `\axes`),
+display formulas and `\toy`; `\gls` links words to their card.

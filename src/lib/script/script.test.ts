@@ -11,8 +11,9 @@ const FIX = join(import.meta.dirname, 'fixtures');
 const SCRIPT = join(import.meta.dirname, '..', '..', '..', 'script');
 const read = (dir: string, file: string) => ({ file, text: readFileSync(join(dir, file), 'utf8') });
 
+const RULE_CARD = { file: 'cards/rule.tex', text: '\\section{The rule}\n\nPick two people at random.\n' };
 const golden = (file = 'golden.tex', lang = 'en') =>
-  parseScript({ lang, decl: read(FIX, lang === 'en' ? 'decl.tex' : 'decl-fa.tex'), files: [read(FIX, file)] });
+  parseScript({ lang, decl: read(FIX, lang === 'en' ? 'decl.tex' : 'decl-fa.tex'), files: [read(FIX, file)], units: [RULE_CARD] });
 
 /** A one-file script from a string, for the lint rules. */
 const one = (text: string, lang = 'en') => parseScript({ lang, decl: read(FIX, 'decl.tex'), files: [{ file: 'x.tex', text }] });
@@ -47,24 +48,28 @@ describe('the golden sample (brief §9)', () => {
 });
 
 describe('round trip: parse → print → the same source', () => {
-  const files: { dir: string; file: string }[] = [
+  const files: { dir: string; file: string; unit?: boolean }[] = [
     { dir: FIX, file: 'golden.tex' },
     { dir: FIX, file: 'golden-fa.tex' },
   ];
-  for (const sub of ['', 'fa', 'branches', join('fa', 'branches')]) {
+  files.push({ dir: FIX, file: 'card.tex', unit: true });
+  for (const sub of ['', 'fa', 'branches', 'cards', 'widgets', join('fa', 'branches'), join('fa', 'cards'), join('fa', 'widgets')]) {
     const dir = join(SCRIPT, sub);
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir)) {
-      if (f.endsWith('.tex') && !['main.tex', 'main-fa.tex', 'decl.tex'].includes(f)) files.push({ dir, file: join(sub, f) });
+      if (f.endsWith('.tex') && !['main.tex', 'main-fa.tex', 'decl.tex'].includes(f)) {
+        files.push({ dir, file: join(sub, f), unit: /(^|\/)(cards|widgets)$/.test(sub) });
+      }
     }
   }
-  for (const { dir, file } of files) {
+  for (const { dir, file, unit } of files) {
     it(file, () => {
       const lang = file.startsWith('fa') || file.includes('-fa') ? 'fa' : 'en';
       const declDir = dir === FIX ? FIX : join(SCRIPT, lang === 'fa' ? 'fa' : '');
       const declFile = dir === FIX ? (lang === 'fa' ? 'decl-fa.tex' : 'decl.tex') : 'decl.tex';
-      const source = readFileSync(join(dir === FIX ? FIX : SCRIPT, dir === FIX ? file : file), 'utf8');
-      const script = parseScript({ lang, decl: read(declDir, declFile), files: [{ file, text: source }] });
+      const source = readFileSync(join(dir === FIX ? FIX : SCRIPT, file), 'utf8');
+      const src = { file, text: source };
+      const script = parseScript({ lang, decl: read(declDir, declFile), files: unit ? [] : [src], units: unit ? [src] : [] });
       expect(script.problems.filter((p) => p.level === 'error')).toEqual([]);
       expect(squash(printFile(script.files[0]))).toBe(squash(source));
     });
@@ -88,7 +93,7 @@ describe('lint', () => {
   });
 
   it('trips on a compound condition, and on undeclared facts and events', () => {
-    const pool = (cond: string) => one(`\\section{X}\\label{news:x}\n${cond}\n\nRed: Hi.`);
+    const pool = (cond: string) => one(`\\subsection{X}\\label{x}\n\nRed: Hi.\n${cond}`);
     expect(errors(pool('\\when{winner=blue}'))).toEqual([]);
     expect(errors(pool('\\when{winner=blue and bet=all}'))[0]).toMatch(/tripwire/);
     expect(errors(pool('\\when{mood=good}'))).toEqual(['"mood" is not a declared fact (decl.tex)']);
@@ -113,12 +118,13 @@ describe('lint', () => {
   });
 
   it('checks where a choice goes: nowhere, a label, an answer, or an action', () => {
-    const at = (target: string) => one(`\\section{A}\\label{a}\n\nRed: Pick.\n\\choice{Go}${target}`);
+    const at = (target: string) => one(`\\subsection{A}\\label{a}\n\nRed: Pick.\n\\choice{Go}${target}`);
     expect(errors(at(''))).toEqual([]);
     expect(errors(at('{a}'))).toEqual([]);
     expect(errors(at('{bet=all}'))).toEqual([]);
     expect(errors(at('{\\run}'))).toEqual([]);
     expect(errors(at('{nowhere}'))[0]).toMatch(/is none/);
+    expect(errors(one('\\subsection{A}\\label{a}\n\nRed: Pick.\n\\choice{Go}{guess}'))[0]).toMatch(/is none/);
     expect(errors(at('{\\dance}'))[0]).toMatch(/action from the grammar/);
   });
 
@@ -127,12 +133,74 @@ describe('lint', () => {
   });
 });
 
+describe('acts, scenes and conditions', () => {
+  it('wants every act made of scenes', () => {
+    expect(errors(one('\\section{The run}\\label{act:run}\n\nRed: Go.'))).toEqual([
+      'an act holds scenes: start one with \\subsection{…}\\label{…} before this',
+    ]);
+    expect(errors(one('\\section{The run}\\label{act:run}\n\n\\subsection{The run}\\label{run}\n\nRed: Go.'))).toEqual([]);
+  });
+
+  it('plays a bubble under one condition at most', () => {
+    const scene = (cues: string) => one(`\\subsection{S}\\label{s}\n\nRed: Hi.\n${cues}`);
+    expect(errors(scene('\\when{bet=coffee}'))).toEqual([]);
+    expect(errors(scene('\\when{bet=coffee}\n\\on{red-above-eight}'))[0]).toMatch(/one condition at most/);
+  });
+
+  it('reads a note that runs over two lines as one attachment', () => {
+    const script = one('\\subsection{S}\\label{s}\n\nRed: Hi.\n\\marginpar{A claim that\ngoes on.}');
+    expect(errors(script)).toEqual([]);
+    const bubble = [...walk(script)].map(({ item }) => item).find((i) => i.kind === 'bubble');
+    expect(bubble?.kind === 'bubble' && bubble.body.map((l) => l.k)).toEqual(['text', 'attach']);
+  });
+
+  it('shows a card link\'s own words', () => {
+    const bubble = [...walk(one('Red: The gap is the \\gls{gini}{Gini}.'))].map(({ item }) => item)[0];
+    expect(bubble.kind === 'bubble' && plain(wordsOf(bubble)[0])).toBe('The gap is the Gini.');
+  });
+});
+
+describe('units: content that does not know what it is', () => {
+  const unit = (text: string, file = 'cards/participants.tex') =>
+    parseScript({ lang: 'en', decl: read(FIX, 'decl.tex'), files: [], units: [{ file, text }] });
+
+  it('reads a title, words, a figure, a formula and a toy', () => {
+    const script = unit(readFileSync(join(FIX, 'card.tex'), 'utf8'));
+    expect(errors(script)).toEqual([]);
+    const kinds = script.files[0].items.filter((i) => i.kind !== 'comment').map((i) => i.kind);
+    expect(kinds).toEqual(['structure', 'words', 'figure', 'formula', 'actions']);
+    const fig = script.files[0].items.find((i) => i.kind === 'figure');
+    expect(fig?.kind === 'figure' && [fig.plot, fig.axes?.map((a) => plain(a))]).toEqual(['participants', ['people', 'share']]);
+  });
+
+  it('never takes "Proof:" for a speaker', () => {
+    const words = unit('\\section{Limit}\n\nProof: Börgers \\& Greengard, 2023.').files[0].items[1];
+    expect(words.kind).toBe('words');
+  });
+
+  it('starts with its title', () => {
+    expect(errors(unit('Just words.'))).toEqual(['a unit starts with its title: \\section{…}']);
+  });
+
+  it('is dropped by \\card, which must find it', () => {
+    const script = parseScript({
+      lang: 'en',
+      decl: read(FIX, 'decl.tex'),
+      files: [{ file: 'x.tex', text: '\\subsection{S}\\label{s}\n\n\\card{gini}' }],
+      units: [{ file: 'cards/rule.tex', text: '\\section{The rule}\n\nPick two.' }],
+    });
+    const problems = lint(script);
+    expect(problems.filter((p) => p.level === 'error').map((p) => p.message)).toEqual(['\\card{gini}: there is no cards/gini.tex']);
+    expect(problems.filter((p) => p.level === 'warning').map((p) => p.message)).toEqual(['the card rule is never dropped (\\card{rule})']);
+  });
+});
+
 describe('skeleton', () => {
   it('is the same in English and Farsi, whatever the bubbles', () => {
     const diff = diffSkeleton(golden(), golden('golden-fa.tex', 'fa'));
     expect(diff.mismatches).toEqual([]);
     expect(diff.extra).toEqual([]);
-    expect(diff.missing).toEqual(['offer', 'guess', 'cow']);
+    expect(diff.missing).toEqual(['offer', 'guess', 'act:cow', 'cow']);
   });
 
   it('fails loudly on a broken translation', () => {
@@ -154,7 +222,8 @@ describe('skeleton', () => {
       '\\choice{cow}',
       '\\choice{guess}',
       'subsection guess',
-      'section cow',
+      'section act:cow',
+      'subsection cow',
       '\\return',
     ]);
   });

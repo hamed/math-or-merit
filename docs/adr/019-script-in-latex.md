@@ -17,9 +17,12 @@ described one story, and a test kept them from drifting.
 ## Decision
 
 1. **`script/` is the single source of the story's words, order and timing**,
-   in plain LaTeX, linear in time: `script.tex` (the timeline), `pool.tex`
-   (lines picked by what happened, reactions, cards), `branches/`, `decl.tex`,
-   one folder per language. The grammar is `script/GRAMMAR.md`, a contract:
+   in plain LaTeX, linear in time: `script.tex` (the timeline, acts made of
+   numbered scenes, every alternative written where it plays as a conditioned
+   bubble), `branches/`, `decl.tex`, one folder per language. Cards and widgets
+   are **units**, one file each, that don't know what they are: `\card{gini}`
+   drops `cards/gini.tex` as a card and the PDF draws it there; the widgets'
+   words print at the back. The grammar is `script/GRAMMAR.md`, a contract:
    changes go to the owner.
 2. **The PDF is how the owner reads it.** LuaLaTeX, because a Lua line filter
    (`render.lua`) draws bubbles and directions from the plain source without
@@ -33,8 +36,8 @@ described one story, and a test kept them from drifting.
 4. **The skeleton** (structure labels, actions, choice targets) is identical in
    every language; words between skeleton points are free.
 5. **Phased.** First the script reproduces the running game exactly
-   (`npm run script:diff`: 153/153 steps, 19/19 pool sections, 295/295 messages
-   at acceptance), and the owner edits it through the PDF. The build keeps
+   (`npm run script:diff`: 155/155 steps, 295/295 messages, 0 differences at
+   acceptance), and the owner edits it through the PDF. The build keeps
    reading `messages/en.json` and `script.ts` until the owner says the PDF is
    right; then **the switch**: the build reads the script, words first, then
    order and timing.
@@ -45,13 +48,14 @@ described one story, and a test kept them from drifting.
   is not edited. After the switch it goes.
 - `scripts/script-game.ts` and `script:diff` are a bridge that knows the step
   list and the scene's special cases; they go at the switch.
-- Where the code does something the grammar can say only loosely — the tax
-  game's result spoken inside "Start" (`\pick{game}` as a cue), the four-person
-  readout (`interrupts`) — the script names it and the code keeps the how.
+- Where the code does something the grammar can say only loosely — the
+  four-person readout (`interrupts`) — the script names it and the code keeps
+  the how.
 - Words still in code, outside both prose.md and the script: the morning
-  paper's headlines (`frontPageFor`, `headlineForStyle`). They move into the
-  pool at or after the switch.
-- A compound condition in the pool is a lint error that goes to the owner: he
+  paper's headlines (`frontPageFor`, `headlineForStyle`), and the axis words of
+  the sandbox plots drawn on the cards (`LorenzPlot`, `Histogram`). The
+  headlines move into a pool at or after the switch.
+- A compound condition is a lint error that goes to the owner, who
   then decides between a real narrative language and logic in code with a
   readable summary in the PDF.
 

@@ -22,16 +22,26 @@
   \babelfont[english]{sf}{DejaVu Sans}
   \def\langdir{fa/}
   \def\dirshape{}
+  \def\actname{پرده}
+  \def\scenename{صحنه}
+  \def\tripname{گریز}
+  \def\cardname{کارت}
 \else
   \usepackage[english]{babel}
-  \babelfont{rm}{DejaVu Serif}
-  \babelfont{sf}{DejaVu Sans}
+  % Farsi inside a note (an \adapt) falls back to a font that has it
+  \directlua{luaotfload.add_fallback('fa', {'Noto Naskh Arabic:mode=harf;'})}
+  \babelfont{rm}[RawFeature={fallback=fa}]{DejaVu Serif}
+  \babelfont{sf}[RawFeature={fallback=fa}]{DejaVu Sans}
   \def\langdir{}
   \def\dirshape{\itshape}
+  \def\actname{Act}
+  \def\scenename{Scene}
+  \def\tripname{Side trip}
+  \def\cardname{Card}
 \fi
 \babelfont{tt}{DejaVu Sans Mono}
 
-\usepackage{xcolor, graphicx}
+\usepackage{xcolor, graphicx, titlesec}
 \usepackage[colorinlistoftodos, textsize=scriptsize, color=orange!25]{todonotes}
 \usepackage[hidelinks]{hyperref}
 
@@ -41,13 +51,23 @@
 \definecolor{sp-ledger}{gray}{0.1}
 \definecolor{quiet}{gray}{0.45}
 \definecolor{adapt}{HTML}{7B3FA0}
+\definecolor{cardc}{HTML}{2E7D5B}
 
 \setlength\parindent{0pt}
 \setlength\parskip{0.9ex plus 0.3ex}
 \newlength\namewidth \setlength\namewidth{6.5em}
 
+% --- acts and scenes: an act is where the talk clears, small; scenes count 1, 2, 3… across acts
+\counterwithout{subsection}{section}
+\titleformat{\section}{\normalfont\sffamily\small\color{quiet}}{\actname\ \thesection\enspace·}{0.4em}{}
+\titlespacing*{\section}{0pt}{4ex plus 1ex}{0.2ex}
+\titleformat{\subsection}{\normalfont\Large\bfseries}{\scenename\ \thesubsection\enspace·}{0.4em}{}
+\titlespacing*{\subsection}{0pt}{1.2ex plus 0.5ex}{1ex}
+
 \directlua{render = dofile('render.lua')}
-\newcommand\scriptinput[1]{\directlua{render.on()}\input{#1}\directlua{render.off()}}
+\newcommand\scriptinput[1]{\directlua{render.on('timeline')}\input{#1}\directlua{render.off()}}
+% a unit (cards/, widgets/) doesn't know what it is: whoever includes it decides
+\newcommand\scriptunit[1]{\directlua{render.on('unit')}\input{#1}\directlua{render.off()}}
 
 % --- declarations (decl.tex) ---
 \newcommand\speaker[2]{%
@@ -77,6 +97,9 @@
   \mbox{\ttfamily\tiny\color{quiet}\bubbletag}\par\endgroup}
 \newcommand\direction{\par\begingroup\small\dirshape\color{quiet}\noindent}
 \def\enddirection{\par\endgroup}
+% a unit's words: each line a line
+\newcommand\words{\par\begingroup\noindent}
+\def\endwords{\par\endgroup}
 \newcommand\panelmark[1]{%
   \par{\ttfamily\scriptsize\color{quiet}\##1\hfill
   \IfFileExists{thumbs/#1.png}{}{no thumbnail yet}}\par}
@@ -93,10 +116,9 @@
 \NewDocumentCommand\choice{mg}{\act{choice}{#1\IfNoValueTF{#2}{}{\ {\ttfamily→ \detokenize{#2}}}}}
 \newcommand\return{\act{return}{}}
 \newcommand\pick[1]{\act{pick}{\ttfamily #1}}
-\newcommand\card[1]{\act{card}{\ttfamily #1}}
 \newcommand\pin[1]{\act{pin}{\ttfamily #1}}
 \newcommand\keep[1]{\act{keep}{at most #1 bubbles}}
-\newcommand\when[1]{\act{when}{\ttfamily #1}}
+\newcommand\when[1]{\act{only when}{\ttfamily #1}}
 \newcommand\on[1]{\act{on}{\ttfamily #1}}
 \newcommand\reveal[1]{\act{reveal}{#1}}
 \newcommand\hide[1]{\act{hide}{#1}}
@@ -108,13 +130,52 @@
 \newcommand\control[1]{\act{control}{#1}}
 \newcommand\levy[1]{\act{levy}{#1}}
 \newcommand\match{\act{match}{}}
+\newcommand\toy[1]{\act{toy}{\ttfamily #1\normalfont\itshape\ — opened on request}}
 \newcommand\meet[1]{\reader{meet}{click #1}}
 \newcommand\equalize{\reader{equalize}{until 8 and 8}}
+
+% --- cards: \card{id} drops cards/<id>.tex, drawn as a card after the paragraph that drops it
+\def\pendingcards{}
+\newcommand\card[1]{%
+  \ifcsname cardseen@#1\endcsname
+    \act{card}{\hyperref[card:#1]{\ttfamily #1}\normalfont\ (p.~\pageref{card:#1})}%
+  \else
+    \expandafter\gdef\csname cardseen@#1\endcsname{}%
+    \act{card}{\ttfamily #1\normalfont\ drops here}%
+    \xdef\pendingcards{\unexpanded\expandafter{\pendingcards}\noexpand\cardinclude{#1}}%
+  \fi}
+\newcommand\flushcards{\let\cardsnow\pendingcards\gdef\pendingcards{}\cardsnow}
+\newcommand\cardinclude[1]{\par\medskip\begingroup
+  \inbubblefalse\leftskip\namewidth\setlength\parskip{0.3ex}%
+  \def\section##1{\cardtitle{#1}{##1}}%
+  \IfFileExists{\langdir cards/#1.tex}{\scriptunit{\langdir cards/#1}}{\act{card}{#1: not written yet}}%
+  \par\noindent\textcolor{cardc}{\rule{\dimexpr\linewidth\relax}{0.4pt}}\par\endgroup\medskip}
+\newcommand\cardtitle[2]{\par\noindent\phantomsection\label{card:#1}%
+  \addcontentsline{loc}{subsection}{#2}%
+  \textcolor{cardc}{\rule{\dimexpr\linewidth\relax}{0.4pt}}\par\noindent
+  {\sffamily\bfseries\color{cardc}\cardname\enspace #2}\par}
+\makeatletter
+\newcommand\listofcards{\section*{\cardname s}\@starttoc{loc}}
+\makeatother
+
+% --- units at the back: every file of a folder, its \section a heading
+\newcommand\unitinclude[1]{\begingroup\def\section##1{\subsection*{##1}}\scriptunit{\langdir #1}\endgroup}
+\newcommand\unitsheading[1]{\part*{#1}\addcontentsline{toc}{part}{#1}}
+\newcommand\includeunits[2]{\directlua{render.includeall('\langdir', '#1', '\luaescapestring{#2}')}}
+
+% --- figures stay where they are written; code draws the picture
+\renewenvironment{figure}{\par\medskip\begingroup\centering\small}{\par\endgroup\medskip}
+\newcommand\plot[1]{\fbox{\parbox{0.5\linewidth}{\centering\sffamily\footnotesize\color{quiet}%
+  \rule{0pt}{2.6ex}picture: {\ttfamily #1}\\ drawn by the stage\rule[-1.4ex]{0pt}{0pt}}}\par}
+\newcommand\axes[2]{{\sffamily\footnotesize x: #1\quad y: #2}\par}
+\renewcommand\caption[1]{{\small #1}\par}
+\newcommand\thumb[1]{\IfFileExists{thumbs/#1.png}{\includegraphics[width=0.5\linewidth]{thumbs/#1.png}}{\plot{#1}}\par}
 
 % --- inline and attachments ---
 \NewDocumentCommand\val{mg}{\textcolor{quiet}{\IfNoValueTF{#2}{[#1]}{#2}}}
 \newcommand\plural[2]{\textcolor{quiet}{#1/#2}}
-\newcommand\gls[1]{\textsf{#1}}
+% a word that opens its card
+\NewDocumentCommand\gls{mg}{\hyperref[card:#1]{\textcolor{cardc}{\IfNoValueTF{#2}{#1}{#2}}}}
 \let\claimpar\marginpar
 \renewcommand\marginpar[1]{\claimpar{\scriptsize\raggedright
   \textbf{keep true:} #1}}
@@ -138,9 +199,16 @@
 \IfFileExists{\langdir pool.tex}{%
   \part*{Material}\addcontentsline{toc}{part}{Material}%
   \scriptinput{\langdir pool}}{}
+
+% side trips: acts of their own, scenes B1, B2, B3
+\def\actname{\tripname}\setcounter{section}{0}
+\setcounter{subsection}{0}\renewcommand\thesubsection{B\arabic{subsection}}
 \IfFileExists{\langdir branches/cow.tex}{\scriptinput{\langdir branches/cow}}{}
 \IfFileExists{\langdir branches/human.tex}{\scriptinput{\langdir branches/human}}{}
 \IfFileExists{\langdir branches/workshop.tex}{\scriptinput{\langdir branches/workshop}}{}
 
+\includeunits{widgets}{The widgets' words}
+
+\listofcards
 \listoftodos
 \end{document}

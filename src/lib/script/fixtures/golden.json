@@ -1,6 +1,7 @@
 [
   {
     "file": "golden.tex",
+    "mode": "timeline",
     "items": [
       {
         "kind": "comment",
@@ -13,13 +14,18 @@
         "line": 2
       },
       {
+        "kind": "comment",
+        "text": "% Every act is made of scenes, so the cow act gained its scene heading (v0.1).",
+        "line": 3
+      },
+      {
         "kind": "structure",
         "level": "section",
         "star": false,
         "short": "Rounds",
         "title": "The game",
         "label": "game",
-        "line": 3
+        "line": 4
       },
       {
         "kind": "structure",
@@ -27,7 +33,7 @@
         "star": false,
         "title": "Round two",
         "label": "round2",
-        "line": 5
+        "line": 6
       },
       {
         "kind": "actions",
@@ -39,11 +45,11 @@
               "args": [
                 "blue=4, red=12"
               ],
-              "line": 6
+              "line": 7
             }
           }
         ],
-        "line": 6
+        "line": 7
       },
       {
         "kind": "bubble",
@@ -60,7 +66,7 @@
                 "v": "Wait!"
               }
             ],
-            "line": 8
+            "line": 9
           },
           {
             "k": "text",
@@ -70,10 +76,10 @@
                 "v": "I have 4. I can't put in as much as you."
               }
             ],
-            "line": 9
+            "line": 10
           }
         ],
-        "line": 8
+        "line": 9
       },
       {
         "kind": "bubble",
@@ -90,10 +96,10 @@
                 "v": "Put in half of what you have."
               }
             ],
-            "line": 11
+            "line": 12
           }
         ],
-        "line": 11
+        "line": 12
       },
       {
         "kind": "bubble",
@@ -110,10 +116,10 @@
                 "v": "Only 2?"
               }
             ],
-            "line": 13
+            "line": 14
           }
         ],
-        "line": 13
+        "line": 14
       },
       {
         "kind": "bubble",
@@ -130,10 +136,10 @@
                 "v": "Yes. And I'll match that."
               }
             ],
-            "line": 15
+            "line": 16
           }
         ],
-        "line": 15
+        "line": 16
       },
       {
         "kind": "actions",
@@ -145,11 +151,11 @@
               "args": [
                 "2"
               ],
-              "line": 17
+              "line": 18
             }
           }
         ],
-        "line": 17
+        "line": 18
       },
       {
         "kind": "bubble",
@@ -166,7 +172,7 @@
                 "v": "So we always put in half"
               }
             ],
-            "line": 19
+            "line": 20
           },
           {
             "k": "text",
@@ -176,10 +182,10 @@
                 "v": "of what the poorer one has."
               }
             ],
-            "line": 20
+            "line": 21
           }
         ],
-        "line": 19
+        "line": 20
       },
       {
         "kind": "bubble",
@@ -196,7 +202,7 @@
                 "v": "Yes. That way everybody can keep playing."
               }
             ],
-            "line": 22
+            "line": 23
           },
           {
             "k": "attach",
@@ -214,10 +220,10 @@
                 ]
               }
             ],
-            "line": 23
+            "line": 24
           }
         ],
-        "line": 22
+        "line": 23
       },
       {
         "kind": "actions",
@@ -229,11 +235,11 @@
               "args": [
                 "rule"
               ],
-              "line": 25
+              "line": 26
             }
           }
         ],
-        "line": 25
+        "line": 26
       },
       {
         "kind": "bubble",
@@ -252,7 +258,7 @@
                 "v": "Smart."
               }
             ],
-            "line": 27
+            "line": 28
           },
           {
             "k": "text",
@@ -262,7 +268,7 @@
                 "v": "Okay, let's go."
               }
             ],
-            "line": 28
+            "line": 29
           },
           {
             "k": "text",
@@ -272,10 +278,10 @@
                 "v": "I'll win it back."
               }
             ],
-            "line": 29
+            "line": 30
           }
         ],
-        "line": 27
+        "line": 28
       },
       {
         "kind": "actions",
@@ -287,11 +293,11 @@
               "args": [
                 "blue"
               ],
-              "line": 31
+              "line": 32
             }
           }
         ],
-        "line": 31
+        "line": 32
       },
       {
         "kind": "bubble",
@@ -310,10 +316,10 @@
                 "v": "Told you."
               }
             ],
-            "line": 33
+            "line": 34
           }
         ],
-        "line": 33
+        "line": 34
       },
       {
         "kind": "structure",
@@ -321,7 +327,7 @@
         "star": false,
         "title": "The offer",
         "label": "offer",
-        "line": 35
+        "line": 36
       },
       {
         "kind": "bubble",
@@ -338,7 +344,7 @@
                 "v": "Real life is"
               }
             ],
-            "line": 37
+            "line": 38
           },
           {
             "k": "text",
@@ -348,10 +354,10 @@
                 "v": "much more complicated than this."
               }
             ],
-            "line": 38
+            "line": 39
           }
         ],
-        "line": 37
+        "line": 38
       },
       {
         "kind": "bubble",
@@ -368,7 +374,7 @@
                 "v": "Of course it is."
               }
             ],
-            "line": 40
+            "line": 41
           },
           {
             "k": "text",
@@ -378,10 +384,10 @@
                 "v": "Want to hear a joke?"
               }
             ],
-            "line": 41
+            "line": 42
           }
         ],
-        "line": 40
+        "line": 41
       },
       {
         "kind": "actions",
@@ -394,7 +400,7 @@
                 "Yes",
                 "cow"
               ],
-              "line": 43
+              "line": 44
             }
           },
           {
@@ -405,11 +411,11 @@
                 "Not now",
                 "guess"
               ],
-              "line": 44
+              "line": 45
             }
           }
         ],
-        "line": 43
+        "line": 44
       },
       {
         "kind": "structure",
@@ -417,15 +423,23 @@
         "star": false,
         "title": "Your guess",
         "label": "guess",
-        "line": 46
+        "line": 47
       },
       {
         "kind": "structure",
         "level": "section",
         "star": false,
         "title": "The cow",
+        "label": "act:cow",
+        "line": 49
+      },
+      {
+        "kind": "structure",
+        "level": "subsection",
+        "star": false,
+        "title": "The cow",
         "label": "cow",
-        "line": 48
+        "line": 51
       },
       {
         "kind": "bubble",
@@ -442,10 +456,10 @@
                 "v": "Once upon a time."
               }
             ],
-            "line": 50
+            "line": 53
           }
         ],
-        "line": 50
+        "line": 53
       },
       {
         "kind": "actions",
@@ -455,11 +469,40 @@
             "action": {
               "name": "return",
               "args": [],
-              "line": 52
+              "line": 55
             }
           }
         ],
-        "line": 52
+        "line": 55
+      }
+    ]
+  },
+  {
+    "file": "cards/rule.tex",
+    "mode": "unit",
+    "items": [
+      {
+        "kind": "structure",
+        "level": "section",
+        "star": false,
+        "title": "The rule",
+        "line": 1
+      },
+      {
+        "kind": "words",
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Pick two people at random."
+              }
+            ],
+            "line": 3
+          }
+        ],
+        "line": 3
       }
     ]
   }

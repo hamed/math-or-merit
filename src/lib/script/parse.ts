@@ -3,11 +3,18 @@
  *
  * A paragraph is the text between blank lines, and how it starts says what it
  * is: a bubble (`Name (manner): …`), actions (`\flip{blue}`), structure
- * (`\section{…}\label{…}`), UI strings (`description`), a figure, or a stage
- * direction. The parser never needs LaTeX installed and never guesses: a
- * command outside the grammar is an error with its file and line.
+ * (`\section{…}\label{…}`), UI strings (`description`), a figure, a formula
+ * (`\[ … \]`), or — in the timeline — a stage direction.
  *
- * Headless and pure: sources in, tree and problems out. No fs here.
+ * Two kinds of file. The **timeline** (script.tex, branches/) is the story in
+ * order. A **unit** (cards/, widgets/) is content that doesn't know what it is:
+ * a `\section{Title}`, then words, figures, formulas, strings. Whoever includes
+ * it decides what it is — `\card{gini}` includes cards/gini.tex as a card. In a
+ * unit, a plain paragraph is its words, not a direction, and nobody speaks.
+ *
+ * The parser never needs LaTeX installed and never guesses: a command outside
+ * the grammar is an error with its file and line. Headless and pure: sources
+ * in, tree and problems out. No fs here.
  */
 import { ACTIONS, ATTACHMENTS, OPTIONAL_LAST_ARG } from './grammar.ts';
 import { closeBrace, commands, parseInline, type Inline } from './inline.ts';
@@ -40,12 +47,25 @@ export interface ListBody {
   readonly line: number;
 }
 
-/** One line of a bubble or an action paragraph, in source order. */
+/** One line of a bubble, an action paragraph or a unit's words, in source order. */
 export type Line =
   | { readonly k: 'text'; readonly nodes: readonly Inline[]; readonly line: number }
   | { readonly k: 'cue'; readonly action: Action }
   | { readonly k: 'attach'; readonly nodes: readonly Inline[]; readonly line: number }
   | { readonly k: 'list'; readonly list: ListBody };
+
+export interface Figure {
+  readonly kind: 'figure';
+  /** Source, for printing back. */
+  readonly raw: string;
+  /** What the stage draws there (`\plot{lorenz}`); code owns the picture. */
+  readonly plot?: string;
+  readonly thumb?: string;
+  readonly axes?: readonly (readonly Inline[])[];
+  readonly caption?: readonly Inline[];
+  readonly label?: string;
+  readonly line: number;
+}
 
 export type Item =
   | {
@@ -59,7 +79,7 @@ export type Item =
     }
   | {
       readonly kind: 'bubble';
-      /** `<panel label>.<n>`, n counting bubbles only. Set by `parseScript`. */
+      /** `<scene label>.<n>`, n counting bubbles only. Set by `parseScript`. */
       id: string;
       readonly speaker: string;
       /** The name as written, in this language. */
@@ -70,12 +90,15 @@ export type Item =
     }
   | { readonly kind: 'actions'; readonly body: readonly Line[]; readonly line: number }
   | { readonly kind: 'direction'; readonly text: string; readonly nodes: readonly Inline[]; readonly line: number }
+  /** A unit's words: each line a line on screen. */
+  | { readonly kind: 'words'; readonly body: readonly Line[]; readonly line: number }
+  | { readonly kind: 'formula'; readonly tex: string; readonly line: number }
   | {
       readonly kind: 'strings';
       readonly entries: readonly { readonly key: string; readonly nodes: readonly Inline[]; readonly line: number }[];
       readonly line: number;
     }
-  | { readonly kind: 'figure'; readonly raw: string; readonly line: number }
+  | Figure
   | { readonly kind: 'comment'; readonly text: string; readonly line: number };
 
 export interface Decl {
@@ -88,8 +111,11 @@ export interface Decl {
   readonly timing: Readonly<Record<string, string>>;
 }
 
+export type Mode = 'timeline' | 'unit';
+
 export interface ScriptFile {
   readonly file: string;
+  readonly mode: Mode;
   readonly items: readonly Item[];
 }
 
@@ -125,6 +151,17 @@ function readCommand(src: string): { name: string; opt?: string; args: string[];
 }
 
 const COMMENT = /^\s*%/;
+
+/** Open braces minus closed ones, escapes aside. */
+function braceDepth(s: string): number {
+  let depth = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '\\') i++;
+    else if (s[i] === '{') depth++;
+    else if (s[i] === '}') depth--;
+  }
+  return depth;
+}
 const HEAD = /^([^\s:()\\{}$%]+)\s*(?:\(([^)]*)\))?\s*:(?:\s+(.*))?$/;
 
 /** A line that holds only attachment commands (`\label`, `\marginpar`, `\todo`, `\adapt`). */
@@ -172,7 +209,7 @@ export function parseDecl(src: Source): { decl: Decl; problems: Problem[] } {
 
 // ---- one file -------------------------------------------------------------------
 
-export function parseFile(src: Source, decl: Decl): { items: Item[]; problems: Problem[] } {
+export function parseFile(src: Source, decl: Decl, mode: Mode = 'timeline'): { items: Item[]; problems: Problem[] } {
   const items: Item[] = [];
   const problems: Problem[] = [];
   const lines = src.text.split('\n');
@@ -199,7 +236,7 @@ export function parseFile(src: Source, decl: Decl): { items: Item[]; problems: P
     const middle = para.filter((p) => COMMENT.test(p.text));
     for (const c of middle) err(c.line, 'a comment inside a paragraph: put it on its own line before the paragraph');
     const body = para.filter((p) => !COMMENT.test(p.text));
-    if (body.length) items.push(...paragraph(body, decl, err));
+    if (body.length) items.push(...paragraph(body, decl, err, mode));
     for (const c of [...middle, ...trail]) items.push({ kind: 'comment', text: c.text.trim(), line: c.line });
   }
   return { items, problems };
@@ -208,20 +245,21 @@ export function parseFile(src: Source, decl: Decl): { items: Item[]; problems: P
 type Err = (line: number, message: string, level?: Problem['level']) => void;
 type Raw = { text: string; line: number };
 
-function paragraph(para: Raw[], decl: Decl, err: Err): Item[] {
+function paragraph(para: Raw[], decl: Decl, err: Err, mode: Mode): Item[] {
   const first = para[0].text.trim();
   const line = para[0].line;
 
-  if (/^\\(part|section|subsection)\b/.test(first)) return structure(para, err);
+  if (/^\\(part|section|subsection)\b/.test(first)) return structure(para, err, mode);
   if (/^\\begin\{description\}/.test(first)) return [strings(para, err)];
-  if (/^\\begin\{figure\}/.test(first)) return [{ kind: 'figure', raw: para.map((p) => p.text).join('\n'), line }];
+  if (/^\\begin\{figure\}/.test(first)) return [figure(para, err)];
+  if (first.startsWith('\\[')) return [formula(para, err)];
   if (/^\\begin\{(itemize|enumerate)\}/.test(first)) {
     err(line, 'a list must follow a bubble head (Name:) or an action');
     return [direction(para, err)];
   }
   const cmd = /^\\([A-Za-z]+)/.exec(first)?.[1];
   if (cmd && ACTIONS[cmd]) return [{ kind: 'actions', body: lines(para, err, false), line }];
-  // any other command is an inline error, reported once by the direction
+  if (mode === 'unit') return [{ kind: 'words', body: lines(para, err, true), line }];
 
   const head = HEAD.exec(first);
   if (head && !/^\d/.test(head[1])) {
@@ -243,6 +281,7 @@ function paragraph(para: Raw[], decl: Decl, err: Err): Item[] {
     }
     return [{ kind: 'bubble', id: '', speaker, name: head[1], manner, body, line }];
   }
+  // any other command is an inline error, reported once by the direction
   return [direction(para, err)];
 }
 
@@ -253,7 +292,57 @@ function direction(para: Raw[], err: Err): Item {
   return { kind: 'direction', text, nodes, line: para[0].line };
 }
 
-function structure(para: Raw[], err: Err): Item[] {
+function formula(para: Raw[], err: Err): Item {
+  const tex = para.map((p) => p.text.trim()).join('\n');
+  if (!tex.endsWith('\\]')) err(para[0].line, 'a formula opened with \\[ must close with \\] in the same paragraph');
+  return { kind: 'formula', tex, line: para[0].line };
+}
+
+function figure(para: Raw[], err: Err): Figure {
+  const raw = para.map((p) => p.text).join('\n');
+  let plot: string | undefined;
+  let thumb: string | undefined;
+  let axes: Inline[][] | undefined;
+  let caption: Inline[] | undefined;
+  let label: string | undefined;
+  const words = (s: string, at: number) => {
+    const { nodes, errors } = parseInline(s);
+    for (const e of errors) err(at, e);
+    return nodes;
+  };
+  for (const p of para.slice(1)) {
+    const t = p.text.trim();
+    if (t === '\\end{figure}') break;
+    for (let rest = t; rest.trim(); ) {
+      const cmd = readCommand(rest.trim());
+      if (!cmd) {
+        err(p.line, `inside a figure, only \\plot, \\thumb, \\axes, \\caption and \\label: "${rest.trim()}"`);
+        break;
+      }
+      if (cmd.name === 'plot' && cmd.args.length === 1) plot = cmd.args[0].trim();
+      else if (cmd.name === 'thumb' && cmd.args.length === 1) thumb = cmd.args[0].trim();
+      else if (cmd.name === 'axes' && cmd.args.length === 2) axes = cmd.args.map((a) => words(a, p.line));
+      else if (cmd.name === 'caption' && cmd.args.length === 1) caption = words(cmd.args[0], p.line);
+      else if (cmd.name === 'label' && cmd.args.length === 1) label = cmd.args[0].trim();
+      else err(p.line, `inside a figure, only \\plot{id}, \\thumb{id}, \\axes{x}{y}, \\caption{…} and \\label{…}: \\${cmd.name}`);
+      rest = cmd.rest;
+    }
+  }
+  if (para[para.length - 1].text.trim() !== '\\end{figure}') err(para[0].line, 'figure never ends');
+  if (!plot && !thumb) err(para[0].line, 'a figure needs \\plot{id} or \\thumb{id}: what is drawn there');
+  return {
+    kind: 'figure',
+    raw,
+    ...(plot !== undefined ? { plot } : {}),
+    ...(thumb !== undefined ? { thumb } : {}),
+    ...(axes ? { axes } : {}),
+    ...(caption ? { caption } : {}),
+    ...(label !== undefined ? { label } : {}),
+    line: para[0].line,
+  };
+}
+
+function structure(para: Raw[], err: Err, mode: Mode): Item[] {
   const first = para[0];
   const src = first.text.trim();
   const m = /^\\(part|section|subsection)(\*?)/.exec(src)!;
@@ -286,7 +375,15 @@ function structure(para: Raw[], err: Err): Item[] {
       line: first.line,
     },
   ];
-  if (para.length > 1) out.push({ kind: 'actions', body: lines(para.slice(1), err, false), line: para[1].line });
+  if (para.length > 1) {
+    const rest = para.slice(1);
+    // a unit's title may be followed straight away by its words
+    out.push(
+      mode === 'unit' && !/^\\[A-Za-z]+/.test(rest[0].text.trim())
+        ? { kind: 'words', body: lines(rest, err, true), line: rest[0].line }
+        : { kind: 'actions', body: lines(rest, err, false), line: rest[0].line },
+    );
+  }
   return out;
 }
 
@@ -316,11 +413,17 @@ function strings(para: Raw[], err: Err): Item {
   return { kind: 'strings', entries, line: para[0].line };
 }
 
-/** The lines of a bubble (words allowed) or of an action paragraph (no words). */
+/** The lines of a bubble or a unit's words (words allowed), or of an action paragraph (no words). */
 function lines(para: Raw[], err: Err, words: boolean): Line[] {
   const out: Line[] = [];
   for (let k = 0; k < para.length; k++) {
-    const { text, line } = para[k];
+    const { line } = para[k];
+    let text = para[k].text;
+    // an attachment or an action may run over several lines: read on to its closing brace
+    const lead = /^\s*\\([A-Za-z]+)/.exec(text)?.[1];
+    if (lead && (ATTACHMENTS.has(lead) || ACTIONS[lead])) {
+      while (braceDepth(text) > 0 && k + 1 < para.length) text += ' ' + para[++k].text.trim();
+    }
     const t = text.trim();
     const env = /^\\begin\{(itemize|enumerate)\}$/.exec(t);
     if (env) {
@@ -389,20 +492,24 @@ export function choiceText(action: Action): Inline[] {
 export interface ScriptSources {
   readonly lang: string;
   readonly decl: Source;
-  /** In reading order: script, pool, branches. */
+  /** The timeline, in reading order: script, branches. */
   readonly files: readonly Source[];
+  /** Units: cards/*.tex, widgets/*.tex. */
+  readonly units?: readonly Source[];
 }
 
 export function parseScript(sources: ScriptSources): Script {
   const { decl, problems: declProblems } = parseDecl(sources.decl);
   const problems: Problem[] = [...declProblems];
   const files: ScriptFile[] = [];
-  for (const src of sources.files) {
-    const { items, problems: p } = parseFile(src, decl);
-    files.push({ file: src.file, items });
+  const read = (src: Source, mode: Mode) => {
+    const { items, problems: p } = parseFile(src, decl, mode);
+    files.push({ file: src.file, mode, items });
     problems.push(...p);
-  }
-  // bubble ids: <panel label>.<n>, n counting bubbles only
+  };
+  for (const src of sources.files) read(src, 'timeline');
+  for (const src of sources.units ?? []) read(src, 'unit');
+  // bubble ids: <scene label>.<n>, n counting bubbles only
   let panel = '';
   let n = 0;
   for (const f of files) {
@@ -417,8 +524,11 @@ export function parseScript(sources: ScriptSources): Script {
 }
 
 /** Every item of the script, in reading order, with its file. */
-export function* walk(script: Script): Generator<{ file: string; item: Item }> {
-  for (const f of script.files) for (const item of f.items) yield { file: f.file, item };
+export function* walk(script: Script, mode?: Mode): Generator<{ file: string; mode: Mode; item: Item }> {
+  for (const f of script.files) {
+    if (mode && f.mode !== mode) continue;
+    for (const item of f.items) yield { file: f.file, mode: f.mode, item };
+  }
 }
 
 /** Every action, whether a paragraph of its own or a cue inside a bubble. */
@@ -427,9 +537,19 @@ export function actionsOf(item: Item): Action[] {
   return item.body.flatMap((l) => (l.k === 'cue' ? [l.action] : []));
 }
 
+/** The condition a bubble plays under, if any: its `\when` or `\on` cue. */
+export function conditionOf(item: Item): Action | undefined {
+  return item.kind === 'bubble' ? actionsOf(item).find((a) => a.name === 'when' || a.name === 'on') : undefined;
+}
+
 /** The inline runs of a bubble's words: its lines, or every line of every variant. */
 export function wordsOf(item: Extract<Item, { kind: 'bubble' }>): Inline[][] {
   return item.body.flatMap((l) => (l.k === 'text' ? [[...l.nodes]] : l.k === 'list' ? l.list.items.flat().map((x) => [...x]) : []));
+}
+
+/** A unit's id: its file name without folder or extension (`cards/gini.tex` → `gini`). */
+export function unitId(file: string): string {
+  return file.replace(/^.*\//, '').replace(/\.tex$/, '');
 }
 
 export { commands };

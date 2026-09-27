@@ -32,7 +32,10 @@ export function printItem(item: Item): string {
     case 'strings':
       return ['\\begin{description}', ...item.entries.map((e) => `\\item[${e.key}] ${printInline(e.nodes)}`), '\\end{description}'].join('\n');
     case 'actions':
+    case 'words':
       return printLines(item.body).join('\n');
+    case 'formula':
+      return item.tex;
     case 'bubble': {
       const head = `${item.name}${item.manner.length ? ` (${item.manner.join(', ')})` : ''}:`;
       const [first, ...rest] = item.body;

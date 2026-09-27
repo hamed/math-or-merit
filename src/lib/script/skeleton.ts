@@ -11,9 +11,10 @@ export interface Bone {
   readonly at: string;
 }
 
+/** The timeline's skeleton. Units (cards, widgets) are matched by file name instead. */
 export function skeleton(script: Script): Bone[] {
   const out: Bone[] = [];
-  for (const { file, item } of walk(script)) {
+  for (const { file, item } of walk(script, 'timeline')) {
     const at = `${file}:${item.line}`;
     if (item.kind === 'structure' && item.label) out.push({ label: `${item.level} ${item.label}`, at });
     for (const a of actionsOf(item)) {

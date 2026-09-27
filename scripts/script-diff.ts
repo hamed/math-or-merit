@@ -9,10 +9,10 @@
  * messages/en.json. Zero differences means the script IS the current game.
  * Exit code 1 when anything differs.
  */
-import { plain, type Inline } from '../src/lib/script/inline.ts';
-import { choiceText, walk, type Action, type Item, type Script } from '../src/lib/script/parse.ts';
+import { parseInline, plain, type Inline } from '../src/lib/script/inline.ts';
+import { choiceText, conditionOf, walk, type Action, type Script } from '../src/lib/script/parse.ts';
 import { loadScript } from './script-load.ts';
-import { gameView, MESSAGES, poolView, type StepView } from './script-game';
+import { gameView, MESSAGES, type Group, type StepView } from './script-game';
 
 const SETTINGS = new Set(['expect', 'params', 'keep', 'when', 'on']);
 const READER_ACTIONS = new Set(['meet', 'equalize']);
@@ -25,6 +25,8 @@ interface Step {
   readonly words: string[];
   readonly cues: string[];
   readonly wait: string;
+  /** A conditioned run: its groups, each condition with the speakers and manners that play under it. */
+  readonly groups?: { cond: string; bubbles: { speaker: string; manner: string[]; words: string }[] }[];
 }
 
 const cueOf = (a: Action) =>
@@ -34,23 +36,45 @@ const cueOf = (a: Action) =>
 
 const lineText = (lines: readonly (readonly Inline[])[]) => lines.map((l) => plain(l)).join(' / ');
 
-/** The script's steps: every bubble and every action paragraph that plays. */
+/** The script's steps: every bubble and every action paragraph that plays; a run of conditioned bubbles is one step. */
 function scriptSteps(script: Script, file: string): Step[] {
   const out: Step[] = [];
   let act = true;
-  for (const { file: f, item } of walk(script)) {
+  let run: Step | null = null;
+  for (const { file: f, item } of walk(script, 'timeline')) {
     if (f !== file) continue;
-    if (item.kind === 'structure' && item.level === 'section') act = true;
+    if (item.kind === 'structure') {
+      run = null;
+      if (item.level === 'section') act = true;
+    }
     if (item.kind !== 'bubble' && item.kind !== 'actions') continue;
     const actions = item.body.flatMap((l) => (l.k === 'cue' ? [l.action] : []));
-    const cues = actions.map(cueOf);
     const at = `${file}:${item.line}`;
+    const condition = conditionOf(item);
+    if (condition && item.kind === 'bubble') {
+      const kind = condition.name;
+      const cond = cueOf(condition);
+      if (!run || run.wait !== kind) {
+        run = { at, act, speaker: null, manner: [], words: [], cues: [], wait: kind, groups: [] };
+        out.push(run);
+        act = false;
+      }
+      let g = run.groups!.find((x) => x.cond === cond);
+      if (!g) run.groups!.push((g = { cond, bubbles: [] }));
+      const words = lineText(item.body.flatMap((l) => (l.k === 'text' ? [l.nodes] : [])));
+      g.bubbles.push({ speaker: item.speaker, manner: [...item.manner], words });
+      run.words.push(words);
+      run.cues.push(...actions.filter((a) => a !== condition).map(cueOf));
+      continue;
+    }
+    run = null;
+    const cues = actions.map(cueOf);
     if (item.kind === 'actions') {
       if (actions.every((a) => SETTINGS.has(a.name)) && out.length) {
         out[out.length - 1].cues.push(...cues);
         continue;
       }
-      const wait = actions.some((a) => a.name === 'pick') ? 'pick' : actions.some((a) => READER_ACTIONS.has(a.name)) ? 'action' : 'auto';
+      const wait = actions.some((a) => READER_ACTIONS.has(a.name)) ? 'action' : 'auto';
       out.push({ at, act, speaker: null, manner: [], words: [], cues, wait });
     } else {
       const list = item.body.find((l) => l.k === 'list');
@@ -78,10 +102,27 @@ function gameSteps(): (Step & { id: string })[] {
       return m ? `\\choice{${MESSAGES[m[1]]}}${m[2]}` : c;
     }),
     wait: v.wait,
+    ...(v.groups
+      ? {
+          words: v.groups.flatMap((g: Group) => g.bubbles.map((b) => MESSAGES[b.key])),
+          groups: v.groups.map((g: Group) => ({
+            cond: g.cond,
+            bubbles: g.bubbles.map((b) => ({ speaker: b.speaker, manner: [...b.manner], words: MESSAGES[b.key] })),
+          })),
+        }
+      : {}),
   }));
 }
 
-const shape = (s: Step) => [s.speaker, [...s.manner].sort().join(','), s.wait, [...s.cues].sort().join(' '), s.act].join('|');
+const shape = (s: Step) =>
+  [
+    s.speaker,
+    [...s.manner].sort().join(','),
+    s.wait,
+    [...s.cues].sort().join(' '),
+    s.act,
+    (s.groups ?? []).map((g) => `${g.cond}:${g.bubbles.map((b) => `${b.speaker}(${[...b.manner].sort().join(',')})`).join(',')}`).join(';'),
+  ].join('|');
 
 /** Longest common subsequence of two lists by key: the pairs that line up. */
 function align<A, B>(a: A[], b: B[], ka: (x: A) => string, kb: (x: B) => string): [number, number][] {
@@ -100,7 +141,10 @@ function align<A, B>(a: A[], b: B[], ka: (x: A) => string, kb: (x: B) => string)
   return pairs;
 }
 
-const show = (s: Step) => `${s.speaker ?? '(actions)'}${s.manner.length ? ` (${s.manner.join(', ')})` : ''}: ${s.words.join(' | ') || s.cues.join(' ')}`;
+const show = (s: Step) =>
+  s.groups
+    ? s.groups.map((g) => `${g.cond} ${g.bubbles.map((b) => `${b.speaker}: ${b.words}`).join(' / ')}`).join(' | ')
+    : `${s.speaker ?? '(actions)'}${s.manner.length ? ` (${s.manner.join(', ')})` : ''}: ${s.words.join(' | ') || s.cues.join(' ')}`;
 
 const script = loadScript('en');
 if (!script) throw new Error('script/decl.tex is missing');
@@ -122,39 +166,14 @@ for (const [i, j] of pairs) {
   else problems.push(`${mine[i].at} (${theirs[j].id}): words differ\n    script: ${a}\n    game:   ${b}`);
 }
 
-// ---- pool ----
-const sections = new Map<string, Item[]>();
-{
-  let current: Item[] | null = null;
-  for (const { file, item } of walk(script)) {
-    if (file !== 'pool.tex') continue;
-    if (item.kind === 'structure') {
-      current = [];
-      if (item.label) sections.set(item.label, current);
-    } else current?.push(item);
-  }
-}
-let poolSame = 0;
-for (const want of poolView()) {
-  const items = sections.get(want.label);
-  if (!items) {
-    problems.push(`pool.tex: no section labelled ${want.label}`);
-    continue;
-  }
-  const conditions = items.flatMap((i) => (i.kind === 'actions' ? i.body.flatMap((l) => (l.k === 'cue' ? [cueOf(l.action)] : [])) : []));
-  const bubbles = items.flatMap((i) => (i.kind === 'bubble' ? [i] : []));
-  const got = bubbles.map((b) => `${b.speaker} (${[...b.manner].sort().join(', ')}): ${lineText(b.body.flatMap((l) => (l.k === 'text' ? [l.nodes] : [])))}`);
-  const expected = want.lines.map((l) => `${l.who} (${[...l.manner].sort().join(', ')}): ${MESSAGES[l.key]}`);
-  const same = conditions.join(' ') === want.condition && got.join('\n') === expected.join('\n');
-  if (same) poolSame++;
-  else problems.push(`pool.tex ${want.label}: differs\n    script: ${conditions.join(' ')} ${got.join(' / ')}\n    game:   ${want.condition} ${expected.join(' / ')}`);
-}
-
 // ---- every message the build reads ----
 const texts = new Set<string>();
 const strings = new Map<string, string>();
-for (const { item } of walk(script)) {
+for (const { file, item } of walk(script)) {
   if (item.kind === 'strings') for (const e of item.entries) strings.set(e.key.replace(/\./g, '_'), plain(e.nodes));
+  // a card's title and lines are words the reader sees; a widget file's title is only a heading
+  if (item.kind === 'structure' && /(^|\/)cards\//.test(file)) texts.add(plain(parseInline(item.title).nodes));
+  if (item.kind === 'words') for (const l of item.body) if (l.k === 'text') texts.add(plain(l.nodes));
   if (item.kind === 'bubble' || item.kind === 'actions') {
     for (const l of item.body) {
       if (l.k === 'list') for (const lines of l.list.items) texts.add(lineText(lines));
@@ -181,7 +200,7 @@ for (const k of strings.keys()) if (!(k in MESSAGES)) problems.push(`UI string $
 for (const p of problems) console.log(p);
 console.log(
   `script vs game: steps ${pairs.length}/${theirs.length} line up (${sameWords} with the same words), ` +
-    `pool ${poolSame}/${poolView().length}, messages ${used}/${keys.length} — ${problems.length} difference(s)`,
+    `messages ${used}/${keys.length} — ${problems.length} difference(s)`,
 );
 process.exit(problems.length ? 1 : 0);
 

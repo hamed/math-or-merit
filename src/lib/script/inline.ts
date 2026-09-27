@@ -173,8 +173,9 @@ export function plain(nodes: readonly Inline[]): string {
       switch (n.name) {
         case 'emph':
         case 'textbf':
-        case 'gls':
           return plain(n.args[0] ?? []);
+        case 'gls':
+          return plain(n.args[1] ?? n.args[0] ?? []);
         case 'val':
           return `{${plain(n.args[0] ?? [])}}`;
         case 'plural':

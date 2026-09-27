@@ -16,7 +16,13 @@ import { CALLS, PAIR_STEPS, REACTIONS, type PairStep, type Pose } from '../src/l
 
 export const MESSAGES: Record<string, string> = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'messages', 'en.json'), 'utf8'));
 
-export type Wait = 'reader' | 'chat' | 'action' | 'auto' | 'pick';
+export type Wait = 'reader' | 'chat' | 'action' | 'auto' | 'when' | 'on';
+
+/** Bubbles that play only under a condition: one group per condition, in order. */
+export interface Group {
+  readonly cond: string;
+  readonly bubbles: readonly { readonly speaker: string; readonly manner: readonly string[]; readonly key: string }[];
+}
 
 export interface StepView {
   /** The stage's step id (`r2.wait`), or `<id>:<part>` for a second bubble in one step. */
@@ -32,6 +38,8 @@ export interface StepView {
   /** Actions, in canonical source form; choices as `\choice{key}{target}` with a message KEY. */
   readonly cues: readonly string[];
   readonly wait: Wait;
+  /** A conditioned run (`wait` is `when` or `on`): what plays, by condition. */
+  readonly groups?: readonly Group[];
 }
 
 /** Lines the scene speaks in place of a step's own (Scenes 15–23): the words carry what the room shows. */
@@ -46,12 +54,28 @@ const SPOKEN: Record<string, { who: string; message: string }> = {
   ...REACTIONS.effCases, // eff.room is among them
 };
 
-/** Steps whose line is picked from the pool by what happened. */
-const PICKS: Record<string, string> = {
-  'guess.react': 'bet',
-  'run.banter': 'run',
-  'why.after': 'why',
-  'dial.said': 'dial',
+type Line = { readonly who: string; readonly message: string };
+const group = (cond: string, lines: readonly Line[], manner: string[] = []): Group => ({
+  cond,
+  bubbles: lines.map((l) => ({ speaker: l.who, manner, key: l.message })),
+});
+
+/** Steps whose line depends on what happened: the script writes every case, each under its condition. */
+const CONDITIONED: Record<string, () => Group[]> = {
+  'guess.react': () => BETS.map((b) => group(`\\when{bet=${b}}`, [REACTIONS.betLines[b]], ['aside', 'flow'])),
+  'run.banter': () => (['other', 'blue', 'red'] as const).map((w) => group(`\\when{winner=${w}}`, REACTIONS.runBanter[w], ['flow'])),
+  'why.after': () => [group('\\when{runs=one}', [REACTIONS.whyAfter]), group('\\when{runs=several}', [REACTIONS.whyAgain])],
+  'dial.said': () => (['zero', 'slow', 'same', 'fast', 'all'] as const).map((k) => group(`\\when{stake=${k}}`, [REACTIONS.dialSaid[k]], ['flow'])),
+};
+
+/** Lines spoken on an event during a step, written right after it. */
+const REACTS: Record<string, () => Group[]> = {
+  equal: () => [
+    group('\\on{first-move}', [{ who: 'blue', message: REACTIONS.equalFirst }], ['flow']),
+    group('\\on{blue-reaches-eleven}', [{ who: 'blue', message: REACTIONS.equalEleven }], ['flow']),
+    group('\\on{red-above-eight}', [{ who: 'blue', message: REACTIONS.equalOverBlue }, { who: 'red', message: REACTIONS.equalOverRed }], ['flow']),
+  ],
+  'stop.how': () => [group('\\on{game-won}', [REACTIONS.stopWon]), group('\\on{game-lost}', [REACTIONS.stopLost])],
 };
 
 /** The reader's choices at each step: message key and what the choice does (nothing = go on). */
@@ -101,9 +125,7 @@ function cuesOf(step: PairStep, prev: Pose): string[] {
   if (p.cardOpen !== prev.cardOpen) c.push(p.cardOpen ? `\\reveal{card:${p.cardOpen}}` : `\\hide{card:${prev.cardOpen}}`);
   for (const id of added(prev.cards, p.cards)) c.push(`\\card{${id}}`);
   for (const id of added(prev.thumbs, p.thumbs)) c.push(`\\pin{${id}}`);
-  if (PICKS[step.id]) c.push(`\\pick{${PICKS[step.id]}}`);
   for (const [key, target] of choicesOf(step)) c.push(choiceCue(key, target));
-  if (step.id === 'stop.how') c.push('\\pick{game}');
   return c;
 }
 
@@ -132,8 +154,13 @@ export function gameView(): StepView[] {
       const who = line?.who ?? spoken.who;
       const wait = WAITS[step.wait.kind];
       out.push({ ...base, speaker: who, manner: wait === 'chat' ? [...manner, 'flow'] : manner, keys: [line?.message ?? spoken.message], wait });
+    } else if (CONDITIONED[step.id]) {
+      out.push({ ...base, speaker: null, manner: [], keys: [], wait: 'when', groups: CONDITIONED[step.id]() });
     } else {
-      out.push({ ...base, speaker: null, manner: [], keys: [], wait: PICKS[step.id] ? 'pick' : step.wait.kind === 'action' ? 'action' : 'auto' });
+      out.push({ ...base, speaker: null, manner: [], keys: [], wait: step.wait.kind === 'action' ? 'action' : 'auto' });
+    }
+    if (REACTS[step.id]) {
+      out.push({ id: `${step.id}:reactions`, act: false, speaker: null, manner: [], keys: [], variants: false, cues: [], wait: 'on', groups: REACTS[step.id]() });
     }
     if (step.id === 'eff.try') {
       // the four-person toy's live readout, beside the offer
@@ -141,33 +168,4 @@ export function gameView(): StepView[] {
     }
   });
   return out;
-}
-
-/** Pool material: what each pool section must say, by label, in the order the lines play. */
-export function poolView(): { label: string; condition: string; lines: { who: string; key: string; manner: string[] }[] }[] {
-  const line = (l: { who: string; message: string }, manner: string[] = []) => ({ who: l.who, key: l.message, manner });
-  return [
-    { label: 'react:first-move', condition: '\\on{first-move}', lines: [line({ who: 'blue', message: REACTIONS.equalFirst }, ['flow'])] },
-    { label: 'react:blue-reaches-eleven', condition: '\\on{blue-reaches-eleven}', lines: [line({ who: 'blue', message: REACTIONS.equalEleven }, ['flow'])] },
-    {
-      label: 'react:red-above-eight',
-      condition: '\\on{red-above-eight}',
-      lines: [line({ who: 'blue', message: REACTIONS.equalOverBlue }, ['flow']), line({ who: 'red', message: REACTIONS.equalOverRed }, ['flow'])],
-    },
-    ...BETS.map((b) => ({ label: `bet:${b}`, condition: `\\when{bet=${b}}`, lines: [line(REACTIONS.betLines[b], ['aside', 'flow'])] })),
-    ...(['other', 'blue', 'red'] as const).map((w) => ({
-      label: `run:${w}`,
-      condition: `\\when{winner=${w}}`,
-      lines: REACTIONS.runBanter[w].map((l) => line(l, ['flow'])),
-    })),
-    { label: 'why:once', condition: '\\when{runs=one}', lines: [line(REACTIONS.whyAfter)] },
-    { label: 'why:again', condition: '\\when{runs=several}', lines: [line(REACTIONS.whyAgain)] },
-    ...(['zero', 'slow', 'same', 'fast', 'all'] as const).map((k) => ({
-      label: `dial:${k}`,
-      condition: `\\when{stake=${k}}`,
-      lines: [line(REACTIONS.dialSaid[k], ['flow'])],
-    })),
-    { label: 'game:won', condition: '\\when{game=won}', lines: [line(REACTIONS.stopWon)] },
-    { label: 'game:lost', condition: '\\when{game=lost}', lines: [line(REACTIONS.stopLost)] },
-  ];
 }

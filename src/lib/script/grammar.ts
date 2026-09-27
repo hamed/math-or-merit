@@ -45,6 +45,8 @@ const STORY: Record<string, ActionSpec> = {
   levy: { kind: 'authored', args: 1 },
   match: { kind: 'authored', args: 0 },
   pin: { kind: 'authored', args: 1 },
+  /** A widget inside a unit — a card's toy — opened on request. */
+  toy: { kind: 'authored', args: 1 },
   meet: { kind: 'reader', args: 1 },
   equalize: { kind: 'reader', args: 0 },
 };
@@ -60,7 +62,7 @@ export const INLINE: Readonly<Record<string, { min: number; max: number }>> = {
   textbf: { min: 1, max: 1 },
   val: { min: 1, max: 2 },
   plural: { min: 2, max: 2 },
-  gls: { min: 1, max: 1 },
+  gls: { min: 1, max: 2 },
   footnote: { min: 1, max: 1 },
   cite: { min: 1, max: 1 },
   ref: { min: 1, max: 1 },
