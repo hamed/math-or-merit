@@ -410,10 +410,11 @@
 
     // back from a branch, to a named step
     const onStep = (event: Event) => {
-      const { stage, step: stepId } = (event as CustomEvent<StageStep>).detail;
+      const { stage, step: stepId, force, index: at } = (event as CustomEvent<StageStep>).detail;
       if (stage !== id || !machine) return;
-      const index = machine.steps.findIndex((s) => s.id === stepId);
+      const index = at ?? machine.steps.findIndex((s) => s.id === stepId);
       if (index < 0) return;
+      if (force) machine.releaseBefore(index);
       const from = machine.index;
       machine.reach(index);
       show(from, 'jump');

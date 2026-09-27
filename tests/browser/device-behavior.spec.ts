@@ -12,7 +12,7 @@ import { loadDeferred } from './helpers';
 
 const STAGE_KEY = 'merit-or-math:stage:pair:v1';
 /** The stage's holds, released so a test can land anywhere past them. */
-const HOLDS = ['call.red', 'call.blue', 'equal', 'guess.what', 'guess.stake'];
+const HOLDS = ['meet', 'equal', 'guess.what', 'guess.stake'];
 
 const stage = (page: Page) => page.locator('.step-stage');
 const stepNow = async (page: Page) => Number(await stage(page).getAttribute('data-step'));
@@ -37,7 +37,7 @@ async function openAt(page: Page, at: string, holding: readonly string[] = []): 
     at === '@keyline'
       ? await page.evaluate(async () => {
           const { PAIR_STEPS, indexOf } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
-          const met = indexOf('call.blue');
+          const met = indexOf('meet');
           const i = PAIR_STEPS.findIndex(
             (s: { wait: { kind: string } }, k: number) => k > met && s.wait.kind === 'reader' && PAIR_STEPS[k + 1]?.wait.kind === 'reader',
           );
@@ -141,14 +141,18 @@ test('a swipe is one step', async ({ page }) => {
   await expect.poll(() => stepNow(page)).toBe(start + 1);
 });
 
-test('a hold waits for the reader: Red is called by a click, not by scrolling past', async ({ page }) => {
+test('a hold waits for the reader: both are met by a click each, in any order, never by scrolling past', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'call.red', ['call.red', 'call.blue']);
+  const ids = await openAt(page, 'meet', ['meet']);
   await page.keyboard.press('ArrowDown');
   await page.waitForTimeout(600);
-  expect(await stepNow(page)).toBe(ids.indexOf('call.red'));
+  expect(await stepNow(page)).toBe(ids.indexOf('meet'));
+  // one met: still waiting for the other
+  await page.locator('.pair-scene .hit').last().click();
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(ids.indexOf('meet'));
   await page.locator('.pair-scene .hit').first().click();
-  await expect.poll(() => stepNow(page)).toBeGreaterThan(ids.indexOf('call.red'));
+  await expect.poll(() => stepNow(page)).toBeGreaterThan(ids.indexOf('meet'));
 });
 
 test('the chapter index stays in view while the stage waits for the reader', async ({ page }) => {

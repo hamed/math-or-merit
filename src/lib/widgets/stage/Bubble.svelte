@@ -40,6 +40,8 @@
     coin?: Speaker;
     /** The widest it may grow, px: a bubble never spans its whole column. */
     maxWidth?: number;
+    /** Which way its lines lean: toward the speaker in the talk, toward his circle in an aside. */
+    align?: 'left' | 'right' | null;
     /** How many lines are showing; the rest keep their space, unseen. */
     shown?: number;
     /** Scrolled out of the top of a full panel. */
@@ -75,6 +77,7 @@
     coin,
     paper,
     maxWidth = 368,
+    align = null,
     shown = Infinity,
     gone = false,
     onsize,
@@ -122,7 +125,7 @@
   class:gone
   class:still={reduced}
   data-speaker={speaker ?? 'none'}
-  style={`left:${x}px; top:${y}px; max-inline-size:${maxWidth}px; --ink:${tone.ink}; visibility:${w > 0 && !hidden ? 'visible' : 'hidden'}`}
+  style={`left:${x}px; top:${y}px; max-inline-size:${maxWidth}px; --ink:${tone.ink}; visibility:${w > 0 && !hidden ? 'visible' : 'hidden'}${align ? `; text-align:${align}` : ''}`}
   bind:clientWidth={w}
   bind:clientHeight={h}
   onpointerenter={() => onrest?.(true)}

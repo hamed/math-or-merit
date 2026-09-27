@@ -2,35 +2,57 @@
   import { onMount } from 'svelte';
   import { chapters, loadFurthest, saveFurthest } from './chapters.svelte';
   import { STAGE_STATE_ATTRIBUTE } from '$lib/deferredEvents';
+  import { STORY } from '$lib/content/story.gen';
+  import { goToIndex, openBranch, type BranchId } from '$lib/widgets/stage/branch';
 
   /**
-   * Where you are, and how to leave.
+   * Where you are, and how to get anywhere (owner review 2026-09-27).
    *
-   * A line of type in the corner naming the section you are in; press it and
-   * the index opens. It is not a progress bar — the essay's two fables are 63%
-   * of its scroll and 15% of its argument, so a filling bar would say "nearly
-   * done" through the whole middle. A named place says something true.
-   *
-   * The reason it exists is the last entry: a reader who only wants the
-   * sandbox should reach it in one press, from anywhere.
+   * A line of type in the corner naming the scene you are in — "Scene 7 ·
+   * Round two", as the script numbers it. Rest the pointer on it (or press it)
+   * and the whole script opens: every act and its scenes, the side trips, and
+   * "From the very beginning", which forgets the visit and starts at time 0.
+   * Picking a scene goes there at once, past any hold on the way: the index is
+   * the way to a place, and the owner's way to test one.
    */
 
-  /** The line across the viewport that decides which chapter you are "in". */
+  /** The line across the viewport that decides which chapter you are "in" outside the stage. */
   const READ_LINE = 0.35;
+  const STAGE = 'pair';
 
   let open = $state(false);
   let currentId = $state('');
   let furthestId = $state<string | null>(null);
   let shown = $state(false);
+  /** The stage's step on screen, while the reader is in the stage. */
+  let stageStep = $state<number | null>(null);
   let panel: HTMLElement | undefined = $state();
+  let closing: number | undefined;
 
   const list = $derived(chapters());
   const current = $derived(list.find((c) => c.id === currentId) ?? null);
   const furthest = $derived(list.find((c) => c.id === furthestId) ?? null);
-  /** Worth offering only when they actually left something behind. */
   const canResume = $derived(
     furthest !== null && current !== null && list.indexOf(furthest) > list.indexOf(current) + 1,
   );
+
+  /** The script's acts, each with its scenes; the side trips last. */
+  const acts = $derived.by(() => {
+    const out: { act: string; scenes: typeof STORY.scenes }[] = [];
+    for (const sc of STORY.scenes) {
+      const last = out[out.length - 1];
+      if (last && last.act === sc.act) (last.scenes as (typeof sc)[]).push(sc);
+      else out.push({ act: sc.act, scenes: [sc] });
+    }
+    return out;
+  });
+
+  /** The scene the stage is on, by the script. */
+  const scene = $derived.by(() => {
+    if (stageStep === null) return null;
+    const label = STORY.steps[stageStep]?.scene;
+    return STORY.scenes.find((sc) => sc.label === label) ?? null;
+  });
 
   function measure(): void {
     const line = window.innerHeight * READ_LINE;
@@ -48,15 +70,15 @@
         saveFurthest(found);
       }
     }
-    // The opening owns the first screen alone: a timed teletype and a title
-    // that spins. Nothing slides in over it. A stage waiting on the reader is
-    // different: it can sit at the very top of the page for its whole dialogue,
-    // and the index is the way out of it.
-    const stage = document.documentElement.getAttribute(STAGE_STATE_ATTRIBUTE);
-    shown = stage === 'reading' || (stage !== 'playing' && window.scrollY > window.innerHeight * 0.6);
+    const stageEl = document.querySelector<HTMLElement>('.step-stage');
+    const state = document.documentElement.getAttribute(STAGE_STATE_ATTRIBUTE);
+    stageStep = stageEl && state ? Number(stageEl.dataset.step ?? 0) : null;
+    // the opening owns the first screen alone while it plays; after that the
+    // index is always there — it is the way out, and the way to any scene
+    shown = state === 'reading' || (state !== 'playing' && window.scrollY > window.innerHeight * 0.6) || open;
   }
 
-  function go(id: string): void {
+  function goChapter(id: string): void {
     const target = list.find((c) => c.id === id);
     if (!target) return;
     open = false;
@@ -64,6 +86,33 @@
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     target.el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   }
+
+  function goScene(sc: (typeof STORY.scenes)[number]): void {
+    open = false;
+    if (sc.sideTrip) openBranch(sc.label as BranchId);
+    else if (sc.step) goToIndex(STAGE, STORY.steps.findIndex((s) => s.id === sc.step));
+  }
+
+  /** Time 0: forget the visit — the stage's place, its holds, the reader's answers — and start again. */
+  function fromTheStart(): void {
+    try {
+      for (const store of [sessionStorage, localStorage]) {
+        for (const key of Object.keys(store)) if (key.startsWith('merit-or-math')) store.removeItem(key);
+      }
+    } catch {
+      // no storage: a reload still starts the stage from the top
+    }
+    history.replaceState(null, '', location.pathname + location.search);
+    window.scrollTo(0, 0);
+    location.reload();
+  }
+
+  const hover = (on: boolean) => {
+    if (closing !== undefined) window.clearTimeout(closing);
+    closing = undefined;
+    if (on) open = true;
+    else closing = window.setTimeout(() => (open = false), 250);
+  };
 
   onMount(() => {
     furthestId = loadFurthest();
@@ -91,15 +140,17 @@
     window.addEventListener('resize', onScroll, { passive: true });
     window.addEventListener('keydown', onKey);
     window.addEventListener('pointerdown', onPointer);
-    // the stage changes state without the page scrolling
+    // the stage changes state, and step, without the page scrolling
     const watch = new MutationObserver(onScroll);
     watch.observe(document.documentElement, { attributes: true, attributeFilter: [STAGE_STATE_ATTRIBUTE] });
+    const stageEl = document.querySelector('.step-stage');
+    if (stageEl) watch.observe(stageEl, { attributes: true, attributeFilter: ['data-step'] });
     measure();
 
     // A shared link lands on its chapter: the anchor exists before we do, but
     // the pinned scenes resize the document as they measure, so land again.
     const fragment = location.hash.slice(1);
-    if (fragment) setTimeout(() => go(fragment), 400);
+    if (fragment) setTimeout(() => goChapter(fragment), 400);
 
     return () => {
       window.removeEventListener('scroll', onScroll);
@@ -111,42 +162,48 @@
   });
 </script>
 
-{#if list.length > 0}
-  <nav bind:this={panel} class="index" class:shown class:open aria-label="Chapters">
-    <button
-      class="here"
-      type="button"
-      aria-expanded={open}
-      aria-controls="chapter-list"
-      onclick={() => (open = !open)}
-    >
-      <span class="eyebrow">{open ? 'Jump to' : 'You are at'}</span>
-      <span class="name">{current ? current.label : list[0].label}</span>
-    </button>
+<nav
+  bind:this={panel}
+  class="index"
+  class:shown
+  class:open
+  aria-label="Scenes"
+  onpointerenter={(e) => e.pointerType === 'mouse' && hover(true)}
+  onpointerleave={(e) => e.pointerType === 'mouse' && hover(false)}
+>
+  <button class="here" type="button" aria-expanded={open} aria-controls="scene-list" onclick={() => (open = !open)}>
+    <span class="eyebrow">{open ? 'Jump to' : scene ? `Scene ${scene.number}` : 'You are at'}</span>
+    <span class="name">{scene ? scene.title : current ? current.label : (STORY.scenes[0]?.title ?? '')}</span>
+  </button>
 
-    <ul id="chapter-list" class="list" hidden={!open}>
-      {#each list as chapter (chapter.id)}
+  <ul id="scene-list" class="list" hidden={!open}>
+    <li class="start">
+      <button type="button" onclick={fromTheStart}>⟲ From the very beginning</button>
+    </li>
+    {#each acts as group (group.act + group.scenes[0].label)}
+      <li class="act">{group.act}</li>
+      {#each group.scenes as sc (sc.label)}
         <li>
           <button
             type="button"
-            class:current={chapter.id === currentId}
-            aria-current={chapter.id === currentId ? 'true' : undefined}
-            onclick={() => go(chapter.id)}
+            class:current={sc === scene}
+            aria-current={sc === scene ? 'true' : undefined}
+            onclick={() => goScene(sc)}
           >
-            {chapter.label}
+            <span class="number">{sc.number}</span> {sc.title}
           </button>
         </li>
       {/each}
-      {#if canResume && furthest}
-        <li class="resume">
-          <button type="button" onclick={() => go(furthest.id)}>
-            ↩ back to where you stopped — {furthest.label}
-          </button>
-        </li>
-      {/if}
-    </ul>
-  </nav>
-{/if}
+    {/each}
+    {#if canResume && furthest}
+      <li class="resume">
+        <button type="button" onclick={() => goChapter(furthest.id)}>
+          ↩ back to where you stopped — {furthest.label}
+        </button>
+      </li>
+    {/if}
+  </ul>
+</nav>
 
 <style>
   /* Frameless while idle: a line of small type on the paper, no box, no rule.
@@ -164,13 +221,16 @@
     opacity: 0;
     transform: translateY(-0.35rem);
     transition: opacity 0.35s ease, transform 0.35s ease;
-    pointer-events: none;
   }
 
-  .index.shown {
+  /* shown once the opening has played; before that, only under the pointer —
+     the opening keeps its first screen, and the way to any scene is still there */
+  .index.shown,
+  .index:hover,
+  .index:focus-within,
+  .index.open {
     opacity: 1;
     transform: none;
-    pointer-events: auto;
   }
 
   .here {
@@ -254,6 +314,34 @@
   .list button.current {
     color: var(--accent-deep);
     font-weight: 700;
+  }
+
+  .act {
+    margin-block: 0.45rem 0.1rem;
+    padding-inline: 0.55rem;
+    font-size: 0.58rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: end;
+    color: var(--ink-soft);
+  }
+
+  .number {
+    display: inline-block;
+    min-inline-size: 1.6em;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .start {
+    margin-block-end: 0.2rem;
+    padding-block-end: 0.3rem;
+    border-block-end: 1px solid #e3dac6;
+  }
+
+  .start button {
+    font-weight: 650;
   }
 
   .resume {

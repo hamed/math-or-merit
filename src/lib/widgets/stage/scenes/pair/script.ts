@@ -224,8 +224,8 @@ const needs = (s: StoryStep, value: string) => !!s.vals?.includes(value);
 export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'title.type': (s) => s.manner.includes('teletype'),
   'title.math': (s) => cue(s, 'reveal', 'math'),
-  'call.red': (s) => cue(s, 'meet', 'red'),
-  'call.blue': (s) => cue(s, 'meet', 'blue'),
+  // both call at once: one step, the reader clicks either first
+  meet: (s) => cue(s, 'meet'),
   equal: (s) => cue(s, 'equalize'),
   'more.joke': (s) => targets(s, 'cow'),
   'guess.what': (s) => answers(s, 'prediction'),
@@ -334,7 +334,7 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
   let action: Action | undefined;
   let log: string | undefined;
   if (s.manner.includes('teletype')) [p, action] = [{ ...p, teletype: true }, 'type'];
-  for (const c of s.cues) {
+  for (const c of [...s.cues, ...(s.together ?? []).flatMap((t) => t.cues)]) {
     const [arg = ''] = c.args;
     switch (`${c.name}${c.opt !== undefined ? `[${c.opt}]` : ''}:${arg}`) {
       case 'crowd:idle':
@@ -543,6 +543,8 @@ const lineOf = (id: string): Said => ({ who: storyOf(id).who as Said['who'], mes
 const choices = (id: string) => storyOf(id).choices.map((c) => c.key);
 const firstOf = (id: string, kind: 'groups' | 'reactions', cond: string): Said => group(id, kind, cond)[0];
 const readoutOf = (): Said => bubbleOf(storyOf('eff.try').beside!);
+/** The bubble of the meeting that waits for a click on `who`. */
+const callerStep = (who: string): StoryStep => [storyOf('meet'), ...(storyOf('meet').together ?? [])].find((t) => t.cues.some((c) => c.name === 'meet' && c.args[0] === who))!;
 
 /**
  * Lines the scene speaks on EVENTS inside a hold rather than as steps, or
@@ -552,8 +554,11 @@ const readoutOf = (): Said => bubbleOf(storyOf('eff.try').beside!);
  * script, where it plays; this is the scene's index into it.
  */
 export const REACTIONS = {
-  callRed: storyOf('call.red').variants!.keys,
-  callBlue: storyOf('call.blue').variants!.keys,
+  callRed: callerStep('red').variants!.keys,
+  callBlue: callerStep('blue').variants!.keys,
+  /** Each one's introduction, once the reader has clicked him. */
+  introRed: firstOf('meet', 'reactions', 'met-red'),
+  introBlue: firstOf('meet', 'reactions', 'met-blue'),
   equalFirst: firstOf('equal', 'reactions', 'first-move').message,
   equalEleven: firstOf('equal', 'reactions', 'blue-reaches-eleven').message,
   equalOverBlue: group('equal', 'reactions', 'red-above-eight')[0].message,
@@ -620,8 +625,8 @@ export const REACTIONS = {
   },
 } as const;
 
-/** The step of each Scene 3 hold, by who is calling. */
-export const CALLS = { red: 'call.red', blue: 'call.blue' } as const;
+/** The step of the Scene 3 hold, by who is calling: both call in the same step. */
+export const CALLS = { red: 'meet', blue: 'meet' } as const;
 
 /** The news line the teletype types, and the reel's words, as the script has them. */
 export const HEADLINE: string = storyOf('title.type').key!;

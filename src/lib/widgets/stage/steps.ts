@@ -151,6 +151,11 @@ export class StepMachine {
   }
 
   /** Jump toward a step, but never past a hold the reader has not done (like `restore`). */
+  /** Count every hold before `index` as done: a jump the reader asked for explicitly. */
+  releaseBefore(index: number): void {
+    for (let i = 0; i < Math.min(index, this.steps.length); i++) if (this.steps[i].wait.kind === 'action') this.released.add(this.steps[i].id);
+  }
+
   reach(index: number): void {
     this.restore({ index, released: [...this.released] });
   }

@@ -9,7 +9,7 @@
  *
  * Headless and pure: a parsed script in, plain data out. No fs here.
  */
-import { plain, type Inline } from './inline.ts';
+import { parseInline, plain, type Inline } from './inline.ts';
 import { ACTIONS } from './grammar.ts';
 import { choiceText, commands, conditionOf, unitId, type Action, type Item, type Line, type Script } from './parse.ts';
 
@@ -73,6 +73,12 @@ export interface StoryStep {
   readonly reactions?: readonly StoryGroup[];
   /** A bubble that `interrupts`: shown beside this one. */
   readonly beside?: StoryBubble;
+  /**
+   * Bubbles offered at the same time: each waits for its own reader action,
+   * written one right after another, and the reader answers them in any order
+   * (Scene 3: both call; either can be clicked first).
+   */
+  readonly together?: readonly StoryStep[];
   /** The live values its words need (`\\val{count}` → `count`). */
   readonly vals?: readonly string[];
   readonly wait: StoryWait;
@@ -89,7 +95,20 @@ export interface StoryCard {
   readonly toy?: string;
 }
 
+/** A scene, as the index lists it: numbered like the PDF (1, 2, … and B1, B2 for side trips). */
+export interface StoryScene {
+  readonly label: string;
+  readonly title: string;
+  readonly act: string;
+  readonly number: string;
+  /** The first step's id; empty for a scene with no steps. */
+  readonly step: string;
+  readonly sideTrip: boolean;
+}
+
 export interface Story {
+  /** Every scene in reading order, with its act. */
+  readonly scenes: readonly StoryScene[];
   /** decl.tex's timing: beat, perword, minread, nudge, in seconds. */
   readonly timing: Readonly<Record<string, number>>;
   /** The stage's timeline: script.tex, in order. */
@@ -146,6 +165,25 @@ export function compile(script: Script): Compiled {
     messages[key] = text;
   };
   for (const [id, name] of script.decl.speakers) say(`name_${id}`, name);
+
+  // ---- the scenes, for the index
+  const scenes: StoryScene[] = [];
+  const titleOf = (t: string) => messageOf(parseInline(t).nodes);
+  {
+    let n = 0;
+    let trips = 0;
+    for (const file of script.files.filter((f) => f.mode === 'timeline')) {
+      const sideTrip = /(^|\/)branches\//.test(file.file);
+      let act = '';
+      for (const item of file.items) {
+        if (item.kind !== 'structure') continue;
+        if (item.level === 'section') act = titleOf(item.title);
+        if (item.level === 'subsection' && item.label) {
+          scenes.push({ label: item.label, title: titleOf(item.title), act, number: sideTrip ? `B${++trips}` : String(++n), step: '', sideTrip });
+        }
+      }
+    }
+  }
 
   // ---- the timeline: script.tex and the side trips
   for (const file of script.files.filter((f) => f.mode === 'timeline')) {
@@ -244,11 +282,16 @@ export function compile(script: Script): Compiled {
           });
           variants = { ordered: list.list.ordered, keys };
         } else say(key, lines.map(messageOf).join(' / '));
+        // a bubble that waits for a reader action, right after another that waits for the same kind: offered together
+        const readerCue = cues.find((a) => READER.has(a.name));
+        const before = last();
+        const together =
+          readerCue && before?.who && before.wait === 'action' && !before.reactions && before.cues.some((c) => c.name === readerCue.name);
         const choices = cues.filter((a) => a.name === 'choice');
         const vals = [...new Set(lines.flatMap((l) => commands(l)).filter((c) => c.name === 'val').map((c) => plain(c.args[0] ?? [])))];
         const holds = cues.some((a) => READER.has(a.name)) || choices.some((a) => ANSWER.test((a.args[1] ?? '').trim()));
         const wait: StoryWait = holds ? 'action' : item.manner.includes('teletype') ? 'auto' : item.manner.includes('flow') ? 'chat' : 'reader';
-        push({
+        const step: StoryStep = {
           id: item.id,
           at,
           scene,
@@ -260,7 +303,12 @@ export function compile(script: Script): Compiled {
           choices: choicesOf(item.id, choices),
           ...(vals.length ? { vals } : {}),
           wait,
-        });
+        };
+        if (together && before) {
+          (before as { together?: StoryStep[] }).together = [...(before.together ?? []), { ...step, act: false }];
+          continue;
+        }
+        push(step);
         continue;
       }
 
@@ -333,7 +381,8 @@ export function compile(script: Script): Compiled {
   }
 
   const timing = Object.fromEntries(Object.entries(script.decl.timing).map(([k, v]) => [k, parseFloat(v)]));
-  return { story: { timing, steps: main, branches, labels, cards }, messages, problems };
+  const indexed = scenes.map((sc) => ({ ...sc, step: labels[sc.label] ?? '' }));
+  return { story: { scenes: indexed, timing, steps: main, branches, labels, cards }, messages, problems };
 }
 
 function parseTitle(title: string): Inline[] {

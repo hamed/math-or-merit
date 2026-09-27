@@ -46,8 +46,8 @@ export interface Column {
 
 export interface Tail {
   /** Which edge the tail leaves from. */
-  readonly edge: 'top' | 'bottom';
-  /** Where it leaves that edge, px from the bubble's left. */
+  readonly edge: 'top' | 'bottom' | 'left' | 'right';
+  /** Where it leaves that edge, px from the bubble's left (top, bottom) or top (left, right). */
   readonly base: number;
   /** Where it points, px from the bubble's top-left. */
   readonly tip: { readonly x: number; readonly y: number };
@@ -109,6 +109,16 @@ export function tailToward(box: { x: number; y: number; w: number; h: number }, 
   return { edge: below ? 'top' : 'bottom', base, tip: { x: base + ux * TAIL_LENGTH, y: edgeY + uy * TAIL_LENGTH } };
 }
 
+/** A tail from the bubble's side edge nearest the speaker, pointing at the centre of his circle. */
+export function tailBeside(box: { x: number; y: number; w: number; h: number }, anchor: Anchor, edge: 'left' | 'right'): Tail {
+  const base = clamp(anchor.y - box.y, TAIL_HALF + 6, Math.max(TAIL_HALF + 6, box.h - TAIL_HALF - 6));
+  const edgeX = edge === 'left' ? 0 : box.w;
+  const d = Math.hypot(anchor.x - (box.x + edgeX), anchor.y - (box.y + base)) || 1;
+  const ux = (anchor.x - (box.x + edgeX)) / d;
+  const uy = (anchor.y - (box.y + base)) / d;
+  return { edge, base, tip: { x: edgeX + ux * TAIL_LENGTH, y: base + uy * TAIL_LENGTH } };
+}
+
 /**
  * Lay the talk out. `items` in time order, oldest first.
  *
@@ -124,13 +134,17 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
   // when the speakers are markers inside a picture, everything
   const talk = items.map((item, i) => ({ item, i })).filter(({ item }) => !outer || !item.aside || !item.anchor);
   const laid: { i: number; x: number; y: number; onLeft: boolean }[] = [];
+  const span = talkSpan(items, column);
   let y = 0;
   for (const { item, i } of talk) {
     let x = column.mid - item.w / 2;
     let onLeft = true;
     if (item.anchor) {
       onLeft = item.anchor.x <= column.mid;
-      x = onLeft ? column.mid - item.w * (1 - CROSS) : column.mid - item.w * CROSS;
+      // beside the two (owner review 2026-09-27): the talk runs between their
+      // centres, each line flush with its own speaker's end
+      if (outer && span) x = onLeft ? span.left : span.right - item.w;
+      else x = onLeft ? column.mid - item.w * (1 - CROSS) : column.mid - item.w * CROSS;
     }
     x = Math.min(Math.max(x, column.left), Math.max(column.left, column.right - item.w));
     laid.push({ i, x, y, onLeft });
@@ -145,13 +159,16 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
       const top = p.y + shift;
       const tail = item.anchor ? tailToward({ x: p.x, y: top, w: item.w, h: item.h }, item.anchor, p.onLeft) : null;
       const old = k < laid.length - keep;
-      placed[p.i] = { x: p.x, y: top, gone: k < laid.length - 1 && (old || top < column.top - 1), tail };
+      // an aside to the reader goes as soon as anyone says the next thing
+      const passed = !!item.aside && p.i < items.length - 1;
+      placed[p.i] = { x: p.x, y: top, gone: k < laid.length - 1 && (old || passed || top < column.top - 1), tail };
     });
   }
 
-  // the outer sides: to the reader, beside and above whoever says it — and
-  // never over the talk: an aside steps outward past a bubble in its way, or
-  // up above it when there is no room outside (owner review 2026-09-26)
+  // the outer sides: to the reader, beside whoever says it, at the height of
+  // his circle and pointing at its centre (owner review 2026-09-27); above him
+  // only when the stage has no room outside. An aside goes as soon as anyone
+  // says the next thing.
   const taken: Box[] = laid.filter((p) => !placed[p.i].gone).map((p) => ({ x: p.x, y: placed[p.i].y, w: items[p.i].w, h: items[p.i].h }));
   for (const side of outer ? [true, false] : []) {
     const own = items
@@ -164,12 +181,20 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
       .forEach(({ item, i }, k) => {
         const a = item.anchor!;
         const reach = Math.max(a.r, 12);
-        // the outer edge of the bubble lines up a little past the speaker's own outer edge
+        const passed = i < items.length - 1;
+        let gone = k >= asides || passed;
+        // beside: left of a speaker on the left, right of one on the right
+        const beside = side ? a.x - reach - TAIL_LENGTH - 6 - item.w : a.x + reach + TAIL_LENGTH + 6;
+        if (beside >= column.left && beside + item.w <= column.right) {
+          const box: Box = { x: beside, y: Math.max(column.top, a.y - item.h / 2), w: item.w, h: item.h };
+          if (!gone) taken.push(box);
+          placed[i] = { x: box.x, y: box.y, gone, tail: tailBeside(box, a, side ? 'right' : 'left') };
+          return;
+        }
         let x = side ? a.x + reach * 0.35 - item.w : a.x - reach * 0.35;
         x = Math.min(Math.max(x, column.left), Math.max(column.left, column.right - item.w));
         const floor = Math.min(bottom, a.y - reach - TAIL_LENGTH - 4);
         const box: Box = { x, y: floor - item.h, w: item.w, h: item.h };
-        let gone = k >= asides;
         if (!gone) {
           const moved = { ...box };
           clear(moved, taken, side, column);
@@ -180,12 +205,30 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
         bottom = box.y - BUBBLE_GAP;
         gone ||= box.y < column.top - 1 && k > 0;
         if (!gone) taken.push(box);
-        const tail = tailToward(box, a, !side);
-        placed[i] = { x: box.x, y: box.y, gone, tail };
+        placed[i] = { x: box.x, y: box.y, gone, tail: tailToward(box, a, !side) };
       });
   }
   return placed;
 }
+
+/**
+ * Where the talk runs when it sits beside the two: from one centre to the
+ * other, never narrower than a readable line, inside the column.
+ */
+export function talkSpan(items: readonly ChatItem[], column: Column): { left: number; right: number } | null {
+  const xs = items.flatMap((item) => (item.anchor ? [item.anchor.x] : []));
+  if (xs.length === 0) return null;
+  let left = Math.min(...xs, column.mid);
+  let right = Math.max(...xs, column.mid);
+  const least = Math.min(TALK_MIN, column.right - column.left);
+  if (right - left < least) [left, right] = [column.mid - least / 2, column.mid + least / 2];
+  left = Math.max(left, column.left);
+  right = Math.min(right, column.right);
+  return { left, right };
+}
+
+/** The talk is never narrower than this, even when the two stand close. */
+export const TALK_MIN = 300;
 
 interface Box {
   x: number;
@@ -249,14 +292,23 @@ export function comicOutline(w: number, h: number, tail: Tail | null, seed: stri
     points.push(...tailPoints(forward));
     along(after, y, x1, y, 0, ny);
   };
+  const side = (y0: number, y1: number, x: number, nx: number, which: 'left' | 'right') => {
+    if (!tail || tail.edge !== which) return along(x, y0, x, y1, nx, 0);
+    const down = y1 > y0;
+    const before = tail.base + (down ? -TAIL_HALF : TAIL_HALF);
+    const after = tail.base + (down ? TAIL_HALF : -TAIL_HALF);
+    along(x, y0, x, before, nx, 0);
+    points.push({ x, y: before, nx, ny: 0, sharp: true }, { x: tail.tip.x, y: tail.tip.y, nx: 0, ny: 0, sharp: true }, { x, y: after, nx, ny: 0, sharp: true });
+    along(x, after, x, y1, nx, 0);
+  };
   corner(radius, radius, Math.PI);
   edge(radius, w - radius, 0, -1, 'top');
   corner(w - radius, radius, -Math.PI / 2);
-  along(w, radius, w, h - radius, 1, 0);
+  side(radius, h - radius, w, 1, 'right');
   corner(w - radius, h - radius, 0);
   edge(w - radius, radius, h, 1, 'bottom');
   corner(radius, h - radius, Math.PI / 2);
-  along(0, h - radius, 0, radius, -1, 0);
+  side(h - radius, radius, 0, -1, 'left');
 
   const wobbled = points.map((p) => {
     if (p.sharp) return p;

@@ -60,7 +60,7 @@
   import { FALL, hopsFor, noise, planRain } from './rain';
   import { deciderFace, pairLayout, pile } from './layout';
   import type { Point } from '../../../shared/layout';
-  import { bubbleLines, bubbleWords, chatColumn, stackChat, type BubbleChoice } from '../../bubbles';
+  import { bubbleLines, bubbleWords, chatColumn, stackChat, talkSpan, type BubbleChoice } from '../../bubbles';
   import {
     CLASSIC_AGENT_FILL,
     CLASSIC_AGENT_STROKE,
@@ -210,9 +210,12 @@
     const step = PAIR_STEPS[index];
     if (step.wait.kind !== 'action' || stage?.isReleased(step.id)) return step.pose;
     if (step.id === 'equal') return { ...step.pose, holdings: { ...reader.held } };
-    // only the one calling is still waiting; whoever was clicked before stays named
-    const caller = callerOf(step.id);
-    return caller ? { ...step.pose, named: { ...step.pose.named, [caller]: reader.named[caller] } } : step.pose;
+    // whoever has not been clicked yet is still waiting
+    const callers = callersOf(step.id);
+    if (!callers.length) return step.pose;
+    const named = { ...step.pose.named };
+    for (const who of callers) named[who] = reader.named[who];
+    return { ...step.pose, named };
   }
 
   function pairSpot(pose: Pose, who: Speaker) {
@@ -404,8 +407,7 @@
 
   function nudge(index: number): void {
     const id = PAIR_STEPS[index].id;
-    const caller = callerOf(id);
-    if (caller) callOut(caller);
+    for (const who of callersOf(id)) if (!reader.named[who]) callOut(who);
     if (id === 'equal') wiggle('blue');
   }
 
@@ -451,8 +453,7 @@
   /** Things a step starts that are not tweens: the calls, the coin mover. */
   function enter(index: number): void {
     const id = PAIR_STEPS[index].id;
-    const caller = callerOf(id);
-    if (caller && !stage?.isReleased(id)) startCalls(caller);
+    if (callersOf(id).length && !stage?.isReleased(id)) startCalls(callersOf(id));
     if (id === 'equal' && !stage?.isReleased('equal')) reacted = { first: false, eleven: false, over: false };
   }
 
@@ -1383,11 +1384,15 @@
   }
 
   /** The line of a Scene 3 hold, once more and a little louder each time. */
-  const callLevel = $state({ blue: 0, red: 0 });
+  const callLevel = $state({ blue: -1, red: -1 });
+  /** When each last called, and when each was clicked: the talk plays them in that order. */
+  const callAt = $state({ blue: 0, red: 0 });
+  const metAt = $state({ blue: 0, red: 0 });
   /** A coin-moving reaction (Scene 5), spoken on an event rather than a step. */
   let reaction = $state<Said | null>(null);
 
-  const callerOf = (id: string): Speaker | null => (id === CALLS.red ? 'red' : id === CALLS.blue ? 'blue' : null);
+  /** Who calls at a step: both, in the meeting (owner review 2026-09-27: each on its own, at random). */
+  const callersOf = (id: string): Speaker[] => (PAIR.filter((who) => CALLS[who] === id) as Speaker[]);
 
   /** Whether the current step's result may be logged yet: a toss logs once it has landed. */
   let logReady = $state(true);
@@ -1446,12 +1451,20 @@
         for (let k = i + 1; k <= current && !superseded; k++) superseded = speaks(k);
         if (superseded) continue;
       }
-      const caller = callerOf(step.id);
-      if (caller) {
-        const waiting = !(view.paint[caller] > 0.5);
-        const level = waiting ? callLevel[caller] : 0;
-        const pool = caller === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
-        out.push({ id: `${step.id}#${level}`, who: waiting ? null : caller, at: caller, text: say(pool[level]), aside: true });
+      const callers = callersOf(step.id);
+      if (callers.length) {
+        // each calls on his own clock until clicked, then introduces himself: in the order it happened
+        const heard: { at: number; said: Said }[] = [];
+        for (const who of callers) {
+          if (reader.named[who] || stage?.isReleased(step.id)) {
+            const intro = who === 'red' ? REACTIONS.introRed : REACTIONS.introBlue;
+            heard.push({ at: metAt[who], said: { id: `${step.id}:met-${who}`, who, at: who, text: say(intro.message), aside: true } });
+          } else if (callLevel[who] >= 0) {
+            const pool = who === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
+            heard.push({ at: callAt[who], said: { id: `${step.id}:${who}#${callLevel[who]}`, who: null, at: who, text: say(pool[callLevel[who]]), aside: true } });
+          }
+        }
+        out.push(...heard.sort((a, b) => a.at - b.at).map((h) => h.said));
         continue;
       }
       out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside });
@@ -1785,18 +1798,28 @@
   });
   const bubbleWidth = $derived(Math.min(368, (column.right - column.left) * 0.8));
 
+  /** Asides beside their speaker need room on both sides; a phone keeps one column, and so does the room. */
+  const beside = $derived(!inPicture && width >= 700 && PAIR_STEPS[current].pose.place !== 'room');
+  /** Where the talk runs when it sits beside the two: from one centre to the other. */
+  const span = $derived(beside ? talkSpan(PAIR.map((who) => ({ w: 0, h: 0, anchor: anchorOf(who) })), column) : null);
+
   const placed = $derived(
     stackChat(
       said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null, aside: b.aside })),
       column,
       PAIR_STEPS[current].pose.place === 'room' ? 4 : 6,
       2,
-      // asides beside their speaker need room on both sides; a phone keeps one
-      // column, and so does the room, where the two stand among a hundred and
-      // the talk stacks right over them
-      !inPicture && width >= 700 && PAIR_STEPS[current].pose.place !== 'room',
+      beside,
     ),
   );
+
+  /** Talk leans toward its speaker; an aside beside a circle leans toward it (owner review 2026-09-27). */
+  function alignOf(bubble: Said, place: { tail: { edge: string } | null }): 'left' | 'right' | null {
+    if (!bubble.at || bubble.kind) return null;
+    if (place.tail?.edge === 'right') return 'right';
+    if (place.tail?.edge === 'left') return 'left';
+    return anchorOf(bubble.at).x <= column.mid ? 'left' : 'right';
+  }
 
   function anchorOf(who: Speaker) {
     const p = view.people[WHO[who]];
@@ -2201,35 +2224,54 @@
 
   // ---- Scene 3: meeting them -------------------------------------------------
 
-  let callTimer: number | undefined;
+  const callTimers: Record<Speaker, number | undefined> = { blue: undefined, red: undefined };
+  let releaseTimer: number | undefined;
 
   function stopCalls(): void {
-    if (callTimer !== undefined) window.clearTimeout(callTimer);
-    callTimer = undefined;
+    for (const who of PAIR) {
+      if (callTimers[who] !== undefined) window.clearTimeout(callTimers[who]);
+      callTimers[who] = undefined;
+    }
+    if (releaseTimer !== undefined) window.clearTimeout(releaseTimer);
+    releaseTimer = undefined;
   }
 
-  function startCalls(who: Speaker): void {
-    callLevel[who] = 0;
-    callTimer = window.setTimeout(() => callOut(who), 4200);
+  /** Both start calling, each after his own random wait: nobody goes first on purpose. */
+  function startCalls(who: readonly Speaker[]): void {
+    for (const w of who) {
+      if (reader.named[w]) continue;
+      callLevel[w] = -1;
+      if (stage?.reduced) callOut(w);
+      else callTimers[w] = window.setTimeout(() => callOut(w), 400 + Math.random() * 2200);
+    }
   }
 
-  /** The caller tries again, a little louder, while the reader has not clicked. */
+  /** A caller tries again, a little louder, while the reader has not clicked him; each on his own clock. */
   function callOut(who: Speaker): void {
-    stopCalls();
-    if (view.paint[who] > 0.5) return;
+    if (callTimers[who] !== undefined) window.clearTimeout(callTimers[who]);
+    callTimers[who] = undefined;
+    if (reader.named[who]) return;
     const pool = who === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
     callLevel[who] = Math.min(pool.length - 1, callLevel[who] + 1);
+    callAt[who] = performance.now();
     if (stage?.reduced) return;
-    callTimer = window.setTimeout(() => callOut(who), 4000 + Math.random() * 2500);
+    callTimers[who] = window.setTimeout(() => callOut(who), 3000 + Math.random() * 3500);
   }
 
+  /** The reader clicks a circle: it takes its colours and introduces itself; once both have, the talk moves on. */
   function name(who: Speaker): void {
     const id = CALLS[who];
     if (current !== indexOf(id) || reader.named[who]) return;
     reader.named = { ...reader.named, [who]: true };
-    stopCalls();
+    metAt[who] = performance.now();
+    if (callTimers[who] !== undefined) window.clearTimeout(callTimers[who]);
+    callTimers[who] = undefined;
     gsap.fromTo(view.paint, { [who]: 0 }, { [who]: 1, duration: 0.4, ease: 'back.out(2.5)' });
-    stage?.release(id);
+    if (!callersOf(id).every((w) => reader.named[w])) return;
+    // the second introduction is read before the talk goes on
+    const intro = who === 'red' ? REACTIONS.introRed : REACTIONS.introBlue;
+    const wait = stage?.reduced ? 0 : readingMs(bubbleWords(say(intro.message)));
+    releaseTimer = window.setTimeout(() => stage?.release(id), wait);
   }
 
   // ---- Scene 5: the reader makes them equal ----------------------------------
@@ -3050,7 +3092,8 @@
             paper={bubble.paper}
             hidden={bubble.kind === 'paper' && bigPaper !== null}
             aside={bubble.aside ?? false}
-            maxWidth={bubbleWidth}
+            maxWidth={span && !bubble.aside && bubble.at ? Math.min(bubbleWidth, span.right - span.left) : bubbleWidth}
+            align={alignOf(bubble, place)}
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
             choices={bubble.choices}

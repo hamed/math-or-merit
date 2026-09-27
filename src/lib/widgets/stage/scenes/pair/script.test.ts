@@ -56,6 +56,7 @@ describe('the stage reads the script', () => {
     const written = STORY.steps.flatMap((s) => [
       ...(s.key && s.who ? [s.key] : []),
       ...(s.variants?.keys ?? []),
+      ...(s.together ?? []).flatMap((t) => t.variants?.keys ?? (t.key ? [t.key] : [])),
       ...(s.groups ?? []).flatMap((g) => g.bubbles.map((b) => b.key)),
       ...(s.reactions ?? []).flatMap((g) => g.bubbles.map((b) => b.key)),
       ...(s.beside ? [s.beside.key] : []),
@@ -96,17 +97,24 @@ describe('the stage reads the script', () => {
 });
 
 describe('what the scene promises, whatever the words', () => {
-  it('holds only where the scene knows how to let go: two clicks, 8 and 8, a guess, a bet', () => {
-    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['call.red', 'call.blue', 'equal', 'guess.what', 'guess.stake']);
+  it('holds only where the scene knows how to let go: meeting both, 8 and 8, a guess, a bet', () => {
+    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'guess.what', 'guess.stake']);
+  });
+
+  it('offers both calls at once, and has an introduction for each click', () => {
+    expect(REACTIONS.callRed.length).toBeGreaterThan(0);
+    expect(REACTIONS.callBlue.length).toBeGreaterThan(0);
+    expect(REACTIONS.introRed.who).toBe('red');
+    expect(REACTIONS.introBlue.who).toBe('blue');
   });
 
   it('never waits on a gesture before both have been met', () => {
-    const met = indexOf('call.blue');
+    const met = indexOf('meet');
     expect(PAIR_STEPS.slice(0, met).filter((s) => s.wait.kind === 'reader')).toEqual([]);
   });
 
   it('lets the calls go as soon as the talk moves on', () => {
-    for (const id of ['call.red', 'call.blue']) expect(step(id).brief, id).toBe(true);
+    expect(step('meet').brief).toBe(true);
   });
 
   it('logs every toss once it lands', () => {
@@ -142,7 +150,7 @@ describe('what the scene promises, whatever the words', () => {
   });
 
   it('lets every step belong to a panel that starts with a clear', () => {
-    for (let i = indexOf('call.red'); i < PAIR_STEPS.length; i++) expect(PAIR_STEPS[panelStart(i)].panel, PAIR_STEPS[i].id).toBe(true);
+    for (let i = indexOf('meet'); i < PAIR_STEPS.length; i++) expect(PAIR_STEPS[panelStart(i)].panel, PAIR_STEPS[i].id).toBe(true);
   });
 
   it('keeps every coin in the levy lesson, and nets out the way Red says', () => {
@@ -179,8 +187,7 @@ describe('every number the characters say is the number on screen', () => {
   });
 
   it('introduces each one only after the reader has clicked him', () => {
-    expect(PAIR_STEPS[indexOf('call.red') - 1].pose.named).toEqual({ blue: false, red: false });
-    expect(step('call.red').pose.named).toEqual({ blue: false, red: true });
-    expect(step('call.blue').pose.named).toEqual({ blue: true, red: true });
+    expect(PAIR_STEPS[indexOf('meet') - 1].pose.named).toEqual({ blue: false, red: false });
+    expect(step('meet').pose.named).toEqual({ blue: true, red: true });
   });
 });
