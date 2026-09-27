@@ -1,0 +1,146 @@
+% The script's PDF: what the owner reads. Preamble and style live here only.
+% The grammar is GRAMMAR.md; render.lua draws the plain paragraphs.
+%
+%   npm run script:watch   rebuild on every save (from the repo root)
+%   npm run script:pdf     build once
+%
+% main-fa.tex builds the same file in Farsi.
+\providecommand\lang{en}
+\def\langfa{fa}
+\documentclass[11pt]{article}
+\usepackage{fontspec}
+\usepackage[a4paper, top=22mm, bottom=25mm, left=22mm, textwidth=118mm,
+  marginparwidth=48mm, marginparsep=6mm]{geometry}
+
+\ifx\lang\langfa
+  \usepackage[bidi=basic]{babel}
+  \babelprovide[import, main]{persian}
+  \babelprovide[import, onchar=ids fonts]{english}
+  \babelfont{rm}{Noto Naskh Arabic}
+  \babelfont{sf}{Noto Sans Arabic}
+  \babelfont[english]{rm}{DejaVu Serif}
+  \babelfont[english]{sf}{DejaVu Sans}
+  \def\langdir{fa/}
+  \def\dirshape{}
+\else
+  \usepackage[english]{babel}
+  \babelfont{rm}{DejaVu Serif}
+  \babelfont{sf}{DejaVu Sans}
+  \def\langdir{}
+  \def\dirshape{\itshape}
+\fi
+\babelfont{tt}{DejaVu Sans Mono}
+
+\usepackage{xcolor, graphicx}
+\usepackage[colorinlistoftodos, textsize=scriptsize, color=orange!25]{todonotes}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{sp-blue}{HTML}{1F5FBF}
+\definecolor{sp-red}{HTML}{C0392B}
+\definecolor{sp-author}{gray}{0.35}
+\definecolor{sp-ledger}{gray}{0.1}
+\definecolor{quiet}{gray}{0.45}
+\definecolor{adapt}{HTML}{7B3FA0}
+
+\setlength\parindent{0pt}
+\setlength\parskip{0.9ex plus 0.3ex}
+\newlength\namewidth \setlength\namewidth{6.5em}
+
+\directlua{render = dofile('render.lua')}
+\newcommand\scriptinput[1]{\directlua{render.on()}\input{#1}\directlua{render.off()}}
+
+% --- declarations (decl.tex) ---
+\newcommand\speaker[2]{%
+  \expandafter\def\csname sp@#1\endcsname{#2}%
+  \directlua{render.speaker('#1', '\luaescapestring{#2}')}%
+  \providecolor{sp-#1}{gray}{0}%
+  \textcolor{sp-#1}{\textbf{#2}} {\ttfamily\color{quiet}\small #1}\par}
+\newcommand\decl[2]{{\sffamily\small\color{quiet}#1:} {\ttfamily\small #2}\par}
+\newcommand\facts[1]{\decl{facts}{#1}}
+\newcommand\events[1]{\decl{events}{#1}}
+\newcommand\beat[1]{\decl{beat}{#1}}
+\newcommand\perword[1]{\decl{per word}{#1}}
+\newcommand\minread[1]{\decl{min read}{#1}}
+\newcommand\nudge[1]{\decl{nudge}{#1}}
+
+% --- paragraphs (drawn by render.lua) ---
+\newif\ifinbubble
+\NewDocumentCommand\bubble{mmm}{\par\begingroup\inbubbletrue
+  \def\bubbletag{\if\relax\detokenize{#2}\relax\else{\itshape #2}\enspace\fi#3}%
+  \setlength\leftmargini{\dimexpr\namewidth+1.2em}%
+  \hangindent\namewidth \hangafter0 \noindent
+  \setlength\itemsep{0pt}\setlength\parskip{0pt}%
+  \llap{\makebox[\namewidth][l]{\textcolor{sp-#1}{\textbf{\csname sp@#1\endcsname}}}}}
+% the manner and the bubble's id end its last line, small and flush to the far side
+\def\endbubble{%
+  \ifhmode\unskip\nobreak\hfill\else\noindent\hspace*{\namewidth}\hfill\fi
+  \mbox{\ttfamily\tiny\color{quiet}\bubbletag}\par\endgroup}
+\newcommand\direction{\par\begingroup\small\dirshape\color{quiet}\noindent}
+\def\enddirection{\par\endgroup}
+\newcommand\panelmark[1]{%
+  \par{\ttfamily\scriptsize\color{quiet}\##1\hfill
+  \IfFileExists{thumbs/#1.png}{}{no thumbnail yet}}\par}
+
+% --- actions: a line of their own, or a tag inside the bubble they cue ---
+\newcommand\act[2]{%
+  \ifinbubble\ifhmode\\\fi{\sffamily\footnotesize\color{quiet}\textbf{#1}\ #2}%
+  \else\par\noindent\hspace*{\namewidth}%
+    {\sffamily\footnotesize\color{quiet}\textbf{#1}\ #2}\par\fi}
+\newcommand\reader[2]{\act{#1}{#2 {\itshape waits for the reader}}}
+\newcommand\params[1]{\act{params}{\ttfamily #1}}
+\newcommand\expect[1]{\act{expect}{\ttfamily #1}}
+\NewDocumentCommand\pause{O{1}}{\act{pause}{#1 beat(s)}}
+\NewDocumentCommand\choice{mg}{\act{choice}{#1\IfNoValueTF{#2}{}{\ {\ttfamily→ \detokenize{#2}}}}}
+\newcommand\return{\act{return}{}}
+\newcommand\pick[1]{\act{pick}{\ttfamily #1}}
+\newcommand\card[1]{\act{card}{\ttfamily #1}}
+\newcommand\pin[1]{\act{pin}{\ttfamily #1}}
+\newcommand\keep[1]{\act{keep}{at most #1 bubbles}}
+\newcommand\when[1]{\act{when}{\ttfamily #1}}
+\newcommand\on[1]{\act{on}{\ttfamily #1}}
+\newcommand\reveal[1]{\act{reveal}{#1}}
+\newcommand\hide[1]{\act{hide}{#1}}
+\newcommand\crowd[1]{\act{crowd}{#1}}
+\newcommand\stake[1]{\act{stake}{#1 each}}
+\newcommand\flip[1]{\act{flip}{lands #1}}
+\NewDocumentCommand\run{o}{\act{run}{\IfNoValueTF{#1}{}{#1}}}
+\newcommand\arrange[1]{\act{arrange}{#1}}
+\newcommand\control[1]{\act{control}{#1}}
+\newcommand\levy[1]{\act{levy}{#1}}
+\newcommand\match{\act{match}{}}
+\newcommand\meet[1]{\reader{meet}{click #1}}
+\newcommand\equalize{\reader{equalize}{until 8 and 8}}
+
+% --- inline and attachments ---
+\NewDocumentCommand\val{mg}{\textcolor{quiet}{\IfNoValueTF{#2}{[#1]}{#2}}}
+\newcommand\plural[2]{\textcolor{quiet}{#1/#2}}
+\newcommand\gls[1]{\textsf{#1}}
+\let\claimpar\marginpar
+\renewcommand\marginpar[1]{\claimpar{\scriptsize\raggedright
+  \textbf{keep true:} #1}}
+\newcommand\adapt[1]{\claimpar{\scriptsize\raggedright\color{adapt}
+  \textbf{adapt:} #1}}
+\let\todonote\todo
+\renewcommand\todo[1]{{\let\marginpar\claimpar\todonote{#1}}}
+
+\title{Merit or Math? --- the script}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section*{Cast and settings}
+\input{\langdir decl}
+
+\scriptinput{\langdir script}
+\IfFileExists{\langdir pool.tex}{%
+  \part*{Material}\addcontentsline{toc}{part}{Material}%
+  \scriptinput{\langdir pool}}{}
+\IfFileExists{\langdir branches/cow.tex}{\scriptinput{\langdir branches/cow}}{}
+\IfFileExists{\langdir branches/human.tex}{\scriptinput{\langdir branches/human}}{}
+\IfFileExists{\langdir branches/workshop.tex}{\scriptinput{\langdir branches/workshop}}{}
+
+\listoftodos
+\end{document}
