@@ -45,6 +45,11 @@ if (command === 'lint') {
   process.exit(report(problems, rest.includes('--brief')) ? 1 : 0);
 } else if (command === 'compile') {
   const { errors, written } = compileScript();
+  if (rest.includes('--json')) {
+    // for the dev server (vite.config.ts), which reports the errors itself
+    console.log(JSON.stringify({ errors, written }));
+    process.exit(0);
+  }
   for (const e of errors) console.error(e);
   console.log(errors.length ? 'script compile: not written' : `script compile: ${written.length ? written.join(', ') : 'up to date'}`);
   process.exit(errors.length ? 1 : 0);

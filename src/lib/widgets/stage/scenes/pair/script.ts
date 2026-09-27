@@ -151,7 +151,8 @@ export interface PairStep extends StepSpec {
   readonly log?: string;
 }
 
-const START: Pose = {
+/** The stage before its first step: nothing typed, nobody here. */
+export const START: Pose = {
   teletype: false,
   merit: false,
   or: false,
@@ -255,6 +256,32 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'sandbox.2': (s) => targets(s, 'workshop'),
 };
 
+/** The title's reel, as the script lists it under \\reveal{math}. */
+const REEL_STEP: StoryStep | undefined = STORY.steps.find((s) => ROLES['title.math'](s));
+export const REEL: readonly string[] = REEL_STEP?.body ?? [];
+/** Where the reel lands (the word in bold), and how many seconds each word holds. */
+export const REEL_ANSWER: number = REEL_STEP?.bodyAnswer ?? Math.max(0, REEL.length - 2);
+export const REEL_HOLDS: readonly number[] = (REEL_STEP?.bodyHolds ?? []).map((beats) => beats * (STORY.timing.beat ?? 0.6));
+
+/**
+ * The reel's spin, as tweens of its position: hold where the script says, a
+ * steady readable run (about a quarter second a word) to the last word, and
+ * back to rest on the answer. The scene plays it; the step waits for it.
+ */
+export function reelSpin(): { to: number; seconds: number; ease: string }[] {
+  const last = REEL.length - 1;
+  const out: { to: number; seconds: number; ease: string }[] = [];
+  let at = 0;
+  if (REEL_HOLDS[0]) out.push({ to: 0, seconds: REEL_HOLDS[0], ease: 'none' });
+  for (let i = 1; i <= last; i++) {
+    if (!REEL_HOLDS[i] && i < last) continue;
+    out.push({ to: i, seconds: (i - at) / 3.6, ease: at === 0 ? 'sine.in' : 'none' });
+    if (REEL_HOLDS[i]) out.push({ to: i, seconds: REEL_HOLDS[i], ease: 'none' });
+    at = i;
+  }
+  if (last > REEL_ANSWER) out.push({ to: REEL_ANSWER, seconds: 0.45 + 0.15 * (last - REEL_ANSWER), ease: 'power2.inOut' });
+  return out;
+}
 /** Which name each step of the script answers to, and the steps no name matched. */
 function name(steps: readonly StoryStep[]): { ids: string[]; problems: string[] } {
   const ids = steps.map((s) => s.id);
@@ -282,7 +309,7 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
     case 'or':
       return 900;
     case 'reel-math':
-      return 3800;
+      return Math.round((0.25 + reelSpin().reduce((t, x) => t + x.seconds, 0) + 0.9) * 1000);
     case 'payout':
       return RAIN_WAIT_MS;
     case 'gather':
@@ -598,7 +625,6 @@ export const CALLS = { red: 'call.red', blue: 'call.blue' } as const;
 
 /** The news line the teletype types, and the reel's words, as the script has them. */
 export const HEADLINE: string = storyOf('title.type').key!;
-export const REEL: readonly string[] = storyOf('title.math').body ?? [];
 /** The outcome map's own name, for a screen reader: Red's line that shows it. */
 export const MAP_LABEL: string = storyOf('map.all').key!;
 

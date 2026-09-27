@@ -2,6 +2,12 @@
 import type { Story } from '../script/compile';
 
 export const STORY: Story = {
+  "timing": {
+    "beat": 0.6,
+    "perword": 0.4,
+    "minread": 1.5,
+    "nudge": 4
+  },
   "steps": [
     {
       "id": "title.1",
@@ -87,11 +93,23 @@ export const STORY: Story = {
         "title_a3_8",
         "title_a3_9"
       ],
+      "bodyHolds": [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "bodyAnswer": 6,
       "wait": "auto"
     },
     {
       "id": "crowd.a1",
-      "at": "script.tex:63",
+      "at": "script.tex:62",
       "scene": "crowd",
       "act": false,
       "who": null,
@@ -115,7 +133,7 @@ export const STORY: Story = {
     },
     {
       "id": "crowd.a2",
-      "at": "script.tex:80",
+      "at": "script.tex:79",
       "scene": "crowd",
       "act": false,
       "who": null,
@@ -133,7 +151,7 @@ export const STORY: Story = {
     },
     {
       "id": "meet.1",
-      "at": "script.tex:90",
+      "at": "script.tex:89",
       "scene": "meet",
       "act": true,
       "who": "red",
@@ -169,7 +187,7 @@ export const STORY: Story = {
     },
     {
       "id": "meet.2",
-      "at": "script.tex:101",
+      "at": "script.tex:100",
       "scene": "meet",
       "act": false,
       "who": "red",
@@ -184,7 +202,7 @@ export const STORY: Story = {
     },
     {
       "id": "meet.3",
-      "at": "script.tex:103",
+      "at": "script.tex:102",
       "scene": "meet",
       "act": false,
       "who": "blue",
@@ -213,7 +231,7 @@ export const STORY: Story = {
     },
     {
       "id": "meet.4",
-      "at": "script.tex:112",
+      "at": "script.tex:111",
       "scene": "meet",
       "act": false,
       "who": "blue",
@@ -228,7 +246,7 @@ export const STORY: Story = {
     },
     {
       "id": "meet.5",
-      "at": "script.tex:115",
+      "at": "script.tex:114",
       "scene": "meet",
       "act": false,
       "who": "red",
@@ -243,7 +261,7 @@ export const STORY: Story = {
     },
     {
       "id": "merit.1",
-      "at": "script.tex:129",
+      "at": "script.tex:128",
       "scene": "merit",
       "act": false,
       "who": "blue",
@@ -255,7 +273,7 @@ export const STORY: Story = {
     },
     {
       "id": "merit.2",
-      "at": "script.tex:131",
+      "at": "script.tex:130",
       "scene": "merit",
       "act": false,
       "who": "red",
@@ -267,7 +285,7 @@ export const STORY: Story = {
     },
     {
       "id": "merit.3",
-      "at": "script.tex:133",
+      "at": "script.tex:132",
       "scene": "merit",
       "act": false,
       "who": "blue",
@@ -279,7 +297,7 @@ export const STORY: Story = {
     },
     {
       "id": "merit.4",
-      "at": "script.tex:135",
+      "at": "script.tex:134",
       "scene": "merit",
       "act": false,
       "who": "red",
@@ -291,7 +309,7 @@ export const STORY: Story = {
     },
     {
       "id": "merit.5",
-      "at": "script.tex:138",
+      "at": "script.tex:137",
       "scene": "merit",
       "act": false,
       "who": "blue",
@@ -303,7 +321,7 @@ export const STORY: Story = {
     },
     {
       "id": "merit.6",
-      "at": "script.tex:140",
+      "at": "script.tex:139",
       "scene": "merit",
       "act": false,
       "who": "red",
@@ -315,7 +333,7 @@ export const STORY: Story = {
     },
     {
       "id": "invite.1",
-      "at": "script.tex:154",
+      "at": "script.tex:153",
       "scene": "invite",
       "act": false,
       "who": "red",
@@ -334,7 +352,7 @@ export const STORY: Story = {
     },
     {
       "id": "invite.2",
-      "at": "script.tex:158",
+      "at": "script.tex:157",
       "scene": "invite",
       "act": false,
       "who": "blue",
@@ -348,7 +366,7 @@ export const STORY: Story = {
     },
     {
       "id": "invite.3",
-      "at": "script.tex:162",
+      "at": "script.tex:161",
       "scene": "invite",
       "act": false,
       "who": "red",
@@ -360,7 +378,7 @@ export const STORY: Story = {
     },
     {
       "id": "invite.4",
-      "at": "script.tex:165",
+      "at": "script.tex:164",
       "scene": "invite",
       "act": false,
       "who": "blue",
@@ -374,7 +392,7 @@ export const STORY: Story = {
     },
     {
       "id": "invite.5",
-      "at": "script.tex:169",
+      "at": "script.tex:168",
       "scene": "invite",
       "act": false,
       "who": "red",
@@ -386,7 +404,7 @@ export const STORY: Story = {
     },
     {
       "id": "invite.6",
-      "at": "script.tex:171",
+      "at": "script.tex:170",
       "scene": "invite",
       "act": false,
       "who": "blue",
@@ -400,7 +418,7 @@ export const STORY: Story = {
     },
     {
       "id": "invite.a1",
-      "at": "script.tex:176",
+      "at": "script.tex:175",
       "scene": "invite",
       "act": false,
       "who": null,
@@ -418,7 +436,7 @@ export const STORY: Story = {
     },
     {
       "id": "invite.7",
-      "at": "script.tex:178",
+      "at": "script.tex:177",
       "scene": "invite",
       "act": false,
       "who": "blue",
@@ -497,7 +515,7 @@ export const STORY: Story = {
     },
     {
       "id": "invite.12",
-      "at": "script.tex:202",
+      "at": "script.tex:201",
       "scene": "invite",
       "act": false,
       "who": "red",
@@ -511,7 +529,7 @@ export const STORY: Story = {
     },
     {
       "id": "round1.1",
-      "at": "script.tex:213",
+      "at": "script.tex:212",
       "scene": "round1",
       "act": false,
       "who": "red",
@@ -523,7 +541,7 @@ export const STORY: Story = {
     },
     {
       "id": "round1.2",
-      "at": "script.tex:216",
+      "at": "script.tex:215",
       "scene": "round1",
       "act": false,
       "who": "blue",
@@ -542,7 +560,7 @@ export const STORY: Story = {
     },
     {
       "id": "round1.3",
-      "at": "script.tex:222",
+      "at": "script.tex:221",
       "scene": "round1",
       "act": false,
       "who": "red",
@@ -561,7 +579,7 @@ export const STORY: Story = {
     },
     {
       "id": "round1.4",
-      "at": "script.tex:227",
+      "at": "script.tex:226",
       "scene": "round1",
       "act": false,
       "who": "red",
@@ -573,7 +591,7 @@ export const STORY: Story = {
     },
     {
       "id": "round1.a1",
-      "at": "script.tex:233",
+      "at": "script.tex:232",
       "scene": "round1",
       "act": false,
       "who": null,
@@ -597,7 +615,7 @@ export const STORY: Story = {
     },
     {
       "id": "round1.5",
-      "at": "script.tex:244",
+      "at": "script.tex:243",
       "scene": "round1",
       "act": false,
       "who": "blue",
@@ -612,7 +630,7 @@ export const STORY: Story = {
     },
     {
       "id": "round2.1",
-      "at": "script.tex:248",
+      "at": "script.tex:247",
       "scene": "round2",
       "act": false,
       "who": "blue",
@@ -631,7 +649,7 @@ export const STORY: Story = {
     },
     {
       "id": "round2.2",
-      "at": "script.tex:252",
+      "at": "script.tex:251",
       "scene": "round2",
       "act": false,
       "who": "red",
@@ -643,7 +661,7 @@ export const STORY: Story = {
     },
     {
       "id": "round2.3",
-      "at": "script.tex:254",
+      "at": "script.tex:253",
       "scene": "round2",
       "act": false,
       "who": "blue",
@@ -657,7 +675,7 @@ export const STORY: Story = {
     },
     {
       "id": "round2.4",
-      "at": "script.tex:256",
+      "at": "script.tex:255",
       "scene": "round2",
       "act": false,
       "who": "red",
@@ -676,7 +694,7 @@ export const STORY: Story = {
     },
     {
       "id": "round2.5",
-      "at": "script.tex:261",
+      "at": "script.tex:260",
       "scene": "round2",
       "act": false,
       "who": "blue",
@@ -688,7 +706,7 @@ export const STORY: Story = {
     },
     {
       "id": "round2.6",
-      "at": "script.tex:264",
+      "at": "script.tex:263",
       "scene": "round2",
       "act": false,
       "who": "red",
@@ -700,7 +718,7 @@ export const STORY: Story = {
     },
     {
       "id": "round2.7",
-      "at": "script.tex:266",
+      "at": "script.tex:265",
       "scene": "round2",
       "act": false,
       "who": "blue",
@@ -721,7 +739,7 @@ export const STORY: Story = {
     },
     {
       "id": "round2.a1",
-      "at": "script.tex:276",
+      "at": "script.tex:275",
       "scene": "round2",
       "act": false,
       "who": null,
@@ -745,7 +763,7 @@ export const STORY: Story = {
     },
     {
       "id": "round3.1",
-      "at": "script.tex:283",
+      "at": "script.tex:282",
       "scene": "round3",
       "act": false,
       "who": "red",
@@ -772,7 +790,7 @@ export const STORY: Story = {
     },
     {
       "id": "round3.2",
-      "at": "script.tex:290",
+      "at": "script.tex:289",
       "scene": "round3",
       "act": false,
       "who": "blue",
@@ -787,7 +805,7 @@ export const STORY: Story = {
     },
     {
       "id": "round3.a1",
-      "at": "script.tex:295",
+      "at": "script.tex:294",
       "scene": "round3",
       "act": false,
       "who": null,
@@ -811,7 +829,7 @@ export const STORY: Story = {
     },
     {
       "id": "round3.3",
-      "at": "script.tex:298",
+      "at": "script.tex:297",
       "scene": "round3",
       "act": false,
       "who": "blue",
@@ -826,7 +844,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.1",
-      "at": "script.tex:304",
+      "at": "script.tex:303",
       "scene": "dare",
       "act": false,
       "who": "blue",
@@ -848,7 +866,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.2",
-      "at": "script.tex:308",
+      "at": "script.tex:307",
       "scene": "dare",
       "act": false,
       "who": "blue",
@@ -862,7 +880,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.3",
-      "at": "script.tex:310",
+      "at": "script.tex:309",
       "scene": "dare",
       "act": false,
       "who": "red",
@@ -876,7 +894,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.4",
-      "at": "script.tex:313",
+      "at": "script.tex:312",
       "scene": "dare",
       "act": false,
       "who": "blue",
@@ -888,7 +906,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.5",
-      "at": "script.tex:317",
+      "at": "script.tex:316",
       "scene": "dare",
       "act": false,
       "who": "red",
@@ -900,7 +918,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.6",
-      "at": "script.tex:320",
+      "at": "script.tex:319",
       "scene": "dare",
       "act": false,
       "who": "blue",
@@ -914,7 +932,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.7",
-      "at": "script.tex:324",
+      "at": "script.tex:323",
       "scene": "dare",
       "act": false,
       "who": "red",
@@ -926,7 +944,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.8",
-      "at": "script.tex:326",
+      "at": "script.tex:325",
       "scene": "dare",
       "act": false,
       "who": "blue",
@@ -938,7 +956,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.9",
-      "at": "script.tex:329",
+      "at": "script.tex:328",
       "scene": "dare",
       "act": false,
       "who": "red",
@@ -950,7 +968,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.10",
-      "at": "script.tex:332",
+      "at": "script.tex:331",
       "scene": "dare",
       "act": false,
       "who": "blue",
@@ -964,7 +982,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.11",
-      "at": "script.tex:335",
+      "at": "script.tex:334",
       "scene": "dare",
       "act": false,
       "who": "red",
@@ -976,7 +994,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.12",
-      "at": "script.tex:337",
+      "at": "script.tex:336",
       "scene": "dare",
       "act": false,
       "who": "blue",
@@ -988,7 +1006,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.13",
-      "at": "script.tex:339",
+      "at": "script.tex:338",
       "scene": "dare",
       "act": false,
       "who": "red",
@@ -1000,7 +1018,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.14",
-      "at": "script.tex:341",
+      "at": "script.tex:340",
       "scene": "dare",
       "act": false,
       "who": "blue",
@@ -1014,7 +1032,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.15",
-      "at": "script.tex:344",
+      "at": "script.tex:343",
       "scene": "dare",
       "act": false,
       "who": "red",
@@ -1028,7 +1046,7 @@ export const STORY: Story = {
     },
     {
       "id": "dare.16",
-      "at": "script.tex:347",
+      "at": "script.tex:346",
       "scene": "dare",
       "act": false,
       "who": "red",
@@ -1040,7 +1058,7 @@ export const STORY: Story = {
     },
     {
       "id": "room.1",
-      "at": "script.tex:359",
+      "at": "script.tex:358",
       "scene": "room",
       "act": true,
       "who": "red",
@@ -1059,7 +1077,7 @@ export const STORY: Story = {
     },
     {
       "id": "room.2",
-      "at": "script.tex:364",
+      "at": "script.tex:363",
       "scene": "room",
       "act": false,
       "who": "red",
@@ -1071,7 +1089,7 @@ export const STORY: Story = {
     },
     {
       "id": "room.3",
-      "at": "script.tex:368",
+      "at": "script.tex:367",
       "scene": "room",
       "act": false,
       "who": "red",
@@ -3121,10 +3139,10 @@ export const STORY: Story = {
     "workshop": []
   },
   "labels": {
-    "act:question": "title.1",
+    "act:openning": "title.1",
     "title": "title.1",
     "crowd": "crowd.a1",
-    "act:pair": "meet.1",
+    "act:intor": "meet.1",
     "meet": "meet.1",
     "merit": "merit.1",
     "invite": "invite.1",

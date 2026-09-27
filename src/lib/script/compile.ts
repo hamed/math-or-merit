@@ -64,6 +64,9 @@ export interface StoryStep {
   readonly choices: readonly StoryChoice[];
   /** An action's list body: the title's reel words. */
   readonly body?: readonly string[];
+  /** How many beats each body item holds (`\item[hold 3]`), and the item in bold, where a reel lands. */
+  readonly bodyHolds?: readonly number[];
+  readonly bodyAnswer?: number;
   /** A run of `\when` bubbles: what plays, by condition. */
   readonly groups?: readonly StoryGroup[];
   /** `\on` bubbles written after this step: reactions during it. */
@@ -87,6 +90,8 @@ export interface StoryCard {
 }
 
 export interface Story {
+  /** decl.tex's timing: beat, perword, minread, nudge, in seconds. */
+  readonly timing: Readonly<Record<string, number>>;
   /** The stage's timeline: script.tex, in order. */
   readonly steps: readonly StoryStep[];
   /** Side trips (branches/), by their scene label. */
@@ -275,6 +280,7 @@ export function compile(script: Script): Compiled {
             })
           : undefined;
       const choices = cues.filter((a) => a.name === 'choice');
+      const answer = list?.k === 'list' ? list.list.items.findIndex((lns) => lns[0]?.some((n) => n.t === 'cmd' && n.name === 'textbf')) : -1;
       push({
         id,
         at,
@@ -285,6 +291,8 @@ export function compile(script: Script): Compiled {
         cues: cues.filter((a) => a.name !== 'choice').map(toAction),
         choices: choicesOf(id, choices),
         ...(body ? { body } : {}),
+        ...(list?.k === 'list' && list.list.holds.some(Boolean) ? { bodyHolds: list.list.holds } : {}),
+        ...(answer >= 0 ? { bodyAnswer: answer } : {}),
         wait: cues.some((a) => READER.has(a.name)) || choices.length ? 'action' : 'auto',
       });
     }
@@ -324,7 +332,8 @@ export function compile(script: Script): Compiled {
     if (isCard) cards[id] = { title, blocks, ...(toy ? { toy } : {}) };
   }
 
-  return { story: { steps: main, branches, labels, cards }, messages, problems };
+  const timing = Object.fromEntries(Object.entries(script.decl.timing).map(([k, v]) => [k, parseFloat(v)]));
+  return { story: { timing, steps: main, branches, labels, cards }, messages, problems };
 }
 
 function parseTitle(title: string): Inline[] {

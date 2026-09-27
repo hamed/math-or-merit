@@ -15,7 +15,8 @@ function printLines(body: readonly Line[]): string[] {
     if (l.k === 'text' || l.k === 'attach') return [printInline(l.nodes)];
     if (l.k === 'cue') return [printAction(l.action)];
     const env = l.list.ordered ? 'enumerate' : 'itemize';
-    return [`\\begin{${env}}`, ...l.list.items.flatMap((lines) => lines.map((x, k) => `${k ? '' : '\\item '}${printInline(x)}`)), `\\end{${env}}`];
+    const item = (i: number) => (l.list.holds[i] ? `\\item[hold ${l.list.holds[i]}] ` : '\\item ');
+    return [`\\begin{${env}}`, ...l.list.items.flatMap((lines, i) => lines.map((x, k) => `${k ? '' : item(i)}${printInline(x)}`)), `\\end{${env}}`];
   });
 }
 

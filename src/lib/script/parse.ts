@@ -44,6 +44,8 @@ export interface ListBody {
   readonly ordered: boolean;
   /** Each item's lines. */
   readonly items: readonly (readonly Inline[])[][];
+  /** Each item's option, `\item[hold 3]`: how many beats it holds (0 when none). */
+  readonly holds: readonly number[];
   readonly line: number;
 }
 
@@ -428,6 +430,7 @@ function lines(para: Raw[], err: Err, words: boolean): Line[] {
     const env = /^\\begin\{(itemize|enumerate)\}$/.exec(t);
     if (env) {
       const items: Inline[][][] = [];
+      const holds: number[] = [];
       let closed = false;
       for (k++; k < para.length; k++) {
         const u = para[k].text.trim();
@@ -435,17 +438,23 @@ function lines(para: Raw[], err: Err, words: boolean): Line[] {
           closed = true;
           break;
         }
-        const it = /^\\item\s+(.*)$/.exec(u);
-        const src = it ? it[1] : u;
+        const it = /^\\item(?:\[([^\]]*)\])?\s+(.*)$/.exec(u);
+        const src = it ? it[2] : u;
         const { nodes, errors } = parseInline(src);
         for (const e of errors) err(para[k].line, e);
-        if (it) items.push([nodes]);
+        if (it) {
+          const opt = it[1]?.trim();
+          const hold = opt === undefined ? 0 : Number(/^hold (\d+(?:\.\d+)?)$/.exec(opt)?.[1] ?? NaN);
+          if (Number.isNaN(hold)) err(para[k].line, `an item's option is [hold n], n beats: "${opt}"`);
+          holds.push(hold || 0);
+          items.push([nodes]);
+        }
         else if (items.length) items[items.length - 1].push(nodes);
         else err(para[k].line, 'a list line before its first \\item');
       }
       if (!closed) err(line, `\\begin{${env[1]}} never ends`);
       if (!words && !out.some((l) => l.k === 'cue')) err(line, 'a list must follow a bubble head (Name:) or an action');
-      out.push({ k: 'list', list: { ordered: env[1] === 'enumerate', items, line } });
+      out.push({ k: 'list', list: { ordered: env[1] === 'enumerate', items, holds, line } });
       continue;
     }
     const cmd = /^\\([A-Za-z]+)/.exec(t)?.[1];

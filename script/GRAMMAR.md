@@ -118,6 +118,11 @@ Red (aside, brief):
 the stage. A list right after an action line is that action's body (the
 title's reel: `\reveal{math}` and its words). A list anywhere else is an error.
 
+An item can hold longer: `\item[hold 3] Grit` stays 3 beats (the PDF prints
+"hold 3" as its label). In the title's reel, the item in bold is the one it
+lands on — `\item \textbf{Math}` — and the items after it are the wrong words it
+overshoots onto before coming back.
+
 ### 1.4 Figures and formulas
 
 ```latex

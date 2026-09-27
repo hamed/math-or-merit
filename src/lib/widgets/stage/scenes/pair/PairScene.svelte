@@ -30,6 +30,9 @@
     PAIR_STEPS,
     REACTIONS,
     REEL,
+    REEL_ANSWER,
+    reelSpin,
+    START,
     actEnd,
     RUN_MS,
     indexOf,
@@ -96,7 +99,7 @@
   /** The reel's words, as the script lists them under \reveal{math}. */
   const MATH_WORDS = REEL.map((key) => say(key));
   /** The reel lands third from last, with two wrong words after it to overshoot onto. */
-  const MATH_AT = MATH_WORDS.length - 3;
+  const MATH_AT = REEL_ANSWER;
 
   /** Which crowd circle each protagonist is. */
   const WHO: Record<Speaker, number> = { blue: BIG, red: SMALL };
@@ -367,7 +370,7 @@
     if (from >= 0) {
       levyView = levyLesson(PAIR_STEPS[from].pose.levy);
       draw(poseAt(from));
-    }
+    } else draw(START); // a fresh stage plays its first step from nothing
     const step = PAIR_STEPS[index];
     const pose = poseAt(index);
     logReady = !step.log;
@@ -698,8 +701,13 @@
     levy,
   });
 
-  /** Scene 20: a fresh room at the reader's stake, the same length every time. */
-  const DIAL_TRADES = 40_000;
+  /**
+   * Scene 20: a fresh room at the reader's stake, the same length every time:
+   * at the essay's tenth, 250,000 trades leave about five effective
+   * participants and the richest near a third (40 seeds), as 40,000 did at a
+   * quarter.
+   */
+  const DIAL_TRADES = 250_000;
   const DIAL_MS = 5_000;
   let dialStake = $state(DEFAULT_RUN.beta);
   /** Where the dial's thumb is while it is being dragged. */
@@ -710,12 +718,13 @@
   const gameRun = createRun(() => fixed(GAME.beta, 10_000_000), () => 0, OWN);
 
   /**
-   * Scene 23: one seed, twice — trades only, and trades with a 2% levy shared
-   * back. At the quarter stake over 60,000 trades that leaves about 4 against
-   * about 42 still counting (20 seeds), the map's own square for those dials.
+   * Scene 23: one seed, twice — trades only, and trades with a levy shared
+   * back. At the essay's tenth over 375,000 trades a 0.3% levy leaves about 4
+   * against about 41 still counting (40 seeds) — at a quarter it took 60,000
+   * trades and 2%: two-fifths the stake, about a seventh of the levy.
    */
-  const MATCH_TRADES = 60_000;
-  const MATCH_LEVY = 0.02;
+  const MATCH_TRADES = 375_000;
+  const MATCH_LEVY = 0.003;
   const MATCH_MS = 7_000;
   const leftRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES), () => MATCH_MS, OWN);
   const rightRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES, MATCH_LEVY), () => MATCH_MS, OWN);
@@ -1835,15 +1844,10 @@
     );
   }
 
-  function spin(tl: ReturnType<typeof gsap.timeline>, answer: number): void {
+  function spin(tl: ReturnType<typeof gsap.timeline>): void {
     tl.set(view, { mathPos: 0 });
     tl.to(view, { mathOn: 1, duration: 0.25, ease: 'none' });
-    // Slow enough to read the two funny words, then a steady readable run past
-    // the answer (never under about a quarter second a word), two words over,
-    // and back to rest.
-    tl.to(view, { mathPos: 2, duration: 1.1, ease: 'sine.in' });
-    tl.to(view, { mathPos: answer + 2, duration: answer / 3.6, ease: 'none' });
-    tl.to(view, { mathPos: answer, duration: 0.75, ease: 'power2.inOut' });
+    for (const x of reelSpin()) tl.to(view, { mathPos: x.to, duration: x.seconds, ease: x.ease });
   }
 
   function choreograph(action: string | undefined, pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
@@ -1859,7 +1863,7 @@
         tl.to(view, { orOn: 1, duration: 0.6, ease: 'none' });
         return;
       case 'reel-math':
-        spin(tl, MATH_AT);
+        spin(tl);
         return;
       case 'payout':
         payout(tl);

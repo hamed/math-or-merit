@@ -3,6 +3,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { spawnSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -16,22 +17,26 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  */
 function script(): Plugin {
   const root = resolve(__dirname, 'script');
-  const run = async () => {
-    const { compileScript } = await import('./scripts/script-compile.ts');
-    return compileScript(root, __dirname);
+  // a fresh process each time, so a running server never keeps an old compiler
+  const run = (): { errors: string[]; written: string[] } => {
+    const out = spawnSync(process.execPath, [resolve(__dirname, 'scripts/script.ts'), 'compile', '--json'], { encoding: 'utf8' });
+    try {
+      return JSON.parse(out.stdout);
+    } catch {
+      return { errors: [out.stderr || out.stdout || 'script compile failed'], written: [] };
+    }
   };
   return {
     name: 'script',
     enforce: 'pre',
-    async config() {
-      const { errors } = await run();
-      for (const e of errors) console.error(e);
+    config() {
+      for (const e of run().errors) console.error(e);
     },
     configureServer(server) {
       server.watcher.add(root);
-      server.watcher.on('change', async (file) => {
+      server.watcher.on('change', (file) => {
         if (!file.startsWith(root) || !file.endsWith('.tex')) return;
-        const { errors, written } = await run();
+        const { errors, written } = run();
         if (errors.length) {
           for (const e of errors) server.config.logger.error(e);
           server.ws.send({ type: 'error', err: { message: errors.join('\n'), stack: '', plugin: 'script' } });
