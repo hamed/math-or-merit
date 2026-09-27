@@ -9,10 +9,10 @@ export const UNIT_DIRS = ['cards', 'widgets'];
 export const ROOT = join(import.meta.dirname, '..', 'script');
 
 /** The files main.tex reads, in its order, for one language. */
-export function loadScript(lang: string): Script | null {
-  const dir = lang === 'en' ? ROOT : join(ROOT, lang);
+export function loadScript(lang: string, root: string = ROOT): Script | null {
+  const dir = lang === 'en' ? root : join(root, lang);
   if (!existsSync(join(dir, 'decl.tex'))) return null;
-  const main = readFileSync(join(ROOT, 'main.tex'), 'utf8');
+  const main = readFileSync(join(root, 'main.tex'), 'utf8');
   const names = [...main.matchAll(/\\scriptinput\{\\langdir ([^}]+)\}/g)].map((m) => `${m[1]}.tex`);
   const read = (name: string) => ({ file: join(lang === 'en' ? '' : lang, name), text: readFileSync(join(dir, name), 'utf8') });
   const units = UNIT_DIRS.flatMap((sub) =>

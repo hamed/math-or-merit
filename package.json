@@ -8,11 +8,11 @@
     "preview": "vite preview",
     "research": "vite-node scripts/research.ts",
     "script:lint": "node scripts/script.ts lint",
+    "script:compile": "node scripts/script.ts compile",
     "script:pdf": "cd script && latexmk",
     "script:watch": "cd script && latexmk -pvc -view=none main.tex",
-    "script:diff": "vite-node scripts/script-diff.ts",
     "messages": "paraglide-js compile --project ./project.inlang --outdir ./src/paraglide --strategy localStorage baseLocale --emit-ts-declarations",
-    "check": "npm run messages && svelte-check --no-tsconfig --ignore \"archive\" --fail-on-warnings && tsc --noEmit",
+    "check": "npm run script:compile && npm run messages && svelte-check --no-tsconfig --ignore \"archive\" --fail-on-warnings && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:browser": "playwright test --grep-invert @visual",
@@ -32,6 +32,7 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "gsap": "^3.15.0"
+    "gsap": "^3.15.0",
+    "katex": "^0.16.47"
   }
 }

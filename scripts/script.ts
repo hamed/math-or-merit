@@ -3,6 +3,7 @@
  *
  *   node scripts/script.ts lint [--brief]   check every language; exit 1 on an error
  *   node scripts/script.ts print <file>      the canonical source of one file
+ *   node scripts/script.ts compile           messages/en.json and the story the app reads
  *
  * The PDF build runs `lint --brief` before every LuaLaTeX pass (script/.latexmkrc),
  * so a broken script never makes a PDF. Files are read in the order main.tex
@@ -12,6 +13,7 @@ import { lint } from '../src/lib/script/lint.ts';
 import type { Problem } from '../src/lib/script/parse.ts';
 import { printFile } from '../src/lib/script/print.ts';
 import { diffSkeleton } from '../src/lib/script/skeleton.ts';
+import { compileScript } from './script-compile.ts';
 import { loadScript } from './script-load.ts';
 
 function report(problems: readonly Problem[], brief: boolean): number {
@@ -41,6 +43,11 @@ if (command === 'lint') {
     for (const label of diff.extra) problems.push({ file: 'fa', line: 0, level: 'error', message: `"${label}" is not in the English script` });
   }
   process.exit(report(problems, rest.includes('--brief')) ? 1 : 0);
+} else if (command === 'compile') {
+  const { errors, written } = compileScript();
+  for (const e of errors) console.error(e);
+  console.log(errors.length ? 'script compile: not written' : `script compile: ${written.length ? written.join(', ') : 'up to date'}`);
+  process.exit(errors.length ? 1 : 0);
 } else if (command === 'print') {
   const lang = rest[0]?.startsWith('fa/') ? 'fa' : 'en';
   const script = loadScript(lang);

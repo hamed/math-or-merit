@@ -16,7 +16,7 @@
   import { getContext, onMount, type Snippet } from 'svelte';
   import { gsap } from '../../gsap';
   import Bubble from '../../Bubble.svelte';
-  import CardStack, { type Card } from '../../CardStack.svelte';
+  import CardStack, { type Card, type CardLine } from '../../CardStack.svelte';
   import TimePlayer from '../../TimePlayer.svelte';
   import Coin from '../Coin.svelte';
   import Reel from './Reel.svelte';
@@ -24,8 +24,13 @@
   import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
   import {
     CALLS,
+    CARDS,
+    HEADLINE,
+    MAP_LABEL,
     PAIR_STEPS,
     REACTIONS,
+    REEL,
+    actEnd,
     RUN_MS,
     indexOf,
     levyLesson,
@@ -88,18 +93,8 @@
     'https://www.investing.com/news/stock-market-news/spacex-ipo-makes-elon-musk-worlds-first-trillionaire-4741087';
   const CREDIT_URL = 'https://github.com/hamed';
 
-  /** A `·` list from prose.md arrives as numbered messages; read them back in order. */
-  function words(key: string): string[] {
-    const out: string[] = [];
-    for (let i = 1; i < 40; i++) {
-      const word = say(`${key}_${i}`);
-      if (word === `${key}_${i}`) break;
-      out.push(word);
-    }
-    return out;
-  }
-
-  const MATH_WORDS = words('open_reel_math');
+  /** The reel's words, as the script lists them under \reveal{math}. */
+  const MATH_WORDS = REEL.map((key) => say(key));
   /** The reel lands third from last, with two wrong words after it to overshoot onto. */
   const MATH_AT = MATH_WORDS.length - 3;
 
@@ -1579,8 +1574,8 @@
     const id = PAIR_STEPS[index].id;
     if (PAIR_STEPS[index].pose.choice) {
       return [
-        { label: say('more_choice_1'), act: tellMe },
-        { label: say('more_choice_2'), act: () => stage?.advance() },
+        { label: say(REACTIONS.joke[0]), act: tellMe },
+        { label: say(REACTIONS.joke[1]), act: () => stage?.advance() },
       ];
     }
     const link = (REACTIONS.links as Record<string, string>)[id];
@@ -1646,29 +1641,26 @@
   let cardHeight = $state(0);
 
   /** The rule card reads the rule that is running: the live stake, never typed in. */
+  /** The picture the stage draws for a card, by the plot the script names (read when needed: snippets come after the script). */
+  const pictureOf = (plot: string): Snippet | undefined =>
+    ({ histogram: histogramPicture, lorenz: giniPicture, participants: participantsPicture, turnover: turnoverPicture })[plot];
+  /** The toy a card can hold, by the name the script gives it. */
+  const toyOf = (name: string): Snippet | undefined => ({ gini: giniToy })[name];
+
+  /**
+   * A card as the script writes it (script/cards/): title, lines, formulas, a
+   * picture, a toy. The rule card reads the rule that is running: the live
+   * stake, never typed in.
+   */
   function cardFor(id: string): Card | null {
-    const lines = (key: string, count: number) => Array.from({ length: count }, (_, k) => say(`${key}_${k + 1}`));
-    if (id === 'histogram') return { id, title: say('card_histogram_title'), lines: lines('card_histogram', 3), picture: histogramPicture };
-    if (id === 'gini') return { id, title: say('card_gini_title'), lines: lines('card_gini', 2), picture: giniPicture, toy: giniToy };
-    if (id === 'participants') {
-      return {
-        id,
-        title: say('card_participants_title'),
-        lines: [...lines('card_participants', 2), say('participation_formula')],
-        picture: participantsPicture,
-      };
-    }
-    if (id === 'turnover') return { id, title: say('card_turnover_title'), lines: lines('card_turnover', 2), picture: turnoverPicture };
-    if (id === 'limit') return { id, title: say('card_limit_title'), lines: lines('card_limit', 3) };
-    if (id === 'stake') return { id, title: say('card_stake_title'), lines: lines('card_stake', 2) };
-    if (id === 'levy') return { id, title: say('card_levy_title'), lines: lines('card_levy', 3) };
-    if (id !== 'rule') return null;
+    const card = CARDS[id];
+    if (!card) return null;
     const stake = formatNumber(tuning.beta, { style: 'percent' });
-    return {
-      id,
-      title: say('card_rule_title'),
-      lines: [say('card_rule_1'), say('card_rule_2', { stake }), say('card_rule_3'), say('card_rule_4')],
-    };
+    const lines = card.blocks.flatMap((b): CardLine[] => (b.kind === 'line' ? [say(b.key, { stake })] : b.kind === 'formula' ? [{ formula: b.tex }] : []));
+    const plot = card.blocks.find((b) => b.kind === 'plot');
+    const picture = plot?.kind === 'plot' ? pictureOf(plot.id) : undefined;
+    const toy = card.toy ? toyOf(card.toy) : undefined;
+    return { id, title: say(card.title), lines, ...(picture ? { picture } : {}), ...(toy ? { toy } : {}) };
   }
 
   /** On a wide stage the rule stands in the charts' column: nothing pops open over the room for it. */
@@ -2561,7 +2553,7 @@
   <div class="words" style={`opacity:${view.titleOn}; transform: translateY(${view.lift}px)`} inert={view.titleOn < 0.5}>
     <div class="teletype-slot" style={`opacity:${1 - view.compact}`} inert={view.compact > 0.5}>
       <Teletype
-        headline={say('open_headline')}
+        headline={say(HEADLINE)}
         source={say('open_source')}
         href={SOURCE_URL}
         progress={view.type}
@@ -2670,7 +2662,7 @@
 
       {#if PAIR_STEPS[current].pose.roomMode === 'map' && view.mapOn > 0.001}
         {@const m = mapBox}
-        <g class="map" role="img" aria-label={say('map_all')}>
+        <g class="map" role="img" aria-label={say(MAP_LABEL)}>
           {#each MAP_PARTICIPANTS as row, iy (iy)}
             {#each row as count, ix (ix)}
               {#if view.mapOn >= MAP_ORDER[iy][ix]}
@@ -2987,7 +2979,7 @@
       {/each}
     {/if}
 
-    {#if !L.column && runShown && current <= indexOf('why.once')}
+    {#if !L.column && runShown && current <= actEnd('run')}
       <p class="readout" aria-live="off">
         {say('run_readout', {
           trades: formatNumber(run.state.trades),

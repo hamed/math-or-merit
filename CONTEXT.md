@@ -33,10 +33,11 @@ State of the work, by the brief's own plan (Part 9):
   plate and loses text where it can. Recorded in D19.
 - **Phases 2–4: done, on `feat/step-stage`** (stacked on the groundwork PR, #19):
   - *Words:* Paraglide 2, locales en + fa (fa empty, falls back to English).
-    `scripts/prose-to-messages.ts` generates `messages/en.json` from prose.md;
-    `src/lib/content/prose.test.ts` refuses a stale file and enforces bubble
-    limits. `src/lib/i18n.ts` is the seam (`say(key, values)`, locale digits,
-    the one `dir`). **After any prose.md edit, run the script.**
+    **Superseded 2026-09-27 (ADR-019):** the words, the order and the waits
+    live in `script/*.tex`, compiled into `messages/en.json` and
+    `src/lib/content/story.gen.ts` (`npm run script:compile`; the dev server
+    recompiles on every save). `src/lib/i18n.ts` is still the seam
+    (`say(key, values)`, locale digits, the one `dir`).
   - *The player:* `stage/steps.ts` (headless machine, holds, restore) and
     `stage/StepStage.svelte` (engagement, one input rule, arrival, auto steps).
     `stage/Bubble.svelte`, `stage/SpeakerText.svelte`, `stage/ambient.ts`.
@@ -366,7 +367,9 @@ the owner's disk and in history, not in the tree): `CowScene.svelte`,
 
 ## The prose pass (R16–R28, 2026-08-25/26)
 
-**`notes/prose.md` is where prose is edited now.** It holds every word the reader
+**Superseded 2026-09-27 (ADR-019): `script/*.tex` is where every word is edited,
+read as a PDF (`npm run script:watch`), and the game reads it directly.** What
+follows is the history of the prose pass. `notes/prose.md` held every word the reader
 sees, in order, each line tagged (`[cow.3]`, `[human.8]`), with a `> picture:`
 note saying what is on screen while that line is read and a `! keep true:` line
 wherever a claim is load-bearing. The owner edits ONLY that file; carrying it
@@ -827,8 +830,8 @@ and the three build warnings (gone: `npm run build` prints none) are removed.
 
 **The stage (iteration 2)**
 
-1. **The wording pass.** Every scene exists; most lines are `(draft)` in
-   `notes/prose.md`, including the ending. Open inside it: the payoff of the
+1. **The wording pass.** Every scene exists; most lines carry `\todo{draft}` in
+   `script/script.tex`, including the ending. Open inside it: the payoff of the
    bets — Blue and Red's (Scene 9) and the reader's guess and bet (Scene 12) —
    which the ending never cashes.
 2. **Owner decisions postponed (2026-09-27):** the "All the dials" workshop

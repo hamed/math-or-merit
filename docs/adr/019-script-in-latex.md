@@ -35,19 +35,31 @@ described one story, and a test kept them from drifting.
    the parser never silently disagree.
 4. **The skeleton** (structure labels, actions, choice targets) is identical in
    every language; words between skeleton points are free.
-5. **Phased.** First the script reproduces the running game exactly
-   (`npm run script:diff`: 155/155 steps, 295/295 messages, 0 differences at
-   acceptance), and the owner edits it through the PDF. The build keeps
-   reading `messages/en.json` and `script.ts` until the owner says the PDF is
-   right; then **the switch**: the build reads the script, words first, then
-   order and timing.
+5. **Phased.** First the script reproduced the running game exactly (a
+   bridge, `script:diff`, proved 155/155 steps and 295/295 messages). Then,
+   2026-09-27, **the switch**: the build reads the script — words, order and
+   waits. `src/lib/script/compile.ts` turns it into `messages/en.json` and
+   `src/lib/content/story.gen.ts`; the pair stage builds its steps from the
+   story, finding the few steps it addresses by name by what they do
+   (`ROLES`). Acceptance: the steps built from the script equal the
+   hand-written ones field for field (152 poses, waits, actions, lines, flags,
+   logs; every event line), 21/21 browser tests, and a line edited in the
+   `.tex` shows on the stage 3.4 s after the save.
 
 ## Consequences
 
-- `notes/prose.md` is frozen: it still feeds the build until the switch, but it
-  is not edited. After the switch it goes.
-- `scripts/script-game.ts` and `script:diff` are a bridge that knows the step
-  list and the scene's special cases; they go at the switch.
+- `notes/prose.md` is retired (kept for its appendix); its pipeline
+  (`prose.ts`, `prose-to-messages.ts`) and the bridge (`script-game.ts`,
+  `script:diff`) are deleted.
+- The stage's special steps are named by `ROLES`; a test fails when an edit
+  leaves one without a step or with two. Scroll scenes (the cow, the human)
+  keep their beats in code (`CAPTION_BEATS`).
+- The dev server recompiles on save and the page reloads (3.4 s save to
+  stage, over the brief's 2 s: Paraglide's messages reload the page rather than
+  hot-swap). Formulas render with KaTeX, loaded only with a card that has one.
+- Farsi: the stage's steps are built from the English script, so a translation
+  can't yet change the number of bubbles; `messages/fa.json` is not compiled.
+  `\gls` links show in the PDF; on the web the words show without the link.
 - Where the code does something the grammar can say only loosely — the
   four-person readout (`interrupts`) — the script names it and the code keeps
   the how.
@@ -61,10 +73,9 @@ described one story, and a test kept them from drifting.
 
 ## Later (from the brief, not built yet)
 
-At the switch: `script.json` per language, the no-drift test (every bubble on
-stage comes from the script, every script id is used), the live stage (save a
-`.tex`, see it on stage in under 2 s, jumping to the edited panel), stamped
-panel thumbnails in the PDF, translations carried over by matching text. Later
+Per-language steps (Farsi's own bubbles), jumping to the edited panel on save,
+a hot swap instead of a reload, stamped panel thumbnails in the PDF,
+translations carried over by matching text, `\gls` as a tap on the web. Later
 still: the static HTML transcript (the no-JS fallback), voice-over, Beamer
 slides, share cards, the bibliography, styled PDF bubbles.
 

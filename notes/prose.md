@@ -1,8 +1,9 @@
 # The words
 
-> **Frozen 2026-09-27 — edit `script/` instead** (ADR-019): `script/script.tex`
-> and its PDF (`npm run script:watch`). This file still feeds the build until
-> the switch, so it stays as it is; changes made here are lost.
+> **Retired 2026-09-27 — the game reads `script/` now** (ADR-019): edit
+> `script/script.tex` and read it as a PDF (`npm run script:watch`). Nothing
+> reads this file any more; it stays for its appendix (the retiring narrator
+> lines) and as history.
 
 Every word the reader sees, in order, with just enough of the picture to know
 what you are writing over. **Edit this file only.** Getting it back into the

@@ -24,10 +24,17 @@ async function stepIds(page: Page): Promise<string[]> {
   });
 }
 
-/** Open the essay with the stage restored at step `id`, holds released unless `holding`. */
-async function openAt(page: Page, id: string, holding: readonly string[] = []): Promise<string[]> {
+/**
+ * Open the essay with the stage restored at step `id` — a step's name, or `#scene`
+ * for the first step of a scene as the script labels it — holds released unless
+ * `holding`.
+ */
+async function openAt(page: Page, at: string, holding: readonly string[] = []): Promise<string[]> {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const ids = await stepIds(page);
+  const id = at.startsWith('#')
+    ? await page.evaluate(async (label) => (await import('/src/lib/widgets/stage/scenes/pair/script.ts')).labelStep(label), at.slice(1))
+    : at;
   await page.evaluate(
     ({ key, index, released }) => sessionStorage.setItem(key, JSON.stringify({ index, released })),
     { key: STAGE_KEY, index: ids.indexOf(id), released: HOLDS.filter((h) => !holding.includes(h)) },
@@ -90,28 +97,31 @@ test('the title fits a phone and the stage owns the viewport', async ({ page }) 
 
 test('one key press is one step, and the reverse key goes back', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'merit.1b');
+  await openAt(page, '#merit');
+  const start = await stepNow(page);
   await page.keyboard.press('ArrowDown');
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('merit.1r'));
+  await expect.poll(() => stepNow(page)).toBe(start + 1);
   await page.keyboard.press('ArrowUp');
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('merit.1b'));
+  await expect.poll(() => stepNow(page)).toBe(start);
 });
 
 test('a trackpad flick and its inertia tail advance exactly one step', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'merit.1b');
+  await openAt(page, '#merit');
+  const start = await stepNow(page);
   await page.mouse.move(720, 450);
   await trackpadFlick(page, 1);
   await page.waitForTimeout(700);
-  expect(await stepNow(page)).toBe(ids.indexOf('merit.1r'));
+  expect(await stepNow(page)).toBe(start + 1);
   await trackpadFlick(page, -1);
   await page.waitForTimeout(700);
-  expect(await stepNow(page)).toBe(ids.indexOf('merit.1b'));
+  expect(await stepNow(page)).toBe(start);
 });
 
 test('a swipe is one step', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const ids = await openAt(page, 'merit.1b');
+  await openAt(page, '#merit');
+  const start = await stepNow(page);
   await page.evaluate(() => {
     const target = document.body;
     const begin = new Touch({ identifier: 1, target, clientX: 195, clientY: 700 });
@@ -119,7 +129,7 @@ test('a swipe is one step', async ({ page }) => {
     window.dispatchEvent(new TouchEvent('touchstart', { touches: [begin], bubbles: true, cancelable: true }));
     window.dispatchEvent(new TouchEvent('touchend', { changedTouches: [end], bubbles: true, cancelable: true }));
   });
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('merit.1r'));
+  await expect.poll(() => stepNow(page)).toBe(start + 1);
 });
 
 test('a hold waits for the reader: Red is called by a click, not by scrolling past', async ({ page }) => {
@@ -134,7 +144,7 @@ test('a hold waits for the reader: Red is called by a click, not by scrolling pa
 
 test('the chapter index stays in view while the stage waits for the reader', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openAt(page, 'merit.1b');
+  await openAt(page, '#merit');
   const index = page.locator('.index');
   await expect(index).toHaveClass(/shown/);
   await page.waitForTimeout(400);
@@ -143,9 +153,10 @@ test('the chapter index stays in view while the stage waits for the reader', asy
 
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'gini.ask');
+  await openAt(page, '#gini');
+  const at = await stepNow(page);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(stage(page)).toHaveAttribute('data-step', String(ids.indexOf('gini.ask')));
+  await expect(stage(page)).toHaveAttribute('data-step', String(at));
 });
 
 test('past its last step the stage lets the page go on', async ({ page }) => {
@@ -169,7 +180,7 @@ test('in the live tax game a click is a tap on the room, never a step', async ({
   expect(await stepNow(page)).toBe(ids.indexOf('stop.how'));
   // the reading keys still move on, and leaving ends the game
   await page.keyboard.press('ArrowDown');
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.hand'));
+  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
   await expect(page.locator('.meter')).toBeHidden();
 });
 

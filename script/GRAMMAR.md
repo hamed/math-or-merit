@@ -4,12 +4,17 @@ Every word the reader sees lives in `script/`, in plain LaTeX that a person
 reads first and a small parser reads second. This file is the contract between
 the two (ADR-019). Changing it goes back to the owner.
 
-**Build.** `npm run script:watch` rebuilds `script/out/main.pdf` on every save,
-in a few seconds; keep the PDF open in an editor tab and it refreshes.
-`npm run script:pdf` builds English and Farsi once. Lint runs first: a script
-that breaks this grammar makes no PDF, and the error names its file and line.
-`npm run script:lint` lists the warnings too; `npm run script:diff` lists how
-the script differs from the game that is running now.
+**The game reads the script.** With `npm run dev` running, saving a `.tex`
+file recompiles the words, the order and the waits into the game
+(`messages/en.json`, `src/lib/content/story.gen.ts`), and the page reloads on
+the step you were reading. A script that breaks the grammar changes nothing:
+the game keeps the last good version and the error shows on the page and in
+the terminal.
+
+**The PDF.** `npm run script:watch` rebuilds `script/out/main.pdf` on every
+save; keep it open in an editor tab and it refreshes. Its side panel lists every
+act, scene and card. `npm run script:pdf` builds English and Farsi once. Lint
+runs first here too. `npm run script:lint` lists the warnings as well.
 
 ## Files
 
@@ -23,6 +28,15 @@ the script differs from the game that is running now.
 | `main.tex` | the PDF's style, and which files it reads in which order |
 | `render.lua` | draws the plain paragraphs for the PDF; the app never needs it |
 | `fa/…` | one folder per language, same file names |
+
+**What the stage needs from the script.** A few steps do something only the
+stage knows how to do, and it finds them by what they do, never by where they
+are: the bubble with `\meet{red}` is Red's call, the one with `\equalize` is the
+hold for 8 and 8, the choices answering `prediction=` are the guess, and so on
+(`ROLES` in `scenes/pair/script.ts`). Move, add or cut lines freely; if an edit
+removes one of these, the tests say which. A side trip's captions fall on its
+plates by beat (`CAPTION_BEATS` in `src/lib/content/story.ts`): adding a caption
+to the cow needs a beat for it.
 
 **The timeline shows everything the reader could see at that moment, in
 place.** What stands on its own — a card, a widget — is a **unit**: a file of
