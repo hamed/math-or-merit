@@ -25,16 +25,25 @@ async function stepIds(page: Page): Promise<string[]> {
 }
 
 /**
- * Open the essay with the stage restored at step `id` — a step's name, or `#scene`
- * for the first step of a scene as the script labels it — holds released unless
- * `holding`.
+ * Open the essay with the stage restored at step `id` — a step's name, or
+ * `@keyline` for the first key line after both have been met (followed by
+ * another) — holds released unless `holding`. Never a scene's label: the owner
+ * renames those.
  */
 async function openAt(page: Page, at: string, holding: readonly string[] = []): Promise<string[]> {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const ids = await stepIds(page);
-  const id = at.startsWith('#')
-    ? await page.evaluate(async (label) => (await import('/src/lib/widgets/stage/scenes/pair/script.ts')).labelStep(label), at.slice(1))
-    : at;
+  const id =
+    at === '@keyline'
+      ? await page.evaluate(async () => {
+          const { PAIR_STEPS, indexOf } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+          const met = indexOf('call.blue');
+          const i = PAIR_STEPS.findIndex(
+            (s: { wait: { kind: string } }, k: number) => k > met && s.wait.kind === 'reader' && PAIR_STEPS[k + 1]?.wait.kind === 'reader',
+          );
+          return PAIR_STEPS[i].id as string;
+        })
+      : at;
   await page.evaluate(
     ({ key, index, released }) => sessionStorage.setItem(key, JSON.stringify({ index, released })),
     { key: STAGE_KEY, index: ids.indexOf(id), released: HOLDS.filter((h) => !holding.includes(h)) },
@@ -97,7 +106,7 @@ test('the title fits a phone and the stage owns the viewport', async ({ page }) 
 
 test('one key press is one step, and the reverse key goes back', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openAt(page, '#merit');
+  await openAt(page, '@keyline');
   const start = await stepNow(page);
   await page.keyboard.press('ArrowDown');
   await expect.poll(() => stepNow(page)).toBe(start + 1);
@@ -107,7 +116,7 @@ test('one key press is one step, and the reverse key goes back', async ({ page }
 
 test('a trackpad flick and its inertia tail advance exactly one step', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openAt(page, '#merit');
+  await openAt(page, '@keyline');
   const start = await stepNow(page);
   await page.mouse.move(720, 450);
   await trackpadFlick(page, 1);
@@ -120,7 +129,7 @@ test('a trackpad flick and its inertia tail advance exactly one step', async ({ 
 
 test('a swipe is one step', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await openAt(page, '#merit');
+  await openAt(page, '@keyline');
   const start = await stepNow(page);
   await page.evaluate(() => {
     const target = document.body;
@@ -144,7 +153,7 @@ test('a hold waits for the reader: Red is called by a click, not by scrolling pa
 
 test('the chapter index stays in view while the stage waits for the reader', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openAt(page, '#merit');
+  await openAt(page, '@keyline');
   const index = page.locator('.index');
   await expect(index).toHaveClass(/shown/);
   await page.waitForTimeout(400);
@@ -153,7 +162,7 @@ test('the chapter index stays in view while the stage waits for the reader', asy
 
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openAt(page, '#gini');
+  await openAt(page, 'gini.value');
   const at = await stepNow(page);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(stage(page)).toHaveAttribute('data-step', String(at));

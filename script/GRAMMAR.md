@@ -29,6 +29,17 @@ runs first here too. `npm run script:lint` lists the warnings as well.
 | `render.lua` | draws the plain paragraphs for the PDF; the app never needs it |
 | `fa/…` | one folder per language, same file names |
 
+**Change freely:** every word; act and scene titles (the PDF shows them, the
+game doesn't); stage directions, comments and notes; the order of lines; adding
+and cutting lines; manners; speaker names in `decl.tex` (`\speaker{blue}{Blue}`:
+the second one); act and scene labels — a choice that points at a renamed label
+is a lint error that names it.
+
+**Names the code uses — change them with an agent:** the side trips' labels
+(`cow`, `human`, `workshop`), the keys in `\item[…]`, the names in `\val{…}`,
+action words and their arguments, the file names in `cards/` and `widgets/`, and
+speaker ids (`\speaker{blue}{…}`: the first one).
+
 **What the stage needs from the script.** A few steps do something only the
 stage knows how to do, and it finds them by what they do, never by where they
 are: the bubble with `\meet{red}` is Red's call, the one with `\equalize` is the

@@ -215,7 +215,11 @@ const answers = (s: StoryStep, fact: string) => s.choices.some((c) => c.target.s
 const when = (s: StoryStep, fact: string) => !!s.groups?.some((g) => g.cond.kind === 'when' && g.cond.name === fact);
 const needs = (s: StoryStep, value: string) => !!s.vals?.includes(value);
 
-/** name → what the step does. Each must match exactly one step of the script (a test holds it). */
+/**
+ * name → what the step does, never where it is or what its scene is called:
+ * the owner renames scenes and moves lines. Each must match exactly one step
+ * of the script (a test holds it).
+ */
 export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'title.type': (s) => s.manner.includes('teletype'),
   'title.math': (s) => cue(s, 'reveal', 'math'),
@@ -230,17 +234,17 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'run.banter': (s) => when(s, 'winner'),
   'run.again': (s) => targets(s, '\\run'),
   'why.after': (s) => when(s, 'runs'),
-  'sort.there': (s) => s.scene === 'sort' && needs(s, 'count'),
+  'sort.there': (s) => needs(s, 'count') && s.cues.length === 0 && s.choices.length === 0,
   'gini.value': (s) => needs(s, 'gini'),
   'gini.toy': (s) => targets(s, '\\reveal{toy:gini}'),
   'eff.brutal': (s) => cue(s, 'arrange', 'zero'),
   'eff.give': (s) => cue(s, 'arrange', 'double'),
   'eff.half': (s) => cue(s, 'arrange', 'half'),
   'eff.one': (s) => cue(s, 'arrange', 'one'),
-  'eff.room': (s) => s.scene === 'count' && needs(s, 'count') && cue(s, 'arrange', 'free') && !cue(s, 'card'),
+  'eff.room': (s) => needs(s, 'count') && cue(s, 'arrange', 'free') && !cue(s, 'card'),
   'eff.try': (s) => cue(s, 'arrange', 'four'),
   'eff.end': (s) => cue(s, 'card', 'participants'),
-  'turn.busy': (s) => s.scene === 'turnover' && needs(s, 'trades'),
+  'turn.busy': (s) => needs(s, 'trades'),
   'turn.start': (s) => needs(s, 'early'),
   'turn.now': (s) => needs(s, 'late'),
   'end.longer': (s) => targets(s, '\\run[longer]'),
