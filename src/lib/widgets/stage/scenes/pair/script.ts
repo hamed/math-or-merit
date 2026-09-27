@@ -114,6 +114,7 @@ export type RoomMode =
 /** What a step does on the way in, for the scene's choreography. */
 export type Action =
   | 'type'
+  | 'arrive'
   | 'merit'
   | 'or'
   | 'reel-math'
@@ -304,6 +305,8 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
   switch (action) {
     case 'type':
       return 4600;
+    case 'arrive':
+      return 4600;
     case 'merit':
       return 1500;
     case 'or':
@@ -338,7 +341,7 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
     const [arg = ''] = c.args;
     switch (`${c.name}${c.opt !== undefined ? `[${c.opt}]` : ''}:${arg}`) {
       case 'crowd:idle':
-        p = { ...p, crowd: 'idle' };
+        [p, action] = [{ ...p, crowd: 'idle' }, 'arrive'];
         break;
       case 'crowd:payout':
         [p, action] = [{ ...p, crowd: 'paid' }, 'payout'];

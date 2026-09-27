@@ -32,6 +32,8 @@ export interface ChatItem {
    * talk to each other (owner review 2026-09-26).
    */
   readonly aside?: boolean;
+  /** A passing line (a call, "Hi… over here"): it never pushes an aside away. */
+  readonly brief?: boolean;
 }
 
 export interface Column {
@@ -168,8 +170,7 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
       const top = p.y + shift;
       const tail = item.anchor ? tailToward({ x: p.x, y: top, w: item.w, h: item.h }, item.anchor, p.onLeft) : null;
       const old = k < laid.length - keep;
-      // an aside to the reader goes as soon as anyone says the next thing
-      const passed = !!item.aside && p.i < items.length - 1;
+      const passed = !!item.aside && overtaken(items, p.i);
       placed[p.i] = { x: p.x, y: top, gone: k < laid.length - 1 && (old || passed || top < column.top - 1), tail };
     });
   }
@@ -190,7 +191,7 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
       .forEach(({ item, i }, k) => {
         const a = item.anchor!;
         const reach = Math.max(a.r, 12);
-        const passed = i < items.length - 1;
+        const passed = overtaken(items, i);
         let gone = k >= asides || passed;
         // up and outward at about 45° (owner review 2026-09-27): the corner
         // nearest the circle sits on that diagonal, the tail points at the centre
@@ -222,6 +223,16 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
       });
   }
   return placed;
+}
+
+/**
+ * An aside stays until something as weighty is said after it: another aside
+ * or a line of the talk — not a passing call, not a logged event (owner
+ * review 2026-09-27).
+ */
+function overtaken(items: readonly ChatItem[], i: number): boolean {
+  for (let j = i + 1; j < items.length; j++) if (items[j].anchor && !items[j].brief) return true;
+  return false;
 }
 
 /**

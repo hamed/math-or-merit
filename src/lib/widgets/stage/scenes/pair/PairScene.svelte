@@ -1377,6 +1377,8 @@
     paper?: { masthead: string; text: string; source: string; style: AgentStyle };
     /** Said to the reader, not to the other one: on the speaker's outer side. */
     aside?: boolean;
+    /** A passing line (a call): it never pushes an aside away. */
+    brief?: boolean;
     choices?: readonly BubbleChoice[];
     /** A control the reader holds, inside the bubble (Scene 20's dial). */
     control?: Snippet;
@@ -1460,13 +1462,13 @@
             heard.push({ at: metAt[who], said: { id: `${step.id}:met-${who}`, who, at: who, text: say(intro.message), aside: true } });
           } else if (callLevel[who] >= 0) {
             const pool = who === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
-            heard.push({ at: callAt[who], said: { id: `${step.id}:${who}#${callLevel[who]}`, who: null, at: who, text: say(pool[callLevel[who]]), aside: true } });
+            heard.push({ at: callAt[who], said: { id: `${step.id}:${who}#${callLevel[who]}`, who: null, at: who, text: say(pool[callLevel[who]]), aside: true, brief: true } });
           }
         }
         out.push(...heard.sort((a, b) => a.at - b.at).map((h) => h.said));
         continue;
       }
-      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside });
+      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside, brief: step.brief });
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
     if (PAIR_STEPS[current].pose.control === 'sandbox') out.push(...sandboxPapers);
@@ -1784,7 +1786,8 @@
   const inPicture = $derived(PAIR_STEPS[current].pose.place === 'room' && PICTURES.includes(PAIR_STEPS[current].pose.roomMode));
 
   const column = $derived.by(() => {
-    const right = L.column ? L.column.x - 8 : width;
+    // the charts' column is only kept clear while there are charts: in the room
+    const right = L.column && PAIR_STEPS[current].pose.place === 'room' ? L.column.x - 8 : width;
     const c = chatColumn(PAIR.map((who) => anchorOf(who)), right, region.top, region.bottom);
     if (!inPicture) return c;
     const box = L.room.box;
@@ -1804,7 +1807,7 @@
 
   const placed = $derived(
     stackChat(
-      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null, aside: b.aside })),
+      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null, aside: b.aside, brief: b.brief })),
       column,
       PAIR_STEPS[current].pose.place === 'room' ? 4 : 6,
       2,
@@ -1868,6 +1871,8 @@
     switch (action) {
       case 'type':
         tl.to(view, { type: 1, duration: 3.6, ease: 'none' }, 0.5);
+        return;
+      case 'arrive':
         arrive(tl);
         return;
       case 'merit':

@@ -109,6 +109,11 @@ describe('the talk, as a chat window', () => {
     expect(crammed[2].gone).toBe(false);
   });
 
+  it('keeps an aside through passing calls, until an aside or the talk says something', () => {
+    const laid = stackChat([{ w: 150, h: 36, anchor: RED, aside: true }, { w: 90, h: 30, anchor: BLUE, aside: true, brief: true }], COLUMN);
+    expect(laid[0].gone).toBe(false);
+  });
+
   it('lets an aside go as soon as anyone says the next thing', () => {
     const asides = Array.from({ length: 4 }, () => ({ w: 150, h: 36, anchor: BLUE, aside: true }));
     expect(stackChat(asides, { ...COLUMN, top: -10_000 }).map((p) => p.gone)).toEqual([true, true, true, false]);
