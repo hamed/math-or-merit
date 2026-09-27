@@ -1,13 +1,13 @@
 /**
- * How the crowd moves while the coins rain (owner review 2026-09-26): nobody
- * flies; everyone hops, small and a little irregular, and everyone scrambles
- * toward the coins. Whoever a drop belongs to (crowd.ts) gets under it in time
- * and jumps for it; the one or two nearest go for it too, arrive a beat late,
- * and stop. Pure and deterministic, so the scene can play it AND settle to the
- * exact places it ends in.
+ * How the crowd moves while the coins rain (owner reviews 2026-09-26,
+ * 2026-09-27): a coin lands on whoever it lands on — a bigger circle is a
+ * bigger target, so nobody has to run for it: the one it lands on shifts a
+ * little under it and bumps up to meet it. The one or two nearest scramble
+ * for it anyway, arrive a beat late, and stop. Pure and deterministic, so the
+ * scene can play it AND settle to the exact places it ends in.
  */
 import type { Point } from '../../../shared/layout';
-import { BIG, DROPS } from './crowd';
+import { DROPS } from './crowd';
 
 export interface Box {
   readonly x: number;
@@ -47,7 +47,7 @@ export interface RainPlan {
 
 /** One small hop, seconds; and the seconds between one drop and the next. */
 export const HOP_SECONDS = 0.26;
-export const DROP_GAP = 0.36;
+export const DROP_GAP = 0.16;
 /** How long a coin takes to fall from MATH. */
 export const FALL = 0.7;
 
@@ -75,17 +75,15 @@ export function planRain(homes: readonly Point[], band: Box, one: number): RainP
   DROPS.forEach((drop, k) => {
     const who = drop.who;
     const from = pos[who];
-    // Blue keeps moving to where the coins come down; everyone else waits near home
-    const reach = who === BIG ? one * (1.4 + noise(k, 1) * 2.4) : one * (0.3 + noise(k, 2) * 1.1);
-    const angle = noise(k, 3) * Math.PI * 2;
-    const spot = inside({ x: from.x + Math.cos(angle) * reach, y: from.y + Math.sin(angle) * reach * 0.45 });
+    // the coin comes to its target where it stands: nobody runs for their own coin
+    const spot = inside({ ...from });
     const travel = hopsFor(Math.hypot(spot.x - from.x, spot.y - from.y), hop) * HOP_SECONDS;
     const base = 0.4 + k * DROP_GAP + FALL;
     const depart = Math.max(busy[who], base - travel - 0.05);
     const land = depart + travel + 0.05;
     catches.push({ drop: k, who, count: drop.count, from: { ...from }, spot, depart, land });
     pos[who] = spot;
-    busy[who] = land + 0.35;
+    busy[who] = land + 0.08;
 
     // the nearest one or two go for it as well, and arrive a beat late
     const rivals = pos

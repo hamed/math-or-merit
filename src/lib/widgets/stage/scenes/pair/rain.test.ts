@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DROPS, RAINED } from './crowd';
+import { DROPS, RAINED, START } from './crowd';
 import { pairLayout } from './layout';
 import { planRain, type Box } from './rain';
 import { RAIN_WAIT_MS } from './script';
@@ -12,9 +12,9 @@ for (const [w, h] of [[1366, 768], [390, 844], [1920, 1080]]) {
 
     it('gives every drop to its owner, so everyone ends with what crowd.ts says', () => {
       expect(plan.catches.map((c) => [c.who, c.count])).toEqual(DROPS.map((d) => [d.who, d.count]));
-      const caught = new Array(RAINED.length).fill(0);
-      for (const c of plan.catches) caught[c.who] += c.count;
-      expect(caught).toEqual([...RAINED]);
+      const held = [...START];
+      for (const c of plan.catches) held[c.who] += c.count;
+      expect(held).toEqual([...RAINED]);
     });
 
     it('never has anyone in two places at once: each move starts where the last one ended', () => {

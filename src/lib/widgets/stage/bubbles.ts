@@ -119,6 +119,15 @@ export function tailBeside(box: { x: number; y: number; w: number; h: number }, 
   return { edge, base, tip: { x: edgeX + ux * TAIL_LENGTH, y: base + uy * TAIL_LENGTH } };
 }
 
+/** A tail from the bottom corner nearest the speaker, pointing at the centre of his circle. */
+export function tailAtCorner(box: { x: number; y: number; w: number; h: number }, anchor: Anchor, onLeftOfSpeaker: boolean): Tail {
+  const inset = Math.min(TAIL_INSET, box.w / 2);
+  const base = onLeftOfSpeaker ? box.w - inset : inset;
+  const from = { x: box.x + base, y: box.y + box.h };
+  const dist = Math.hypot(anchor.x - from.x, anchor.y - from.y) || 1;
+  return { edge: 'bottom', base, tip: { x: base + ((anchor.x - from.x) / dist) * TAIL_LENGTH, y: box.h + ((anchor.y - from.y) / dist) * TAIL_LENGTH } };
+}
+
 /**
  * Lay the talk out. `items` in time order, oldest first.
  *
@@ -183,12 +192,16 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
         const reach = Math.max(a.r, 12);
         const passed = i < items.length - 1;
         let gone = k >= asides || passed;
-        // beside: left of a speaker on the left, right of one on the right
-        const beside = side ? a.x - reach - TAIL_LENGTH - 6 - item.w : a.x + reach + TAIL_LENGTH + 6;
-        if (beside >= column.left && beside + item.w <= column.right) {
-          const box: Box = { x: beside, y: Math.max(column.top, a.y - item.h / 2), w: item.w, h: item.h };
+        // up and outward at about 45° (owner review 2026-09-27): the corner
+        // nearest the circle sits on that diagonal, the tail points at the centre
+        const d = (reach + TAIL_LENGTH + 6) * Math.SQRT1_2;
+        const cx = side ? a.x - d : a.x + d;
+        const x45 = side ? cx - item.w : cx;
+        const y45 = a.y - d - item.h;
+        if (x45 >= column.left && x45 + item.w <= column.right && y45 >= column.top - 1) {
+          const box: Box = { x: x45, y: y45, w: item.w, h: item.h };
           if (!gone) taken.push(box);
-          placed[i] = { x: box.x, y: box.y, gone, tail: tailBeside(box, a, side ? 'right' : 'left') };
+          placed[i] = { x: box.x, y: box.y, gone, tail: tailAtCorner(box, a, side) };
           return;
         }
         let x = side ? a.x + reach * 0.35 - item.w : a.x - reach * 0.35;
@@ -218,8 +231,12 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
 export function talkSpan(items: readonly ChatItem[], column: Column): { left: number; right: number } | null {
   const xs = items.flatMap((item) => (item.anchor ? [item.anchor.x] : []));
   if (xs.length === 0) return null;
-  let left = Math.min(...xs, column.mid);
-  let right = Math.max(...xs, column.mid);
+  // the rule of thirds (owner review 2026-09-27): centre to centre is the full
+  // width; the talk runs between its two third lines
+  const lo = Math.min(...xs, column.mid);
+  const hi = Math.max(...xs, column.mid);
+  let left = lo + (hi - lo) / 3;
+  let right = hi - (hi - lo) / 3;
   const least = Math.min(TALK_MIN, column.right - column.left);
   if (right - left < least) [left, right] = [column.mid - least / 2, column.mid + least / 2];
   left = Math.max(left, column.left);

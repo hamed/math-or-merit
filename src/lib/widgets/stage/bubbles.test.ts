@@ -24,11 +24,15 @@ describe('the talk, as a chat window', () => {
     for (let i = 1; i < placed.length; i++) expect(placed[i].y).toBeGreaterThanOrEqual(placed[i - 1].y + items[i - 1].h);
   });
 
-  it('runs the talk from one centre to the other, each line flush with its own speaker', () => {
-    // owner review 2026-09-27: the chat is as wide as the distance between the two
-    expect(placed[0].x).toBeCloseTo(BLUE.x, 6);
-    expect(placed[1].x + 300).toBeCloseTo(RED.x, 6);
-    expect(placed[4].x + 260).toBeCloseTo(RED.x, 6);
+  it('runs the talk between the third lines of the two centres, each line flush with its own side', () => {
+    // owner review 2026-09-27: centre to centre is the full width; the talk is its middle third
+    const third = (RED.x - BLUE.x) / 3;
+    const left = BLUE.x + third;
+    const right = RED.x - third;
+    const width = Math.max(right - left, TALK_MIN);
+    const mid = (BLUE.x + RED.x) / 2;
+    expect(placed[0].x).toBeCloseTo(Math.min(left, mid - width / 2), 6);
+    expect(placed[1].x + 300).toBeCloseTo(Math.max(right, mid + width / 2), 6);
   });
 
   it('keeps the talk readable when the two stand close: never narrower than a line', () => {
@@ -68,19 +72,16 @@ describe('the talk, as a chat window', () => {
     for (const p of laid.filter((q) => !q.gone)) expect(p.y).toBeGreaterThanOrEqual(COLUMN.top - 1);
   });
 
-  it('puts what is said to the reader beside the speaker, outside the talk, pointing at his centre', () => {
+  it('puts what is said to the reader up and outward, about 45°, pointing at his centre', () => {
     const blueAside = stackChat([said(240, 50), { w: 200, h: 40, anchor: BLUE, aside: true }], COLUMN)[1];
-    // left of Blue, at his height, its right edge toward him
-    expect(blueAside.x + 200).toBeLessThan(BLUE.x - BLUE.r);
-    expect(blueAside.y).toBeLessThan(BLUE.y);
-    expect(blueAside.y + 40).toBeGreaterThan(BLUE.y);
-    expect(blueAside.tail!.edge).toBe('right');
+    // above and to the left of Blue: its bottom-right corner on his upper-left diagonal
+    const bx = BLUE.x - (blueAside.x + 200);
+    const by = BLUE.y - (blueAside.y + 40);
+    expect(bx).toBeGreaterThan(0);
+    expect(by).toBeCloseTo(bx, 6);
     const redAside = stackChat([said(240, 50, RED), { w: 200, h: 40, anchor: RED, aside: true }], COLUMN)[1];
-    // right of Red, the other way
-    expect(redAside.x).toBeGreaterThan(RED.x + RED.r);
-    expect(redAside.tail!.edge).toBe('left');
-    // the tail points at the centre of the circle
-    const base = { x: redAside.x, y: redAside.y + redAside.tail!.base };
+    expect(redAside.x - RED.x).toBeCloseTo(RED.y - (redAside.y + 40), 6);
+    const base = { x: redAside.x + redAside.tail!.base, y: redAside.y + 40 };
     const tip = { x: redAside.x + redAside.tail!.tip.x, y: redAside.y + redAside.tail!.tip.y };
     const aim = { x: RED.x - base.x, y: RED.y - base.y };
     const dir = { x: tip.x - base.x, y: tip.y - base.y };
