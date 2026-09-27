@@ -40,10 +40,12 @@
   \def\cardname{Card}
 \fi
 \babelfont{tt}{DejaVu Sans Mono}
+\usepackage{unicode-math}
+\setmathfont{DejaVu Math TeX Gyre}
 
 \usepackage{xcolor, graphicx, titlesec}
 \usepackage[colorinlistoftodos, textsize=scriptsize, color=orange!25]{todonotes}
-\usepackage[hidelinks]{hyperref}
+\usepackage[hidelinks, bookmarksopen, bookmarksopenlevel=1, bookmarksnumbered]{hyperref}
 
 \definecolor{sp-blue}{HTML}{1F5FBF}
 \definecolor{sp-red}{HTML}{C0392B}
@@ -52,6 +54,7 @@
 \definecolor{quiet}{gray}{0.45}
 \definecolor{adapt}{HTML}{7B3FA0}
 \definecolor{cardc}{HTML}{2E7D5B}
+\definecolor{draftc}{HTML}{D9822B}
 
 \setlength\parindent{0pt}
 \setlength\parskip{0.9ex plus 0.3ex}
@@ -98,7 +101,7 @@
 \newcommand\direction{\par\begingroup\small\dirshape\color{quiet}\noindent}
 \def\enddirection{\par\endgroup}
 % a unit's words: each line a line
-\newcommand\words{\par\begingroup\noindent}
+\newcommand\words{\par\begingroup\inwordstrue\noindent}
 \def\endwords{\par\endgroup}
 \newcommand\panelmark[1]{%
   \par{\ttfamily\scriptsize\color{quiet}\##1\hfill
@@ -151,12 +154,9 @@
   \IfFileExists{\langdir cards/#1.tex}{\scriptunit{\langdir cards/#1}}{\act{card}{#1: not written yet}}%
   \par\noindent\textcolor{cardc}{\rule{\dimexpr\linewidth\relax}{0.4pt}}\par\endgroup\medskip}
 \newcommand\cardtitle[2]{\par\noindent\phantomsection\label{card:#1}%
-  \addcontentsline{loc}{subsection}{#2}%
+  \pdfbookmark[3]{\cardname: #2}{bm-card-#1}%
   \textcolor{cardc}{\rule{\dimexpr\linewidth\relax}{0.4pt}}\par\noindent
   {\sffamily\bfseries\color{cardc}\cardname\enspace #2}\par}
-\makeatletter
-\newcommand\listofcards{\section*{\cardname s}\@starttoc{loc}}
-\makeatother
 
 % --- units at the back: every file of a folder, its \section a heading
 \newcommand\unitinclude[1]{\begingroup\def\section##1{\subsection*{##1}}\scriptunit{\langdir #1}\endgroup}
@@ -181,8 +181,13 @@
   \textbf{keep true:} #1}}
 \newcommand\adapt[1]{\claimpar{\scriptsize\raggedright\color{adapt}
   \textbf{adapt:} #1}}
+% a note on words not yet the owner's: a small tag where the words end, never a margin box
+\newif\ifinwords
 \let\todonote\todo
-\renewcommand\todo[1]{{\let\marginpar\claimpar\todonote{#1}}}
+\renewcommand\todo[1]{%
+  \ifinbubble\edef\bubbletag{\noexpand\textcolor{draftc}{#1}\enspace\unexpanded\expandafter{\bubbletag}}%
+  \else\ifinwords\unskip\nobreak\hfill{\ttfamily\tiny\color{draftc}#1}%
+  \else{\let\marginpar\claimpar\todonote{#1}}\fi\fi}
 
 \title{Merit or Math? --- the script}
 \author{}
@@ -190,14 +195,13 @@
 
 \begin{document}
 \maketitle
-\tableofcontents
 
-\section*{Cast and settings}
+\section*{Cast and settings}\pdfbookmark[0]{Cast and settings}{bm-cast}
 \input{\langdir decl}
 
 \scriptinput{\langdir script}
 \IfFileExists{\langdir pool.tex}{%
-  \part*{Material}\addcontentsline{toc}{part}{Material}%
+  \part*{Material}\pdfbookmark[0]{Material}{bm-material}%
   \scriptinput{\langdir pool}}{}
 
 % side trips: acts of their own, scenes B1, B2, B3
@@ -209,6 +213,4 @@
 
 \includeunits{widgets}{The widgets' words}
 
-\listofcards
-\listoftodos
 \end{document}
