@@ -13,7 +13,7 @@
    * window (bubbles.ts): time runs down the column, lines stay while they are
    * still context, and what happened is logged among them.
    */
-  import { getContext, onMount, untrack, type Snippet } from 'svelte';
+  import { getContext, onMount, tick, untrack, type Snippet } from 'svelte';
   import { gsap } from '../../gsap';
   import Bubble from '../../Bubble.svelte';
   import CardStack, { type Card, type CardLine } from '../../CardStack.svelte';
@@ -98,7 +98,7 @@
   import { FaceBoard, type FaceColours } from '../../../shared/face/faceElement';
   import { CONTEMPT, stillOf } from '../../../shared/face/moments';
   import { FACE_CHOICES, chooseFace, faceStyle, loadFaceStyle, type FaceChoice } from '../../../shared/face/faceStyle.svelte';
-  import { StageFaces, talkSeconds, type Body, type FaceScene, type TitleCue } from './stageFaces';
+  import { StageFaces, talkSeconds, type Body, type FaceScene, type HeldLine, type TitleCue } from './stageFaces';
 
   const stage = getContext<StepStageContext | undefined>(STEP_STAGE_CONTEXT);
 
@@ -416,6 +416,8 @@
   function settle(index: number): void {
     current = index;
     titleCue = null;
+    hush = false;
+    placeDial(index, false);
     stopMotion();
     stopCalls();
     reaction = null;
@@ -456,21 +458,28 @@
     cardPlaying = null;
     fourPick = null;
     if (step.id === 'eff.try') fourCoins = [4, 4, 4, 4];
-    if (step.action === 'run') {
-      if (stage?.reduced) {
-        run.start();
-        run.finish();
-        logReady = true;
-      } else
-        run.start(() => {
-          logReady = true;
-          printPaper();
-        });
+    hush = false;
+    placeDial(index, true);
+    if (step.action === 'run' && stage?.reduced) {
+      run.start();
+      run.finish();
+      logReady = true;
     }
     prepareRooms(index, true);
     if (step.action !== 'coins') levyView = levyLesson(step.pose.levy);
     if (step.id === 'run.banter') playBanter();
     timeline = gsap.timeline();
+    if (step.action === 'run' && !stage?.reduced) {
+      // no talk over a running room: it fades first, the run starts, and its result brings the talk back
+      hush = true;
+      feelAt(timeline, RUN_HUSH, () =>
+        run.start(() => {
+          hush = false;
+          logReady = true;
+          printPaper();
+        }),
+      );
+    }
     choreograph(step.action, pose, timeline);
     revealLines(index);
     enter(index);
@@ -510,7 +519,7 @@
 
   function readingTime(index: number): number {
     const step = PAIR_STEPS[index];
-    if (step.id === 'run') return Math.max(1500, tuning.runMs) + 5500;
+    if (step.id === 'run') return RUN_HUSH * 1000 + Math.max(1500, tuning.runMs) + 5500;
     if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readingMs(bubbleWords(line.text)), 0);
     const concept = conceptLine(step.id);
     if (concept) return readingMs(bubbleWords(concept.text));
@@ -590,7 +599,58 @@
   function nudgeDial(stake: number): void {
     dialThumb = stake;
     if (dialTimer !== undefined) window.clearTimeout(dialTimer);
-    dialTimer = window.setTimeout(() => turnDial(stake), 250);
+    dialTimer = window.setTimeout(() => {
+      turnDial(stake);
+      dockDial();
+    }, 250);
+  }
+
+  /**
+   * Scene 20's dial (owner, 2026-10-07): Red hands it over in her bubble; once
+   * the reader has turned it, or has had the time to read the bubble, it moves
+   * out of the room's way — to the charts' column, or on a phone to the rail at
+   * the foot — gliding from where it was. Never from under a hand still on it.
+   */
+  let dialDocked = $state(true);
+  let dockTimer: number | undefined;
+  let dialHeld = false;
+  let dockPending = false;
+  const dialHere = $derived(PAIR_STEPS[current].pose.source === 'dial' && (PAIR_STEPS[current].pose.control !== 'stake' || dialDocked));
+
+  function dockDial(): void {
+    if (dialDocked) return;
+    if (dialHeld) {
+      dockPending = true;
+      return;
+    }
+    const from = host?.querySelector('.bubble .stake-dial')?.getBoundingClientRect();
+    dialDocked = true;
+    if (!from || stage?.reduced) return;
+    void tick().then(() => {
+      const el = host?.querySelector<HTMLElement>('.stake-dial');
+      const to = el?.getBoundingClientRect();
+      if (!el || !to) return;
+      el.animate([{ transform: `translate(${from.x - to.x}px, ${from.y - to.y}px)` }, { transform: 'none' }], {
+        duration: 700,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      });
+    });
+  }
+
+  function releaseDial(): void {
+    dialHeld = false;
+    if (dockPending) {
+      dockPending = false;
+      dockDial();
+    }
+  }
+
+  /** Where the dial starts as step `index` begins: in Red's bubble only as she hands it over. */
+  function placeDial(index: number, playing: boolean): void {
+    window.clearTimeout(dockTimer);
+    dockPending = false;
+    dialDocked = !(playing && PAIR_STEPS[index].action === 'dial');
+    if (!dialDocked) dockTimer = window.setTimeout(dockDial, readingTime(index));
   }
 
   /** A stake the way the sandbox writes it: 0.1%, 25%, 99.99%. */
@@ -1451,6 +1511,8 @@
     aside?: boolean;
     /** A passing line (a call): it never pushes an aside away. */
     brief?: boolean;
+    /** The feeling words it is said with: they show on the speaker's face (stageFaces `feel`). */
+    feel?: readonly string[];
     choices?: readonly BubbleChoice[];
     /** A control the reader holds, inside the bubble (Scene 20's dial). */
     control?: Snippet;
@@ -1499,7 +1561,7 @@
         continue;
       }
       if (step.id === 'end.longer' && line?.who) {
-        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message), aside: step.aside });
+        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message), aside: step.aside, feel: step.feel });
         // what the room did, each time it was played on
         if (longers > 0 && !(i === current && run.state.running)) {
           const text = say('log_run', { trades: formatNumber(run.state.trades), share: formatNumber(run.state.share, { style: 'percent' }) });
@@ -1508,7 +1570,7 @@
         continue;
       }
       if (step.id === 'stop.how' && line?.who) {
-        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)) });
+        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), feel: step.feel });
         const result = game.result;
         if (result) {
           const said = result.won ? REACTIONS.stopWon : REACTIONS.stopLost;
@@ -1540,7 +1602,7 @@
         out.push(...heard.sort((a, b) => a.at - b.at).map((h) => h.said));
         continue;
       }
-      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside, brief: step.brief });
+      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside, brief: step.brief, feel: step.feel });
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
     if (PAIR_STEPS[current].pose.control === 'sandbox') out.push(...sandboxPapers);
@@ -1548,8 +1610,8 @@
     // an open toy has its own Done: the offer's links go while it is open
     const choices = choicesAt(current);
     if (last && choices) out[out.length - 1] = { ...last, choices };
-    // the stake dial sits in Red's newest bubble while it is the reader's to turn
-    if (PAIR_STEPS[current].pose.control === 'stake') {
+    // the stake dial sits in Red's newest bubble while she hands it over
+    if (PAIR_STEPS[current].pose.control === 'stake' && !dialDocked) {
       let k = out.length - 1;
       while (k >= 0 && !(out[k].who === 'red' && !out[k].kind)) k--;
       if (k >= 0) out[k] = { ...out[k], control: stakeDial };
@@ -2520,15 +2582,54 @@
 
   /** The decider is in the air: a toss sets it as it plays. */
   const cue = $state({ air: false });
+  /**
+   * The talk steps back while the room runs (owner, 2026-10-07: "no point to
+   * have the speech bubble over the running simulation"): it fades before the
+   * run starts and stays faded while any run plays; the result brings it back.
+   */
+  let hush = $state(false);
+  const RUN_HUSH = 0.5;
+  const hushed = $derived(hush || (run.state.running && !game.playing));
+
   /** Whose mouth moves, until when on the ambient clock; an aside is said to the reader. */
   let talking = $state<{ who: Speaker; until: number; aside: boolean } | null>(null);
   let lastTalk = '';
+  /** When the newest line was said, on the ambient clock. */
+  let lineSince = 0;
   $effect(() => {
     const newest = said[said.length - 1];
     if (!newest || newest.id === lastTalk || !newest.at) return;
     lastTalk = newest.id;
-    talking = { who: newest.at, until: untrack(() => seconds) + talkSeconds(newest.text), aside: !!newest.aside };
+    lineSince = untrack(() => seconds);
+    talking = { who: newest.at, until: lineSince + talkSeconds(newest.text), aside: !!newest.aside };
+    // the feeling it is said with, on the speaker's face
+    for (const word of newest.feel ?? []) faces.feel(WHO[newest.at], word);
   });
+
+  /**
+   * The newest line still on show (stageFaces `HeldLine`): while its bubble
+   * shows it holds the pair's eyes — on each other, or an aside's speaker on
+   * the reader — and the room attends to it, each in their own time. An
+   * event in the talk does not end it; the next line, or its bubble going, does.
+   */
+  function heldLine(): HeldLine | null {
+    if (hushed) return null;
+    for (let k = said.length - 1; k >= 0; k--) {
+      const b = said[k];
+      if (b.kind === 'event' || b.kind === 'paper' || !b.at) continue;
+      if (!placed[k] || placed[k].gone) return null;
+      return { who: b.at, aside: !!b.aside, since: b.id === lastTalk ? lineSince : 0 };
+    }
+    return null;
+  }
+
+  /** The reader's pointer over the stage, and when it last moved (ambient clock): a few in the room follow it. */
+  let pointer: (Point & { at: number }) | null = null;
+  function trackPointer(event: PointerEvent): void {
+    if (event.pointerType !== 'mouse') return;
+    const p = local(event);
+    pointer = { x: p.x, y: p.y, at: seconds };
+  }
   /** Everyone's feelings, looks and drawings (stageFaces.ts): the eight, the room's hundred, the matched copies. */
   const faces = new StageFaces(CROWD, 100, BIG, SMALL);
   /** Where faces are drawn: groups placed by the template (`mountFace`), written to by the tick. */
@@ -2576,6 +2677,9 @@
       facing: pose.place === 'seats',
       coin: cue.air ? { x: L.flip.x, y: L.flip.y + view.flipLift } : null,
       moving,
+      held: heldLine(),
+      // they let go of it a little after it stops
+      pointer: pointer && seconds - pointer.at < 2.5 ? pointer : null,
       chat: atEase(),
       // the reel holds them only while it is still spinning
       title: titleCue && atEase() ? (titleCue.live && !timeline?.isActive() ? { ...titleCue, live: false } : titleCue) : null,
@@ -2966,8 +3070,9 @@
 {/snippet}
 
 {#snippet stakeDial()}
-  <!-- the sandbox's own slider and stops: 0.1% to 99.99% (owner review 2026-09-26) -->
-  <div class="stake-dial">
+  <!-- the sandbox's own slider and stops: 0.1% to 99.99% (owner review 2026-09-26); a hand on it holds it in place -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="stake-dial" onpointerdown={() => (dialHeld = true)}>
     <StopSlider label={say('dial_name')} value={dialThumb} stops={RATE_STOPS} format={stakeLabel} onChange={nudgeDial} />
   </div>
 {/snippet}
@@ -2978,9 +3083,18 @@
   {/await}
 {/snippet}
 
+<svelte:window onpointerup={releaseDial} onpointercancel={releaseDial} />
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- while the reader's hand is in the live room, a click anywhere in it is a tap, never a step -->
-<div class="pair-scene" bind:this={host} onpointermove={dragMove} data-control={game.playing || PAIR_STEPS[current].pose.control === 'sandbox' ? '' : undefined}>
+<div
+  class="pair-scene"
+  bind:this={host}
+  onpointermove={(event) => {
+    dragMove(event);
+    trackPointer(event);
+  }}
+  data-control={game.playing || PAIR_STEPS[current].pose.control === 'sandbox' ? '' : undefined}>
   <!-- Once the stage is cleared (Scene 5) its words are gone, so their links
        must not stay in the tab order, invisible. -->
   <div class="words" style={`opacity:${view.titleOn}; transform: translateY(${view.lift}px)`} inert={view.titleOn < 0.5}>
@@ -3406,10 +3520,10 @@
 
     {#if !L.column && PAIR_STEPS[current].pose.control === 'sandbox'}
       <div class="dial phone deck-phone">{@render sandboxDeck(true)}</div>
-    {:else if !L.column && runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run') && !inPicture && PAIR_STEPS[current].pose.place === 'room'}
+    {:else if !L.column && !inPicture && PAIR_STEPS[current].pose.place === 'room' && (dialHere || (runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run')))}
       <div class="dial phone">
-        {@render player([shown])}
-        {#if PAIR_STEPS[current].pose.source === 'dial' && PAIR_STEPS[current].pose.control !== 'stake'}{@render stakeDial()}{/if}
+        {#if runShown && shown.state.done && shown.state.frames > 1}{@render player([shown])}{/if}
+        {#if dialHere}{@render stakeDial()}{/if}
       </div>
     {/if}
 
@@ -3498,7 +3612,7 @@
     {/each}
 
     <!-- while the game plays, the talk steps back and lets taps through to the room -->
-    <div class="bubbles" class:through={game.playing} aria-live="polite">
+    <div class="bubbles" class:through={game.playing} class:hushed aria-live="polite">
       {#each said as bubble, i (bubble.id)}
         {@const place = placed[i]}
         {#if place}
@@ -3580,7 +3694,7 @@
             {#if shown.state.done && shown.state.frames > 1}
               <div class="dial">{@render player([shown])}</div>
             {/if}
-            {#if pose.source === 'dial' && pose.control !== 'stake'}{@render stakeDial()}{/if}
+            {#if dialHere}{@render stakeDial()}{/if}
           </section>
         {/if}
         {#if !APART.includes(pose.roomMode) && pose.thumbs.length > 0}
@@ -4271,6 +4385,16 @@
     position: absolute;
     inset: 0;
     z-index: 4;
+    pointer-events: none;
+    transition: opacity 400ms ease;
+  }
+
+  .bubbles.hushed {
+    opacity: 0;
+    transition: opacity 500ms ease;
+  }
+
+  .bubbles.hushed :global(.bubble) {
     pointer-events: none;
   }
 

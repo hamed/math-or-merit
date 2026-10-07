@@ -309,7 +309,8 @@ function manga(c: Ctx, out: Parts): void {
   const shock = x.eyeOpening > 0.85;
   const big = x.eyeOpening > 0.45;
   const lidded = x.eyeOpening < -0.25;
-  const squeeze = mo > 0.55 && x.eyeOpening < -0.3;
+  // a laugh squeezes the eyes shut, cheeks up; a lidded face that is only talking keeps its lids
+  const squeeze = mo > 0.55 && x.eyeOpening < -0.3 && x.cheekLift > 0.3;
   const glare = x.browSlope > 0.4;
   const tears = marks.tears ?? 0;
   for (const side of [-1, 1]) {

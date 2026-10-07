@@ -84,6 +84,13 @@ export const ESCAPES = new Set(['%', '$', '&', '#', '_', '{', '}']);
 /** Manner words that change behaviour. Any other word is a delivery hint, and a warning. */
 export const MANNERS = new Set(['aside', 'thought', 'teletype', 'wait', 'flow', 'interrupts', 'brief']);
 
+/**
+ * Feeling words, written as manners (`Blue (proud): …`): the speaker's face
+ * shows it, subtly, as the line is said, and it fades as any feeling does
+ * (owner, 2026-10-07). The faces map each one (face/moments.ts `FEELINGS`).
+ */
+export const FEELINGS = new Set(['glad', 'proud', 'smug', 'amused', 'calm', 'sure', 'curious', 'surprised', 'worried', 'annoyed', 'sad', 'shy', 'tired']);
+
 /** Bubble length, in words, for English (v3 brief): warn above, fail above. */
 export const AIM_WORDS = 12;
 export const MAX_WORDS = 18;

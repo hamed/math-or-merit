@@ -146,6 +146,28 @@ export const RED: Temperament = { v0: 0.3, a0: -0.4, d0: 0, smirk: 0.2, reactivi
 /** The winner's face, at its fullest: very contemptuous (owner, 2026-10-07). */
 export const CONTEMPT: Affect = { v: -0.3, a: -0.4, d: 1, n: 0 };
 
+/**
+ * What each of the script's feeling words (script/grammar.ts `FEELINGS`) does
+ * to a face as its line is said: a small push on valence, arousal and
+ * dominance, a start of novelty, a flush — subtle, and fading as any feeling
+ * does, so a line colours the face without taking it over.
+ */
+export const FEELINGS: Readonly<Record<string, Affect & { readonly blush?: number }>> = {
+  glad: { v: 0.35, a: 0.15, d: 0, n: 0 },
+  proud: { v: 0.25, a: 0.05, d: 0.35, n: 0 },
+  smug: { v: 0.15, a: -0.15, d: 0.4, n: 0 },
+  amused: { v: 0.3, a: 0.25, d: 0.05, n: 0 },
+  calm: { v: 0.1, a: -0.3, d: 0.05, n: 0 },
+  sure: { v: 0.05, a: 0.05, d: 0.35, n: 0 },
+  curious: { v: 0.1, a: 0.2, d: -0.05, n: 0.35 },
+  surprised: { v: 0, a: 0.35, d: -0.15, n: 0.7 },
+  worried: { v: -0.3, a: 0.25, d: -0.3, n: 0 },
+  annoyed: { v: -0.3, a: 0.2, d: 0.25, n: 0 },
+  sad: { v: -0.4, a: -0.2, d: -0.25, n: 0 },
+  shy: { v: 0.1, a: 0.1, d: -0.35, n: 0, blush: 0.6 },
+  tired: { v: -0.15, a: -0.4, d: -0.1, n: 0 },
+};
+
 /** Anyone else: a seeded, subtle temperament — the room is not an army of robots. */
 export function temperament(seed: number): Temperament {
   const u = (k: number) => (noise(seed, 200 + k) + 1) / 2;

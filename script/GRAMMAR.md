@@ -157,6 +157,26 @@ Manner words, in the parentheses, stay English in every language:
 | `interrupts` | appears beside the bubble before it |
 | `thought`, `wait` | reserved |
 
+Feeling words, in the same parentheses, show on the speaker's face as the line
+is said: subtly, and they fade as any feeling does. `Blue (proud): …`,
+`Red (aside, calm): …`.
+
+| Feeling | On the face |
+|---|---|
+| `glad` | a warm smile |
+| `proud` | a smile, the chin up |
+| `smug` | a half smile, looking down on it |
+| `amused` | a grin, the eyes bright |
+| `calm` | soft and easy |
+| `sure` | steady, a little firm |
+| `curious` | the brows up |
+| `surprised` | the brows high, the eyes wide |
+| `worried` | the brows knit |
+| `annoyed` | a frown |
+| `sad` | the eyes and the mouth down |
+| `shy` | a flush |
+| `tired` | heavy lids |
+
 Any other word is kept as a delivery hint, with a warning.
 
 ## 3. Words

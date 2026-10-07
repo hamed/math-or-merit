@@ -3,7 +3,7 @@
  * Parse errors come from `parseScript`; these are the rules that need the
  * whole script at once: labels, scenes, conditions, targets, cards, lengths.
  */
-import { ACTIONS, AIM_WORDS, MANNERS, MAX_WORDS } from './grammar.ts';
+import { ACTIONS, AIM_WORDS, FEELINGS, MANNERS, MAX_WORDS } from './grammar.ts';
 import { commands, plain } from './inline.ts';
 import { actionsOf, choiceText, unitId, walk, wordsOf, type Action, type Problem, type Script } from './parse.ts';
 
@@ -119,7 +119,7 @@ export function lint(script: Script): Problem[] {
     if (actions.filter((a) => a.name === 'when' || a.name === 'on').length > 1) {
       at(file, item.line, 'a bubble plays under one condition at most; more goes to the owner (the tripwire)');
     }
-    for (const m of item.manner) if (!MANNERS.has(m)) at(file, item.line, `manner "${m}" is kept as a delivery hint`, 'warning');
+    for (const m of item.manner) if (!MANNERS.has(m) && !FEELINGS.has(m)) at(file, item.line, `manner "${m}" is kept as a delivery hint`, 'warning');
     if (script.lang !== 'en') continue;
     const variants = item.body.find((l) => l.k === 'list');
     const texts = variants

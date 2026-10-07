@@ -20,6 +20,7 @@ import { RAIN_SECONDS } from './rain';
 import { CHAT, HOLD, READER, auto, type LineSpec, type StepSpec, type Wait } from '../../steps';
 import { STORY } from '../../../../content/story.gen';
 import type { StoryGroup, StoryStep } from '../../../../script/compile';
+import { FEELINGS } from '../../../../script/grammar';
 
 /** Scene 2: not here yet · bounced in · coins caught · only the two left. */
 export type CrowdState = 'away' | 'idle' | 'paid' | 'two';
@@ -149,6 +150,8 @@ export interface PairStep extends StepSpec {
   readonly aside?: true;
   /** A message logged in the talk once the step's action is over (the toss result). */
   readonly log?: string;
+  /** The feeling words its line is said with (script grammar `FEELINGS`): they show on the speaker's face. */
+  readonly feel?: readonly string[];
 }
 
 /** The stage before its first step: nothing typed, nobody here. */
@@ -498,6 +501,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
     const message = s.variants?.keys[0] ?? s.key;
     const speaks = s.who && message && id !== 'title.type' && !SPOKEN.has(id);
     const aside = conditioned ? flowing(s.groups, 'aside') : s.manner.includes('aside');
+    const feel = s.manner.filter((m) => FEELINGS.has(m));
     return {
       id,
       wait,
@@ -508,6 +512,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
       ...(s.manner.includes('brief') ? { brief: true as const } : {}),
       ...(aside ? { aside: true as const } : {}),
       ...(log ? { log } : {}),
+      ...(speaks && feel.length ? { feel } : {}),
     };
   });
   return { steps, problems };

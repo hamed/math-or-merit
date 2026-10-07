@@ -15,7 +15,7 @@ import type { AgentShape } from '../../../shared/agentStyle';
 import { FacePainter, type FaceDrawing } from '../../../shared/face/draw';
 import { faceRadius, type FaceLook } from '../../../shared/face/face';
 import { FaceField } from '../../../shared/face/field';
-import { BLUE, RED, temperament } from '../../../shared/face/moments';
+import { BLUE, FEELINGS, RED, temperament } from '../../../shared/face/moments';
 import { noise } from '../../../shared/layout';
 import type { Point } from '../../../shared/layout';
 
@@ -38,6 +38,17 @@ export interface TitleCue {
   readonly live: boolean;
 }
 
+/**
+ * The newest line still on show: who said it, whether to the reader, and
+ * since when (seconds, the faces' clock). While it shows, it holds the pair's
+ * eyes, and the room attends to it in its own time.
+ */
+export interface HeldLine {
+  readonly who: 'blue' | 'red';
+  readonly aside: boolean;
+  readonly since: number;
+}
+
 /** What the faces can see this frame. */
 export interface FaceScene {
   /** How far away a look's target sits in depth, px: a nearer depth turns heads further. */
@@ -47,9 +58,14 @@ export interface FaceScene {
   readonly room: readonly Body[] | null;
   /** The matched room's copies of Blue and Red, when it shows. */
   readonly mirror: readonly [Body, Body] | null;
+  /** Whose words are arriving now: their mouth moves. */
   readonly speaker: 'blue' | 'red' | null;
   /** The line is said to the reader. */
   readonly aside: boolean;
+  /** The newest line still on show, if any. */
+  readonly held: HeldLine | null;
+  /** The reader's pointer over the stage, while it moves: a few in the room follow it. */
+  readonly pointer: Point | null;
   /** Blue and Red face each other (the seats). */
   readonly facing: boolean;
   /** The decider, in the air. */
@@ -134,6 +150,16 @@ export class StageFaces {
     return who === 'blue' ? this.blue : this.red;
   }
 
+  /** A line's feeling word (script grammar `FEELINGS`) on face `slot`, as the line is said. */
+  feel(slot: number, word: string): void {
+    const e = FEELINGS[word];
+    if (!e) return;
+    const f = this.field;
+    f.feel(slot, e.v, e.a, e.d);
+    if (e.n) f.startle(slot, e.n);
+    if (e.blush) f.blush[slot] = Math.max(f.blush[slot], e.blush);
+  }
+
   /** Everyone back to their temperament, looking where they will look: a settled stage. */
   rest(): void {
     this.field.rest();
@@ -143,10 +169,13 @@ export class StageFaces {
   }
 
   /**
-   * Where everyone looks this frame, and who is talking: at the decider in
-   * the air, at coins on the move, along the way while hopping, at whoever
-   * speaks (an aside to the reader), at each other across the seats, up at the
-   * title's newest word or at each other in the opening's chat; free eyes
+   * Where everyone looks this frame, and who is talking. A line on show holds
+   * the pair (owner, 2026-10-07): said to each other, both keep their eyes on
+   * each other; said to the reader, its speaker keeps the reader's eyes
+   * through whatever happens, until the next line or until its bubble goes.
+   * Otherwise: at the decider in the air, at coins on the move, along the way
+   * while hopping, at whoever speaks, at each other across the seats, up at
+   * the title's newest word or at each other in the opening's chat; free eyes
    * glance about, now and then at the reader.
    */
   aim(scene: FaceScene, now: number, dt: number): void {
@@ -173,9 +202,18 @@ export class StageFaces {
       const who = i === this.blue ? 'blue' : i === this.red ? 'red' : null;
       const moved = this.moved(i, b, dt);
       const coin = scene.coin ?? nearest(b);
-      if (coin) at(i, b, coin.x, coin.y);
+      const held = who ? scene.held : null;
+      const partner = who ? scene.people[this.slotOf(who === 'blue' ? 'red' : 'blue')] : null;
+      if (held?.aside && held.who === who) {
+        f.talking[i] = scene.speaker === who ? 1 : 0;
+        f.look(i, 0, 0);
+      } else if (coin) at(i, b, coin.x, coin.y);
       else if (moved !== 0) f.look(i, 0.5 * Math.sign(moved), 0.12);
-      else if (scene.speaker && who === scene.speaker) {
+      else if (held && partner) {
+        // said to each other, both on each other; to the reader, the listener on the speaker
+        f.talking[i] = scene.speaker === who ? 1 : 0;
+        at(i, b, partner.x, partner.y);
+      } else if (scene.speaker && who === scene.speaker) {
         f.talking[i] = 1;
         // to the other one, wherever they stand; an aside to the reader
         if (scene.aside) f.look(i, 0, 0);
@@ -194,12 +232,16 @@ export class StageFaces {
     }
 
     if (scene.room) {
+      const line = scene.held;
+      const said = line ? scene.people[this.slotOf(line.who)] : null;
+      const pointer = scene.pointer;
       for (let j = 0; j < this.room; j++) {
         const i = this.people + j;
         const b = scene.room[j];
         if (!(b.alpha > 0.3)) continue;
-        // most of the room turns to whoever speaks; some keep to themselves
-        if (speaker && noise(i, 61) > -0.4) at(i, b, speaker.x, speaker.y);
+        // one in twenty follows the reader's pointer while it moves
+        if (pointer && noise(f.seed[i], 81) > 0.9) at(i, b, pointer.x, pointer.y);
+        else if (line && said && this.attends(i, line.since, now)) at(i, b, said.x, said.y);
         else f.glance(i);
       }
     }
@@ -208,6 +250,20 @@ export class StageFaces {
       at(this.mirrorSlot('blue'), blue, red.x, red.y);
       at(this.mirrorSlot('red'), red, blue.x, blue.y);
     }
+  }
+
+  /**
+   * Whether room member `i` attends to the line said at `since`: after a delay
+   * of their own (0.2–2.5 s), for a while of their own (1.5–6 s), line by line;
+   * one in five not at all. Not an army of robots.
+   */
+  private attends(i: number, since: number, now: number): boolean {
+    const key = this.field.seed[i] * 7 + Math.round(since * 10);
+    if (noise(key, 61) < -0.6) return false;
+    const t = now - since;
+    const delay = 0.2 + 2.3 * ((noise(key, 62) + 1) / 2);
+    const span = 1.5 + 4.5 * ((noise(key, 63) + 1) / 2);
+    return t > delay && t < delay + span;
   }
 
   /** Blue and Red across the seats: mostly at each other, now and then out at the reader. */

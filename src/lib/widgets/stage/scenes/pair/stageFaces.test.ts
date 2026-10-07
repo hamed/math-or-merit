@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { FEELINGS as FEELING_WORDS } from '../../../../script/grammar';
+import { FEELINGS } from '../../../shared/face/moments';
 import { BIG, CROWD, SMALL } from './crowd';
 import { PAIR_STEPS } from './script';
 import { StageFaces, type Body, type FaceScene } from './stageFaces';
@@ -18,6 +20,8 @@ const scene = (over: Partial<FaceScene> = {}): FaceScene => ({
   moving: [],
   chat: false,
   title: null,
+  held: null,
+  pointer: null,
   ...over,
 });
 const fresh = () => new StageFaces(CROWD, 100, BIG, SMALL);
@@ -64,14 +68,71 @@ describe('the pair’s faces', () => {
     expect(f.aimPitch[BIG]).toBeLessThan(0);
   });
 
-  it('turns most of the room toward whoever speaks, and leaves some to themselves', () => {
+  it('turns the room toward a line each in their own time, some not at all, and back to themselves', () => {
     const faces = fresh();
     const room = Array.from({ length: 100 }, (_, j) => at(50 + (j % 10) * 70, 100 + Math.floor(j / 10) * 50, 15));
-    faces.aim(scene({ room, speaker: 'red' }), 0, 1 / 60);
-    let turned = 0;
-    for (let j = 0; j < 100; j++) if (!Number.isNaN(faces.field.aimYaw[faces.roomSlot(j)])) turned++;
-    expect(turned).toBeGreaterThan(55);
-    expect(turned).toBeLessThan(95);
+    const held = { who: 'red' as const, aside: false, since: 5 };
+    const turnedAt = new Map<number, number>();
+    const backAt = new Map<number, number>();
+    for (let t = 5; t < 14; t += 0.05) {
+      faces.aim(scene({ room, held }), t, 0.05);
+      for (let j = 0; j < 100; j++)
+        if (!Number.isNaN(faces.field.aimYaw[faces.roomSlot(j)])) {
+          if (!turnedAt.has(j)) turnedAt.set(j, t - 5);
+          backAt.set(j, t - 5);
+        }
+    }
+    // most of them, some not at all
+    expect(turnedAt.size).toBeGreaterThan(65);
+    expect(turnedAt.size).toBeLessThan(95);
+    // and not in step: they turn over a second or two, and turn back over several
+    const spread = (m: Map<number, number>) => {
+      const times = [...m.values()].sort((a, b) => a - b);
+      return times[Math.floor(times.length * 0.9)] - times[Math.floor(times.length * 0.1)];
+    };
+    expect(spread(turnedAt)).toBeGreaterThan(1.2);
+    expect(spread(backAt)).toBeGreaterThan(2.5);
+  });
+
+  it('lets a few in the room follow the reader’s pointer', () => {
+    const faces = fresh();
+    const room = Array.from({ length: 100 }, (_, j) => at(50 + (j % 10) * 70, 100 + Math.floor(j / 10) * 50, 15));
+    faces.aim(scene({ room, pointer: { x: 2000, y: 300 } }), 0, 1 / 60);
+    let following = 0;
+    for (let j = 0; j < 100; j++) if (faces.field.aimYaw[faces.roomSlot(j)] > 0.3) following++;
+    expect(following).toBeGreaterThan(1);
+    expect(following).toBeLessThan(12);
+  });
+
+  it('holds the pair’s eyes on each other through a line, and an aside’s on the reader, coin or no coin', () => {
+    const faces = fresh();
+    const f = faces.field;
+    // a line between them, its words long arrived: still on each other, every frame, no glance away
+    for (let t = 0; t < 20; t += 0.1) {
+      faces.aim(scene({ held: { who: 'blue', aside: false, since: 0 }, facing: true }), t, 0.1);
+      expect(f.aimYaw[BIG]).toBeGreaterThan(0);
+      expect(f.aimYaw[SMALL]).toBeLessThan(0);
+    }
+    // an aside: the speaker on the reader, even with the decider in the air; the other one on the speaker
+    const coin = { x: 500, y: 100 };
+    faces.aim(scene({ held: { who: 'red', aside: true, since: 0 }, coin, facing: true }), 21, 0.1);
+    expect([f.aimYaw[SMALL], f.aimPitch[SMALL]]).toEqual([0, 0]);
+  });
+
+  it('has a face for every feeling word the script may write, and no other', () => {
+    expect(Object.keys(FEELINGS).sort()).toEqual([...FEELING_WORDS].sort());
+  });
+
+  it('shows a line’s feeling on its speaker, and only theirs', () => {
+    const faces = fresh();
+    const f = faces.field;
+    const v = f.v[SMALL];
+    const d = f.d[BIG];
+    faces.feel(SMALL, 'glad');
+    faces.feel(BIG, 'sure');
+    faces.feel(BIG, 'no such feeling');
+    expect(f.v[SMALL]).toBeGreaterThan(v);
+    expect(f.d[BIG]).toBeGreaterThan(d);
   });
 });
 

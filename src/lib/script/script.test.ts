@@ -131,6 +131,11 @@ describe('lint', () => {
   it('warns on a manner word it does not know', () => {
     expect(lint(one('Red (laughs): Ha.')).map((p) => p.message)).toEqual(['manner "laughs" is kept as a delivery hint']);
   });
+
+  it('knows the feeling words', () => {
+    expect(lint(one('Red (aside, calm): Ha.')).map((p) => p.message)).toEqual([]);
+    expect(lint(one('Blue (proud): Ha.')).map((p) => p.message)).toEqual([]);
+  });
 });
 
 describe('acts, scenes and conditions', () => {
