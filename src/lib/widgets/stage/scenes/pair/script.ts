@@ -264,22 +264,29 @@ export const REEL_ANSWER: number = REEL_STEP?.bodyAnswer ?? Math.max(0, REEL.len
 export const REEL_HOLDS: readonly number[] = (REEL_STEP?.bodyHolds ?? []).map((beats) => beats * (STORY.timing.beat ?? 0.6));
 
 /**
- * The reel's spin, as tweens of its position: hold where the script says, a
- * steady readable run (about a quarter second a word) to the last word, and
- * back to rest on the answer. The scene plays it; the step waits for it.
+ * The reel's spin, as tweens of its position (owner, 2026-10-07): after the
+ * first word's hold, one slow run to the last word — gathering speed,
+ * cruising, slowing to a stop on it — a beat there, and then, slowly, back to
+ * the answer. A hold the script gives a word in the middle stops the run there
+ * too. The scene plays it; the step waits for it.
  */
 export function reelSpin(): { to: number; seconds: number; ease: string }[] {
   const last = REEL.length - 1;
   const out: { to: number; seconds: number; ease: string }[] = [];
-  let at = 0;
   if (REEL_HOLDS[0]) out.push({ to: 0, seconds: REEL_HOLDS[0], ease: 'none' });
-  for (let i = 1; i <= last; i++) {
-    if (!REEL_HOLDS[i] && i < last) continue;
-    out.push({ to: i, seconds: (i - at) / 3.6, ease: at === 0 ? 'sine.in' : 'none' });
-    if (REEL_HOLDS[i]) out.push({ to: i, seconds: REEL_HOLDS[i], ease: 'none' });
-    at = i;
+  const stops = [...REEL_HOLDS.flatMap((hold, i) => (hold && i > 0 && i < last ? [i] : [])), last];
+  let at = 0;
+  for (const to of stops) {
+    // about two words a second on average; four at the fastest, in the middle of the run
+    out.push({ to, seconds: 0.6 + (to - at) / 2.2, ease: 'power2.inOut' });
+    if (REEL_HOLDS[to] && to < last) out.push({ to, seconds: REEL_HOLDS[to], ease: 'none' });
+    at = to;
   }
-  if (last > REEL_ANSWER) out.push({ to: REEL_ANSWER, seconds: 0.45 + 0.15 * (last - REEL_ANSWER), ease: 'power2.inOut' });
+  if (last > REEL_ANSWER) {
+    // a beat on the wrong word, then slowly back
+    out.push({ to: last, seconds: 0.45 + (REEL_HOLDS[last] ?? 0), ease: 'none' });
+    out.push({ to: REEL_ANSWER, seconds: 0.8 + 0.4 * (last - REEL_ANSWER), ease: 'sine.inOut' });
+  }
   return out;
 }
 /** Which name each step of the script answers to, and the steps no name matched. */

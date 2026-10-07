@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { validateSteps } from '../../steps';
 import { ROUNDS, UNITS } from './game';
 import { BETS, PREDICTIONS } from '../../../shared/runLog.svelte';
-import { CARDS, EXPECT_PROBLEMS, PAIR_STEPS, REACTIONS, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart } from './script';
+import { CARDS, EXPECT_PROBLEMS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, reelSpin } from './script';
 import { STORY } from '../../../../content/story.gen';
 import { CAPTION_BEATS, sideTrip } from '../../../../content/story';
 
@@ -93,6 +93,24 @@ describe('the stage reads the script', () => {
     const dropped = new Set(PAIR_STEPS.flatMap((s) => s.pose.cards));
     for (const id of dropped) expect(CARDS[id], id).toBeDefined();
     for (const card of Object.values(CARDS)) expect(messages[card.title], card.title).toBeTypeOf('string');
+  });
+});
+
+describe('the title’s reel', () => {
+  it('runs slowly to the last word, stops on it, and comes back to the answer', () => {
+    const spin = reelSpin();
+    const last = REEL.length - 1;
+    expect(last).toBeGreaterThan(REEL_ANSWER);
+    const stop = spin.findIndex((x) => x.to === last);
+    expect(stop).toBeGreaterThanOrEqual(0);
+    expect(spin.at(-1)!.to).toBe(REEL_ANSWER);
+    // eased in and out, about two words a second on average: slow enough to read the first and the last
+    const run = spin.slice(0, stop + 1).filter((x) => x.ease !== 'none');
+    expect(run.every((x) => x.ease.endsWith('inOut'))).toBe(true);
+    expect(last / run.reduce((t, x) => t + x.seconds, 0)).toBeLessThanOrEqual(2.2);
+    // a beat on the last word, then back over more than a second
+    expect(spin[stop + 1]).toMatchObject({ to: last, ease: 'none' });
+    expect(spin.at(-1)!.seconds).toBeGreaterThan(1);
   });
 });
 

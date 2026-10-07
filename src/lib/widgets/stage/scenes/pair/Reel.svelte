@@ -9,8 +9,8 @@
    * Every word starts where the answer starts (owner review 2026-09-26: left
    * aligned, never cropped). A word longer than the answer runs on past it —
    * the "?" has not arrived yet. Every word is the title's own size; the reel
-   * reports its widest word (`onmeasure`) and the scene sizes the whole title
-   * so that word still fits on the stage.
+   * reports its words' widths (`onmeasure`) and the scene sizes the whole title
+   * so the widest still fits on the stage, sliding the line aside for it.
    */
   import { onMount } from 'svelte';
 
@@ -21,8 +21,8 @@
     position: number;
     /** 0 before the reel arrives; 1 once it is on stage. */
     shown: number;
-    /** The widest word, px at the current size, whenever it may have changed. */
-    onmeasure?: (widest: number) => void;
+    /** Each word's width, px at the current size, whenever they may have changed. */
+    onmeasure?: (widths: readonly number[]) => void;
   }
 
   let { words, answer, position, shown, onmeasure }: Props = $props();
@@ -33,7 +33,7 @@
 
   function measure(): void {
     natural = measures.map((m) => m?.offsetWidth ?? 0);
-    onmeasure?.(Math.max(0, ...natural));
+    onmeasure?.(natural);
   }
 
   onMount(() => {

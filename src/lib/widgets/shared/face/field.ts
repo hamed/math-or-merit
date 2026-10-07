@@ -183,6 +183,13 @@ export class FaceField {
     }
   }
 
+  /** A feeling pushed onto face `i`, so much valence, arousal and dominance: it fades as any other does. */
+  feel(i: number, dv: number, da: number, dd = 0): void {
+    this.v[i] = clamp(this.v[i] + dv * this.reactivity[i], -1, 1);
+    this.a[i] = clamp(this.a[i] + da, -1, 1);
+    this.d[i] = clamp(this.d[i] + dd, -1, 1);
+  }
+
   /** Something unexpected, of `size` 0 … 1. */
   startle(i: number, size = 1): void {
     this.nov[i] = Math.max(this.nov[i], size);

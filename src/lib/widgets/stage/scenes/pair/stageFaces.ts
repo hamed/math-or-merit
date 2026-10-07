@@ -26,6 +26,18 @@ export interface Body {
   readonly alpha: number;
 }
 
+/**
+ * The title's newest word, for the opening's crowd to look up at: where it
+ * is, when it came (seconds, the faces' clock), and whether it is still
+ * moving (the reel spinning) and so holds them.
+ */
+export interface TitleCue {
+  readonly x: number;
+  readonly y: number;
+  readonly since: number;
+  readonly live: boolean;
+}
+
 /** What the faces can see this frame. */
 export interface FaceScene {
   /** How far away a look's target sits in depth, px: a nearer depth turns heads further. */
@@ -46,9 +58,22 @@ export interface FaceScene {
   readonly moving: readonly Point[];
   /** The opening's crowd, standing about: neighbours chat. */
   readonly chat: boolean;
+  /** Something new in the title: the crowd looks up at it, each in their own time. */
+  readonly title: TitleCue | null;
 }
 
 const MIRROR = 2;
+
+/** A pair's turns in the opening's chat: how long each lasts, the pair's own clock, and which turn it is. */
+function turnOf(pair: number, now: number): { turn: number; clock: number; k: number } {
+  const turn = 1.4 + 1.6 * ((noise(pair, 43) + 1) / 2);
+  const clock = now + (noise(pair, 44) + 1) * 2;
+  return { turn, clock, k: Math.floor(clock / turn) };
+}
+
+/** Whether a pair laughs together as turn `k` begins: about one turn in eight. */
+const laughs = (pair: number, k: number) => noise(pair * 5 + k, 47) > 0.75;
+
 const LOOK_CODE: Record<FaceLook, number> = { manga: 1, lids: 2, dots: 3, beans: 4, googly: 5, peek: 6, brows: 7, ink: 8 };
 
 export class StageFaces {
@@ -67,6 +92,9 @@ export class StageFaces {
   /** The opening's chat: each person's partner, or −1. */
   private readonly partner: Int16Array;
   private chatting = false;
+  /** The turn each person last laughed at, so a laugh lifts them once; and who is looking up at the title this frame. */
+  private readonly laughed: Float64Array;
+  private readonly up: Uint8Array;
 
   constructor(people: number, room: number, blue: number, red: number) {
     this.people = people;
@@ -89,6 +117,8 @@ export class StageFaces {
     this.lastX = new Float64Array(n).fill(NaN);
     this.lastY = new Float64Array(n).fill(NaN);
     this.partner = new Int16Array(people).fill(-1);
+    this.laughed = new Float64Array(people).fill(NaN);
+    this.up = new Uint8Array(people);
   }
 
   /** The slot of room member `j`. */
@@ -115,8 +145,9 @@ export class StageFaces {
   /**
    * Where everyone looks this frame, and who is talking: at the decider in
    * the air, at coins on the move, along the way while hopping, at whoever
-   * speaks (an aside to the reader), at each other across the seats or in the
-   * opening's chat; free eyes glance about, now and then at the reader.
+   * speaks (an aside to the reader), at each other across the seats, up at the
+   * title's newest word or at each other in the opening's chat; free eyes
+   * glance about, now and then at the reader.
    */
   aim(scene: FaceScene, now: number, dt: number): void {
     const f = this.field;
@@ -137,6 +168,7 @@ export class StageFaces {
     for (let i = 0; i < this.people; i++) {
       const b = scene.people[i];
       f.talking[i] = 0;
+      this.up[i] = 0;
       if (!(b.alpha > 0.3) || !(b.r > 0.5)) continue;
       const who = i === this.blue ? 'blue' : i === this.red ? 'red' : null;
       const moved = this.moved(i, b, dt);
@@ -153,7 +185,10 @@ export class StageFaces {
         }
       } else if (speaker && who) at(i, b, speaker.x, speaker.y);
       else if (scene.facing && who) this.facePartner(i, b, scene.people[i === this.blue ? this.red : this.blue], scene.depth, now);
-      else if (scene.chat && this.partner[i] >= 0) this.chat(i, b, scene.people[this.partner[i]], scene.depth, now);
+      else if (scene.title && this.looksUp(i, scene.title, now)) {
+        this.up[i] = 1;
+        at(i, b, scene.title.x, scene.title.y);
+      } else if (scene.chat && this.partner[i] >= 0) this.chat(i, b, scene.people[this.partner[i]], scene.depth, now);
       else if (speaker) at(i, b, speaker.x, speaker.y);
       else f.glance(i);
     }
@@ -184,24 +219,55 @@ export class StageFaces {
   }
 
   /**
+   * Whether person `i` looks up at the title's newest word: each after a
+   * delay of their own and for a while of their own, a few not at all — not an
+   * army of robots. While the reel spins, those who looked keep looking.
+   */
+  private looksUp(i: number, cue: TitleCue, now: number): boolean {
+    const key = this.field.seed[i] * 13 + Math.round(cue.since * 10);
+    if (noise(key, 73) > 0.8) return false;
+    const t = now - cue.since;
+    const delay = 0.2 + 1.3 * ((noise(key, 71) + 1) / 2);
+    const span = 1.5 + 2.5 * ((noise(key, 72) + 1) / 2);
+    return t > delay && (cue.live || t < delay + span);
+  }
+
+  /**
    * The opening's chat: partners take turns, the talker's mouth going, both
-   * looking at each other — a glance at the reader now and then, and a flush
-   * on the listener's cheeks once in a while.
+   * looking at each other and the listener nodding along — a glance at the
+   * reader now and then, a flush on the listener's cheeks once in a while, and
+   * now and then the two laugh together (`laughing`).
    */
   private chat(i: number, b: Body, other: Body, depth: number, now: number): void {
     const f = this.field;
     const j = this.partner[i];
     const pair = Math.min(i, j) * 31 + Math.max(i, j);
-    const turn = 1.4 + 1.6 * ((noise(pair, 43) + 1) / 2);
-    const clock = now + (noise(pair, 44) + 1) * 2;
-    const k = Math.floor(clock / turn);
+    const { turn, clock, k } = turnOf(pair, now);
+    const into = clock - k * turn;
     const talker = (k + pair) % 2 === 0 ? Math.min(i, j) : Math.max(i, j);
-    const talking = talker === i && clock - k * turn < 0.7 * turn;
+    const talking = talker === i && into < 0.7 * turn;
     f.talking[i] = talking ? 1 : 0;
+    if (laughs(pair, k)) {
+      // glad for a moment, both at once, mouths open with it
+      if (this.laughed[i] !== k) f.feel(i, 0.45, 0.35);
+      this.laughed[i] = k;
+      f.talking[i] = into < 0.6 ? 1 : 0;
+    }
     const away = noise(f.seed[i] * 7 + k, 45) > 0.55;
-    if (away) f.look(i, 0, 0);
-    else f.look(i, Math.atan2(other.x - b.x, depth), Math.atan2(other.y - b.y, depth));
+    // the listener nods, a little under once a second, while the other talks
+    const nod = talker !== i && into < 0.7 * turn ? 0.3 * ((1 - Math.cos(into * Math.PI * 1.8)) / 2) : 0;
+    if (away) f.look(i, 0, nod);
+    else f.look(i, Math.atan2(other.x - b.x, depth), Math.atan2(other.y - b.y, depth) + nod);
     f.blushTo[i] = !talking && noise(pair * 3 + k, 46) > 0.6 ? 0.55 : 0;
+  }
+
+  /** Seconds since person `i` and their partner began to laugh together, or −1: the stage gives each a little hop. */
+  laughing(i: number, now: number): number {
+    const j = this.partner[i];
+    if (!this.chatting || j < 0 || this.up[i] || this.up[j]) return -1;
+    const pair = Math.min(i, j) * 31 + Math.max(i, j);
+    const { turn, clock, k } = turnOf(pair, now);
+    return laughs(pair, k) ? clock - k * turn : -1;
   }
 
   /** Neighbours pair up for the chat: each with the nearest one not yet taken. */

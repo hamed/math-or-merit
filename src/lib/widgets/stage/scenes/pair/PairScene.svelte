@@ -98,7 +98,7 @@
   import { FaceBoard, type FaceColours } from '../../../shared/face/faceElement';
   import { CONTEMPT, stillOf } from '../../../shared/face/moments';
   import { FACE_CHOICES, chooseFace, faceStyle, loadFaceStyle, type FaceChoice } from '../../../shared/face/faceStyle.svelte';
-  import { StageFaces, talkSeconds, type Body, type FaceScene } from './stageFaces';
+  import { StageFaces, talkSeconds, type Body, type FaceScene, type TitleCue } from './stageFaces';
 
   const stage = getContext<StepStageContext | undefined>(STEP_STAGE_CONTEXT);
 
@@ -125,25 +125,65 @@
   let host: HTMLDivElement;
   let mathReel: HTMLSpanElement;
   let titleEl: HTMLElement;
-  let widestWord = 0;
+  /** The reel's words, px wide at the title's size (Reel.svelte measures them). */
+  let reelWidths: readonly number[] = [];
+  /** The space between the title's words, em: its CSS `gap`. */
+  const TITLE_GAP = 0.16;
   /**
-   * The largest the title may be so the reel's widest word stays on the stage
-   * (owner review 2026-09-26). Everything in the title scales together, so one
-   * measurement at any size gives the answer: the title is centred, and the
-   * widest word starts where MATH starts.
+   * The title's words, in em of its own size: MERIT, OR, MATH with its mark,
+   * and each of the reel's words. Everything in the title scales together, so
+   * one measurement at any size sizes it (`titleFit`).
    */
-  let titleMax = $state(Infinity);
+  let titleEm = $state<{ merit: number; or: number; math: number; reel: readonly number[] }>({ merit: 0, or: 0, math: 0, reel: [] });
 
-  function fitTitle(): void {
-    if (!titleEl || !mathReel || !widestWord || !width) return;
-    // once the title has its size, measure where it stands on its line (the coins drop from there)
-    requestAnimationFrame(measureFeet);
+  function measureTitle(): void {
+    if (!titleEl || !mathReel || !reelWidths.length) return;
     const size = parseFloat(getComputedStyle(titleEl).fontSize);
-    const title = titleEl.offsetWidth;
-    const start = rtl ? title - (mathReel.offsetLeft + mathReel.offsetWidth) : mathReel.offsetLeft;
-    const reach = start + widestWord - title / 2;
-    if (reach <= 0) return;
-    titleMax = (size * (width / 2 - 16)) / reach;
+    const em = (el: HTMLElement | null) => (el?.offsetWidth ?? 0) / size;
+    const next = {
+      merit: em(titleEl.querySelector<HTMLElement>('.word.merit')),
+      or: em(titleEl.querySelector<HTMLElement>('.word.or')),
+      // the reel holds the answer's width; the mark follows it
+      math: em(mathReel.querySelector<HTMLElement>('.reel')) + em(mathReel.querySelector<HTMLElement>('.mark')),
+      reel: reelWidths.map((w) => w / size),
+    };
+    // measured again at every size the title takes: only a new face changes the answer
+    const near = (a: number, b: number) => Math.abs(a - b) < 0.02;
+    const same =
+      near(next.merit, titleEm.merit) &&
+      near(next.or, titleEm.or) &&
+      near(next.math, titleEm.math) &&
+      next.reel.length === titleEm.reel.length &&
+      next.reel.every((w, i) => near(w, titleEm.reel[i]));
+    if (!same) titleEm = next;
+  }
+
+  /**
+   * How big the title is, and how it stands (owner, 2026-10-07: "as big as
+   * possible"). On one line it is as wide as the stage allows with the reel's
+   * widest word in place — the line slides aside while that word spins past
+   * (`spin`) — and no taller than leaves the crowd its room. On a narrow stage,
+   * when that is bigger, it stands on two lines, MERIT OR over MATH, and only
+   * the lower line slides.
+   */
+  const titleFit = $derived.by(() => {
+    const e = titleEm;
+    if (!e.reel.length || !width || !height) return null;
+    const room = width - 32;
+    const widest = Math.max(...e.reel);
+    const start = e.merit + e.or + 2 * TITLE_GAP;
+    const one = Math.min(height * 0.2, room / Math.max(start + e.math, start + widest));
+    const two = Math.min(height * 0.1, room / Math.max(e.merit + TITLE_GAP + e.or, e.math, widest));
+    return two > one * 1.2 ? { size: two, lines: 2 } : { size: one, lines: 1 };
+  });
+
+  /** The title's line slid `em` toward its start, away from the reel's long words. */
+  const slideX = (em: number) => (em ? `translateX(${((rtl ? 1 : -1) * em).toFixed(3)}em) ` : '');
+
+  /** How far, em, the title's line slides aside so the reel's word `i` — or a wider one before it — stays on the stage. */
+  function titleShift(i: number): number {
+    const shown = Math.max(0, ...titleEm.reel.slice(0, i + 1));
+    return Math.max(0, shown - titleEm.math) / 2;
   }
   let width = $state(0);
   let height = $state(0);
@@ -180,6 +220,8 @@
     orOn: 0,
     mathOn: 0,
     mathPos: 0,
+    /** How far the title's line has slid aside for a long word on the reel, em. */
+    titleSlide: 0,
     markOn: 0,
     compact: 0,
     titleOn: 1,
@@ -292,6 +334,7 @@
       orOn: pose.or ? 1 : 0,
       mathOn: pose.math ? 1 : 0,
       mathPos: pose.math ? MATH_AT : 0,
+      titleSlide: 0,
       markOn: pose.mark ? 1 : 0,
       compact: pose.compact ? 1 : 0,
       titleOn: pose.cleared ? 0 : 1,
@@ -339,6 +382,7 @@
     view.orOn = t.orOn;
     view.mathOn = t.mathOn;
     view.mathPos = t.mathPos;
+    view.titleSlide = t.titleSlide;
     view.markOn = t.markOn;
     view.compact = t.compact;
     view.titleOn = t.titleOn;
@@ -371,6 +415,7 @@
 
   function settle(index: number): void {
     current = index;
+    titleCue = null;
     stopMotion();
     stopCalls();
     reaction = null;
@@ -1774,15 +1819,15 @@
     window.setTimeout(() => (ripples = ripples.filter((q) => q.id !== id)), 1500);
   });
 
-  /** The title's size, as its CSS computes it: clamp(2.4rem, min(11.5vw, 19svh), 10rem). */
-  const titleFont = $derived(Math.min(titleMax, Math.min(160, Math.max(38.4, Math.min(width * 0.115, height * 0.19)))));
+  /** The title's size, px: as `titleFit` sets it, or as its CSS starts it before its words are measured. */
+  const titleFont = $derived(titleFit?.size ?? Math.min(160, Math.max(38.4, Math.min(width * 0.115, height * 0.19))));
   /** How small the title gets once they start talking. */
   const COMPACT = 0.4;
 
   /** The band the talk lives in: under the title (small by now), over the two. */
   const region = $derived.by(() => {
     const pose = poseAt(current);
-    const top = pose.cleared ? Math.max(height * 0.05, pose.cards.length > 0 ? 68 : 0) : height * 0.03 + titleFont * 1.2 * COMPACT + 12;
+    const top = pose.cleared ? Math.max(height * 0.05, pose.cards.length > 0 ? 68 : 0) : height * 0.03 + titleFont * 1.2 * (titleFit?.lines ?? 1) * COMPACT + 12;
     // in the room the talk floats over the crowd, down to just above the two;
     // over a picture, it stops above the picture
     const chartTop: Record<string, number> = {
@@ -1889,9 +1934,37 @@
   }
 
   function spin(tl: ReturnType<typeof gsap.timeline>): void {
-    tl.set(view, { mathPos: 0 });
+    tl.set(view, { mathPos: 0, titleSlide: 0 });
+    // the crowd looks up at the reel, and follows it while it spins
+    tl.call(() => lookUp(mathReel, true));
     tl.to(view, { mathOn: 1, duration: 0.25, ease: 'none' });
-    for (const x of reelSpin()) tl.to(view, { mathPos: x.to, duration: x.seconds, ease: x.ease });
+    // the line slides aside as the words grow longer, and back as the reel comes home to the answer
+    let reached = 0;
+    for (const x of reelSpin()) {
+      const slide = x.to < reached ? 0 : titleShift(x.to);
+      tl.to(view, { mathPos: x.to, titleSlide: slide, duration: x.seconds, ease: x.ease });
+      reached = Math.max(reached, x.to);
+    }
+    // landed: a last look at the answer, each for their own while
+    tl.call(() => lookUp(mathReel));
+  }
+
+  /** The title's newest word, as the crowd sees it (stageFaces `TitleCue`); set as each word arrives. */
+  let titleCue: TitleCue | null = null;
+  function lookUp(word: Element | null, live = false): void {
+    if (!word || !host) return;
+    const box = word.getBoundingClientRect();
+    const at = host.getBoundingClientRect();
+    titleCue = { x: box.x + box.width / 2 - at.x, y: box.y + box.height / 2 - at.y, since: seconds, live };
+  }
+
+  /** The title's words, as `lookUp` follows them: they arrive without moving anyone. */
+  const TITLE_ACTIONS = new Set(['merit', 'or', 'reel-math']);
+  /** The opening's crowd stands about, at ease — chatting, now and then a hop — unless the timeline is moving them. */
+  function atEase(): boolean {
+    const step = PAIR_STEPS[current];
+    const phase = step?.pose.crowd;
+    return (phase === 'idle' || phase === 'paid') && (!timeline?.isActive() || TITLE_ACTIONS.has(step.action ?? ''));
   }
 
   function choreograph(action: string | undefined, pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
@@ -1903,9 +1976,11 @@
         arrive(tl);
         return;
       case 'merit':
+        tl.call(() => lookUp(titleEl.querySelector('.word.merit')));
         tl.to(view, { meritOn: 1, duration: 0.9, ease: 'power1.out' });
         return;
       case 'or':
+        tl.call(() => lookUp(titleEl.querySelector('.word.or')));
         tl.to(view, { orOn: 1, duration: 0.6, ease: 'none' });
         return;
       case 'reel-math':
@@ -2027,16 +2102,23 @@
    */
   let feet = $state<Point[]>([]);
   function measureFeet(): void {
-    if (!titleEl || !host || !mathReel) return;
+    // only the title at rest: not shrunk to the top, nor slid aside
+    if (!titleEl || !host || !mathReel || view.compact > 0 || view.titleSlide !== 0) return;
+    // on two lines, only the lower one: a coin from the upper would fall through it
     const words = [
-      titleEl.querySelector<HTMLElement>('.word.merit'),
-      titleEl.querySelector<HTMLElement>('.word.or'),
+      ...(titleFit?.lines === 2 ? [] : [titleEl.querySelector<HTMLElement>('.word.merit'), titleEl.querySelector<HTMLElement>('.word.or')]),
       mathReel.querySelectorAll<HTMLElement>('.strip .slot')[MATH_AT] ?? null,
       titleEl.querySelector<HTMLElement>('.mark'),
     ].filter((w): w is HTMLElement => w !== null);
     const box = host.getBoundingClientRect();
     feet = titleFeet(words, box, rtl);
   }
+  // once the title has its size and shape, and stands at rest, measure where it stands on its line
+  const titleAtRest = $derived(view.compact === 0 && view.titleSlide === 0);
+  $effect(() => {
+    void [titleFit?.size, titleFit?.lines, width, height];
+    if (titleAtRest) requestAnimationFrame(measureFeet);
+  });
   const dropFeet = $derived.by((): Point[] => {
     if (feet.length) return feet;
     const box = L.crowdBand;
@@ -2494,7 +2576,9 @@
       facing: pose.place === 'seats',
       coin: cue.air ? { x: L.flip.x, y: L.flip.y + view.flipLift } : null,
       moving,
-      chat: (pose.crowd === 'idle' || pose.crowd === 'paid') && !timeline?.isActive(),
+      chat: atEase(),
+      // the reel holds them only while it is still spinning
+      title: titleCue && atEase() ? (titleCue.live && !timeline?.isActive() ? { ...titleCue, live: false } : titleCue) : null,
     };
   }
 
@@ -2737,14 +2821,18 @@
   function life(i: number): string {
     if (stage?.reduced) return '';
     const b = breath(seconds, i);
-    const crowdPhase = PAIR_STEPS[current]?.pose.crowd;
     let hop = 0;
-    if ((crowdPhase === 'idle' || crowdPhase === 'paid') && !timeline?.isActive()) {
+    if (atEase()) {
       const h = 0.3 * view.people[i].r;
       const flight = 2 * fallTime(h, G);
       const every = 7 + noise(i, 30) * 6;
       const t = (seconds + noise(i, 31) * every) % every;
       if (t < flight) hop = Math.max(0, h - (G / 2) * (t - flight / 2) ** 2);
+      // a laugh shared with a partner: both hop once, a little
+      const laugh = faceLook === 'none' ? -1 : faces.laughing(i, seconds);
+      const lh = 0.18 * view.people[i].r;
+      const lf = 2 * fallTime(lh, G);
+      if (laugh >= 0 && laugh < lf) hop = Math.max(hop, lh - (G / 2) * (laugh - lf / 2) ** 2);
     }
     let shake = 0;
     if (wiggling && whoIs(i) === wiggling.who && seconds < wiggling.until) shake = Math.sin(seconds * 42) * 4;
@@ -2757,7 +2845,7 @@
     const observer = new ResizeObserver(() => {
       width = host.clientWidth;
       height = host.clientHeight;
-      fitTitle();
+      measureTitle();
       // a resize re-lays everything out: draw the current step where it now belongs
       if (!timeline || !timeline.isActive()) draw(poseAt(current));
       paintFaces();
@@ -2766,8 +2854,8 @@
     height = host.clientHeight;
     observer.observe(host);
     stage?.attach(PAIR_STEPS, { play, settle, nudge, hurry, readingMs: readingTime });
-    fitTitle();
-    void document.fonts?.ready.then(fitTitle);
+    measureTitle();
+    void document.fonts?.ready.then(measureTitle);
     recallAnswers();
     loadTuning();
     loadFaceStyle();
@@ -2909,21 +2997,26 @@
     <!-- In reading order: the common sense first, the question second. -->
     <h1
       class="title"
+      class:stacked={titleFit?.lines === 2}
       bind:this={titleEl}
       aria-label={say('open_title')}
-      style={`--title-max:${Number.isFinite(titleMax) ? `${titleMax.toFixed(1)}px` : '10rem'}; transform: translateY(${(-view.compact * height * 0.18).toFixed(1)}px) scale(${(1 - view.compact * (1 - COMPACT)).toFixed(3)})`}
+      style={`${titleFit ? `--title-size:${titleFit.size.toFixed(1)}px; ` : ''}transform: ${titleFit?.lines === 1 ? slideX(view.titleSlide) : ''}translateY(${(-view.compact * height * 0.18).toFixed(1)}px) scale(${(1 - view.compact * (1 - COMPACT)).toFixed(3)})`}
     >
       <span class="word merit" style={`opacity:${view.meritOn}`} aria-hidden="true">{say('open_title_merit')}</span>
       <span class="word or" style={`opacity:${view.orOn}`} aria-hidden="true">{say('open_title_or')}</span>
-      <span class="word math" bind:this={mathReel}>
+      <span
+        class="word math"
+        bind:this={mathReel}
+        style={titleFit?.lines === 2 && view.titleSlide ? `transform: ${slideX(view.titleSlide)}` : undefined}
+      >
         <Reel
           words={MATH_WORDS}
           answer={MATH_AT}
           position={view.mathPos}
           shown={view.mathOn}
-          onmeasure={(w) => {
-            widestWord = w;
-            fitTitle();
+          onmeasure={(widths) => {
+            reelWidths = widths;
+            measureTitle();
           }}
         /><span
           class="mark"
@@ -3579,10 +3672,12 @@
     display: flex;
     justify-content: center;
     align-items: baseline;
-    gap: clamp(0.4rem, 1.4vw, 1.4rem);
+    /* em, so the words keep their places at every size (TITLE_GAP); no gap between two lines */
+    gap: 0 0.16em;
     margin: 0;
     font-family: var(--font-serif);
-    font-size: min(clamp(2.4rem, min(11.5vw, 19svh), 10rem), var(--title-max, 10rem));
+    /* the scene sizes it (titleFit); this only until its words are measured */
+    font-size: var(--title-size, clamp(2.4rem, min(11.5vw, 19svh), 10rem));
     font-weight: 750;
     letter-spacing: -0.035em;
     line-height: 1.2;
@@ -3594,6 +3689,16 @@
   .word.or {
     color: var(--accent);
     font-weight: 600;
+  }
+
+  /* MERIT OR over MATH, on a narrow stage */
+  .title.stacked {
+    flex-wrap: wrap;
+  }
+
+  .title.stacked .word.math {
+    flex-basis: 100%;
+    text-align: center;
   }
 
   .credit {

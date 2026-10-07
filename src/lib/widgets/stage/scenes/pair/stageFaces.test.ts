@@ -17,6 +17,7 @@ const scene = (over: Partial<FaceScene> = {}): FaceScene => ({
   coin: null,
   moving: [],
   chat: false,
+  title: null,
   ...over,
 });
 const fresh = () => new StageFaces(CROWD, 100, BIG, SMALL);
@@ -87,5 +88,38 @@ describe('the opening’s crowd', () => {
     }
     expect(talkers.size).toBeGreaterThan(CROWD / 2);
     expect(silent).toBeLessThan(20);
+  });
+
+  it('looks up at the title’s new word each in their own time, and back to the chat after a while of their own', () => {
+    const faces = fresh();
+    const word = { x: 500, y: 100, since: 10, live: false };
+    // up at the word, far above everyone: steeper than any look across at a partner
+    const up = () => [...Array(CROWD).keys()].filter((i) => faces.field.aimPitch[i] < -0.7);
+    const first = new Map<number, number>();
+    for (let t = 10; t < 17; t += 0.05) {
+      faces.aim(scene({ chat: true, title: word }), t, 0.05);
+      for (const i of up()) if (!first.has(i)) first.set(i, t - 10);
+    }
+    expect(first.size).toBeGreaterThanOrEqual(CROWD / 2);
+    const times = [...first.values()];
+    expect(Math.min(...times)).toBeGreaterThanOrEqual(0.2);
+    expect(Math.max(...times) - Math.min(...times)).toBeGreaterThan(0.3);
+    expect(up()).toEqual([]);
+    // the reel, while it spins, holds those who looked up
+    const reel = { ...word, since: 30, live: true };
+    for (let t = 30; t < 37; t += 0.05) faces.aim(scene({ chat: true, title: reel }), t, 0.05);
+    expect(up().length).toBeGreaterThanOrEqual(CROWD / 2);
+  });
+
+  it('laughs in pairs: whoever laughs, their partner laughs with them', () => {
+    const faces = fresh();
+    let laughed = 0;
+    for (let t = 0; t < 120; t += 0.1) {
+      faces.aim(scene({ chat: true }), t, 0.1);
+      const now = [...Array(CROWD).keys()].filter((i) => faces.laughing(i, t) >= 0);
+      expect(now.length % 2).toBe(0);
+      laughed += now.length;
+    }
+    expect(laughed).toBeGreaterThan(0);
   });
 });

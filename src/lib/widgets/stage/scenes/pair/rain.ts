@@ -63,15 +63,15 @@ export interface RainSetup {
   readonly g: number;
 }
 
-/** Seconds between one coin landing and the next. */
-export const GAP = 0.42;
+/** Seconds, at least, between one coin landing and the next: several are in the air at once. */
+export const GAP = 0.18;
 /** How far off a body's middle a coin may land on it, as a share of its radius: anywhere across its top. */
 export const REACH = 0.8;
 /**
  * At most this long, seconds: the first fall, each coin's catch — most of them
  * the big one's, a hop from foot to foot — and a moment to stand still.
  */
-export const RAIN_SECONDS = 2.0 + DROPS.length * 0.75 + 1.6;
+export const RAIN_SECONDS = 2.0 + DROPS.length * 0.26 + 1.6;
 
 /** A fixed, well-mixed pseudo-random number in [0, 1) for a pair of integers. */
 export function noise(a: number, b: number): number {
@@ -80,26 +80,25 @@ export function noise(a: number, b: number): number {
 }
 
 /**
- * Which foot each coin drops from: every foot drops one (owner, 2026-10-07),
- * and who catches it is the urn's. Those who catch a coin or two take the feet
- * nearest them; the one who catches most sweeps the rest from the end nearer
- * to them — so nobody goes back and forth. With fewer feet than coins, feet
- * drop again.
+ * Which foot each coin drops from: every foot drops the same share — three
+ * each for the 27 coins and nine feet (owner, 2026-10-07: "more coins") — and
+ * who catches it is the urn's. Those who catch a few take the foot nearest
+ * them, as many of its coins as they need: a stream onto one place, not a
+ * chase. The one who catches most takes the rest, sweeping them from the end
+ * nearer to them.
  */
 function footsteps(s: RainSetup): Map<number, Point[]> {
   const count = new Map<number, number>();
   for (const d of DROPS) count.set(d.who, (count.get(d.who) ?? 0) + 1);
   const all = s.feet.length ? s.feet : [{ x: s.band.x + s.band.w / 2, y: s.band.y - s.band.h }];
-  let pool = [...all];
+  const left = all.map((_, i) => Math.floor(DROPS.length / all.length) + (i < DROPS.length % all.length ? 1 : 0));
   const queue = new Map<number, Point[]>();
   for (const who of [...count.keys()].sort((a, b) => count.get(a)! - count.get(b)!)) {
     const home = s.homes[who];
     const mine: Point[] = [];
-    while (mine.length < count.get(who)!) {
-      if (!pool.length) pool = [...all];
-      pool.sort((a, b) => Math.abs(a.x - home.x) - Math.abs(b.x - home.x));
-      mine.push(pool.shift()!);
-    }
+    const near = all.map((_, i) => i).sort((a, b) => Math.abs(all[a].x - home.x) - Math.abs(all[b].x - home.x));
+    for (const i of near)
+      for (; left[i] > 0 && mine.length < count.get(who)!; left[i]--) mine.push(all[i]);
     // a sweep, from the end nearer home
     mine.sort((a, b) => a.x - b.x);
     if (Math.abs(mine[mine.length - 1].x - home.x) < Math.abs(mine[0].x - home.x)) mine.reverse();
@@ -122,13 +121,20 @@ export function planRain(s: RainSetup): RainPlan {
 
   DROPS.forEach((drop, k) => {
     const who = drop.who;
-    const foot = queue.get(who)!.shift()!;
+    const ahead = queue.get(who)!;
+    const foot = ahead.shift()!;
     const r = s.radius(held[who]);
-    // stand so the coin's line falls across the top of the body: the least way over (a big body
-    // catches its neighbours' coins without a step)
+    // stand so the coin's line falls across the top of the body, the least way over — and where the
+    // next ones fall too, if the body is wide enough: a big body catches a stream without a step
     const from = { ...pos[who] };
     const reach = REACH * r;
-    const spot = { x: inBand(Math.min(foot.x + reach, Math.max(foot.x - reach, from.x))), y: from.y };
+    let lo = foot.x - reach;
+    let hi = foot.x + reach;
+    for (const next of ahead) {
+      if (next.x - reach > hi || next.x + reach < lo) break;
+      [lo, hi] = [Math.max(lo, next.x - reach), Math.min(hi, next.x + reach)];
+    }
+    const spot = { x: inBand(Math.min(hi, Math.max(lo, from.x))), y: from.y };
     const dx = foot.x - spot.x;
     const meet = { x: foot.x, y: spot.y - Math.sqrt(Math.max(0, r * r - dx * dx)) };
     const fall = fallTime(meet.y - foot.y, g);

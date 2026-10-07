@@ -22,8 +22,9 @@ for (const [w, h] of [[1366, 768], [390, 844], [1920, 1080]]) {
 
     it('drops each coin straight down from its foot, falling from rest under g onto its catcher', () => {
       const held = [...START];
-      // one coin from each foot
-      expect(plan.catches.map((c) => c.foot.x).sort((a, b) => a - b)).toEqual(feet.map((f) => f.x));
+      // every foot drops the same number of coins: three each
+      const per = DROPS.length / feet.length;
+      expect(plan.catches.map((c) => c.foot.x).sort((a, b) => a - b)).toEqual(feet.flatMap((f) => new Array(per).fill(f.x)));
       for (const c of plan.catches) {
         const r = L.radius(held[c.who]);
         expect(c.meet.x).toBe(c.foot.x);
