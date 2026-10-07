@@ -3,7 +3,7 @@ import { BIG, BLUE_CATCHES, COINS, CROWD, DROPS, RAINED, RED_CATCHES, SMALL, STA
 
 describe("Scene 2's crowd", () => {
   it('hops in already different sizes, everyone holding something', () => {
-    expect(CROWD).toBe(16);
+    expect(CROWD).toBe(8);
     expect(START).toHaveLength(CROWD);
     for (const c of START) expect(c).toBeGreaterThanOrEqual(1);
     expect(new Set(START).size).toBeGreaterThan(1);

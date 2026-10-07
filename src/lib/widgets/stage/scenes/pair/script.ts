@@ -16,8 +16,7 @@
  * else about a step — how long an action plays, how a pose is drawn — is code.
  */
 import { HOLDINGS } from './game';
-import { DROPS } from './crowd';
-import { DROP_GAP, FALL } from './rain';
+import { RAIN_SECONDS } from './rain';
 import { CHAT, HOLD, READER, auto, type LineSpec, type StepSpec, type Wait } from '../../steps';
 import { STORY } from '../../../../content/story.gen';
 import type { StoryGroup, StoryStep } from '../../../../script/compile';
@@ -202,8 +201,8 @@ export function levyLesson(stage: 0 | 1 | 2): { coins: number[]; pool: number } 
   return { coins: LEVY_COINS.map((c, k) => c - taken[k] + pool / LEVY_COINS.length), pool: 0 };
 }
 
-/** How long the rain step lasts: every drop, the last fall, and a moment to stand still. */
-export const RAIN_WAIT_MS = Math.round((0.4 + DROPS.length * DROP_GAP + FALL + 2.4) * 1000);
+/** How long the rain step lasts: every drop, the last fall, and a moment to stand still (rain.ts). */
+export const RAIN_WAIT_MS = Math.round(RAIN_SECONDS * 1000);
 
 /** How long the run takes on screen, ms: slow enough to see it happen (brief Scene 13). */
 export const RUN_MS = 16_000;
@@ -316,7 +315,8 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
     case 'payout':
       return RAIN_WAIT_MS;
     case 'gather':
-      return 2600;
+      // everyone else bounds off at their own gait; Blue and Red hop under their words (hops.ts)
+      return 3400;
     case 'clear':
       return 1500;
     case 'toss':

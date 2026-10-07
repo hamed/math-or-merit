@@ -79,7 +79,8 @@ export function pairLayout(width: number, height: number, roomSize = 100, mirror
   const one = radius(1);
   // the lower part of the stage, under the title; scattered at random, no rows
   const band = { x: w * 0.06, y: h * 0.6, w: w * 0.88, h: h * 0.3 };
-  const crowdHomes = scatter(CROWD, band, one * 2.7, 7);
+  // eight of them, some already big (owner, 2026-10-07: "half of this"): room between them for that
+  const crowdHomes = scatter(CROWD, band, one * 4.5, 7);
   // everyone comes in from the nearer side, on the ground — nobody drops in from the sky
   const crowdEntries = crowdHomes.map((home) => ({ x: home.x < w / 2 ? -one * 2 : w + one * 2, y: home.y }));
   const crowdExits = crowdHomes.map((home) => ({ x: home.x < w / 2 ? -one * 4 : w + one * 4, y: home.y }));

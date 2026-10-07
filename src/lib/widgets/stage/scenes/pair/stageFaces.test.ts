@@ -4,7 +4,8 @@ import { PAIR_STEPS } from './script';
 import { StageFaces, type Body, type FaceScene } from './stageFaces';
 
 const at = (x: number, y: number, r = 30): Body => ({ x, y, r, alpha: 1 });
-const people = Array.from({ length: CROWD }, (_, i) => at(100 + i * 60, 400));
+// everyone in a line, Blue to the left of Red as on the stage
+const people = Array.from({ length: CROWD }, (_, i) => (i === BIG ? at(300, 400) : i === SMALL ? at(700, 400) : at(100 + i * 110, 520)));
 const scene = (over: Partial<FaceScene> = {}): FaceScene => ({
   depth: 300,
   people,

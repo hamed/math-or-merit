@@ -1,13 +1,15 @@
 /**
- * How the crowd moves while the coins rain (owner reviews 2026-09-26,
- * 2026-09-27): a coin lands on whoever it lands on — a bigger circle is a
- * bigger target, so nobody has to run for it: the one it lands on shifts a
- * little under it and bumps up to meet it. The one or two nearest scramble
- * for it anyway, arrive a beat late, and stop. Pure and deterministic, so the
- * scene can play it AND settle to the exact places it ends in.
+ * How the crowd moves while the coins drop (owner reviews 2026-09-26,
+ * 2026-09-27, 2026-10-07): each coin falls straight down from a foot of the
+ * title, under the stage's one gravity, and lands on whoever is under it — a
+ * bigger circle is a bigger target. The one it is meant for hops over, at their
+ * own gait (hops.ts), until the coin's line falls inside them; now and then a
+ * neighbour goes for it too and arrives a beat late. Pure and deterministic,
+ * so the scene can play it AND settle to the exact places it ends in.
  */
 import type { Point } from '../../../shared/layout';
-import { DROPS } from './crowd';
+import { DROPS, START } from './crowd';
+import { arrival, fallTime, gait, hopsAlong, type Hop } from './hops';
 
 export interface Box {
   readonly x: number;
@@ -16,22 +18,27 @@ export interface Box {
   readonly h: number;
 }
 
-/** A catch: the drop's owner hops from `from` to `spot`, leaving at `depart`, and meets the coins at `land`. */
+/** A catch: the drop's owner hops from `from` to `spot`, and the coin, let go at the foot, meets them at `meet`. */
 export interface Catch {
   readonly drop: number;
   readonly who: number;
   readonly count: number;
+  readonly foot: Point;
+  readonly meet: Point;
   readonly from: Point;
   readonly spot: Point;
-  readonly depart: number;
+  readonly hops: readonly Hop[];
+  /** The coin lets go of the title, and lands. Seconds. */
+  readonly release: number;
   readonly land: number;
 }
 
-/** Someone going for a drop that is not theirs: they hop part of the way and stop. */
+/** Someone going for a coin that is not theirs: they hop part of the way, too late, and stop. */
 export interface Chase {
   readonly who: number;
   readonly from: Point;
   readonly to: Point;
+  readonly hops: readonly Hop[];
   readonly depart: number;
   readonly arrive: number;
 }
@@ -45,11 +52,26 @@ export interface RainPlan {
   readonly seconds: number;
 }
 
-/** One small hop, seconds; and the seconds between one drop and the next. */
-export const HOP_SECONDS = 0.26;
-export const DROP_GAP = 0.16;
-/** How long a coin takes to fall from MATH. */
-export const FALL = 0.7;
+export interface RainSetup {
+  readonly homes: readonly Point[];
+  readonly band: Box;
+  /** Where the coins drop from, in the order they drop: the title's feet (titleFeet.ts). */
+  readonly feet: readonly Point[];
+  /** A body's radius for a fortune of `coins`: area is wealth. */
+  readonly radius: (coins: number) => number;
+  /** The stage's gravity, px/s² (hops.ts `gravity`). */
+  readonly g: number;
+}
+
+/** Seconds between one coin landing and the next. */
+export const GAP = 0.42;
+/** How far off a body's middle a coin may land on it, as a share of its radius: anywhere across its top. */
+export const REACH = 0.8;
+/**
+ * At most this long, seconds: the first fall, each coin's catch — most of them
+ * the big one's, a hop from foot to foot — and a moment to stand still.
+ */
+export const RAIN_SECONDS = 2.0 + DROPS.length * 0.75 + 1.6;
 
 /** A fixed, well-mixed pseudo-random number in [0, 1) for a pair of integers. */
 export function noise(a: number, b: number): number {
@@ -57,54 +79,103 @@ export function noise(a: number, b: number): number {
   return x - Math.floor(x);
 }
 
-export function hopsFor(distance: number, hopLength: number): number {
-  return distance < 1 ? 0 : Math.max(1, Math.ceil(distance / hopLength));
+/**
+ * Which foot each coin drops from: every foot drops one (owner, 2026-10-07),
+ * and who catches it is the urn's. Those who catch a coin or two take the feet
+ * nearest them; the one who catches most sweeps the rest from the end nearer
+ * to them — so nobody goes back and forth. With fewer feet than coins, feet
+ * drop again.
+ */
+function footsteps(s: RainSetup): Map<number, Point[]> {
+  const count = new Map<number, number>();
+  for (const d of DROPS) count.set(d.who, (count.get(d.who) ?? 0) + 1);
+  const all = s.feet.length ? s.feet : [{ x: s.band.x + s.band.w / 2, y: s.band.y - s.band.h }];
+  let pool = [...all];
+  const queue = new Map<number, Point[]>();
+  for (const who of [...count.keys()].sort((a, b) => count.get(a)! - count.get(b)!)) {
+    const home = s.homes[who];
+    const mine: Point[] = [];
+    while (mine.length < count.get(who)!) {
+      if (!pool.length) pool = [...all];
+      pool.sort((a, b) => Math.abs(a.x - home.x) - Math.abs(b.x - home.x));
+      mine.push(pool.shift()!);
+    }
+    // a sweep, from the end nearer home
+    mine.sort((a, b) => a.x - b.x);
+    if (Math.abs(mine[mine.length - 1].x - home.x) < Math.abs(mine[0].x - home.x)) mine.reverse();
+    queue.set(who, mine);
+  }
+  return queue;
 }
 
-export function planRain(homes: readonly Point[], band: Box, one: number): RainPlan {
-  const inside = (p: Point): Point => ({
-    x: Math.min(band.x + band.w, Math.max(band.x, p.x)),
-    y: Math.min(band.y + band.h, Math.max(band.y, p.y)),
-  });
-  const hop = one * 2.2;
-  const pos = homes.map((p) => ({ ...p }));
-  const busy = homes.map(() => 0);
+export function planRain(s: RainSetup): RainPlan {
+  const { band, g } = s;
+  const unit = s.radius(1);
+  const inBand = (x: number) => Math.min(band.x + band.w, Math.max(band.x, x));
+  const pos = s.homes.map((p) => ({ ...p }));
+  const free = s.homes.map(() => 0);
+  const held = [...START];
   const catches: Catch[] = [];
   const chases: Chase[] = [];
+  let last = 0;
+  const queue = footsteps(s);
 
   DROPS.forEach((drop, k) => {
     const who = drop.who;
-    const from = pos[who];
-    // the coin comes to its target where it stands: nobody runs for their own coin
-    const spot = inside({ ...from });
-    const travel = hopsFor(Math.hypot(spot.x - from.x, spot.y - from.y), hop) * HOP_SECONDS;
-    const base = 0.4 + k * DROP_GAP + FALL;
-    const depart = Math.max(busy[who], base - travel - 0.05);
-    const land = depart + travel + 0.05;
-    catches.push({ drop: k, who, count: drop.count, from: { ...from }, spot, depart, land });
+    const foot = queue.get(who)!.shift()!;
+    const r = s.radius(held[who]);
+    // stand so the coin's line falls across the top of the body: the least way over (a big body
+    // catches its neighbours' coins without a step)
+    const from = { ...pos[who] };
+    const reach = REACH * r;
+    const spot = { x: inBand(Math.min(foot.x + reach, Math.max(foot.x - reach, from.x))), y: from.y };
+    const dx = foot.x - spot.x;
+    const meet = { x: foot.x, y: spot.y - Math.sqrt(Math.max(0, r * r - dx * dx)) };
+    const fall = fallTime(meet.y - foot.y, g);
+    // in a hurry: bound, a whole move in as few hops as a stretched stride allows (hops.ts `stride`)
+    const stride = 2.2;
+    // the coin may meet them as they touch down, while they still settle: the blow lands on the squash
+    const touch = (hops: readonly Hop[], at: number) => (hops.length ? hops[hops.length - 1].land : at);
+    const travel = touch(hopsAlong(from, spot, 0, r, unit, g, 1, stride), 0);
+    // land a beat after the last coin, once there; leave as late as that allows
+    const want = Math.max(last + GAP, fall + 0.25);
+    const depart = Math.max(free[who], want - 0.05 - travel);
+    const hops = hopsAlong(from, spot, depart, r, unit, g, 1, stride);
+    const land = Math.max(want, touch(hops, depart) + 0.05);
+    catches.push({ drop: k, who, count: drop.count, foot, meet, from, spot, hops, release: land - fall, land });
     pos[who] = spot;
-    busy[who] = land + 0.08;
+    // free once settled from the hop and the blow
+    free[who] = Math.max(land + 0.15, arrival(hops, depart));
+    held[who] += drop.count;
+    last = land;
 
-    // the nearest one or two go for it as well, and arrive a beat late
-    const rivals = pos
-      .map((p, i) => ({ i, d: Math.hypot(p.x - spot.x, p.y - spot.y) }))
-      .filter(({ i, d }) => i !== who && d < one * 9 && busy[i] < land - 0.5)
-      .sort((a, b) => a.d - b.d)
-      .slice(0, 1 + (noise(k, 4) < 0.5 ? 1 : 0));
-    for (const { i } of rivals) {
-      const start = pos[i];
-      const share = 0.5 + noise(k, 10 + i) * 0.3;
-      const to = inside({ x: start.x + (spot.x - start.x) * share, y: start.y + (spot.y - start.y) * share });
-      const hops = hopsFor(Math.hypot(to.x - start.x, to.y - start.y), hop);
-      const arrive = land + 0.08 + noise(k, 20 + i) * 0.18;
-      const leave = arrive - hops * HOP_SECONDS;
-      if (leave < busy[i] || hops === 0) continue;
-      chases.push({ who: i, from: { ...start }, to, depart: leave, arrive });
-      pos[i] = to;
-      busy[i] = arrive + 0.2;
+    // every other coin, the nearest one who is free goes for it too, and arrives a beat late
+    if (k % 2 === 1) {
+      let rival = -1;
+      let best = Infinity;
+      pos.forEach((p, i) => {
+        const d = Math.hypot(p.x - spot.x, p.y - spot.y);
+        if (i !== who && d < best && free[i] < land - 0.8) [rival, best] = [i, d];
+      });
+      if (rival >= 0) {
+        const rr = s.radius(held[rival]);
+        if (best < 3 * gait(rr, unit, g).length && best > rr + r) {
+          const start = { ...pos[rival] };
+          const to = { x: inBand(start.x + (spot.x - start.x) * 0.55), y: start.y };
+          const span = arrival(hopsAlong(start, to, 0, rr, unit, g), 0);
+          const leave = land + 0.1 - span;
+          if (leave >= free[rival] && span > 0) {
+            const run = hopsAlong(start, to, leave, rr, unit, g);
+            const arrive = arrival(run, leave);
+            chases.push({ who: rival, from: start, to, hops: run, depart: leave, arrive });
+            pos[rival] = to;
+            free[rival] = arrive + 0.2;
+          }
+        }
+      }
     }
   });
 
-  const seconds = Math.max(...catches.map((c) => c.land), ...chases.map((c) => c.arrive)) + 0.5;
+  const seconds = Math.max(...catches.map((c) => c.land), ...chases.map((c) => c.arrive)) + 0.6;
   return { catches, chases, finals: pos, seconds };
 }

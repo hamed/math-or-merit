@@ -57,7 +57,9 @@
   import StopSlider, { RATE_STOPS } from '../../../sandbox/StopSlider.svelte';
   import { createRun } from './run.svelte';
   import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
-  import { FALL, hopsFor, noise, planRain } from './rain';
+  import { noise, planRain } from './rain';
+  import { arrival, fallTime, gravity, hopsAlong, squashed, type Hop } from './hops';
+  import { titleFeet } from './titleFeet';
   import { deciderFace, pairLayout, pile } from './layout';
   import type { Point } from '../../../shared/layout';
   import { bubbleLines, bubbleWords, chatColumn, stackChat, talkSpan, type BubbleChoice } from '../../bubbles';
@@ -134,6 +136,8 @@
 
   function fitTitle(): void {
     if (!titleEl || !mathReel || !widestWord || !width) return;
+    // once the title has its size, measure where it stands on its line (the coins drop from there)
+    requestAnimationFrame(measureFeet);
     const size = parseFloat(getComputedStyle(titleEl).fontSize);
     const title = titleEl.offsetWidth;
     const start = rtl ? title - (mathReel.offsetLeft + mathReel.offsetWidth) : mathReel.offsetLeft;
@@ -1972,179 +1976,121 @@
     sy: number;
   }
 
-  /**
-   * Small hops from `from` to `to`, leaving at `depart` and landing for good at
-   * `arrive` — the Pixar lamp, not a cannonball (owner review 2026-09-26):
-   * crouch, stretch into the air, squash on landing, and no two hops alike.
-   * Nobody flies: a long way is many small hops, never one big arc.
-   */
-  function hopAlong(
-    tl: Timeline,
-    p: Hopper,
-    from: Point,
-    to: Point,
-    depart: number,
-    arrive: number,
-    height: number,
-    key: number,
-    hopLength = L.radius(1) * 2.2,
-  ): void {
-    const n = hopsFor(Math.hypot(to.x - from.x, to.y - from.y), hopLength);
-    if (n === 0 || arrive <= depart) return;
-    const weights = Array.from({ length: n }, (_, k) => 0.8 + noise(key, k) * 0.55);
-    const total = weights.reduce((sum, w) => sum + w, 0);
-    let t = depart;
-    for (let k = 0; k < n; k++) {
-      const dur = ((arrive - depart) * weights[k]) / total;
-      const a = { x: from.x + ((to.x - from.x) * k) / n, y: from.y + ((to.y - from.y) * k) / n };
-      const b = { x: from.x + ((to.x - from.x) * (k + 1)) / n, y: from.y + ((to.y - from.y) * (k + 1)) / n };
-      const h = height * (0.6 + noise(key, k + 50) * 0.7);
-      const crouch = dur * 0.16;
-      const air = dur * 0.62;
-      const land = dur * 0.22;
-      tl.to(p, { sx: 1.16, sy: 0.82, duration: crouch, ease: 'power1.out' }, t);
-      tl.to(p, { sx: 0.9, sy: 1.13, duration: air * 0.4, ease: 'power1.out' }, t + crouch);
-      tl.to(p, { x: b.x, duration: air, ease: 'none' }, t + crouch);
-      tl.to(p, { y: Math.min(a.y, b.y) - h, duration: air / 2, ease: 'power2.out' }, t + crouch);
-      tl.to(p, { y: b.y, duration: air / 2, ease: 'power2.in' }, t + crouch + air / 2);
-      tl.to(p, { sx: 1, sy: 1, duration: air * 0.3 }, t + crouch + air * 0.45);
-      tl.to(p, { sx: 1.2, sy: 0.8, duration: land * 0.4, ease: 'power1.out' }, t + crouch + air);
-      tl.to(p, { sx: 1, sy: 1, duration: land * 0.6, ease: 'back.out(3)' }, t + crouch + air + land * 0.4);
-      t += dur;
-    }
-  }
-
-  /** A jump on the spot whose top is at `peak`: crouch, up, down, squash. */
-  function jumpAt(tl: Timeline, p: Hopper, spot: Point, peak: number, height: number): void {
-    tl.to(p, { sx: 1.18, sy: 0.8, duration: 0.09, ease: 'power1.out' }, peak - 0.27);
-    tl.to(p, { sx: 0.88, sy: 1.16, y: spot.y - height, duration: 0.18, ease: 'power2.out' }, peak - 0.18);
-    tl.to(p, { sx: 1, sy: 1, y: spot.y, duration: 0.2, ease: 'power2.in' }, peak);
-    tl.to(p, { sx: 1.22, sy: 0.78, duration: 0.06, ease: 'power1.out' }, peak + 0.2);
-    tl.to(p, { sx: 1, sy: 1, duration: 0.16, ease: 'back.out(3)' }, peak + 0.26);
-  }
+  /** The stage's gravity, px/s² (hops.ts): every hop and every falling coin obeys it. */
+  const G = $derived(gravity(L.whole));
 
   /**
-   * The Luxo lamp's leap (owner review 2026-09-27: "assume the Pixar logo, the
-   * lamp and the ball"): a few big hops, not many small ones. Each one crouches
-   * and holds, springs up stretched, hangs at the top, and lands in a squash
-   * that overshoots; a beat of stillness between hops; and at home the ball's
-   * decaying bounce. The heavier, the lower and slower.
+   * Plays hops (hops.ts) on a timeline (owner, 2026-10-07: "physics should
+   * work here"): a crouch that squashes, a stretched take-off, a parabola under
+   * the stage's gravity — x steady, y slowing to the top and quickening down —
+   * and a landing squash that settles: quick on a small, hard body, slow and
+   * wobbling on a big, soft one. Every squash keeps the area.
    */
-  function leapAlong(tl: Timeline, p: Hopper, from: Point, to: Point, depart: number, weight: number, height: number, hopLength: number, key: number): number {
-    const n = Math.max(1, hopsFor(Math.hypot(to.x - from.x, to.y - from.y), hopLength));
-    let t = depart;
-    for (let k = 0; k < n; k++) {
-      const a = { x: from.x + ((to.x - from.x) * k) / n, y: from.y + ((to.y - from.y) * k) / n };
-      const b = { x: from.x + ((to.x - from.x) * (k + 1)) / n, y: from.y + ((to.y - from.y) * (k + 1)) / n };
-      const h = height * (0.85 + noise(key, k) * 0.3) * (k === n - 1 ? 0.8 : 1);
-      const crouch = 0.1 + weight * 0.02;
-      const air = 0.3 + weight * 0.04 + noise(key, k + 20) * 0.06;
-      // crouch, and hold it: the anticipation that makes it a leap
-      tl.to(p, { sx: 1.24, sy: 0.74, duration: crouch, ease: 'power2.out' }, t);
-      // spring, stretched, and hang at the top
-      tl.to(p, { sx: 0.84, sy: 1.22, duration: air * 0.3, ease: 'power2.out' }, t + crouch);
-      tl.to(p, { x: b.x, duration: air, ease: 'sine.inOut' }, t + crouch);
-      tl.to(p, { y: Math.min(a.y, b.y) - h, duration: air / 2, ease: 'power3.out' }, t + crouch);
-      tl.to(p, { y: b.y, duration: air / 2, ease: 'power3.in' }, t + crouch + air / 2);
-      tl.to(p, { sx: 1, sy: 1, duration: air * 0.35 }, t + crouch + air * 0.35);
-      // land: squash, overshoot, still
-      tl.to(p, { sx: 1.28, sy: 0.72, duration: 0.06, ease: 'power1.out' }, t + crouch + air);
-      tl.to(p, { sx: 1, sy: 1, duration: 0.22, ease: 'back.out(3.2)' }, t + crouch + air + 0.06);
-      t += crouch + air + 0.06 + 0.12 + noise(key, k + 40) * 0.12;
+  function playHops(tl: Timeline, p: Hopper, hops: readonly Hop[]): void {
+    for (const h of hops) {
+      const gt = h.gait;
+      const up = h.apex - h.lift;
+      tl.to(p, { ...squashed(gt.squash * 0.8), duration: Math.max(0.02, h.lift - h.start), ease: 'power2.out' }, h.start);
+      tl.to(p, { ...squashed(-gt.stretch), duration: up * 0.5, ease: 'power1.out' }, h.lift);
+      tl.to(p, { sx: 1, sy: 1, duration: up * 0.5, ease: 'power1.in' }, h.lift + up * 0.5);
+      tl.to(p, { x: h.to.x, duration: h.land - h.lift, ease: 'none' }, h.lift);
+      tl.to(p, { y: h.top, duration: up, ease: 'power2.out' }, h.lift);
+      tl.to(p, { y: h.to.y, duration: h.land - h.apex, ease: 'power2.in' }, h.apex);
+      tl.to(p, { ...squashed(gt.squash), duration: 0.05, ease: 'power1.out' }, h.land);
+      tl.to(p, { sx: 1, sy: 1, duration: Math.max(0.08, h.end - h.land - 0.05), ease: gt.soft > 0.4 ? 'elastic.out(1, 0.55)' : 'back.out(2.5)' }, h.land + 0.05);
     }
-    // the ball: two little bounces, each lower
-    for (const [k, part] of [0.22, 0.08].entries()) {
-      const up = 0.1 + (1 - k) * 0.04;
-      tl.to(p, { y: to.y - height * part, sx: 0.94, sy: 1.06, duration: up, ease: 'power2.out' }, t);
-      tl.to(p, { y: to.y, sx: 1, sy: 1, duration: up, ease: 'power2.in' }, t + up);
-      tl.to(p, { sx: 1.1, sy: 0.9, duration: 0.04 }, t + up * 2);
-      tl.to(p, { sx: 1, sy: 1, duration: 0.1, ease: 'back.out(3)' }, t + up * 2 + 0.04);
-      t += up * 2 + 0.14;
-    }
-    return t;
   }
 
-  /** Scene 2 begins: people leap in from the nearer side, each at their own pace and weight, and settle. */
+  /** `p`, a body of radius `r`, hops from `from` to `to`, leaving at `depart`, at its own gait; returns when it has settled there. */
+  function hopTo(tl: Timeline, p: Hopper, from: Point, to: Point, depart: number, r: number, stride = 1): number {
+    const hops = hopsAlong(from, to, depart, r, L.radius(1), G, 1, stride);
+    playHops(tl, p, hops);
+    return arrival(hops, depart);
+  }
+
+  /** How far a crossing of the stage bounds: the same hops, further each (hops.ts `stride`). */
+  const CROSSING = 2.2;
+
+  /** Scene 2 begins: people hop in from the nearer side, each at their own gait — the small quick and short, the big slow and long. */
   function arrive(tl: Timeline): void {
-    const one = L.radius(1);
     view.people.forEach((person, i) => {
       const r = L.radius(CROWD_START[i]);
       tl.set(person, { ...L.crowdEntries[i], r, empty: 0, alpha: 1, sx: 1, sy: 1 }, 0);
-      const weight = CROWD_START[i];
-      leapAlong(tl, person, L.crowdEntries[i], L.crowdHomes[i], 0.15 + noise(i, 1) * 1.1, weight, r * 1.2 + one * (2.4 - weight * 0.4), one * (7 - weight), i * 7 + 1);
+      hopTo(tl, person, L.crowdEntries[i], L.crowdHomes[i], 0.1 + noise(i, 1) * 0.8, r, CROSSING);
     });
   }
 
-  /** Where the crowd ends the rain: the scramble, planned once for this stage's size. */
-  const rainPlan = $derived(planRain(L.crowdHomes, L.crowdBand, L.radius(1)));
+  /**
+   * Where the coins drop from: every flat foot of the title's letters on its
+   * line (titleFeet.ts), measured whenever the title is laid out; until then,
+   * evenly along the title.
+   */
+  let feet = $state<Point[]>([]);
+  function measureFeet(): void {
+    if (!titleEl || !host || !mathReel) return;
+    const words = [
+      titleEl.querySelector<HTMLElement>('.word.merit'),
+      titleEl.querySelector<HTMLElement>('.word.or'),
+      mathReel.querySelectorAll<HTMLElement>('.strip .slot')[MATH_AT] ?? null,
+      titleEl.querySelector<HTMLElement>('.mark'),
+    ].filter((w): w is HTMLElement => w !== null);
+    const box = host.getBoundingClientRect();
+    feet = titleFeet(words, box, rtl);
+  }
+  const dropFeet = $derived.by((): Point[] => {
+    if (feet.length) return feet;
+    const box = L.crowdBand;
+    return Array.from({ length: COINS }, (_, k) => ({ x: box.x + ((k + 0.5) / COINS) * box.w, y: L.height * 0.35 }));
+  });
+
+  /** Where the crowd ends the rain: the scramble, planned once for this stage's size and title. */
+  const rainPlan = $derived(planRain({ homes: L.crowdHomes, band: L.crowdBand, feet: dropFeet, radius: L.radius, g: G }));
 
   /**
-   * Coins pop out of the MATH reel and rain down, and everyone scrambles for
-   * them (owner, 2026-09-26): each drop's owner hops under it and jumps to meet
-   * it; the nearest one or two go for it too and arrive a beat late. One
-   * catches a lot, one very little — those two stay.
+   * Coins drop straight down from the title's feet, under the stage's gravity,
+   * and land on whoever is under them (owner, 2026-10-07): each coin's owner
+   * hops over at their own gait until its line falls inside them, and gives a
+   * little under the blow; now and then a neighbour goes for it too, a beat
+   * late. One catches a lot, one nothing — those two stay.
    */
   function payout(tl: Timeline): void {
-    const hostBox = host.getBoundingClientRect();
-    const titleBox = titleEl.getBoundingClientRect();
-    // the whole title is the machine: coins spill from every part of it
-    const source = (k: number) => ({
-      x: titleBox.left - hostBox.left + titleBox.width * (0.04 + noise(k, 7) * 0.92),
-      y: titleBox.top - hostBox.top + titleBox.height * (0.35 + noise(k, 8) * 0.4),
-    });
-    const one = L.radius(1);
     const held = [...CROWD_START];
-    const last = new Array<number>(CROWD).fill(-Infinity);
     tl.to(view, { markOn: 1, duration: 0.5, ease: 'none' }, 0);
-    let token = 0;
-    for (const c of rainPlan.catches) {
+    for (const [token, c] of rainPlan.catches.entries()) {
       const person = view.people[c.who];
-      hopAlong(tl, person, c.from, c.spot, c.depart, c.land - 0.28, one * 0.8, c.drop * 13 + 3);
-      const r = L.radius(held[c.who]);
+      playHops(tl, person, c.hops);
+      const had = held[c.who];
       held[c.who] += c.count;
-      // a coin just caught: bump up to meet it — or, while they keep coming, just give under them
-      if (c.land - last[c.who] > 0.5) jumpAt(tl, person, c.spot, c.land, Math.max(one * 0.8, r * 0.3));
-      else {
-        tl.to(person, { sx: 1.12, sy: 0.88, duration: 0.06 }, c.land);
-        tl.to(person, { sx: 1, sy: 1, duration: 0.14, ease: 'back.out(3)' }, c.land + 0.06);
-      }
-      last[c.who] = c.land;
-      const from = source(c.drop);
-      for (let k = 0; k < c.count; k++) {
-        const coin = view.payout[token++];
-        const off = (k - (c.count - 1) / 2) * L.coinRadius * 1.3;
-        tl.set(coin, { x: from.x, y: from.y, on: 1 }, c.land - FALL + k * 0.04);
-        tl.to(coin, { x: c.spot.x + off, duration: FALL, ease: 'power1.out' }, c.land - FALL + k * 0.04);
-        tl.to(coin, { y: c.spot.y - r, duration: FALL, ease: 'power2.in' }, c.land - FALL + k * 0.04);
-        tl.set(coin, { on: 0 }, c.land + k * 0.04);
-      }
+      // a straight fall from the foot, from rest: y quickening, x still
+      const coin = view.payout[token];
+      tl.set(coin, { x: c.foot.x, y: c.foot.y, on: 1 }, c.release);
+      tl.to(coin, { y: c.meet.y, duration: c.land - c.release, ease: 'power2.in' }, c.release);
+      tl.set(coin, { on: 0 }, c.land);
+      // the blow: a squash that keeps the area, the softer the deeper; and the coin is theirs
+      const soft = Math.min(1, Math.max(0, (L.radius(had) / L.radius(1) - 1) / 3.5));
+      tl.to(person, { ...squashed(0.05 + 0.12 * soft), duration: 0.05, ease: 'power1.out' }, c.land);
+      tl.to(person, { sx: 1, sy: 1, duration: 0.2 + 0.3 * soft, ease: soft > 0.4 ? 'elastic.out(1, 0.55)' : 'back.out(2.5)' }, c.land + 0.05);
       tl.to(person, { r: L.radius(held[c.who]), duration: 0.25, ease: 'back.out(3)' }, c.land);
       // a coin caught is a result: one coin to someone with one is joy, to someone with eight a shrug
-      const had = held[c.who] - c.count;
       feelAt(tl, c.land, () => faces.field.react(c.who, had, had + c.count));
     }
-    for (const [k, c] of rainPlan.chases.entries()) {
-      hopAlong(tl, view.people[c.who], c.from, c.to, c.depart, c.arrive, one * 0.7, k * 17 + 5);
-    }
+    for (const c of rainPlan.chases) playHops(tl, view.people[c.who], c.hops);
   }
 
   /** Everyone else hops off the stage with what they caught; the two hop under their words. */
   function leave(pose: Pose, tl: Timeline): void {
     const targets = people(pose);
-    const one = L.radius(1);
     view.people.forEach((person, i) => {
       const from = { x: person.x, y: person.y };
       if (whoIs(i)) {
         const to = { x: targets[i].x, y: targets[i].y };
-        hopAlong(tl, person, from, to, 0.4, 2.1, Math.max(one * 0.6, person.r * 0.25), i * 5 + 2);
-        tl.to(person, { r: targets[i].r, duration: 0.5 }, 1.6);
+        const there = hopTo(tl, person, from, to, 0.4, person.r, CROSSING);
+        tl.to(person, { r: targets[i].r, duration: 0.5 }, Math.max(0.4, there - 0.5));
         return;
       }
-      const depart = noise(i, 3) * 0.7;
       const exit = L.crowdExits[i];
-      const hops = hopsFor(Math.abs(exit.x - from.x), one * 2.2);
-      hopAlong(tl, person, from, { x: exit.x, y: from.y }, depart, depart + hops * 0.22, one * 0.6, i * 11 + 4);
-      tl.set(person, { alpha: 0 }, depart + hops * 0.22);
+      const gone = hopTo(tl, person, from, { x: exit.x, y: from.y }, noise(i, 3) * 0.6, person.r, CROSSING);
+      tl.set(person, { alpha: 0 }, gone);
     });
   }
 
@@ -2160,10 +2106,9 @@
       if (i === L.room.blue || i === L.room.red) return;
       const v = view.room[i];
       const exit = { x: v.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: v.y };
-      const depart = noise(i, 7) * 1.2;
-      const hops = Math.max(3, Math.round(Math.abs(exit.x - v.x) / (L.room.radius * 6)));
-      hopAlong(tl, v, { x: v.x, y: v.y }, exit, depart, depart + hops * 0.28, L.room.radius * 0.8, i * 7 + 5, L.room.radius * 6);
-      tl.set(v, { alpha: 0 }, depart + hops * 0.28);
+      // dust hops out like the small, or it would take all day
+      const gone = hopTo(tl, v, { x: v.x, y: v.y }, exit, noise(i, 7) * 1.2, Math.max(v.r, L.room.radius * 0.5), CROSSING);
+      tl.set(v, { alpha: 0 }, gone);
     });
     tweenTo(pose, tl, 1.4, 1.2);
     tl.to(view, { roomOn: 0, duration: 0.4 }, 2.8);
@@ -2185,9 +2130,8 @@
       const entry = { x: spot.x < w / 2 ? -L.room.radius * 3 : w + L.room.radius * 3, y: spot.y };
       // one by one over five seconds or so, unhurried: long, low hops (owner review 2026-09-26)
       const depart = 0.5 + (i / L.room.positions.length) * 4.6 + noise(i, 4) * 0.5;
-      const hops = Math.max(3, Math.round(Math.hypot(spot.x - entry.x, spot.y - entry.y) / (L.room.radius * 6)));
       tl.set(view.room[i], { ...entry, alpha: 1, sx: 1, sy: 1 }, depart);
-      hopAlong(tl, view.room[i], entry, spot, depart, depart + hops * (0.36 + noise(i, 5) * 0.1), L.room.radius * 0.9, i * 3 + 9, L.room.radius * 6);
+      hopTo(tl, view.room[i], entry, spot, depart, L.room.radius, CROSSING);
     });
     tl.call(() => {
       view.held = t.held;
@@ -2783,23 +2727,29 @@
     return `translate(0 ${r.toFixed(2)}) scale(${sx.toFixed(3)} ${sy.toFixed(3)}) translate(0 ${(-r).toFixed(2)})`;
   }
 
-  /** Breath for the pair, a hop and a jiggle for the crowd — ambient, on the inner group only. */
+  /**
+   * Breath for everyone, and now and then a little hop for the crowd standing
+   * about — ambient, on the inner group only. The faces carry the life now
+   * (owner, 2026-10-07: "not jump too much … just play with faces"): a hop is
+   * rare, a parabola under the stage's gravity, and the breath stretches a
+   * body without changing its area, because area is wealth.
+   */
   function life(i: number): string {
     if (stage?.reduced) return '';
     const b = breath(seconds, i);
     const crowdPhase = PAIR_STEPS[current]?.pose.crowd;
     let hop = 0;
-    let tremble = 0;
     if ((crowdPhase === 'idle' || crowdPhase === 'paid') && !timeline?.isActive()) {
-      // each at their own rhythm: now and then a little hop, and never quite still
-      const r = view.people[i].r;
-      const rate = 0.45 + noise(i, 30) * 0.7;
-      hop = Math.max(0, Math.sin(seconds * rate * Math.PI * 2 + noise(i, 31) * 6)) ** 14 * r * (0.5 + noise(i, 32) * 0.6);
-      tremble = Math.sin(seconds * (3 + noise(i, 33) * 4) + i) * 0.6 + Math.sin(seconds * (9 + noise(i, 34) * 5) + 2 * i) * 0.3;
+      const h = 0.3 * view.people[i].r;
+      const flight = 2 * fallTime(h, G);
+      const every = 7 + noise(i, 30) * 6;
+      const t = (seconds + noise(i, 31) * every) % every;
+      if (t < flight) hop = Math.max(0, h - (G / 2) * (t - flight / 2) ** 2);
     }
     let shake = 0;
     if (wiggling && whoIs(i) === wiggling.who && seconds < wiggling.until) shake = Math.sin(seconds * 42) * 4;
-    return `translate(${(b.dx + shake + tremble).toFixed(2)} ${(b.dy - hop).toFixed(2)}) scale(${(b.scale * pop(i)).toFixed(4)})`;
+    const q = squashed(-(b.scale - 1) * 1.5);
+    return `translate(${(b.dx + shake).toFixed(2)} ${(b.dy - hop).toFixed(2)}) scale(${(q.sx * pop(i)).toFixed(4)} ${(q.sy * pop(i)).toFixed(4)})`;
   }
 
 
