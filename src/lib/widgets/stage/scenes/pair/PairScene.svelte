@@ -13,7 +13,7 @@
    * window (bubbles.ts): time runs down the column, lines stay while they are
    * still context, and what happened is logged among them.
    */
-  import { getContext, onMount, type Snippet } from 'svelte';
+  import { getContext, onMount, untrack, type Snippet } from 'svelte';
   import { gsap } from '../../gsap';
   import Bubble from '../../Bubble.svelte';
   import CardStack, { type Card, type CardLine } from '../../CardStack.svelte';
@@ -56,7 +56,7 @@
   import TurnoverPlot from './TurnoverPlot.svelte';
   import StopSlider, { RATE_STOPS } from '../../../sandbox/StopSlider.svelte';
   import { createRun } from './run.svelte';
-  import { BIG, COINS, CROWD, RAINED, SMALL, START as CROWD_START } from './crowd';
+  import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
   import { FALL, hopsFor, noise, planRain } from './rain';
   import { deciderFace, pairLayout, pile } from './layout';
   import type { Point } from '../../../shared/layout';
@@ -89,6 +89,12 @@
   import { collectStats, frontPageFor } from '../../../sandbox/newsroom';
   import { fitSquareRelationship, measureWealth } from '$lib/research';
   import { openBranch } from '../../branch';
+  import AgentFace from '../../../shared/face/AgentFace.svelte';
+  import { faceRadius, gazeToward } from '../../../shared/face/face';
+  import { FaceLife, LiveFace, alive } from '../../../shared/face/life.svelte';
+  import { MOMENTS } from '../../../shared/face/moments';
+  import { FACE_CHOICES, chooseFace, faceStyle, loadFaceStyle, type FaceChoice } from '../../../shared/face/faceStyle.svelte';
+  import { momentOf, talkSeconds } from './feelings';
 
   const stage = getContext<StepStageContext | undefined>(STEP_STAGE_CONTEXT);
 
@@ -329,6 +335,10 @@
     view.flipLift = 0;
     view.flipTint = t.flipTint;
     view.roomOn = t.roomOn;
+    // what the faces react to, as this pose leaves it; a toss or the rain playing sets it as it goes
+    cue.air = false;
+    cue.caught = pose.crowd === 'paid' ? RAINED.map((n, i) => n - CROWD_START[i]) : new Array<number>(CROWD).fill(0);
+    cue.rainOver = true;
     people(pose).forEach((p, i) => Object.assign(view.people[i], p));
     roomPeople(pose).forEach((p, i) => Object.assign(view.room[i], p));
     view.ticks = Object.fromEntries(ticksFor(pose.roomMode).map((t) => [t.key, { x: t.x, alpha: t.shown ? 1 : 0 }]));
@@ -2072,6 +2082,9 @@
     const one = L.radius(1);
     const held = [...CROWD_START];
     const last = new Array<number>(CROWD).fill(-Infinity);
+    cue.caught = new Array<number>(CROWD).fill(0);
+    cue.rainOver = false;
+    tl.call(() => (cue.rainOver = true), [], rainPlan.seconds);
     tl.to(view, { markOn: 1, duration: 0.5, ease: 'none' }, 0);
     let token = 0;
     for (const c of rainPlan.catches) {
@@ -2096,6 +2109,7 @@
         tl.set(coin, { on: 0 }, c.land + k * 0.04);
       }
       tl.to(person, { r: L.radius(held[c.who]), duration: 0.25, ease: 'back.out(3)' }, c.land);
+      tl.call(() => (cue.caught[c.who] += c.count), [], c.land);
     }
     for (const [k, c] of rainPlan.chases.entries()) {
       hopAlong(tl, view.people[c.who], c.from, c.to, c.depart, c.arrive, one * 0.7, k * 17 + 5);
@@ -2213,6 +2227,8 @@
    */
   function toss(pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
     const winner: Speaker = pose.flip === 'blue' ? 'blue' : 'red';
+    // both watch the coin until it lands, and only then react
+    cue.air = true;
     const start = view.flipAngle;
     const turns = 5;
     const end = start - (start % (2 * Math.PI)) + turns * 2 * Math.PI + (winner === 'blue' ? Math.PI : 0);
@@ -2223,6 +2239,7 @@
     tl.to(view, { flipLift: high, duration: 0.95, ease: 'power2.out' }, 0.15);
     tl.to(view, { flipLift: 0, duration: 0.9, ease: 'bounce.out' }, 1.1);
     const landed = 2.4;
+    tl.call(() => (cue.air = false), [], landed);
     // The stakes on the table become flying coins once the coin has landed;
     // they are made now, hidden, so the timeline owns every tween it plays.
     const slots = tableSlots(view.table.blue, view.table.red);
@@ -2455,6 +2472,105 @@
 
   let seconds = $state(0);
 
+  // ---- faces (owner, 2026-10-07: "use manga") -----------------------------------
+
+  /** What the faces react to, as the stage plays it (feelings.ts). */
+  const cue = $state({ air: false, caught: new Array<number>(CROWD).fill(0), rainOver: true });
+  /** Whose mouth moves, until when on the ambient clock; an aside is said to the reader. */
+  let talking = $state<{ who: Speaker; until: number; aside: boolean } | null>(null);
+  let lastTalk = '';
+  $effect(() => {
+    const newest = said[said.length - 1];
+    if (!newest || newest.id === lastTalk || !newest.at) return;
+    lastTalk = newest.id;
+    talking = { who: newest.at, until: untrack(() => seconds) + talkSeconds(newest.text), aside: !!newest.aside };
+  });
+  const faceLife = new FaceLife();
+  /** Each face's blink, glance and talking mouth, as the tick leaves them: the sixteen, then the room. */
+  const personLive = Array.from({ length: CROWD }, () => new LiveFace());
+  const roomLive = Array.from({ length: 100 }, () => new LiveFace());
+  const faceLook = $derived(faceStyle.look);
+  /** Where the room stands as people. Elsewhere its members are marks on a chart, and marks have no face. */
+  const PEOPLE_MODES: readonly RoomMode[] = ['free', 'equal', 'zero', 'double', 'half', 'one', 'four', 'levy4', 'map'];
+  /** The game's sixteen coins, shared equally: a face of normal proportions at the seats. */
+  const EQUAL_COINS = (BLUE_CATCHES + RED_CATCHES) / 2;
+  /** An equal share's radius: eight coins at the seats, the room's own in the room. */
+  const equalR = $derived(L.radius(EQUAL_COINS) + (L.room.radius - L.radius(EQUAL_COINS)) * view.roomOn);
+  const peopleStand = $derived(PAIR_STEPS[current].pose.place !== 'room' || PEOPLE_MODES.includes(PAIR_STEPS[current].pose.roomMode));
+
+  /** A face's radius, in quarter pixels: a body growing smoothly redraws its face only now and then. */
+  const faceSize = (r: number, r0: number) => Math.round(faceRadius(r, r0) * 4) / 4;
+
+  /** Where someone at (x, y) looks: at the coin in the air, up at the rain, at whoever speaks, at the other one; else about. */
+  function lookOf(x: number, y: number, self: Speaker | null): { yaw: number; pitch: number } | null {
+    const pose = PAIR_STEPS[current].pose;
+    if (cue.air) return gazeToward(L.flip.x - x, L.flip.y + view.flipLift - y);
+    if (pose.crowd === 'paid' && !cue.rainOver) return { yaw: 0, pitch: -0.8 };
+    // an aside is said to the reader
+    if (talking && talking.who === self && talking.aside) return { yaw: 0, pitch: 0.3 };
+    const at = talking && talking.who !== self ? talking.who : self && pose.place === 'seats' ? other(self) : null;
+    if (!at) return null;
+    const p = view.people[WHO[at]];
+    return gazeToward(p.x - x, p.y - y);
+  }
+
+  /** What person `i` of the sixteen shows now (feelings.ts). */
+  const personStill = (i: number) => MOMENTS[momentOf(i, whoIs(i), PAIR_STEPS[current].pose, cue)];
+
+  /**
+   * One tick a frame, on the ambient clock: every face on show blinks, glances
+   * and talks at its body's pace, and a line's talking ends. Only what changed
+   * is written, so the drawings never read the clock.
+   */
+  function tickFaces(now: number): void {
+    // the ambient clock can start before the stage knows the reader asked for no motion: ask every tick
+    if (stage?.reduced) return;
+    if (talking && now >= talking.until) talking = null;
+    if (faceLook === 'none' || !peopleStand) return;
+    view.people.forEach((p, i) => {
+      if (p.alpha <= 0.3 || p.r <= 0.05) return;
+      const who = whoIs(i);
+      const life = { seed: i * 7 + 3, r: p.r, r0: equalR, glancing: lookOf(p.x, p.y, who) === null, talking: !!who && talking?.who === who };
+      faceLife.tick(`p${i}`, personLive[i], life, now);
+    });
+    if (view.roomOn <= 0.01) return;
+    view.room.forEach((spot, i) => {
+      if (spot.alpha <= 0.3 || i === L.room.blue || i === L.room.red) return;
+      faceLife.tick(`r${i}`, roomLive[i], { seed: i + 40, r: spot.r, r0: L.room.radius, glancing: lookOf(spot.x, spot.y, null) === null, talking: false }, now);
+    });
+  }
+
+  /**
+   * How much of a face shows, 0 … 1, when faces drawn after it may sit on it: it fades as
+   * one comes near, so a huddle never wears two faces in one place (the rain's crowd).
+   * `faces` are in drawing order, each a centre and a face radius.
+   */
+  function unhidden(k: number, faces: readonly { x: number; y: number; f: number }[]): number {
+    const a = faces[k];
+    let shown = 1;
+    for (let j = k + 1; j < faces.length; j++) {
+      const b = faces[j];
+      if (b.f <= 0) continue;
+      // 1: their features just touch
+      const apart = Math.hypot(b.x - a.x, b.y - a.y) / (0.55 * (a.f + b.f));
+      shown = Math.min(shown, Math.max(0, Math.min(1, (apart - 0.7) / 0.5)));
+    }
+    return shown;
+  }
+  /** The sixteen's faces as drawn, and how much of each shows. */
+  const personFaces = $derived(view.people.map((p) => ({ x: p.x, y: p.y, f: p.alpha > 0.3 ? faceSize(p.r, equalR) : 0 })));
+  const personShown = $derived(personFaces.map((_, k) => unhidden(k, personFaces)));
+  /** The room's faces as drawn — largest first, then Blue and Red over everyone — for `unhidden`. */
+  const roomFaces = $derived([
+    ...roomOrder.map((i) => {
+      const spot = view.room[i];
+      const own = i !== L.room.blue && i !== L.room.red && spot.alpha > 0.3;
+      return { x: spot.x, y: spot.y, f: own ? faceSize(spot.r, L.room.radius) : 0 };
+    }),
+    ...[BIG, SMALL].map((i) => personFaces[i]),
+  ]);
+  const roomShown = $derived(roomOrder.map((_, k) => (roomFaces[k].f > 0 ? unhidden(k, roomFaces) : 0)));
+
   function costumeFill(i: number): string {
     const who = whoIs(i);
     if (!who) return CLASSIC_AGENT_FILL;
@@ -2527,7 +2643,11 @@
     void document.fonts?.ready.then(fitTitle);
     recallAnswers();
     loadTuning();
-    const stopAmbient = ambientClock((s) => (seconds = s), stage?.reduced ?? false);
+    loadFaceStyle();
+    const stopAmbient = ambientClock((s) => {
+      seconds = s;
+      tickFaces(s);
+    }, stage?.reduced ?? false);
     return () => {
       observer.disconnect();
       stopAmbient();
@@ -2617,6 +2737,15 @@
     {#if sb.tap === 'levy'}
       <div class="deck-dials one"><StopSlider label={say('sandbox_take')} bind:value={sb.take} stops={RATE_STOPS} format={stakeLabel} /></div>
     {/if}
+    <!-- every face on the stage, now and on the way back up (owner, 2026-10-07); one line, so the charts stay in view -->
+    <label class="deck-tap">
+      <span>{say('sandbox_faces')}</span>
+      <select value={faceLook} onchange={(e) => chooseFace(e.currentTarget.value as FaceChoice)}>
+        {#each FACE_CHOICES as choice (choice)}
+          <option value={choice}>{say(`sandbox_face_${choice}`)}</option>
+        {/each}
+      </select>
+    </label>
     {/if}
   </div>
 {/snippet}
@@ -2686,7 +2815,7 @@
     <svg class="art" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
       {#if view.roomOn > 0}
         <g class="room" opacity={view.roomOn}>
-          {#each roomOrder as i (i)}
+          {#each roomOrder as i, k (i)}
             {@const spot = view.room[i]}
             {#if i !== L.room.blue && i !== L.room.red && spot.alpha > 0.01 && roomStyles[i]}
               <path
@@ -2699,6 +2828,23 @@
                 stroke-width="1.3"
                 opacity={spot.alpha}
               />
+              {#if faceLook !== 'none' && peopleStand && roomShown[k] > 0.01}
+                {@const pose = alive(MOMENTS.neutral.pose, roomLive[i], lookOf(spot.x, spot.y, null))}
+                <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`} opacity={spot.alpha * roomShown[k]}>
+                  <AgentFace
+                    shape={roomStyles[i].shape}
+                    r={Math.max(0.6, spot.r)}
+                    faceR={faceSize(spot.r, L.room.radius)}
+                    fill={roomStyles[i].fill}
+                    stroke={roomStyles[i].stroke}
+                    {pose}
+                    marks={MOMENTS.neutral.marks}
+                    look={faceLook}
+                    seed={i}
+                    uid={`face-r${i}`}
+                  />
+                </g>
+              {/if}
             {/if}
           {/each}
         </g>
@@ -2812,6 +2958,30 @@
                   {#each pile(count, L.coinRadius, Math.max(L.minRadius, L.radius(count))) as spot, k (k)}
                     <Coin cx={spot.x} cy={spot.y} r={L.coinRadius} face={k % 2 ? 'back' : 'front'} />
                   {/each}
+                </g>
+              {/if}
+              {#if faceLook !== 'none' && peopleStand && personShown[i] > 0.01}
+                {@const still = personStill(i)}
+                {@const pose = alive(still.pose, personLive[i], lookOf(person.x, person.y, whoIs(i)))}
+                {@const named = !!whoIs(i) && view.paint[whoIs(i)!] > 0.5}
+                {#if whoIs(i) && view.coinsOn > 0.01}
+                  <!-- the coins lie under the skin: a wash of the body's own colour, so the face reads on top -->
+                  <circle r={person.r} fill={costumeFill(i)} fill-opacity={0.5 * view.coinsOn} />
+                {/if}
+                <g opacity={personShown[i]}>
+                  <AgentFace
+                    shape="circle"
+                    r={person.r}
+                    faceR={faceSize(person.r, equalR)}
+                    fill={costumeFill(i)}
+                    fillOpacity={named ? 0.75 : 1}
+                    stroke={costumeStroke(i)}
+                    {pose}
+                    marks={still.marks}
+                    look={faceLook}
+                    seed={i}
+                    uid={`face-p${i}`}
+                  />
                 </g>
               {/if}
             </g>
@@ -3489,7 +3659,8 @@
   }
 
   .deck-buttons button,
-  .deck-tap button {
+  .deck-tap button,
+  .deck-tap select {
     padding: 0.3rem 0.8rem;
     border: 1px solid var(--line);
     border-radius: 999px;

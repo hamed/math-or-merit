@@ -120,6 +120,9 @@ available through `npm run research`.
 - **Source:** [Russell (1980)](https://doi.org/10.1037/h0077714).
 - **Limitation:** A gain, loss, or levy is not asserted to cause a universal human emotion
   or facial expression.
+- **Faces (2026-10-07):** the stage's faces draw authored moments for scene events. Their
+  points come from the NRC VAD Lexicon, which is licensed for non-commercial use only; see
+  [the affect memo](research/affect-interpretation.md#faces-on-the-stage-2026-10-07).
 - **Essay-safe wording:** Describe animation mechanics, not simulated psychology.
 
 ### C12 - The retrospective-winner interaction is not yet a psychology experiment

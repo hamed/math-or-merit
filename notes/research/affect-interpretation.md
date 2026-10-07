@@ -40,6 +40,42 @@ The project therefore tests comprehension, not a named bias, using Study D in
 that the traits were causally inert and that the explanatory trait was selected after the
 outcome.
 
+## Faces on the stage (2026-10-07)
+
+The agents' faces (`src/lib/widgets/shared/face/`) draw a few authored moments: neutral,
+the coin in the air, a win, a loss, pride and contempt. Each is a point in valence,
+arousal and dominance, plus novelty for the startle, mapped to seven drawn features by
+FACS-inspired synergies. These are drawing conventions readers recognise. They do not
+claim to show what a person feels.
+[Barrett et al. (2019)](https://doi.org/10.1177/1529100619832930) found facial movements
+carry no universal emotional meaning. So reactions belong to scene events, not to standing
+wealth, and nothing in the essay claims a face shows a felt state.
+
+- **Points:** happy, sad, proud and surprised come from the
+  [NRC VAD Lexicon v1](https://saifmohammad.com/WebPages/nrc-vad.html)
+  ([Mohammad, 2018](https://aclanthology.org/P18-1017/)), rescaled from [0, 1] to
+  [−1, 1]. They are word-meaning ratings, used as starting points for authoring.
+- **Licence:** the lexicon is free for non-commercial research and educational use;
+  commercial use needs a licence from the National Research Council Canada. If the essay
+  is ever sold, license the four points or replace them with authored ones.
+- **Contempt is authored:** the lexicon rates the word as unpleasant and low in dominance
+  (v −0.59, a 0.27, d −0.21). The stage depicts contempt as cool superiority
+  (v −0.35, a −0.2, d 0.65), following
+  [Fischer & Roseman (2007)](https://crab.rutgers.edu/users/roseman/Fischer_%26_Roseman_2007.pdf),
+  who found contempt colder and more distancing than anger. That study does not validate
+  the exact point.
+- **Tears** never follow from affect: sadness and boredom share coordinates, so a rule
+  would make boredom cry. A scene may supply them explicitly.
+- **Size and tempo** is an animation metaphor, not a finding. Blinks and glances slow
+  with wealth, as (wealth/equal)^−0.25, after mammalian heart and breathing rates
+  ([Stahl, 1966](https://pubmed.ncbi.nlm.nih.gov/6020227/)) and strides
+  ([Heglund & Taylor, 1988](https://pubmed.ncbi.nlm.nih.gov/3193059/)). Neither study
+  covers wealth or blinks. In primates, blink rate tracks group size rather than body
+  weight ([Tada et al., 2013](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0066018)).
+
+The prototype, with its fuller person model (temperament, dynamics, display rules), is
+saved on the branch `faces-history`.
+
 ## Art-direction audit
 
 - Record creator, work, link, license, and the specific quality being studied.
