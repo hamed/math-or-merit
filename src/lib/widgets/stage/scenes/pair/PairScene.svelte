@@ -68,6 +68,7 @@
     headlineForStyle,
     spreadStyles,
     styleNoun,
+    type AgentShape,
     type AgentStyle,
   } from '../../../shared/agentStyle';
   import { svgShapePath } from '../../../shared/shapePath';
@@ -90,11 +91,12 @@
   import { fitSquareRelationship, measureWealth } from '$lib/research';
   import { openBranch } from '../../branch';
   import AgentFace from '../../../shared/face/AgentFace.svelte';
-  import { faceRadius, gazeToward } from '../../../shared/face/face';
-  import { FaceLife, LiveFace, alive } from '../../../shared/face/life.svelte';
-  import { MOMENTS } from '../../../shared/face/moments';
+  import { GROUND, drawStill } from '../../../shared/face/draw';
+  import { faceRadius } from '../../../shared/face/face';
+  import { FaceBoard, type FaceColours } from '../../../shared/face/faceElement';
+  import { CONTEMPT, stillOf } from '../../../shared/face/moments';
   import { FACE_CHOICES, chooseFace, faceStyle, loadFaceStyle, type FaceChoice } from '../../../shared/face/faceStyle.svelte';
-  import { momentOf, talkSeconds } from './feelings';
+  import { StageFaces, talkSeconds, type Body, type FaceScene } from './stageFaces';
 
   const stage = getContext<StepStageContext | undefined>(STEP_STAGE_CONTEXT);
 
@@ -310,6 +312,18 @@
     view.fly = [];
     for (const token of view.payout) token.on = 0;
     dragging = null;
+    // a step cut short still lands its results on the faces
+    for (const feel of [...unfelt]) feel();
+  }
+
+  /** Results waiting on a playing timeline: a step cut short lands them at once (`stopMotion`). */
+  const unfelt = new Set<() => void>();
+  function feelAt(tl: ReturnType<typeof gsap.timeline>, at: number, feel: () => void): void {
+    const once = () => {
+      if (unfelt.delete(once)) feel();
+    };
+    unfelt.add(once);
+    tl.call(once, [], at);
   }
 
   /** Draw a pose at once. */
@@ -335,10 +349,8 @@
     view.flipLift = 0;
     view.flipTint = t.flipTint;
     view.roomOn = t.roomOn;
-    // what the faces react to, as this pose leaves it; a toss or the rain playing sets it as it goes
+    // the decider rests once a pose is drawn; a toss playing lifts it
     cue.air = false;
-    cue.caught = pose.crowd === 'paid' ? RAINED.map((n, i) => n - CROWD_START[i]) : new Array<number>(CROWD).fill(0);
-    cue.rainOver = true;
     people(pose).forEach((p, i) => Object.assign(view.people[i], p));
     roomPeople(pose).forEach((p, i) => Object.assign(view.room[i], p));
     view.ticks = Object.fromEntries(ticksFor(pose.roomMode).map((t) => [t.key, { x: t.x, alpha: t.shown ? 1 : 0 }]));
@@ -372,6 +384,7 @@
     draw(poseAt(index));
     showAll(index);
     enter(index);
+    settleFaces();
   }
 
   function play(index: number, from: number): void {
@@ -2082,9 +2095,6 @@
     const one = L.radius(1);
     const held = [...CROWD_START];
     const last = new Array<number>(CROWD).fill(-Infinity);
-    cue.caught = new Array<number>(CROWD).fill(0);
-    cue.rainOver = false;
-    tl.call(() => (cue.rainOver = true), [], rainPlan.seconds);
     tl.to(view, { markOn: 1, duration: 0.5, ease: 'none' }, 0);
     let token = 0;
     for (const c of rainPlan.catches) {
@@ -2109,7 +2119,9 @@
         tl.set(coin, { on: 0 }, c.land + k * 0.04);
       }
       tl.to(person, { r: L.radius(held[c.who]), duration: 0.25, ease: 'back.out(3)' }, c.land);
-      tl.call(() => (cue.caught[c.who] += c.count), [], c.land);
+      // a coin caught is a result: one coin to someone with one is joy, to someone with eight a shrug
+      const had = held[c.who] - c.count;
+      feelAt(tl, c.land, () => faces.field.react(c.who, had, had + c.count));
     }
     for (const [k, c] of rainPlan.chases.entries()) {
       hopAlong(tl, view.people[c.who], c.from, c.to, c.depart, c.arrive, one * 0.7, k * 17 + 5);
@@ -2227,8 +2239,11 @@
    */
   function toss(pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
     const winner: Speaker = pose.flip === 'blue' ? 'blue' : 'red';
-    // both watch the coin until it lands, and only then react
+    // both start and watch the coin until it lands, and only then feel the result
     cue.air = true;
+    faces.field.startle(BIG);
+    faces.field.startle(SMALL);
+    const before = { blue: view.held.blue + view.table.blue, red: view.held.red + view.table.red };
     const start = view.flipAngle;
     const turns = 5;
     const end = start - (start % (2 * Math.PI)) + turns * 2 * Math.PI + (winner === 'blue' ? Math.PI : 0);
@@ -2240,6 +2255,9 @@
     tl.to(view, { flipLift: 0, duration: 0.9, ease: 'bounce.out' }, 1.1);
     const landed = 2.4;
     tl.call(() => (cue.air = false), [], landed);
+    feelAt(tl, landed, () => {
+      for (const who of PAIR) faces.field.react(WHO[who], before[who], pose.holdings[who]);
+    });
     // The stakes on the table become flying coins once the coin has landed;
     // they are made now, hidden, so the timeline owns every tween it plays.
     const slots = tableSlots(view.table.blue, view.table.red);
@@ -2472,10 +2490,10 @@
 
   let seconds = $state(0);
 
-  // ---- faces (owner, 2026-10-07: "use manga") -----------------------------------
+  // ---- faces (owner, 2026-10-07) ---------------------------------------------------
 
-  /** What the faces react to, as the stage plays it (feelings.ts). */
-  const cue = $state({ air: false, caught: new Array<number>(CROWD).fill(0), rainOver: true });
+  /** The decider is in the air: a toss sets it as it plays. */
+  const cue = $state({ air: false });
   /** Whose mouth moves, until when on the ambient clock; an aside is said to the reader. */
   let talking = $state<{ who: Speaker; until: number; aside: boolean } | null>(null);
   let lastTalk = '';
@@ -2485,10 +2503,11 @@
     lastTalk = newest.id;
     talking = { who: newest.at, until: untrack(() => seconds) + talkSeconds(newest.text), aside: !!newest.aside };
   });
-  const faceLife = new FaceLife();
-  /** Each face's blink, glance and talking mouth, as the tick leaves them: the sixteen, then the room. */
-  const personLive = Array.from({ length: CROWD }, () => new LiveFace());
-  const roomLive = Array.from({ length: 100 }, () => new LiveFace());
+  /** Everyone's feelings, looks and drawings (stageFaces.ts): the eight, the room's hundred, the matched copies. */
+  const faces = new StageFaces(CROWD, 100, BIG, SMALL);
+  /** Where faces are drawn: groups placed by the template (`mountFace`), written to by the tick. */
+  const board = new FaceBoard();
+  const mountFace = board.mount;
   const faceLook = $derived(faceStyle.look);
   /** Where the room stands as people. Elsewhere its members are marks on a chart, and marks have no face. */
   const PEOPLE_MODES: readonly RoomMode[] = ['free', 'equal', 'zero', 'double', 'half', 'one', 'four', 'levy4', 'map'];
@@ -2498,58 +2517,169 @@
   const equalR = $derived(L.radius(EQUAL_COINS) + (L.room.radius - L.radius(EQUAL_COINS)) * view.roomOn);
   const peopleStand = $derived(PAIR_STEPS[current].pose.place !== 'room' || PEOPLE_MODES.includes(PAIR_STEPS[current].pose.roomMode));
 
-  /** A face's radius, in quarter pixels: a body growing smoothly redraws its face only now and then. */
+  /** A face's radius, in quarter pixels, for the overlap rule. */
   const faceSize = (r: number, r0: number) => Math.round(faceRadius(r, r0) * 4) / 4;
+  /** Room member `j`'s face: Blue's and Red's seats are their own bodies. */
+  const slotOfRoom = (j: number) => (j === L.room.blue ? BIG : j === L.room.red ? SMALL : faces.roomSlot(j));
+  const roomSlots = $derived(Int32Array.from(L.room.positions, (_, j) => slotOfRoom(j)));
 
-  /** Where someone at (x, y) looks: at the coin in the air, up at the rain, at whoever speaks, at the other one; else about. */
-  function lookOf(x: number, y: number, self: Speaker | null): { yaw: number; pitch: number } | null {
-    const pose = PAIR_STEPS[current].pose;
-    if (cue.air) return gazeToward(L.flip.x - x, L.flip.y + view.flipLift - y);
-    if (pose.crowd === 'paid' && !cue.rainOver) return { yaw: 0, pitch: -0.8 };
-    // an aside is said to the reader
-    if (talking && talking.who === self && talking.aside) return { yaw: 0, pitch: 0.3 };
-    const at = talking && talking.who !== self ? talking.who : self && pose.place === 'seats' ? other(self) : null;
-    if (!at) return null;
-    const p = view.people[WHO[at]];
-    return gazeToward(p.x - x, p.y - y);
+  /** The matched room's Blue and Red, where they stand in its copy. */
+  function mirrorBodies(): [Body, Body] | null {
+    if (view.mirrorOn <= 0.01 || PAIR_STEPS[current].pose.roomMode !== 'matched') return null;
+    const body = (i: number): Body => {
+      const at = matchedAt(1, L.room.positions[i]);
+      const r = (mirror.sized ? L.room.radius * Math.sqrt(Math.max(0, mirror.wealth[i]) * 100) : L.room.radius) * matchBox.scale;
+      return { x: at.x, y: at.y, r: Math.max(0.5, r), alpha: view.mirrorOn };
+    };
+    return [body(L.room.blue), body(L.room.red)];
   }
 
-  /** What person `i` of the sixteen shows now (feelings.ts). */
-  const personStill = (i: number) => MOMENTS[momentOf(i, whoIs(i), PAIR_STEPS[current].pose, cue)];
+  /** What the faces can see now. */
+  function faceScene(): FaceScene {
+    const pose = PAIR_STEPS[current].pose;
+    const moving: Point[] = [];
+    for (const t of view.payout) if (t.on > 0.5) moving.push(t);
+    for (const t of view.fly) if (t.on > 0.5) moving.push(t);
+    return {
+      depth: L.whole * 2.5,
+      people: view.people,
+      room: view.roomOn > 0.01 && peopleStand ? view.room : null,
+      mirror: mirrorBodies(),
+      speaker: talking?.who ?? null,
+      aside: talking?.aside ?? false,
+      facing: pose.place === 'seats',
+      coin: cue.air ? { x: L.flip.x, y: L.flip.y + view.flipLift } : null,
+      moving,
+      chat: (pose.crowd === 'idle' || pose.crowd === 'paid') && !timeline?.isActive(),
+    };
+  }
 
-  /**
-   * One tick a frame, on the ambient clock: every face on show blinks, glances
-   * and talks at its body's pace, and a line's talking ends. Only what changed
-   * is written, so the drawings never read the clock.
-   */
+  /** The room's colours, as each face is drawn in them. */
+  const roomColours = $derived(roomStyles.map((st): FaceColours => ({ stroke: st.stroke, fill: st.fill, fillOpacity: 0.75 })));
+  const twinColours = (['blue', 'red'] as const).map((who): FaceColours => ({ stroke: PROTAGONISTS[who].stroke, fill: PROTAGONISTS[who].fill, fillOpacity: 0.75 }));
+
+  /** Every face on show, drawn as it stands now, in one pass; only what changed reaches the page. */
+  function paintFaces(now = Infinity): void {
+    const look = faceLook;
+    const reduced = !!stage?.reduced;
+    view.people.forEach((p, i) => {
+      // Blue and Red have faces the whole game; the rest while they stand as people
+      const faced = look !== 'none' && (whoIs(i) !== null || peopleStand) && p.alpha > 0.01 && p.r > 0.05;
+      const named = !!whoIs(i) && view.paint[whoIs(i)!] > 0.5;
+      const colours = { stroke: costumeStroke(i), fill: costumeFill(i), fillOpacity: named ? 0.75 : 1 };
+      board.render(i, look !== 'none' && faced ? faces.paint(i, look, 'circle', p, equalR, reduced, now) : null, colours);
+    });
+    const roomFaced = look !== 'none' && view.roomOn > 0.01 && peopleStand;
+    view.room.forEach((spot, j) => {
+      const faced = roomFaced && j !== L.room.blue && j !== L.room.red && spot.alpha > 0.3 && !!roomStyles[j];
+      const slot = faces.roomSlot(j);
+      board.render(slot, faced ? faces.paint(slot, look, roomStyles[j].shape, spot, L.room.radius, reduced, now) : null, roomColours[j]);
+    });
+    const twins = look === 'none' ? null : mirrorBodies();
+    (['blue', 'red'] as const).forEach((who, k) => {
+      const slot = faces.mirrorSlot(who);
+      board.render(slot, twins && look !== 'none' ? faces.paint(slot, look, 'circle', twins[k], L.room.radius * matchBox.scale, reduced, now) : null, twinColours[k]);
+    });
+  }
+
+  /** The room's frame the faces last saw: each new frame's results are felt, so faces are a moving average of them. */
+  let runSeen: Float64Array | null = null;
+  let runFrame = -1;
+  let runOf: Run | null = null;
+  let mirrorSeen: Float64Array | null = null;
+
+  /** Results from the room on screen, felt by everyone in it; the richest's contempt rising with their share. */
+  function followRun(): void {
+    const field = faces.field;
+    field.contemptTo.fill(0);
+    if (!runShown) {
+      runSeen = null;
+      runOf = null;
+      mirrorSeen = null;
+      return;
+    }
+    const st = shown.state;
+    const w = shown.wealth();
+    if (runSeen && runOf === shown && st.frame > runFrame && st.frame - runFrame <= 12 && runSeen.length === w.length) field.reactAll(roomSlots, runSeen, w);
+    if (runOf !== shown || st.frame !== runFrame) {
+      runSeen = Float64Array.from(w);
+      runFrame = st.frame;
+      runOf = shown;
+    }
+    // the richest looks down on everyone: from nothing to all of it as their share reaches the run's 40%
+    if (st.winner >= 0) field.contemptTo[slotOfRoom(st.winner)] = Math.min(1, st.share / 0.4);
+    if (view.mirrorOn > 0.01) {
+      const m = mirror.wealth;
+      if (mirrorSeen && mirrorSeen.length === m.length)
+        for (const who of PAIR) {
+          const j = who === 'blue' ? L.room.blue : L.room.red;
+          field.react(faces.mirrorSlot(who), mirrorSeen[j], m[j]);
+        }
+      mirrorSeen = Float64Array.from(m);
+    } else mirrorSeen = null;
+  }
+
+  let lastTick = 0;
+  /** One tick a frame, on the ambient clock: who looks where, feelings and rhythms, then the drawings. */
   function tickFaces(now: number): void {
     // the ambient clock can start before the stage knows the reader asked for no motion: ask every tick
     if (stage?.reduced) return;
+    const dt = Math.min(0.1, Math.max(0, now - lastTick));
+    lastTick = now;
     if (talking && now >= talking.until) talking = null;
-    if (faceLook === 'none' || !peopleStand) return;
-    view.people.forEach((p, i) => {
-      if (p.alpha <= 0.3 || p.r <= 0.05) return;
-      const who = whoIs(i);
-      const life = { seed: i * 7 + 3, r: p.r, r0: equalR, glancing: lookOf(p.x, p.y, who) === null, talking: !!who && talking?.who === who };
-      faceLife.tick(`p${i}`, personLive[i], life, now);
-    });
-    if (view.roomOn <= 0.01) return;
-    view.room.forEach((spot, i) => {
-      if (spot.alpha <= 0.3 || i === L.room.blue || i === L.room.red) return;
-      faceLife.tick(`r${i}`, roomLive[i], { seed: i + 40, r: spot.r, r0: L.room.radius, glancing: lookOf(spot.x, spot.y, null) === null, talking: false }, now);
-    });
+    // the coin in the air holds them: the startle lasts the whole flight
+    if (cue.air) for (const i of [BIG, SMALL]) faces.field.startle(i, 0.8);
+    followRun();
+    if (faceLook !== 'none') {
+      faces.aim(faceScene(), now, dt);
+      faces.field.step(dt);
+    }
+    paintFaces(now);
   }
+
+  /** A settled stage: everyone at rest, then what this step has just seen, all at once. */
+  function settleFaces(): void {
+    faces.rest();
+    const field = faces.field;
+    const pose = PAIR_STEPS[current].pose;
+    // a toss that has just played: its result shows until the next stakes
+    if (pose.place === 'seats' && (pose.flip === 'blue' || pose.flip === 'red') && pose.table.blue + pose.table.red === 0) {
+      let t = current;
+      while (t > 0 && PAIR_STEPS[t].action !== 'toss') t--;
+      if (t > 0) {
+        const before = PAIR_STEPS[t - 1].pose;
+        for (const who of PAIR) field.react(WHO[who], before.holdings[who] + before.table[who], PAIR_STEPS[t].pose.holdings[who]);
+      }
+    }
+    // the rain has fallen: what each one caught
+    if (pose.crowd === 'paid') CROWD_START.forEach((had, i) => field.react(i, had, RAINED[i]));
+    // a room on screen: its last few frames
+    runSeen = null;
+    runOf = null;
+    const rec = runShown ? shown.recording() : null;
+    if (rec) for (let k = Math.max(1, shown.state.frame - 6); k <= shown.state.frame; k++) field.reactAll(roomSlots, rec.frames[k - 1], rec.frames[k]);
+    followRun();
+    faces.aim(faceScene(), seconds, 0);
+    field.settle();
+    paintFaces();
+  }
+
+  // a new look redraws every face at once, motion or not
+  $effect(() => {
+    void faceLook;
+    untrack(paintFaces);
+  });
 
   /**
    * How much of a face shows, 0 … 1, when faces drawn after it may sit on it: it fades as
    * one comes near, so a huddle never wears two faces in one place (the rain's crowd).
    * `faces` are in drawing order, each a centre and a face radius.
    */
-  function unhidden(k: number, faces: readonly { x: number; y: number; f: number }[]): number {
-    const a = faces[k];
+  function unhidden(k: number, list: readonly { x: number; y: number; f: number }[]): number {
+    const a = list[k];
     let shown = 1;
-    for (let j = k + 1; j < faces.length; j++) {
-      const b = faces[j];
+    for (let j = k + 1; j < list.length; j++) {
+      const b = list[j];
       if (b.f <= 0) continue;
       // 1: their features just touch
       const apart = Math.hypot(b.x - a.x, b.y - a.y) / (0.55 * (a.f + b.f));
@@ -2557,19 +2687,65 @@
     }
     return shown;
   }
-  /** The sixteen's faces as drawn, and how much of each shows. */
-  const personFaces = $derived(view.people.map((p) => ({ x: p.x, y: p.y, f: p.alpha > 0.3 ? faceSize(p.r, equalR) : 0 })));
-  const personShown = $derived(personFaces.map((_, k) => unhidden(k, personFaces)));
-  /** The room's faces as drawn — largest first, then Blue and Red over everyone — for `unhidden`. */
-  const roomFaces = $derived([
-    ...roomOrder.map((i) => {
-      const spot = view.room[i];
-      const own = i !== L.room.blue && i !== L.room.red && spot.alpha > 0.3;
-      return { x: spot.x, y: spot.y, f: own ? faceSize(spot.r, L.room.radius) : 0 };
-    }),
-    ...[BIG, SMALL].map((i) => personFaces[i]),
-  ]);
-  const roomShown = $derived(roomOrder.map((_, k) => (roomFaces[k].f > 0 ? unhidden(k, roomFaces) : 0)));
+  /** The eight in drawing order (Blue and Red last, on top), their faces, and how much of each shows. */
+  const peopleOrder = $derived([...view.people.keys()].filter((i) => !whoIs(i)).concat([BIG, SMALL]));
+  const personFaces = $derived(peopleOrder.map((i) => ({ x: view.people[i].x, y: view.people[i].y, f: view.people[i].alpha > 0.3 ? faceSize(view.people[i].r, equalR) : 0 })));
+  const personShown = $derived.by(() => {
+    const out = new Array<number>(CROWD).fill(1);
+    peopleOrder.forEach((i, k) => (out[i] = unhidden(k, personFaces)));
+    return out;
+  });
+  /** The richest in the room, when a run shows one and it is not Blue or Red: their face goes on top of everyone's. */
+  const roomWinner = $derived.by(() => {
+    if (!runShown) return -1;
+    const w = shown.state.winner;
+    return w >= 0 && w !== L.room.blue && w !== L.room.red ? w : -1;
+  });
+  /** The room's faces as drawn — largest first, then the richest's on top, then Blue and Red — and how much of each shows. */
+  const roomShown = $derived.by(() => {
+    const order = roomOrder.filter((i) => i !== roomWinner).concat(roomWinner >= 0 ? [roomWinner] : []);
+    const list = [
+      ...order.map((i) => {
+        const spot = view.room[i];
+        const own = i !== L.room.blue && i !== L.room.red && spot.alpha > 0.3;
+        return { x: spot.x, y: spot.y, f: own ? faceSize(spot.r, L.room.radius) : 0 };
+      }),
+      ...[BIG, SMALL].map((i) => ({ x: view.people[i].x, y: view.people[i].y, f: faceSize(view.people[i].r, equalR) })),
+    ];
+    const out = new Array<number>(view.room.length).fill(0);
+    order.forEach((i, k) => (out[i] = list[k].f > 0 ? unhidden(k, list) : 0));
+    return out;
+  });
+
+  /**
+   * Coins drawn inside person `i` of the eight, under their face: the
+   * fortunes at the seats, or the four's (Scenes 17 and 22).
+   */
+  function personCoins(i: number): { count: number; fit: number; opacity: number } | null {
+    const who = whoIs(i);
+    if (!who) return null;
+    const four = fourCoinsOf(who === 'blue' ? L.room.blue : L.room.red);
+    if (four !== null) return { count: four, fit: Math.max(view.people[i].r, L.coinRadius), opacity: 1 };
+    if (view.coinsOn <= 0.01) return null;
+    const count = view.held[who];
+    return { count, fit: Math.max(L.minRadius, L.radius(count)), opacity: view.coinsOn };
+  }
+
+  /** The coins one of the four holds, by their room seat, while their lesson shows; null otherwise. */
+  function fourCoinsOf(j: number): number | null {
+    const pose = PAIR_STEPS[current].pose;
+    if (pose.place !== 'room') return null;
+    const k = cast.four.indexOf(j);
+    if (k < 0) return null;
+    if (pose.roomMode === 'four') return fourCoins[k];
+    if (pose.roomMode === 'levy4' && !arranging) return levyView.coins[k];
+    return null;
+  }
+
+  /** The winner's picture in the paper: a very contemptuous face in the reader's look. */
+  function paperFace(shape: AgentShape) {
+    return faceLook === 'none' ? null : drawStill(faceLook, shape, 10, 10, stillOf(CONTEMPT));
+  }
 
   function costumeFill(i: number): string {
     const who = whoIs(i);
@@ -2634,6 +2810,7 @@
       fitTitle();
       // a resize re-lays everything out: draw the current step where it now belongs
       if (!timeline || !timeline.isActive()) draw(poseAt(current));
+      paintFaces();
     });
     width = host.clientWidth;
     height = host.clientHeight;
@@ -2815,9 +2992,10 @@
     <svg class="art" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
       {#if view.roomOn > 0}
         <g class="room" opacity={view.roomOn}>
-          {#each roomOrder as i, k (i)}
+          {#each roomOrder as i (i)}
             {@const spot = view.room[i]}
             {#if i !== L.room.blue && i !== L.room.red && spot.alpha > 0.01 && roomStyles[i]}
+              {@const four = fourCoinsOf(i)}
               <path
                 d={svgShapePath(roomStyles[i].shape, Math.max(0.6, spot.r))}
                 transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`}
@@ -2828,25 +3006,30 @@
                 stroke-width="1.3"
                 opacity={spot.alpha}
               />
-              {#if faceLook !== 'none' && peopleStand && roomShown[k] > 0.01}
-                {@const pose = alive(MOMENTS.neutral.pose, roomLive[i], lookOf(spot.x, spot.y, null))}
-                <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`} opacity={spot.alpha * roomShown[k]}>
-                  <AgentFace
-                    shape={roomStyles[i].shape}
-                    r={Math.max(0.6, spot.r)}
-                    faceR={faceSize(spot.r, L.room.radius)}
-                    fill={roomStyles[i].fill}
-                    stroke={roomStyles[i].stroke}
-                    {pose}
-                    marks={MOMENTS.neutral.marks}
-                    look={faceLook}
-                    seed={i}
-                    uid={`face-r${i}`}
-                  />
+              {#if four}
+                <!-- one of the four: their coins inside them, under a wash, as at the seats (owner, 2026-10-07) -->
+                <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)})`}>
+                  {#each pile(four, L.coinRadius, Math.max(spot.r, L.coinRadius)) as c, j (j)}
+                    <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
+                  {/each}
+                  {#if faceLook !== 'none' && peopleStand}<path d={svgShapePath(roomStyles[i].shape, Math.max(0.6, spot.r))} fill={roomStyles[i].fill} fill-opacity="0.5" />{/if}
+                </g>
+              {/if}
+              <!-- mounted while faces show, faded by opacity: a face that comes and goes costs no new nodes -->
+              {#if faceLook !== 'none' && peopleStand && i !== roomWinner}
+                <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`} opacity={spot.alpha * roomShown[i]}>
+                  <g use:mountFace={faces.roomSlot(i)}></g>
                 </g>
               {/if}
             {/if}
           {/each}
+          {#if roomWinner >= 0 && faceLook !== 'none' && peopleStand}
+            <!-- the richest's face over everyone's: what the run made them is the news (owner, 2026-10-07) -->
+            {@const spot = view.room[roomWinner]}
+            <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`} opacity={spot.alpha * roomShown[roomWinner]}>
+              <g use:mountFace={faces.roomSlot(roomWinner)}></g>
+            </g>
+          {/if}
         </g>
       {/if}
 
@@ -2878,6 +3061,9 @@
               fill-opacity="0.75"
               stroke-width={i === L.room.blue || i === L.room.red ? 2.2 : 1.1}
             />
+            {#if (i === L.room.blue || i === L.room.red) && faceLook !== 'none'}
+              <g transform={`translate(${at.x.toFixed(1)} ${at.y.toFixed(1)})`} use:mountFace={faces.mirrorSlot(i === L.room.blue ? 'blue' : 'red')}></g>
+            {/if}
           {/each}
         </g>
         <g class="match-labels" opacity={view.mirrorShift}>
@@ -2938,11 +3124,17 @@
         <circle class="eater" cx={eater.x} cy={eater.y} r={eater.r} />
       {/if}
 
-      {#each view.people as person, i (i)}
+      {#each peopleOrder as i (i)}
+        {@const person = view.people[i]}
         {#if person.alpha > 0.01 && person.r > 0.05}
+          {@const coins = personCoins(i)}
           <g transform={`translate(${person.x.toFixed(2)} ${person.y.toFixed(2)})`} opacity={person.alpha}>
             <g transform={squash(person.r, person.sx, person.sy)}>
             <g transform={life(i)}>
+              {#if whoIs(i) && person.empty <= 0.5}
+                <!-- the two who stay are a little less see-through, and on top of everyone (owner, 2026-10-07) -->
+                <circle r={person.r} fill={GROUND} fill-opacity="0.6" />
+              {/if}
               <circle
                 r={person.r}
                 fill={person.empty > 0.5 ? 'none' : costumeFill(i)}
@@ -2952,38 +3144,19 @@
                 stroke-width={strokeWidth(i)}
                 vector-effect="non-scaling-stroke"
               />
-              {#if whoIs(i) && view.coinsOn > 0.01}
-                {@const count = view.held[whoIs(i)!]}
-                <g opacity={view.coinsOn}>
-                  {#each pile(count, L.coinRadius, Math.max(L.minRadius, L.radius(count))) as spot, k (k)}
+              {#if coins && coins.count > 0}
+                <g opacity={coins.opacity}>
+                  {#each pile(coins.count, L.coinRadius, coins.fit) as spot, k (k)}
                     <Coin cx={spot.x} cy={spot.y} r={L.coinRadius} face={k % 2 ? 'back' : 'front'} />
                   {/each}
                 </g>
               {/if}
-              {#if faceLook !== 'none' && peopleStand && personShown[i] > 0.01}
-                {@const still = personStill(i)}
-                {@const pose = alive(still.pose, personLive[i], lookOf(person.x, person.y, whoIs(i)))}
-                {@const named = !!whoIs(i) && view.paint[whoIs(i)!] > 0.5}
-                {#if whoIs(i) && view.coinsOn > 0.01}
-                  <!-- the coins lie under the skin: a wash of the body's own colour, so the face reads on top -->
-                  <circle r={person.r} fill={costumeFill(i)} fill-opacity={0.5 * view.coinsOn} />
-                {/if}
-                <g opacity={personShown[i]}>
-                  <AgentFace
-                    shape="circle"
-                    r={person.r}
-                    faceR={faceSize(person.r, equalR)}
-                    fill={costumeFill(i)}
-                    fillOpacity={named ? 0.75 : 1}
-                    stroke={costumeStroke(i)}
-                    {pose}
-                    marks={still.marks}
-                    look={faceLook}
-                    seed={i}
-                    uid={`face-p${i}`}
-                  />
-                </g>
+              {#if coins && coins.count > 0 && faceLook !== 'none'}
+                <!-- the coins lie under the skin: a wash of the body's own colour, so the face reads on top -->
+                <circle r={person.r} fill={costumeFill(i)} fill-opacity={0.5 * coins.opacity} />
               {/if}
+              <!-- the face: drawn by the frame's tick (stageFaces.ts), not by a component -->
+              <g opacity={personShown[i]} use:mountFace={i}></g>
             </g>
             </g>
           </g>
@@ -3111,9 +3284,6 @@
             {@const v = agentView(agent)}
             <g transform={`translate(${v.x.toFixed(1)} ${v.y.toFixed(1)})`}>
               {#if fourPick === k}<circle class="pick" r={v.r + 7} />{/if}
-              {#each pile(fourCoins[k], L.coinRadius, Math.max(v.r, L.coinRadius)) as c, j (j)}
-                <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
-              {/each}
             </g>
           {/each}
         {/if}
@@ -3129,9 +3299,6 @@
           {#each cast.four as agent, k (agent)}
             {@const v = agentView(agent)}
             <g transform={`translate(${v.x.toFixed(1)} ${v.y.toFixed(1)})`}>
-              {#each pile(levyView.coins[k], L.coinRadius, Math.max(v.r, L.coinRadius)) as c, j (j)}
-                <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
-              {/each}
               <text class="coin-count" y={Math.max(v.r, L.coinRadius) + 18} text-anchor="middle">{formatNumber(levyView.coins[k])}</text>
             </g>
           {/each}
@@ -3319,11 +3486,13 @@
     </div>
 
     {#if bigPaper}
+      {@const portrait = paperFace(bigPaper.style.shape)}
       <article class="big-paper" bind:this={bigEl} aria-hidden="true">
         <p class="big-masthead">{bigPaper.masthead}</p>
         <div class="big-spread">
           <svg class="big-photo" viewBox="-14 -14 28 28">
             <path d={svgShapePath(bigPaper.style.shape, 10)} fill={bigPaper.style.fill} stroke={bigPaper.style.stroke} stroke-width="1.4" />
+            {#if portrait}<AgentFace drawing={portrait} fill={bigPaper.style.fill} stroke={bigPaper.style.stroke} uid="face-paper" />{/if}
           </svg>
           <div>
             <p class="big-headline">{bigPaper.text}</p>
