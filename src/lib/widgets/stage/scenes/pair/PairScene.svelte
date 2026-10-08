@@ -523,7 +523,7 @@
   }
 
   /** How long a bubble stays before the talk moves on: its words, a beat for each line after the first, and its own pause. */
-  const readOf = (b: { text: string; pauseMs?: number }) => readFor(bubbleWords(b.text)) + (bubbleLines(b.text).length - 1) * LINE_BEAT_MS + (b.pauseMs ?? 0);
+  const readOf = (b: { text: string; pauseMs?: number }) => readFor(bubbleWords(b.text)) + Math.max(0, bubbleLines(b.text).length - 1) * LINE_BEAT_MS + (b.pauseMs ?? 0);
   /** A line's `\\pause`, carried onto the bubble that says it. */
   const withPause = (line: { pauseMs?: number }) => (line.pauseMs ? { pauseMs: line.pauseMs } : {});
 
@@ -542,7 +542,7 @@
       return readOf({ text: say(line.message), ...withPause(line) }) + pause;
     }
     const line = step.lines?.[0];
-    if (!line) return readFor(0) + pause;
+    if (!line) return readOf({ text: '' }) + pause;
     return readOf({ text: say(line.message, valuesFor(step)) }) + pause;
   }
 
@@ -2461,7 +2461,7 @@
     if (!callersOf(id).every((w) => reader.named[w])) return;
     // the second introduction is read before the talk goes on
     const intro = who === 'red' ? REACTIONS.introRed : REACTIONS.introBlue;
-    const wait = stage?.reduced ? 0 : readFor(bubbleWords(say(intro.message)));
+    const wait = stage?.reduced ? 0 : readOf({ text: say(intro.message), ...withPause(intro) });
     releaseTimer = window.setTimeout(() => stage?.release(id), wait);
   }
 

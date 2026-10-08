@@ -128,6 +128,15 @@ describe('decl.tex’s numbers set the stage’s times', () => {
     expect(spoken({ ...bubble, cues: [] }).pauseMs).toBeUndefined();
   });
 
+  it('times every line the scene waits on by one rule, its own pause included', () => {
+    // helper tests cannot see a timer that skips the rule (PR #21 recheck: the second introduction did)
+    const scene = readFileSync('src/lib/widgets/stage/scenes/pair/PairScene.svelte', 'utf8');
+    expect(scene.match(/readFor\(/g)).toHaveLength(1);
+    expect(scene).toMatch(/const readOf = [^\n]*readFor\(bubbleWords\(b\.text\)\)[^\n]*b\.pauseMs/);
+    // the meeting goes on once the second introduction is read, pause and all
+    expect(scene).toMatch(/readOf\(\{ text: say\(intro\.message\), \.\.\.withPause\(intro\) \}\)/);
+  });
+
   it('pauses n beats for \\pause[n], one for a bare \\pause', () => {
     const pause = (opt?: string) => ({ cues: [{ name: 'pause', args: [], line: 1, ...(opt !== undefined ? { opt } : {}) }] });
     expect(pauseOf(pause('10'), 0.5)).toBe(5000);
