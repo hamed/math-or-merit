@@ -4,7 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { validateSteps } from '../../steps';
 import { ROUNDS, UNITS } from './game';
 import { BETS, PREDICTIONS } from '../../../shared/runLog.svelte';
-import { CARDS, EXPECT_PROBLEMS, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin } from './script';
+import { CARDS, EXPECT_PROBLEMS, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin, spoken } from './script';
+import { compile } from '../../../../script/compile';
+import { parseScript } from '../../../../script/parse';
+import { lint } from '../../../../script/lint';
 import { readingMs } from '../../steps';
 import { STORY } from '../../../../content/story.gen';
 import { CAPTION_BEATS, sideTrip } from '../../../../content/story';
@@ -107,6 +110,22 @@ describe('decl.tex’s numbers set the stage’s times', () => {
     expect(readingMs(8, 0.25, 2)).toBe(2000);
     expect(readingMs(12, 0.25, 2)).toBe(3000);
     expect(NUDGE_MS).toBe(Math.round(nudge * 1000));
+  });
+
+  it('keeps a conditional bubble’s \\pause from the script to the line the stage speaks', () => {
+    const decl = readFileSync('src/lib/script/fixtures/decl.tex', 'utf8');
+    const script = parseScript({
+      lang: 'en',
+      decl: { file: 'decl.tex', text: decl },
+      files: [{ file: 'x.tex', text: '\\subsection{A}\\label{a}\n\nRed: Pick.\n\nBlue (flow): I am surprised.\n\\when{bet=coffee}\n\\pause[10]\n' }],
+    });
+    expect(lint(script).filter((p) => p.level === 'error')).toEqual([]);
+    const { story } = compile(script);
+    const bubble = story.steps.flatMap((s) => s.groups ?? []).flatMap((g) => g.bubbles)[0];
+    expect(bubble.cues).toEqual([{ name: 'pause', opt: '10', args: [] }]);
+    // the stage's line for it stays ten of the stage's beats longer than its words
+    expect(spoken(bubble).pauseMs).toBe(Math.round(10 * STORY.timing.beat * 1000));
+    expect(spoken({ ...bubble, cues: [] }).pauseMs).toBeUndefined();
   });
 
   it('pauses n beats for \\pause[n], one for a bare \\pause', () => {

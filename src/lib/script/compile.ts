@@ -37,6 +37,8 @@ export interface StoryBubble {
   readonly who: string;
   readonly manner: readonly string[];
   readonly key: string;
+  /** Its own cues, its condition aside: a conditional bubble's `\\pause` plays when that bubble does. */
+  readonly cues?: readonly StoryAction[];
 }
 
 export interface StoryGroup {
@@ -233,7 +235,8 @@ export function compile(script: Script): Compiled {
         const condition = conditionOf(item);
         const bubble = (): StoryBubble => {
           say(key, lines.map(messageOf).join(' / '));
-          return { who: item.speaker, manner: [...item.manner], key };
+          const own = cues.filter((a) => a.name !== 'when' && a.name !== 'on' && a.name !== 'choice').map(toAction);
+          return { who: item.speaker, manner: [...item.manner], key, ...(own.length ? { cues: own } : {}) };
         };
         if (condition) {
           const cond: StoryCondition =

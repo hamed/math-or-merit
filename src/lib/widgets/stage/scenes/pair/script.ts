@@ -19,7 +19,7 @@ import { HOLDINGS } from './game';
 import { ARRIVE_SECONDS, GATHER_SECONDS, RAIN_SECONDS } from './rain';
 import { CHAT, HOLD, READER, auto, readingMs, type LineSpec, type StepSpec, type Wait } from '../../steps';
 import { STORY } from '../../../../content/story.gen';
-import type { StoryGroup, StoryStep } from '../../../../script/compile';
+import type { StoryBubble, StoryGroup, StoryStep } from '../../../../script/compile';
 import { FEELINGS } from '../../../../script/grammar';
 
 /** Scene 2: not here yet · bounced in · coins caught · only the two left. */
@@ -574,8 +574,14 @@ export function valuesFor(step: PairStep): Record<string, number> {
 
 // ---- the lines the scene speaks on events, as the scene has always asked for them ------
 
-type Said = { who: 'blue' | 'red'; message: string };
-const bubbleOf = (b: { who: string; key: string }): Said => ({ who: b.who as Said['who'], message: b.key });
+type Said = { who: 'blue' | 'red'; message: string; pauseMs?: number };
+
+/** A bubble the scene speaks when something happens, with its own `\\pause` (the scene adds it to the line's reading time). */
+export function spoken(b: StoryBubble): Said {
+  const pause = pauseOf({ cues: b.cues ?? [] });
+  return { who: b.who as Said['who'], message: b.key, ...(pause ? { pauseMs: pause } : {}) };
+}
+const bubbleOf = spoken;
 const group = (id: string, kind: 'groups' | 'reactions', cond: string): Said[] =>
   (storyOf(id)[kind] ?? []).filter((g) => (g.cond.value ?? g.cond.name) === cond).flatMap((g) => g.bubbles.map(bubbleOf));
 const lineOf = (id: string): Said => ({ who: storyOf(id).who as Said['who'], message: storyOf(id).key! });

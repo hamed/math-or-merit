@@ -144,28 +144,32 @@ describe('the faces of a recorded room', () => {
   const feelings = (f: StageFaces) => Array.from(slots, (s) => f.field.v[s]);
 
   it('feels every result a playing room crosses, however far a slow frame jumps', () => {
-    const jumped = room();
-    jumped.followFrames(slots, frames, 10, 25, true);
-    const stepped = room();
-    for (let k = 11; k <= 25; k++) stepped.followFrames(slots, frames, k - 1, k, true);
-    expect(feelings(jumped)).toEqual(feelings(stepped));
-    expect(feelings(jumped)).not.toEqual(feelings(room()));
+    for (const [from, to] of [[10, 25], [0, 190]]) {
+      const jumped = room();
+      jumped.followFrames(slots, frames, from, to, false);
+      const stepped = room();
+      for (let k = from + 1; k <= to; k++) stepped.followFrames(slots, frames, k - 1, k, false);
+      expect(feelings(jumped)).toEqual(feelings(stepped));
+      expect(feelings(jumped)).not.toEqual(feelings(room()));
+    }
   });
 
-  it('shows the moment a seek lands on, not the feelings of the one it left', () => {
+  it('shows the moment a seek lands on, however it got there', () => {
     const fresh = room();
     fresh.recallFrames(slots, frames, 0);
-    // played to the end, then sent back to the start
+    // played to the end, then sent back to the start: a step back is a seek, flagged or not
     const sent = room();
-    for (let k = 1; k < 200; k++) sent.followFrames(slots, frames, k - 1, k, true);
+    for (let k = 1; k < 200; k++) sent.followFrames(slots, frames, k - 1, k, false);
     expect(sent.followFrames(slots, frames, 199, 0, false)).toBe(true);
     expect(feelings(sent)).toEqual(feelings(fresh));
-    // far ahead in one go is a seek too, even while playing
-    const far = room();
-    expect(far.followFrames(slots, frames, 0, 190, true)).toBe(true);
-    const there = room();
-    there.recallFrames(slots, frames, 190);
-    expect(feelings(far)).toEqual(feelings(there));
+    // the same frame by three paths: straight there, there from the end, there in two scrubs
+    const at = (path: readonly number[]) => {
+      const f = room();
+      for (let k = 1; k < path.length; k++) f.followFrames(slots, frames, path[k - 1], path[k], true);
+      return feelings(f);
+    };
+    expect(at([0, 120, 199, 150])).toEqual(at([0, 150]));
+    expect(at([0, 30, 150])).toEqual(at([0, 150]));
   });
 });
 

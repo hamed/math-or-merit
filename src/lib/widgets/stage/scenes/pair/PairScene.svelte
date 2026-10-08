@@ -522,17 +522,28 @@
     return true;
   }
 
+  /** How long a bubble stays before the talk moves on: its words, a beat for each line after the first, and its own pause. */
+  const readOf = (b: { text: string; pauseMs?: number }) => readFor(bubbleWords(b.text)) + (bubbleLines(b.text).length - 1) * LINE_BEAT_MS + (b.pauseMs ?? 0);
+  /** A line's `\\pause`, carried onto the bubble that says it. */
+  const withPause = (line: { pauseMs?: number }) => (line.pauseMs ? { pauseMs: line.pauseMs } : {});
+
+  /** How long step `index` stays, ms, when it moves on by itself: what it says, and the step's own `\\pause` after. */
   function readingTime(index: number): number {
     const step = PAIR_STEPS[index];
-    if (step.id === 'run') return RUN_HUSH * 1000 + Math.max(1500, tuning.runMs) + 5500;
-    if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readFor(bubbleWords(line.text)), 0);
+    const pause = step.pauseMs ?? 0;
+    if (step.id === 'run') return RUN_HUSH * 1000 + Math.max(1500, tuning.runMs) + 5500 + pause;
+    if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readOf(line), 0) + pause;
     const concept = conceptLine(step.id);
-    if (concept) return readFor(bubbleWords(concept.text));
-    const dynamic = step.id === 'guess.react' && session.bet ? REACTIONS.betLines[session.bet].message : null;
+    if (concept) return readOf(concept) + pause;
+    const bet = step.id === 'guess.react' && session.bet ? REACTIONS.betLines[session.bet] : null;
+    if (bet) return readOf({ text: say(bet.message), ...withPause(bet) }) + pause;
+    if (step.id === 'why.after') {
+      const line = run.state.finished > 1 ? REACTIONS.whyAgain : REACTIONS.whyAfter;
+      return readOf({ text: say(line.message), ...withPause(line) }) + pause;
+    }
     const line = step.lines?.[0];
-    if (!line && !dynamic) return readFor(0) + (step.pauseMs ?? 0);
-    const text = dynamic ? say(dynamic) : say(line!.message, valuesFor(step));
-    return readFor(bubbleWords(text)) + (bubbleLines(text).length - 1) * LINE_BEAT_MS + (step.pauseMs ?? 0);
+    if (!line) return readFor(0) + pause;
+    return readOf({ text: say(line.message, valuesFor(step)) }) + pause;
   }
 
   /** Things a step starts that are not tweens: the calls, the coin mover. */
@@ -1468,6 +1479,7 @@
       who: line.who,
       at: line.who,
       text: say(line.message, { blue: dollars(L.room.blue), red: dollars(L.room.red) }),
+      ...withPause(line),
     }));
   }
 
@@ -1493,7 +1505,7 @@
       banterTimer = window.setTimeout(() => {
         banterShown += 1;
         next();
-      }, readFor(bubbleWords(lines[banterShown - 1].text)));
+      }, readOf(lines[banterShown - 1]));
     };
     next();
   }
@@ -1518,6 +1530,8 @@
     brief?: boolean;
     /** The feeling words it is said with: they show on the speaker's face (stageFaces `feel`). */
     feel?: readonly string[];
+    /** Its own `\\pause`, ms: it stays this much longer than its words take to read. */
+    pauseMs?: number;
     choices?: readonly BubbleChoice[];
     /** A control the reader holds, inside the bubble (Scene 20's dial). */
     control?: Snippet;
@@ -1557,12 +1571,12 @@
       }
       if (step.id === 'why.after') {
         const line = run.state.finished > 1 ? REACTIONS.whyAgain : REACTIONS.whyAfter;
-        out.push({ id: `${step.id}:${line.message}`, who: line.who, at: line.who, text: say(line.message) });
+        out.push({ id: `${step.id}:${line.message}`, who: line.who, at: line.who, text: say(line.message), ...withPause(line) });
         continue;
       }
       if (step.id === 'guess.react') {
         const bet = session.bet ? REACTIONS.betLines[session.bet] : null;
-        if (bet) out.push({ id: `${step.id}:${session.bet}`, who: bet.who, at: bet.who, text: say(bet.message), aside: true });
+        if (bet) out.push({ id: `${step.id}:${session.bet}`, who: bet.who, at: bet.who, text: say(bet.message), aside: true, ...withPause(bet) });
         continue;
       }
       if (step.id === 'end.longer' && line?.who) {
@@ -1580,7 +1594,7 @@
         if (result) {
           const said = result.won ? REACTIONS.stopWon : REACTIONS.stopLost;
           const values: Record<string, number> = result.won ? { count: result.count } : { seconds: result.seconds, taps: result.taps };
-          out.push({ id: `stop.result:${game.round}`, who: said.who, at: said.who, text: say(said.message, values) });
+          out.push({ id: `stop.result:${game.round}`, who: said.who, at: said.who, text: say(said.message, values), ...withPause(said) });
         }
         continue;
       }
@@ -1598,7 +1612,7 @@
         for (const who of callers) {
           if (reader.named[who] || stage?.isReleased(step.id)) {
             const intro = who === 'red' ? REACTIONS.introRed : REACTIONS.introBlue;
-            heard.push({ at: metAt[who], said: { id: `${step.id}:met-${who}`, who, at: who, text: say(intro.message), aside: true } });
+            heard.push({ at: metAt[who], said: { id: `${step.id}:met-${who}`, who, at: who, text: say(intro.message), aside: true, ...withPause(intro) } });
           } else if (callLevel[who] >= 0) {
             const pool = who === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
             heard.push({ at: callAt[who], said: { id: `${step.id}:${who}#${callLevel[who]}`, who: null, at: who, text: say(pool[callLevel[who]]), aside: true, brief: true } });
@@ -1629,6 +1643,7 @@
         at: line.who,
         text: say(line.message, { count: formatNumber(fourCount, { maximumFractionDigits: 2 }) }),
         aside: true,
+        ...withPause(line),
       });
     }
     return out;
@@ -1667,11 +1682,12 @@
 
   /** Scenes 15–17: the lines whose words are what the room shows right now. */
   function conceptLine(id: string): Said | null {
-    const said = (line: { who: Speaker; message: string }, values: Record<string, string | number>): Said => ({
+    const said = (line: { who: Speaker; message: string; pauseMs?: number }, values: Record<string, string | number>): Said => ({
       id: `${id}:${JSON.stringify(values)}`,
       who: line.who,
       at: line.who,
       text: say(line.message, values),
+      ...withPause(line),
     });
     const count = formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 });
     switch (id) {
@@ -1709,6 +1725,7 @@
           id: `dial.said:${dialRun.recording()?.seed ?? 0}:${kind}`,
           who: line.who,
           at: line.who,
+          ...withPause(line),
           text: say(line.message, {
             stake: formatNumber(stake, { style: 'percent' }),
             share: formatNumber(dialRun.state.share, { style: 'percent' }),
@@ -1723,6 +1740,7 @@
           id: `match.result:${leftRun.recording()?.seed ?? 0}`,
           who: line.who,
           at: line.who,
+          ...withPause(line),
           text: say(line.message, { a: matchCounts.a, b: matchCounts.b }),
         };
       }
@@ -2724,8 +2742,13 @@
   /** The room's frame the faces last saw: each new frame's results are felt, so faces are a moving average of them. */
   let runSeen: Float64Array | null = null;
   let runFrame = -1;
+  let runSeeks = 0;
   let runOf: Run | null = null;
-  let mirrorSeen: Float64Array | null = null;
+  /** Where the matched room's copies last stood in the right room's recording (−1: not yet seen), and its seeks then. */
+  let mirrorFrame = -1;
+  let mirrorSeeks = 0;
+  /** The copies of Blue and Red among the right room's shares; nobody else in it has a face. */
+  const mirrorSlots = $derived(Int32Array.from(L.room.positions, (_, j) => (j === L.room.blue ? faces.mirrorSlot('blue') : j === L.room.red ? faces.mirrorSlot('red') : -1)));
 
   /**
    * Results from the room on screen, felt by everyone in it (stageFaces
@@ -2738,35 +2761,34 @@
     if (!runShown) {
       runSeen = null;
       runOf = null;
-      mirrorSeen = null;
+      mirrorFrame = -1;
       return;
     }
     const st = shown.state;
     const w = shown.wealth();
-    let seek = false;
-    if (runSeen && runOf === shown && runSeen.length === w.length && st.frame !== runFrame) {
+    if (runSeen && runOf === shown && runSeen.length === w.length && (st.frame !== runFrame || st.seeks !== runSeeks)) {
       const rec = shown.recording();
-      if (rec && rec.frames.length > Math.max(st.frame, runFrame)) seek = faces.followFrames(roomSlots, rec.frames, runFrame, st.frame, st.running || st.playing);
+      if (rec && rec.frames.length > Math.max(st.frame, runFrame)) faces.followFrames(roomSlots, rec.frames, runFrame, st.frame, st.seeks !== runSeeks);
       // a live room ahead of its recording: what changed since the last look
       else field.reactAll(roomSlots, runSeen, w);
     }
-    if (runOf !== shown || st.frame !== runFrame || !runSeen || runSeen.length !== w.length) {
+    if (runOf !== shown || st.frame !== runFrame || st.seeks !== runSeeks || !runSeen || runSeen.length !== w.length) {
       runSeen = Float64Array.from(w);
       runFrame = st.frame;
+      runSeeks = st.seeks;
       runOf = shown;
     }
     // the richest looks down on everyone: from nothing to all of it as their share reaches the run's 40%
     if (st.winner >= 0) field.contemptTo[slotOfRoom(st.winner)] = Math.min(1, st.share / 0.4);
-    if (view.mirrorOn > 0.01) {
-      const m = mirror.wealth;
-      if (seek) for (const who of PAIR) field.rest(faces.mirrorSlot(who));
-      else if (mirrorSeen && mirrorSeen.length === m.length)
-        for (const who of PAIR) {
-          const j = who === 'blue' ? L.room.blue : L.room.red;
-          field.react(faces.mirrorSlot(who), mirrorSeen[j], m[j]);
-        }
-      mirrorSeen = Float64Array.from(m);
-    } else mirrorSeen = null;
+    // the matched room's copies follow their own room's recording the same way: first seen, or after a seek, as at that moment
+    const right = rightRun.recording();
+    const ms = rightRun.state;
+    if (view.mirrorOn > 0.01 && right && right.frames.length > ms.frame) {
+      if (mirrorFrame < 0 || mirrorFrame >= right.frames.length) faces.recallFrames(mirrorSlots, right.frames, ms.frame);
+      else if (ms.frame !== mirrorFrame || ms.seeks !== mirrorSeeks) faces.followFrames(mirrorSlots, right.frames, mirrorFrame, ms.frame, ms.seeks !== mirrorSeeks);
+      mirrorFrame = ms.frame;
+      mirrorSeeks = ms.seeks;
+    } else mirrorFrame = -1;
   }
 
   /** The room's faces as they would be at the moment on screen. */
@@ -2831,6 +2853,7 @@
     // a room on screen: its last few frames
     runSeen = null;
     runOf = null;
+    mirrorFrame = -1;
     if (runShown) recallRun();
     // the line on show, as it was said
     const newest = said[said.length - 1];
@@ -3266,7 +3289,7 @@
               stroke-width={i === L.room.blue || i === L.room.red ? 2.2 : 1.1}
             />
             {#if (i === L.room.blue || i === L.room.red) && faceLook !== 'none'}
-              <g transform={`translate(${at.x.toFixed(1)} ${at.y.toFixed(1)})`} class="face" use:mountFace={faces.mirrorSlot(i === L.room.blue ? 'blue' : 'red')}></g>
+              <g transform={`translate(${at.x.toFixed(1)} ${at.y.toFixed(1)})`} class="face" data-mirror={i === L.room.blue ? 'blue' : 'red'} use:mountFace={faces.mirrorSlot(i === L.room.blue ? 'blue' : 'red')}></g>
             {/if}
           {/each}
         </g>

@@ -77,9 +77,11 @@ demonstrate Barrett's constructed-emotion account (PR #21 review).
 - **Tears** never follow from affect: sadness and boredom share coordinates, so a rule
   would make boredom cry. A scene may supply them explicitly.
 - **Size and tempo** is an animation metaphor, not a finding.
-  - Blinks and glances slow with wealth, as (wealth/equal)^−0.25, after mammalian heart
-    and breathing rates ([Stahl, 1966](https://pubmed.ncbi.nlm.nih.gov/6020227/)) and
-    strides ([Heglund & Taylor, 1988](https://pubmed.ncbi.nlm.nih.gov/3193059/)).
+  - Blinks slow with wealth as (wealth/equal)^−0.25, after mammalian heart and breathing
+    rates ([Stahl, 1966](https://pubmed.ncbi.nlm.nih.gov/6020227/)); glances and talking
+    as (wealth/equal)^−0.15, after stride frequency
+    ([Heglund & Taylor, 1988](https://pubmed.ncbi.nlm.nih.gov/3193059/)) — `TEMPO_B` and
+    `STRIDE` in `face.ts`.
   - Neither study covers wealth or blinks. In primates, blink rate tracks group size
     rather than body weight
     ([Tada et al., 2013](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0066018)).

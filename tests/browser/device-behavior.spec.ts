@@ -129,6 +129,26 @@ test('under reduced motion the faces follow a room scrubbed back to its start', 
   expect(kept).toBeLessThan(slots.length / 2);
 });
 
+test('the matched room’s copies show the same faces at the same moment, however the reader scrubbed there', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'match.result');
+  const copies = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll<SVGGElement>('svg.art g.face[data-mirror]')].map((g) => `${g.dataset.mirror}:${[...g.querySelectorAll('path')].map((p) => p.getAttribute('d')).join('|')}`),
+    );
+  const end = page.getByRole('button', { name: 'To the end' }).first();
+  await end.click();
+  await page.waitForTimeout(300);
+  const first = await copies();
+  await page.getByRole('button', { name: 'Back to the start' }).first().click();
+  await page.waitForTimeout(300);
+  await end.click();
+  await page.waitForTimeout(300);
+  expect(first.length).toBe(2);
+  expect(await copies()).toEqual(first);
+});
+
 test('one key press is one step, and the reverse key goes back', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, '@keyline');

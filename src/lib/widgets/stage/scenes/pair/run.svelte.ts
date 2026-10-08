@@ -67,6 +67,12 @@ export interface RunState {
   frames: number;
   /** A finished run being played again from the time player. */
   playing: boolean;
+  /**
+   * Bumped whenever the moment on screen jumps rather than plays: the reader
+   * scrubs, or a run is cut short to its end. What follows the frames (the
+   * faces) rebuilds the moment it lands on instead of feeling the jump.
+   */
+  seeks: number;
 }
 
 const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -86,6 +92,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
     frame: 0,
     frames: 0,
     playing: false,
+    seeks: 0,
   });
   let recording: Recording | null = null;
   let equal = new Float64Array(n).fill(1 / n);
@@ -150,6 +157,8 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
   function finish(): void {
     if (!recording || state.done) return;
     ticker.stop();
+    // played to its end, it ends where it stands; cut short, it jumps there
+    if (state.frame !== recording.frames.length - 1) state.seeks++;
     show(recording.frames.length - 1);
     state.running = false;
     state.done = true;
@@ -353,6 +362,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
       if (!recording || state.running || live) return;
       replayer.stop();
       state.playing = false;
+      state.seeks++;
       show(frame);
     },
     /**

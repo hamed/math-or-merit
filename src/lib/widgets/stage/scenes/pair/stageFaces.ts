@@ -80,8 +80,6 @@ export interface FaceScene {
 
 const MIRROR = 2;
 
-/** More frames than this between two looks at a recorded room is a seek, not playback. */
-const SEEK_FRAMES = 120;
 /** How many of the last results a rebuilt face has felt: enough to show where the moment stands. */
 const RECALL_FRAMES = 6;
 
@@ -168,13 +166,14 @@ export class StageFaces {
   /**
    * A recorded room went from frame `from` to `to` (`frames`: everyone's
    * share, frame by frame; `slots`: whose face each share is, −1 for none).
-   * Playing, every result it crossed lands, in order, however far a slow frame
-   * jumped; a seek — back, or far ahead — rebuilds the faces of the moment it
-   * landed on rather than keep the feelings of the moment it left (PR #21
-   * review). True for a seek.
+   * Played forward, every result it crossed lands, in order, however far a
+   * slow frame jumped; a seek (`seek`: the reader scrubbed, or a run was cut
+   * to its end) or a step back rebuilds the faces of the moment it landed on
+   * rather than keep the feelings of the moment it left (PR #21 review).
+   * True when it rebuilt.
    */
-  followFrames(slots: ArrayLike<number>, frames: readonly ArrayLike<number>[], from: number, to: number, playing: boolean): boolean {
-    if (playing && to > from && to - from <= SEEK_FRAMES) {
+  followFrames(slots: ArrayLike<number>, frames: readonly ArrayLike<number>[], from: number, to: number, seek: boolean): boolean {
+    if (!seek && to > from) {
       for (let k = from + 1; k <= to; k++) this.field.reactAll(slots, frames[k - 1], frames[k]);
       return false;
     }
