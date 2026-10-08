@@ -16,8 +16,8 @@
  * else about a step — how long an action plays, how a pose is drawn — is code.
  */
 import { HOLDINGS } from './game';
-import { RAIN_SECONDS } from './rain';
-import { CHAT, HOLD, READER, auto, type LineSpec, type StepSpec, type Wait } from '../../steps';
+import { ARRIVE_SECONDS, GATHER_SECONDS, RAIN_SECONDS } from './rain';
+import { CHAT, HOLD, READER, auto, readingMs, type LineSpec, type StepSpec, type Wait } from '../../steps';
 import { STORY } from '../../../../content/story.gen';
 import type { StoryGroup, StoryStep } from '../../../../script/compile';
 import { FEELINGS } from '../../../../script/grammar';
@@ -152,6 +152,26 @@ export interface PairStep extends StepSpec {
   readonly log?: string;
   /** The feeling words its line is said with (script grammar `FEELINGS`): they show on the speaker's face. */
   readonly feel?: readonly string[];
+  /** A chit-chat step's `\\pause[n]`, ms: it stays this much longer than its words take to read. */
+  readonly pauseMs?: number;
+}
+
+// ---- decl.tex's numbers: the only absolute times the script sets (GRAMMAR.md §6) ----------
+
+/** One beat, seconds: `\\pause[n]` is n of them, and the reel's holds count in them. */
+const BEAT = STORY.timing.beat ?? 0.6;
+
+/** How long a line of `words` stays before moving on by itself, ms: decl.tex's `max(minread, words × perword)`. */
+export const readFor = (words: number): number => readingMs(words, STORY.timing.perword, STORY.timing.minread);
+
+/** How long the stage waits before it nudges again: a caller who has not been clicked calls once more, a little louder. */
+export const NUDGE_MS = Math.round((STORY.timing.nudge ?? 4) * 1000);
+
+/** A step's pauses (`\\pause`, `\\pause[n]`), ms, at `beat` seconds a beat. */
+export function pauseOf(s: Pick<StoryStep, 'cues'>, beat = BEAT): number {
+  let beats = 0;
+  for (const c of s.cues) if (c.name === 'pause') beats += Number.isFinite(Number(c.opt ?? 1)) ? Number(c.opt ?? 1) : 1;
+  return Math.round(beats * beat * 1000);
 }
 
 /** The stage before its first step: nothing typed, nobody here. */
@@ -264,7 +284,7 @@ const REEL_STEP: StoryStep | undefined = STORY.steps.find((s) => ROLES['title.ma
 export const REEL: readonly string[] = REEL_STEP?.body ?? [];
 /** Where the reel lands (the word in bold), and how many seconds each word holds. */
 export const REEL_ANSWER: number = REEL_STEP?.bodyAnswer ?? Math.max(0, REEL.length - 2);
-export const REEL_HOLDS: readonly number[] = (REEL_STEP?.bodyHolds ?? []).map((beats) => beats * (STORY.timing.beat ?? 0.6));
+export const REEL_HOLDS: readonly number[] = (REEL_STEP?.bodyHolds ?? []).map((beats) => beats * BEAT);
 
 /**
  * The reel's spin, as tweens of its position (owner, 2026-10-07): after the
@@ -315,7 +335,8 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
     case 'type':
       return 4600;
     case 'arrive':
-      return 4600;
+      // everyone is home and settled by then (rain.ts `planArrival`), whatever the stage's size
+      return Math.round((ARRIVE_SECONDS + 0.2) * 1000);
     case 'merit':
       return 1500;
     case 'or':
@@ -326,7 +347,7 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
       return RAIN_WAIT_MS;
     case 'gather':
       // everyone else bounds off at their own gait; Blue and Red hop under their words (hops.ts)
-      return 3400;
+      return Math.round((GATHER_SECONDS + 0.2) * 1000);
     case 'clear':
       return 1500;
     case 'toss':
@@ -481,6 +502,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
   const steps = STORY.steps.map((s, i): PairStep => {
     const prev = pose;
     const { pose: next, action, log } = apply(s, prev);
+    const pause = pauseOf(s);
     pose = next;
     const id = ids[i];
     const conditioned = s.wait === 'when';
@@ -497,7 +519,8 @@ function build(): { steps: PairStep[]; problems: string[] } {
                 : READER
               : action === 'run'
                 ? CHAT
-                : auto(durationOf(action, next, prev));
+                : // a pause on its own is its beats; with an action, the beats come after it
+                  auto(pause && !action ? pause : durationOf(action, next, prev) + pause);
     const message = s.variants?.keys[0] ?? s.key;
     const speaks = s.who && message && id !== 'title.type' && !SPOKEN.has(id);
     const aside = conditioned ? flowing(s.groups, 'aside') : s.manner.includes('aside');
@@ -513,6 +536,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
       ...(aside ? { aside: true as const } : {}),
       ...(log ? { log } : {}),
       ...(speaks && feel.length ? { feel } : {}),
+      ...(pause && wait.kind === 'chat' ? { pauseMs: pause } : {}),
     };
   });
   return { steps, problems };

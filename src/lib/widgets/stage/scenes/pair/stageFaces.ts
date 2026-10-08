@@ -80,6 +80,11 @@ export interface FaceScene {
 
 const MIRROR = 2;
 
+/** More frames than this between two looks at a recorded room is a seek, not playback. */
+const SEEK_FRAMES = 120;
+/** How many of the last results a rebuilt face has felt: enough to show where the moment stands. */
+const RECALL_FRAMES = 6;
+
 /** A pair's turns in the opening's chat: how long each lasts, the pair's own clock, and which turn it is. */
 function turnOf(pair: number, now: number): { turn: number; clock: number; k: number } {
   const turn = 1.4 + 1.6 * ((noise(pair, 43) + 1) / 2);
@@ -160,6 +165,29 @@ export class StageFaces {
     if (e.blush) f.blush[slot] = Math.max(f.blush[slot], e.blush);
   }
 
+  /**
+   * A recorded room went from frame `from` to `to` (`frames`: everyone's
+   * share, frame by frame; `slots`: whose face each share is, −1 for none).
+   * Playing, every result it crossed lands, in order, however far a slow frame
+   * jumped; a seek — back, or far ahead — rebuilds the faces of the moment it
+   * landed on rather than keep the feelings of the moment it left (PR #21
+   * review). True for a seek.
+   */
+  followFrames(slots: ArrayLike<number>, frames: readonly ArrayLike<number>[], from: number, to: number, playing: boolean): boolean {
+    if (playing && to > from && to - from <= SEEK_FRAMES) {
+      for (let k = from + 1; k <= to; k++) this.field.reactAll(slots, frames[k - 1], frames[k]);
+      return false;
+    }
+    this.recallFrames(slots, frames, to);
+    return true;
+  }
+
+  /** The faces of the room at frame `at`: at rest, then its last few results felt. */
+  recallFrames(slots: ArrayLike<number>, frames: readonly ArrayLike<number>[], at: number): void {
+    for (let k = 0; k < slots.length; k++) if (slots[k] >= 0) this.field.rest(slots[k]);
+    for (let k = Math.max(1, at - RECALL_FRAMES); k <= at && k < frames.length; k++) this.field.reactAll(slots, frames[k - 1], frames[k]);
+  }
+
   /** Everyone back to their temperament, looking where they will look: a settled stage. */
   rest(): void {
     this.field.rest();
@@ -226,7 +254,7 @@ export class StageFaces {
       else if (scene.title && this.looksUp(i, scene.title, now)) {
         this.up[i] = 1;
         at(i, b, scene.title.x, scene.title.y);
-      } else if (scene.chat && this.partner[i] >= 0) this.chat(i, b, scene.people[this.partner[i]], scene.depth, now);
+      } else if (scene.chat && this.partner[i] >= 0) this.chat(i, b, scene.people[this.partner[i]], scene.depth, now, dt);
       else if (speaker) at(i, b, speaker.x, speaker.y);
       else f.glance(i);
     }
@@ -294,7 +322,7 @@ export class StageFaces {
    * reader now and then, a flush on the listener's cheeks once in a while, and
    * now and then the two laugh together (`laughing`).
    */
-  private chat(i: number, b: Body, other: Body, depth: number, now: number): void {
+  private chat(i: number, b: Body, other: Body, depth: number, now: number, dt: number): void {
     const f = this.field;
     const j = this.partner[i];
     const pair = Math.min(i, j) * 31 + Math.max(i, j);
@@ -303,7 +331,8 @@ export class StageFaces {
     const talker = (k + pair) % 2 === 0 ? Math.min(i, j) : Math.max(i, j);
     const talking = talker === i && into < 0.7 * turn;
     f.talking[i] = talking ? 1 : 0;
-    if (laughs(pair, k)) {
+    // only while time passes: a settled stage (dt 0) is the same whenever it settles
+    if (laughs(pair, k) && dt > 0) {
       // glad for a moment, both at once, mouths open with it
       if (this.laughed[i] !== k) f.feel(i, 0.45, 0.35);
       this.laughed[i] = k;

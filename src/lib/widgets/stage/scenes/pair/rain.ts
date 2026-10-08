@@ -1,6 +1,7 @@
 /**
- * How the crowd moves while the coins drop (owner reviews 2026-09-26,
- * 2026-09-27, 2026-10-07): each coin falls straight down from a foot of the
+ * How the crowd moves in Scene 2: hopping in (`planArrival`), and while the
+ * coins drop (owner reviews 2026-09-26, 2026-09-27, 2026-10-07): each coin
+ * falls straight down from a foot of the
  * title, under the stage's one gravity, and lands on whoever is under it — a
  * bigger circle is a bigger target. The one it is meant for hops over, at their
  * own gait (hops.ts), until the coin's line falls inside them; now and then a
@@ -9,7 +10,7 @@
  */
 import type { Point } from '../../../shared/layout';
 import { DROPS, START } from './crowd';
-import { arrival, fallTime, gait, hopsAlong, type Hop } from './hops';
+import { CROSSING, arrival, fallTime, gait, hopsAlong, hopsBy, type Hop } from './hops';
 
 export interface Box {
   readonly x: number;
@@ -77,6 +78,21 @@ export const RAIN_SECONDS = 2.0 + DROPS.length * 0.26 + 1.6;
 export function noise(a: number, b: number): number {
   const x = Math.sin(a * 12.9898 + b * 78.233 + 0.5) * 43758.5453;
   return x - Math.floor(x);
+}
+
+/** Seconds into Scene 2 by which everyone has hopped in and settled: the step that plays it lasts a little longer (script.ts). */
+export const ARRIVE_SECONDS = 4.4;
+/** Seconds by which the rest have hopped off and the two stand under their words, after the rain. */
+export const GATHER_SECONDS = 3.2;
+
+/**
+ * Scene 2's arrival: everyone hops in from the nearer side at their own gait,
+ * each leaving a moment after the last, and all home by `ARRIVE_SECONDS` —
+ * on a wide stage they bound further rather than arrive late.
+ */
+export function planArrival(s: { entries: readonly Point[]; homes: readonly Point[]; radius: (coins: number) => number; g: number }): Hop[][] {
+  const unit = s.radius(1);
+  return s.homes.map((home, i) => hopsBy(s.entries[i], home, 0.1 + noise(i, 1) * 0.8, s.radius(START[i]), unit, s.g, ARRIVE_SECONDS, CROSSING));
 }
 
 /**

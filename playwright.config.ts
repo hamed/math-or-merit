@@ -11,7 +11,8 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:4173',
     browserName: 'chromium',
     launchOptions: executablePath ? { executablePath } : undefined,
-    reducedMotion: 'reduce',
+    // a context option: at the top of `use` Playwright ignores it, and the suite ran in full motion
+    contextOptions: { reducedMotion: 'reduce' },
     trace: 'retain-on-failure',
   },
   webServer: {

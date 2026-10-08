@@ -15,6 +15,18 @@ import type { Point } from '../../../shared/layout';
 /** Gravity on the stage, px/s², from its scale: a coin falls from the title in about half a second. */
 export const gravity = (whole: number) => 13.5 * whole;
 
+/**
+ * The eases that play a flight's halves under g (GSAP's names): rising, a
+ * body slows as a parabola; falling from rest, it quickens as one. GSAP's
+ * `power1` is quadratic; `power2` would be cubic, and wrong at every point
+ * between the ends.
+ */
+export const RISE = 'power1.out';
+export const FALL = 'power1.in';
+
+/** How far a crossing of the stage bounds: the same hops, further each (`hopsAlong`'s `stride`). */
+export const CROSSING = 2.2;
+
 /** Seconds to fall `h` from rest under `g`. */
 export const fallTime = (h: number, g: number) => Math.sqrt((2 * Math.max(0, h)) / g);
 
@@ -100,3 +112,16 @@ export function hopsAlong(from: Point, to: Point, depart: number, r: number, uni
 
 /** When a run of hops is over: the last one settled (or `depart`, for none). */
 export const arrival = (hops: readonly Hop[], depart: number) => (hops.length ? hops[hops.length - 1].end : depart);
+
+/**
+ * `hopsAlong`, there and settled by `by`: a body with further to go in the
+ * time bounds further — the same hops, the same time in the air, longer
+ * (PR #21 review: on a 4K stage the crowd was still hopping in when the step
+ * moved on). Never shorter than `stride`.
+ */
+export function hopsBy(from: Point, to: Point, depart: number, r: number, unit: number, g: number, by: number, stride = 1): Hop[] {
+  let s = stride;
+  let hops = hopsAlong(from, to, depart, r, unit, g, 1, s);
+  for (let k = 0; k < 40 && hops.length > 1 && arrival(hops, depart) > by; k++) hops = hopsAlong(from, to, depart, r, unit, g, 1, (s *= 1.1));
+  return hops;
+}

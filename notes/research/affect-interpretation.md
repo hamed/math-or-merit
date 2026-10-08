@@ -47,7 +47,11 @@ in valence, arousal and dominance, plus novelty for a startle, mapped to seven d
 features by FACS-inspired synergies. These are drawing conventions readers recognise. They
 do not claim to show what a person feels.
 [Barrett et al. (2019)](https://doi.org/10.1177/1529100619832930) found facial movements
-carry no universal emotional meaning.
+do not provide reliable, context-independent fingerprints of particular emotions;
+interpretation varies with person and situation. Faces can still carry useful signal. The
+model is an authored simplification: one log gain/loss reading for everyone, shaded by
+temperament. It does not model expectations, goals or context, and does not claim to
+demonstrate Barrett's constructed-emotion account (PR #21 review).
 
 - **Authored, not looked up:** every temperament and point is set and tuned by eye. The
   earlier draft took four points from the NRC VAD Lexicon; they were dropped, and with

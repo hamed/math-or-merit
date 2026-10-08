@@ -136,6 +136,39 @@ describe('the pair’s faces', () => {
   });
 });
 
+describe('the faces of a recorded room', () => {
+  // ten people, two hundred frames of a run: shares drifting apart
+  const slots = Int32Array.from({ length: 10 }, (_, j) => 20 + j);
+  const frames = Array.from({ length: 200 }, (_, k) => Float64Array.from(slots, (_, j) => Math.max(0.001, 0.1 + ((j - 4.5) * k) / 20000)));
+  const room = () => new StageFaces(CROWD, 40, BIG, SMALL);
+  const feelings = (f: StageFaces) => Array.from(slots, (s) => f.field.v[s]);
+
+  it('feels every result a playing room crosses, however far a slow frame jumps', () => {
+    const jumped = room();
+    jumped.followFrames(slots, frames, 10, 25, true);
+    const stepped = room();
+    for (let k = 11; k <= 25; k++) stepped.followFrames(slots, frames, k - 1, k, true);
+    expect(feelings(jumped)).toEqual(feelings(stepped));
+    expect(feelings(jumped)).not.toEqual(feelings(room()));
+  });
+
+  it('shows the moment a seek lands on, not the feelings of the one it left', () => {
+    const fresh = room();
+    fresh.recallFrames(slots, frames, 0);
+    // played to the end, then sent back to the start
+    const sent = room();
+    for (let k = 1; k < 200; k++) sent.followFrames(slots, frames, k - 1, k, true);
+    expect(sent.followFrames(slots, frames, 199, 0, false)).toBe(true);
+    expect(feelings(sent)).toEqual(feelings(fresh));
+    // far ahead in one go is a seek too, even while playing
+    const far = room();
+    expect(far.followFrames(slots, frames, 0, 190, true)).toBe(true);
+    const there = room();
+    there.recallFrames(slots, frames, 190);
+    expect(feelings(far)).toEqual(feelings(there));
+  });
+});
+
 describe('the opening’s crowd', () => {
   it('pairs up to chat: someone is always talking, and the talk changes hands', () => {
     const faces = fresh();

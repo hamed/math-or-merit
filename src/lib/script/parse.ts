@@ -488,6 +488,8 @@ function actionLine(t: string, line: number, err: Err): Action | null {
     err(line, `\\${cmd.name} takes ${min === spec.args ? spec.args : `${min} or ${spec.args}`} argument(s)`);
   }
   if (cmd.opt !== undefined && !spec.optional) err(line, `\\${cmd.name} takes no [option]`);
+  // a choice's words are the reader's to read: the same rules as a bubble's
+  if (cmd.name === 'choice') for (const e of parseInline(cmd.args[0] ?? '').errors) err(line, e);
   return { name: cmd.name, ...(cmd.opt !== undefined ? { opt: cmd.opt } : {}), args: cmd.args, line };
 }
 

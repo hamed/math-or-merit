@@ -132,6 +132,13 @@ describe('lint', () => {
     expect(lint(one('Red (laughs): Ha.')).map((p) => p.message)).toEqual(['manner "laughs" is kept as a delivery hint']);
   });
 
+  it('holds a choice’s words to the rules of a bubble’s', () => {
+    const choice = (words: string) => errors(one(`\\subsection{A}\\label{a}\n\nRed: Pick.\n\\choice{${words}}{a}`));
+    expect(choice('The \\underline{wrong} option')).toEqual(['\\underline is not part of the grammar']);
+    expect(choice('50% more')[0]).toMatch(/bare %/);
+    expect(choice('50\\% more')).toEqual([]);
+  });
+
   it('knows the feeling words', () => {
     expect(lint(one('Red (aside, calm): Ha.')).map((p) => p.message)).toEqual([]);
     expect(lint(one('Blue (proud): Ha.')).map((p) => p.message)).toEqual([]);

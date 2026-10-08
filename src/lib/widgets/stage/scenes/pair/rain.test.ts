@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { DROPS, RAINED, START } from './crowd';
 import { fallTime, gravity } from './hops';
 import { pairLayout } from './layout';
-import { GAP, REACH, planRain } from './rain';
-import { RAIN_WAIT_MS } from './script';
+import { ARRIVE_SECONDS, GAP, REACH, planArrival, planRain } from './rain';
+import { PAIR_STEPS, RAIN_WAIT_MS } from './script';
+import { arrival } from './hops';
 
 for (const [w, h] of [[1366, 768], [390, 844], [1920, 1080]]) {
   describe(`the rain on a ${w}×${h} stage`, () => {
@@ -74,3 +75,22 @@ for (const [w, h] of [[1366, 768], [390, 844], [1920, 1080]]) {
     });
   });
 }
+
+describe('the crowd hopping in', () => {
+  const step = PAIR_STEPS.find((s) => s.action === 'arrive')!;
+
+  it('is home before the step moves on, on every stage up to 4K', () => {
+    expect(step.wait).toMatchObject({ kind: 'auto' });
+    const waits = (step.wait as { ms: number }).ms / 1000;
+    expect(waits).toBeGreaterThanOrEqual(ARRIVE_SECONDS);
+    for (const [w, h] of [[390, 844], [844, 390], [1280, 800], [1920, 1080], [2560, 1440], [3840, 2160]]) {
+      const L = pairLayout(w, h);
+      const plan = planArrival({ entries: L.crowdEntries, homes: L.crowdHomes, radius: L.radius, g: gravity(L.whole) });
+      plan.forEach((hops, i) => {
+        expect(hops.at(-1)!.to.x, `${w}×${h} #${i}`).toBeCloseTo(L.crowdHomes[i].x, 6);
+        expect(hops.at(-1)!.to.y, `${w}×${h} #${i}`).toBeCloseTo(L.crowdHomes[i].y, 6);
+        expect(arrival(hops, hops[0].start), `${w}×${h} #${i}`).toBeLessThanOrEqual(ARRIVE_SECONDS);
+      });
+    }
+  });
+});

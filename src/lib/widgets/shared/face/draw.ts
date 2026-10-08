@@ -501,7 +501,7 @@ export class FacePainter {
   /** The last paint held back a change of mood (MOOD_GAP): ask again next frame. */
   stale = false;
   private parts: Parts | null = null;
-  private outerKey = NaN;
+  private outerKey = '';
   private outer: readonly FaceMark[] = [];
   private drawn: FaceDrawing | null = null;
 
@@ -541,7 +541,8 @@ export class FacePainter {
     // manga's "!" and sparkles sit over the head, in the body's frame: their own key
     const exclaim = look === 'manga' ? Math.round((marks.exclaim ?? 0) * 10) : 0;
     const sparkles = look === 'manga' ? Math.round((marks.sparkles ?? 0) * 10) : 0;
-    const outerKey = exclaim || sparkles ? exclaim * 1e6 + sparkles * 1e4 + Math.round(r * 2) * 100 + Math.round(s * 2) : 0;
+    // placed on the body's top edge, so the shape is part of where they go
+    const outerKey = exclaim || sparkles ? `${exclaim}|${sparkles}|${shape}|${Math.round(r * 2)}|${Math.round(s * 2)}` : '';
     if (outerKey !== this.outerKey) {
       this.outerKey = outerKey;
       this.outer = outerKey ? outerMarks(shape, r, s, marks) : [];

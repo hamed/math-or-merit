@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { validateSteps } from '../../steps';
 import { ROUNDS, UNITS } from './game';
 import { BETS, PREDICTIONS } from '../../../shared/runLog.svelte';
-import { CARDS, EXPECT_PROBLEMS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, reelSpin } from './script';
+import { CARDS, EXPECT_PROBLEMS, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin } from './script';
+import { readingMs } from '../../steps';
 import { STORY } from '../../../../content/story.gen';
 import { CAPTION_BEATS, sideTrip } from '../../../../content/story';
 
@@ -93,6 +94,30 @@ describe('the stage reads the script', () => {
     const dropped = new Set(PAIR_STEPS.flatMap((s) => s.pose.cards));
     for (const id of dropped) expect(CARDS[id], id).toBeDefined();
     for (const card of Object.values(CARDS)) expect(messages[card.title], card.title).toBeTypeOf('string');
+  });
+});
+
+describe('decl.tex’s numbers set the stage’s times', () => {
+  const { perword, minread, nudge } = STORY.timing;
+
+  it('keeps a line max(minread, words × perword), as the grammar says', () => {
+    expect(readFor(10)).toBe(Math.round(1000 * Math.max(minread, 10 * perword)));
+    expect(readFor(1)).toBe(Math.round(1000 * minread));
+    // other numbers in decl.tex, other waits
+    expect(readingMs(8, 0.25, 2)).toBe(2000);
+    expect(readingMs(12, 0.25, 2)).toBe(3000);
+    expect(NUDGE_MS).toBe(Math.round(nudge * 1000));
+  });
+
+  it('pauses n beats for \\pause[n], one for a bare \\pause', () => {
+    const pause = (opt?: string) => ({ cues: [{ name: 'pause', args: [], line: 1, ...(opt !== undefined ? { opt } : {}) }] });
+    expect(pauseOf(pause('10'), 0.5)).toBe(5000);
+    expect(pauseOf(pause(), 0.6)).toBe(600);
+    // a step that only pauses lasts its beats
+    STORY.steps.forEach((s, i) => {
+      const step = PAIR_STEPS[i];
+      if (pauseOf(s) && !step.action && step.wait.kind === 'auto') expect(step.wait.ms).toBe(pauseOf(s));
+    });
   });
 });
 

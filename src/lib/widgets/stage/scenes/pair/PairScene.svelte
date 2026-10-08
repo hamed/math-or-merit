@@ -21,12 +21,13 @@
   import Coin from '../Coin.svelte';
   import Reel from './Reel.svelte';
   import Teletype from './Teletype.svelte';
-  import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
+  import { STEP_STAGE_CONTEXT, type Speaker, type StepStageContext } from '../../steps';
   import {
     CALLS,
     CARDS,
     HEADLINE,
     MAP_LABEL,
+    NUDGE_MS,
     PAIR_STEPS,
     REACTIONS,
     REEL,
@@ -38,6 +39,7 @@
     indexOf,
     levyLesson,
     panelStart,
+    readFor,
     valuesFor,
     type Pose,
     type RoomMode,
@@ -57,8 +59,8 @@
   import StopSlider, { RATE_STOPS } from '../../../sandbox/StopSlider.svelte';
   import { createRun } from './run.svelte';
   import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
-  import { noise, planRain } from './rain';
-  import { arrival, fallTime, gravity, hopsAlong, squashed, type Hop } from './hops';
+  import { GATHER_SECONDS, noise, planArrival, planRain } from './rain';
+  import { CROSSING, FALL, RISE, arrival, fallTime, gravity, hopsBy, squashed, type Hop } from './hops';
   import { titleFeet } from './titleFeet';
   import { deciderFace, pairLayout, pile } from './layout';
   import type { Point } from '../../../shared/layout';
@@ -203,9 +205,12 @@
     alpha: number;
     /** 1 — holds nothing: an empty ring, visible but with no area. */
     empty: number;
-    /** Squash and stretch, about the point where they touch the ground. */
-    sx: number;
-    sy: number;
+    /**
+     * Squash and stretch, about the point where they touch the ground: e^q
+     * wide, e^−q tall (hops.ts `squashed`). One number, tweened, so the area
+     * holds at every frame of a squash, not only at its ends.
+     */
+    q: number;
   }
   interface Token {
     x: number;
@@ -226,9 +231,9 @@
     compact: 0,
     titleOn: 1,
     lift: 0,
-    people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1, empty: 1, sx: 1, sy: 1 })) as Person[],
+    people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1, empty: 1, q: 0 })) as Person[],
     /** The room's other ninety-eight (Scene 10), each on its way in or in place. */
-    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, r: 0, alpha: 0, sx: 1, sy: 1, empty: 0 })),
+    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, r: 0, alpha: 0, q: 0, empty: 0 })),
     /** How much of the turnover chart is drawn, 0–1 (Scene 18). */
     turnDraw: 0,
     /** How much of the Lorenz curve is drawn, 0–1 (Scene 16's walk). */
@@ -286,7 +291,7 @@
   /** Where each of the sixteen is, and how big, in a pose. */
   function people(pose: Pose): Person[] {
     const nobody = L.presence;
-    const still = { alpha: 1, sx: 1, sy: 1 };
+    const still = { alpha: 1, q: 0 };
     return L.crowdHomes.map((home, i) => {
       const who = whoIs(i);
       switch (pose.crowd) {
@@ -316,9 +321,9 @@
     return L.room.positions.map((p, i) => {
       if (pose.place === 'room') {
         const t = modeTarget(pose.roomMode, i, pose.source);
-        return { x: t.x, y: t.y, r: t.r, alpha: t.alpha, sx: 1, sy: 1, empty: t.empty ? 1 : 0 };
+        return { x: t.x, y: t.y, r: t.r, alpha: t.alpha, q: 0, empty: t.empty ? 1 : 0 };
       }
-      return { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y, r: L.room.radius, alpha: 0, sx: 1, sy: 1 };
+      return { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y, r: L.room.radius, alpha: 0, q: 0 };
     });
   }
 
@@ -520,14 +525,14 @@
   function readingTime(index: number): number {
     const step = PAIR_STEPS[index];
     if (step.id === 'run') return RUN_HUSH * 1000 + Math.max(1500, tuning.runMs) + 5500;
-    if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readingMs(bubbleWords(line.text)), 0);
+    if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readFor(bubbleWords(line.text)), 0);
     const concept = conceptLine(step.id);
-    if (concept) return readingMs(bubbleWords(concept.text));
+    if (concept) return readFor(bubbleWords(concept.text));
     const dynamic = step.id === 'guess.react' && session.bet ? REACTIONS.betLines[session.bet].message : null;
     const line = step.lines?.[0];
-    if (!line && !dynamic) return readingMs(0);
+    if (!line && !dynamic) return readFor(0) + (step.pauseMs ?? 0);
     const text = dynamic ? say(dynamic) : say(line!.message, valuesFor(step));
-    return readingMs(bubbleWords(text)) + (bubbleLines(text).length - 1) * LINE_BEAT_MS;
+    return readFor(bubbleWords(text)) + (bubbleLines(text).length - 1) * LINE_BEAT_MS + (step.pauseMs ?? 0);
   }
 
   /** Things a step starts that are not tweens: the calls, the coin mover. */
@@ -1488,7 +1493,7 @@
       banterTimer = window.setTimeout(() => {
         banterShown += 1;
         next();
-      }, readingMs(bubbleWords(lines[banterShown - 1].text)));
+      }, readFor(bubbleWords(lines[banterShown - 1].text)));
     };
     next();
   }
@@ -2109,8 +2114,7 @@
   interface Hopper {
     x: number;
     y: number;
-    sx: number;
-    sy: number;
+    q: number;
   }
 
   /** The stage's gravity, px/s² (hops.ts): every hop and every falling coin obeys it. */
@@ -2127,33 +2131,35 @@
     for (const h of hops) {
       const gt = h.gait;
       const up = h.apex - h.lift;
-      tl.to(p, { ...squashed(gt.squash * 0.8), duration: Math.max(0.02, h.lift - h.start), ease: 'power2.out' }, h.start);
-      tl.to(p, { ...squashed(-gt.stretch), duration: up * 0.5, ease: 'power1.out' }, h.lift);
-      tl.to(p, { sx: 1, sy: 1, duration: up * 0.5, ease: 'power1.in' }, h.lift + up * 0.5);
+      tl.to(p, { q: gt.squash * 0.8, duration: Math.max(0.02, h.lift - h.start), ease: 'power2.out' }, h.start);
+      tl.to(p, { q: -gt.stretch, duration: up * 0.5, ease: 'power1.out' }, h.lift);
+      tl.to(p, { q: 0, duration: up * 0.5, ease: 'power1.in' }, h.lift + up * 0.5);
+      // across at a steady speed, up and down as a parabola under g
       tl.to(p, { x: h.to.x, duration: h.land - h.lift, ease: 'none' }, h.lift);
-      tl.to(p, { y: h.top, duration: up, ease: 'power2.out' }, h.lift);
-      tl.to(p, { y: h.to.y, duration: h.land - h.apex, ease: 'power2.in' }, h.apex);
-      tl.to(p, { ...squashed(gt.squash), duration: 0.05, ease: 'power1.out' }, h.land);
-      tl.to(p, { sx: 1, sy: 1, duration: Math.max(0.08, h.end - h.land - 0.05), ease: gt.soft > 0.4 ? 'elastic.out(1, 0.55)' : 'back.out(2.5)' }, h.land + 0.05);
+      tl.to(p, { y: h.top, duration: up, ease: RISE }, h.lift);
+      tl.to(p, { y: h.to.y, duration: h.land - h.apex, ease: FALL }, h.apex);
+      tl.to(p, { q: gt.squash, duration: 0.05, ease: 'power1.out' }, h.land);
+      tl.to(p, { q: 0, duration: Math.max(0.08, h.end - h.land - 0.05), ease: gt.soft > 0.4 ? 'elastic.out(1, 0.55)' : 'back.out(2.5)' }, h.land + 0.05);
     }
   }
 
-  /** `p`, a body of radius `r`, hops from `from` to `to`, leaving at `depart`, at its own gait; returns when it has settled there. */
-  function hopTo(tl: Timeline, p: Hopper, from: Point, to: Point, depart: number, r: number, stride = 1): number {
-    const hops = hopsAlong(from, to, depart, r, L.radius(1), G, 1, stride);
+  /**
+   * `p`, a body of radius `r`, hops from `from` to `to`, leaving at `depart`,
+   * at its own gait — and, given `by`, bounding further if it must to be there
+   * by then; returns when it has settled there.
+   */
+  function hopTo(tl: Timeline, p: Hopper, from: Point, to: Point, depart: number, r: number, stride = 1, by = Infinity): number {
+    const hops = hopsBy(from, to, depart, r, L.radius(1), G, by, stride);
     playHops(tl, p, hops);
     return arrival(hops, depart);
   }
 
-  /** How far a crossing of the stage bounds: the same hops, further each (hops.ts `stride`). */
-  const CROSSING = 2.2;
-
   /** Scene 2 begins: people hop in from the nearer side, each at their own gait — the small quick and short, the big slow and long. */
+  const arrivalPlan = $derived(planArrival({ entries: L.crowdEntries, homes: L.crowdHomes, radius: L.radius, g: G }));
   function arrive(tl: Timeline): void {
     view.people.forEach((person, i) => {
-      const r = L.radius(CROWD_START[i]);
-      tl.set(person, { ...L.crowdEntries[i], r, empty: 0, alpha: 1, sx: 1, sy: 1 }, 0);
-      hopTo(tl, person, L.crowdEntries[i], L.crowdHomes[i], 0.1 + noise(i, 1) * 0.8, r, CROSSING);
+      tl.set(person, { ...L.crowdEntries[i], r: L.radius(CROWD_START[i]), empty: 0, alpha: 1, q: 0 }, 0);
+      playHops(tl, person, arrivalPlan[i]);
     });
   }
 
@@ -2208,12 +2214,12 @@
       // a straight fall from the foot, from rest: y quickening, x still
       const coin = view.payout[token];
       tl.set(coin, { x: c.foot.x, y: c.foot.y, on: 1 }, c.release);
-      tl.to(coin, { y: c.meet.y, duration: c.land - c.release, ease: 'power2.in' }, c.release);
+      tl.to(coin, { y: c.meet.y, duration: c.land - c.release, ease: FALL }, c.release);
       tl.set(coin, { on: 0 }, c.land);
       // the blow: a squash that keeps the area, the softer the deeper; and the coin is theirs
       const soft = Math.min(1, Math.max(0, (L.radius(had) / L.radius(1) - 1) / 3.5));
-      tl.to(person, { ...squashed(0.05 + 0.12 * soft), duration: 0.05, ease: 'power1.out' }, c.land);
-      tl.to(person, { sx: 1, sy: 1, duration: 0.2 + 0.3 * soft, ease: soft > 0.4 ? 'elastic.out(1, 0.55)' : 'back.out(2.5)' }, c.land + 0.05);
+      tl.to(person, { q: 0.05 + 0.12 * soft, duration: 0.05, ease: 'power1.out' }, c.land);
+      tl.to(person, { q: 0, duration: 0.2 + 0.3 * soft, ease: soft > 0.4 ? 'elastic.out(1, 0.55)' : 'back.out(2.5)' }, c.land + 0.05);
       tl.to(person, { r: L.radius(held[c.who]), duration: 0.25, ease: 'back.out(3)' }, c.land);
       // a coin caught is a result: one coin to someone with one is joy, to someone with eight a shrug
       feelAt(tl, c.land, () => faces.field.react(c.who, had, had + c.count));
@@ -2228,12 +2234,12 @@
       const from = { x: person.x, y: person.y };
       if (whoIs(i)) {
         const to = { x: targets[i].x, y: targets[i].y };
-        const there = hopTo(tl, person, from, to, 0.4, person.r, CROSSING);
+        const there = hopTo(tl, person, from, to, 0.4, person.r, CROSSING, GATHER_SECONDS);
         tl.to(person, { r: targets[i].r, duration: 0.5 }, Math.max(0.4, there - 0.5));
         return;
       }
       const exit = L.crowdExits[i];
-      const gone = hopTo(tl, person, from, { x: exit.x, y: from.y }, noise(i, 3) * 0.6, person.r, CROSSING);
+      const gone = hopTo(tl, person, from, { x: exit.x, y: from.y }, noise(i, 3) * 0.6, person.r, CROSSING, GATHER_SECONDS);
       tl.set(person, { alpha: 0 }, gone);
     });
   }
@@ -2274,7 +2280,7 @@
       const entry = { x: spot.x < w / 2 ? -L.room.radius * 3 : w + L.room.radius * 3, y: spot.y };
       // one by one over five seconds or so, unhurried: long, low hops (owner review 2026-09-26)
       const depart = 0.5 + (i / L.room.positions.length) * 4.6 + noise(i, 4) * 0.5;
-      tl.set(view.room[i], { ...entry, alpha: 1, sx: 1, sy: 1 }, depart);
+      tl.set(view.room[i], { ...entry, alpha: 1, q: 0 }, depart);
       hopTo(tl, view.room[i], entry, spot, depart, L.room.radius, CROSSING);
     });
     tl.call(() => {
@@ -2421,7 +2427,8 @@
     callLevel[who] = Math.min(pool.length - 1, callLevel[who] + 1);
     callAt[who] = performance.now();
     if (stage?.reduced) return;
-    callTimers[who] = window.setTimeout(() => callOut(who), 3000 + Math.random() * 3500);
+    // the stage nudges every decl.tex \nudge, each caller on a clock of his own
+    callTimers[who] = window.setTimeout(() => callOut(who), NUDGE_MS * (0.75 + Math.random() * 0.5));
   }
 
   /** The reader clicks a circle: it takes its colours and introduces itself; once both have, the talk moves on. */
@@ -2436,7 +2443,7 @@
     if (!callersOf(id).every((w) => reader.named[w])) return;
     // the second introduction is read before the talk goes on
     const intro = who === 'red' ? REACTIONS.introRed : REACTIONS.introBlue;
-    const wait = stage?.reduced ? 0 : readingMs(bubbleWords(say(intro.message)));
+    const wait = stage?.reduced ? 0 : readFor(bubbleWords(say(intro.message)));
     releaseTimer = window.setTimeout(() => stage?.release(id), wait);
   }
 
@@ -2720,7 +2727,11 @@
   let runOf: Run | null = null;
   let mirrorSeen: Float64Array | null = null;
 
-  /** Results from the room on screen, felt by everyone in it; the richest's contempt rising with their share. */
+  /**
+   * Results from the room on screen, felt by everyone in it (stageFaces
+   * `followFrames`: playback felt result by result, a seek rebuilt); the
+   * richest's contempt rising with their share.
+   */
   function followRun(): void {
     const field = faces.field;
     field.contemptTo.fill(0);
@@ -2732,8 +2743,14 @@
     }
     const st = shown.state;
     const w = shown.wealth();
-    if (runSeen && runOf === shown && st.frame > runFrame && st.frame - runFrame <= 12 && runSeen.length === w.length) field.reactAll(roomSlots, runSeen, w);
-    if (runOf !== shown || st.frame !== runFrame) {
+    let seek = false;
+    if (runSeen && runOf === shown && runSeen.length === w.length && st.frame !== runFrame) {
+      const rec = shown.recording();
+      if (rec && rec.frames.length > Math.max(st.frame, runFrame)) seek = faces.followFrames(roomSlots, rec.frames, runFrame, st.frame, st.running || st.playing);
+      // a live room ahead of its recording: what changed since the last look
+      else field.reactAll(roomSlots, runSeen, w);
+    }
+    if (runOf !== shown || st.frame !== runFrame || !runSeen || runSeen.length !== w.length) {
       runSeen = Float64Array.from(w);
       runFrame = st.frame;
       runOf = shown;
@@ -2742,7 +2759,8 @@
     if (st.winner >= 0) field.contemptTo[slotOfRoom(st.winner)] = Math.min(1, st.share / 0.4);
     if (view.mirrorOn > 0.01) {
       const m = mirror.wealth;
-      if (mirrorSeen && mirrorSeen.length === m.length)
+      if (seek) for (const who of PAIR) field.rest(faces.mirrorSlot(who));
+      else if (mirrorSeen && mirrorSeen.length === m.length)
         for (const who of PAIR) {
           const j = who === 'blue' ? L.room.blue : L.room.red;
           field.react(faces.mirrorSlot(who), mirrorSeen[j], m[j]);
@@ -2751,11 +2769,36 @@
     } else mirrorSeen = null;
   }
 
+  /** The room's faces as they would be at the moment on screen. */
+  function recallRun(): void {
+    const rec = shown.recording();
+    if (rec) faces.recallFrames(roomSlots, rec.frames, shown.state.frame);
+  }
+
+  /**
+   * Under reduced motion nothing on a face moves by itself, but the faces still
+   * follow what the stage shows (PR #21 review): a room scrubbed to another
+   * moment, a step's new sizes and looks, a new line, a resize — each settles
+   * them at once.
+   */
+  let stillKey = '';
+  function stillFaces(): void {
+    const rooms = runShown ? `${shown.state.revision}:${shown.state.frame}` : '-';
+    const mirrored = view.mirrorOn > 0.01 ? `${leftRun.state.revision}:${rightRun.state.revision}` : '-';
+    const key = `${current}|${rooms}|${mirrored}|${width}x${height}|${faceLook}|${lastTalk}|${hushed}`;
+    if (key === stillKey) return;
+    stillKey = key;
+    settleFaces();
+  }
+
   let lastTick = 0;
   /** One tick a frame, on the ambient clock: who looks where, feelings and rhythms, then the drawings. */
   function tickFaces(now: number): void {
     // the ambient clock can start before the stage knows the reader asked for no motion: ask every tick
-    if (stage?.reduced) return;
+    if (stage?.reduced) {
+      stillFaces();
+      return;
+    }
     const dt = Math.min(0.1, Math.max(0, now - lastTick));
     lastTick = now;
     if (talking && now >= talking.until) talking = null;
@@ -2788,10 +2831,13 @@
     // a room on screen: its last few frames
     runSeen = null;
     runOf = null;
-    const rec = runShown ? shown.recording() : null;
-    if (rec) for (let k = Math.max(1, shown.state.frame - 6); k <= shown.state.frame; k++) field.reactAll(roomSlots, rec.frames[k - 1], rec.frames[k]);
+    if (runShown) recallRun();
+    // the line on show, as it was said
+    const newest = said[said.length - 1];
+    if (newest?.at) for (const word of newest.feel ?? []) faces.feel(WHO[newest.at], word);
     followRun();
-    faces.aim(faceScene(), seconds, 0);
+    // where everyone looks when settled; with no motion, the same whenever the page was opened
+    faces.aim(faceScene(), stage?.reduced ? 0 : seconds, 0);
     field.settle();
     paintFaces();
   }
@@ -2910,8 +2956,9 @@
   }
 
   /** Squash and stretch about the bottom of a shape of radius `r`, where it meets the ground. */
-  function squash(r: number, sx: number, sy: number): string {
-    if (Math.abs(sx - 1) < 1e-3 && Math.abs(sy - 1) < 1e-3) return '';
+  function squash(r: number, q: number): string {
+    if (Math.abs(q) < 1e-3) return '';
+    const { sx, sy } = squashed(q);
     return `translate(0 ${r.toFixed(2)}) scale(${sx.toFixed(3)} ${sy.toFixed(3)}) translate(0 ${(-r).toFixed(2)})`;
   }
 
@@ -3155,7 +3202,7 @@
               {@const four = fourCoinsOf(i)}
               <path
                 d={svgShapePath(roomStyles[i].shape, Math.max(0.6, spot.r))}
-                transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`}
+                transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.q)}`}
                 fill={spot.empty > 0.5 ? 'none' : roomStyles[i].fill}
                 stroke={roomStyles[i].stroke}
                 stroke-dasharray={spot.empty > 0.5 ? '2.5 2.5' : undefined}
@@ -3174,8 +3221,8 @@
               {/if}
               <!-- mounted while faces show, faded by opacity: a face that comes and goes costs no new nodes -->
               {#if faceLook !== 'none' && peopleStand && i !== roomWinner}
-                <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`} opacity={spot.alpha * roomShown[i]}>
-                  <g use:mountFace={faces.roomSlot(i)}></g>
+                <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.q)}`} opacity={spot.alpha * roomShown[i]}>
+                  <g class="face" data-slot={faces.roomSlot(i)} use:mountFace={faces.roomSlot(i)}></g>
                 </g>
               {/if}
             {/if}
@@ -3183,8 +3230,8 @@
           {#if roomWinner >= 0 && faceLook !== 'none' && peopleStand}
             <!-- the richest's face over everyone's: what the run made them is the news (owner, 2026-10-07) -->
             {@const spot = view.room[roomWinner]}
-            <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`} opacity={spot.alpha * roomShown[roomWinner]}>
-              <g use:mountFace={faces.roomSlot(roomWinner)}></g>
+            <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.q)}`} opacity={spot.alpha * roomShown[roomWinner]}>
+              <g class="face" data-slot={faces.roomSlot(roomWinner)} use:mountFace={faces.roomSlot(roomWinner)}></g>
             </g>
           {/if}
         </g>
@@ -3219,7 +3266,7 @@
               stroke-width={i === L.room.blue || i === L.room.red ? 2.2 : 1.1}
             />
             {#if (i === L.room.blue || i === L.room.red) && faceLook !== 'none'}
-              <g transform={`translate(${at.x.toFixed(1)} ${at.y.toFixed(1)})`} use:mountFace={faces.mirrorSlot(i === L.room.blue ? 'blue' : 'red')}></g>
+              <g transform={`translate(${at.x.toFixed(1)} ${at.y.toFixed(1)})`} class="face" use:mountFace={faces.mirrorSlot(i === L.room.blue ? 'blue' : 'red')}></g>
             {/if}
           {/each}
         </g>
@@ -3286,7 +3333,7 @@
         {#if person.alpha > 0.01 && person.r > 0.05}
           {@const coins = personCoins(i)}
           <g transform={`translate(${person.x.toFixed(2)} ${person.y.toFixed(2)})`} opacity={person.alpha}>
-            <g transform={squash(person.r, person.sx, person.sy)}>
+            <g transform={squash(person.r, person.q)}>
             <g transform={life(i)}>
               {#if whoIs(i) && person.empty <= 0.5}
                 <!-- the two who stay are a little less see-through, and on top of everyone (owner, 2026-10-07) -->
@@ -3313,7 +3360,7 @@
                 <circle r={person.r} fill={costumeFill(i)} fill-opacity={0.5 * coins.opacity} />
               {/if}
               <!-- the face: drawn by the frame's tick (stageFaces.ts), not by a component -->
-              <g opacity={personShown[i]} use:mountFace={i}></g>
+              <g class="face" opacity={personShown[i]} use:mountFace={i}></g>
             </g>
             </g>
           </g>

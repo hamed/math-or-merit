@@ -104,6 +104,31 @@ test('the title fits a phone and the stage owns the viewport', async ({ page }) 
   expect(height).toBeGreaterThanOrEqual(844 - 1);
 });
 
+test('under reduced motion the faces follow a room scrubbed back to its start', async ({ page }) => {
+  // reduced motion on before the stage mounts
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'dial.7');
+  // each room member's face, by its slot: the room draws them in a new order as fortunes change
+  const faces = () =>
+    page.evaluate(() =>
+      Object.fromEntries(
+        [...document.querySelectorAll<SVGGElement>('svg.art g.room g.face')].map((g) => [g.dataset.slot, [...g.querySelectorAll('path')].map((p) => p.getAttribute('d')).join('|')]),
+      ),
+    );
+  await page.getByRole('button', { name: 'To the end' }).first().click();
+  await page.waitForTimeout(300);
+  const end = await faces();
+  await page.getByRole('button', { name: 'Back to the start' }).first().click();
+  await page.waitForTimeout(300);
+  const start = await faces();
+  const slots = Object.keys(end);
+  expect(slots.length).toBeGreaterThan(90);
+  // everyone equal again, and every face drawn for it: not the end's faces left on the start's bodies
+  const kept = slots.filter((slot) => start[slot] === end[slot]).length;
+  expect(kept).toBeLessThan(slots.length / 2);
+});
+
 test('one key press is one step, and the reverse key goes back', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, '@keyline');
@@ -206,9 +231,15 @@ test('the machine is the reader’s: Play trades, a tap photographs, and every d
     .toBeGreaterThan(0);
 
   await page.locator('.deck-tap button').nth(1).click();
-  const biggest = page.locator('.hit.tap').first();
-  const at = (await biggest.boundingBox())!;
-  await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+  // the biggest fortune the reader can reach: the talk may sit over part of the room, and a click there is the talk's
+  const reachable = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('.hit.tap')].findIndex((el) => {
+      const b = el.getBoundingClientRect();
+      return document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2) === el;
+    }),
+  );
+  expect(reachable).toBeGreaterThanOrEqual(0);
+  await page.locator('.hit.tap').nth(reachable).click();
   await expect(page.locator('.bubble.paper')).toHaveCount(1);
 
   await page.locator('.bubble .choice').last().click();

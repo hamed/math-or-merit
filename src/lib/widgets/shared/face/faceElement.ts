@@ -62,7 +62,8 @@ export class FaceElement {
       this.colours = colours;
       return;
     }
-    const previous = this.drawing;
+    // marks drawn in the body's stroke must be redrawn when only the colours changed
+    const previous = sameColours ? this.drawing : null;
     this.drawing = d;
     this.colours = colours;
     if (!d) {
@@ -102,7 +103,12 @@ export class FaceElement {
   /** Marks, few and mostly absent: their paths are kept and rewritten in place, added or dropped only as the count changes. */
   private marks(group: SVGGElement, list: readonly FaceMark[], before: readonly FaceMark[] | undefined, stroke: string): void {
     if (list === before && group.childElementCount === list.length) return;
-    while (group.childElementCount > list.length) group.lastElementChild!.remove();
+    while (group.childElementCount > list.length) {
+      // a mark that goes takes what was remembered about it along: a long room shows and hides marks for hours
+      const gone = group.lastElementChild!;
+      this.last.delete(gone);
+      gone.remove();
+    }
     while (group.childElementCount < list.length) group.append(el('path'));
     list.forEach((m, k) => {
       const path = group.children[k];
