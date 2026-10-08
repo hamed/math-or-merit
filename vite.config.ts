@@ -3,6 +3,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { scriptPlugin } from './scripts/vite-script.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -14,9 +15,9 @@ const base = process.env.BASE_PATH ?? '/';
 export default defineConfig({
   base,
   plugins: [
-    // Every reader-facing word of the dialogue is a message (ADR-017, A2).
-    // `notes/prose.md` stays the owner's surface; `scripts/prose-to-messages.ts`
-    // carries it into messages/en.json. The locale is only ever chosen on
+    scriptPlugin(),
+    // Every reader-facing word is a message (ADR-017 A2), compiled from the
+    // script (ADR-019) into messages/en.json. The locale is only ever chosen on
     // purpose (localStorage), never from the browser: a Farsi browser must not
     // land in an untranslated right-to-left page.
     paraglideVitePlugin({

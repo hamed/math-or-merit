@@ -40,6 +40,55 @@ The project therefore tests comprehension, not a named bias, using Study D in
 that the traits were causally inert and that the explanatory trait was selected after the
 outcome.
 
+## Faces on the stage (2026-10-07)
+
+Everyone on the stage has a face (`src/lib/widgets/shared/face/`). Each face shows a point
+in valence, arousal and dominance, plus novelty for a startle, mapped to seven drawn
+features by FACS-inspired synergies. These are drawing conventions readers recognise. They
+do not claim to show what a person feels.
+[Barrett et al. (2019)](https://doi.org/10.1177/1529100619832930) found facial movements
+do not provide reliable, context-independent fingerprints of particular emotions;
+interpretation varies with person and situation. Faces can still carry useful signal. The
+model is an authored simplification: one log gain/loss reading for everyone, shaded by
+temperament. It does not model expectations, goals or context, and does not claim to
+demonstrate Barrett's constructed-emotion account (PR #21 review).
+
+- **Authored, not looked up:** every temperament and point is set and tuned by eye. The
+  earlier draft took four points from the NRC VAD Lexicon; they were dropped, and with
+  them the lexicon's non-commercial licence.
+  - Blue rests very dominant, with a subtle contempt.
+  - Red rests serene.
+  - Everyone else has a seeded, subtle temperament and a slow drift of mood.
+- **Results move feelings on a log scale:** u = tanh(2.1 · ln(after ÷ before)).
+  - Doubling gives ≈ 0.9, halving ≈ −0.9, and losing everything −1.
+  - ±10% gives ≈ ±0.2, ±1% a shrug, and nothing changes nothing.
+  - The dominant hardly lose dominance, so their losses read as anger, where others' read
+    as sadness.
+  - Feelings fade back to the temperament: valence over about 10 s, arousal about 3 s.
+  - So in a running room each face is a moving average of that person's results. This is
+    a display model chosen with the owner, not a claim about people.
+- **Contempt** is drawn as cool superiority: calm, dominant, mildly unpleasant, one lip
+  corner up and heavy lids. This follows
+  [Fischer & Roseman (2007)](https://crab.rutgers.edu/users/roseman/Fischer_%26_Roseman_2007.pdf),
+  who found contempt colder and more distancing than anger. That study does not validate
+  the exact point.
+  - The run's richest wears it fully, and so does the paper's picture of them: an authored
+    editorial choice.
+- **Tears** never follow from affect: sadness and boredom share coordinates, so a rule
+  would make boredom cry. A scene may supply them explicitly.
+- **Size and tempo** is an animation metaphor, not a finding.
+  - Blinks slow with wealth as (wealth/equal)^−0.25, after mammalian heart and breathing
+    rates ([Stahl, 1966](https://pubmed.ncbi.nlm.nih.gov/6020227/)); glances and talking
+    as (wealth/equal)^−0.15, after stride frequency
+    ([Heglund & Taylor, 1988](https://pubmed.ncbi.nlm.nih.gov/3193059/)) — `TEMPO_B` and
+    `STRIDE` in `face.ts`.
+  - Neither study covers wealth or blinks. In primates, blink rate tracks group size
+    rather than body weight
+    ([Tada et al., 2013](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0066018)).
+
+The prototype, with its fuller person model (temperament, dynamics, display rules), is
+saved on the branch `faces-history`.
+
 ## Art-direction audit
 
 - Record creator, work, link, license, and the specific quality being studied.

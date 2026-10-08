@@ -1,10 +1,13 @@
 <script lang="ts" module>
   import type { Snippet } from 'svelte';
 
+  /** A line of a card's memo, or a formula set on its own. */
+  export type CardLine = string | { readonly formula: string };
+
   export interface Card {
     readonly id: string;
     readonly title: string;
-    readonly lines: readonly string[];
+    readonly lines: readonly CardLine[];
     /** A picture that helps it stick: the reader's own room, measured. */
     readonly picture?: Snippet;
     /** A toy to play with, inside the card, on request. */
@@ -46,6 +49,13 @@
   let height = $state(0);
   $effect(() => onsize?.(shown ? height : 0));
 
+  /** KaTeX, loaded the first time a card with math opens. */
+  let math = $state<typeof import('./math') | null>(null);
+  const needsMath = (card: Card | null) => !!card?.lines.some((l) => typeof l !== 'string' || /\$[^$]+\$/.test(l));
+  $effect(() => {
+    if (!math && needsMath(shown)) import('./math').then((m) => (math = m));
+  });
+
   function leaf(step: -1 | 1): void {
     if (index < 0) return;
     ontoggle(cards[(index + step + cards.length) % cards.length].id);
@@ -72,7 +82,15 @@
         <h2>{shown.title}</h2>
         {#if shown.picture}<div class="picture">{@render shown.picture()}</div>{/if}
         <ol>
-          {#each shown.lines as line, i (i)}<li>{line}</li>{/each}
+          {#each shown.lines as line, i (i)}
+            {#if typeof line !== 'string'}
+              <li class="formula">{#if math}{@html math.tex(line.formula, true)}{:else}<code>{line.formula}</code>{/if}</li>
+            {:else if math && math.hasMath(line)}
+              <li>{@html math.lineWithMath(line)}</li>
+            {:else}
+              <li>{line}</li>
+            {/if}
+          {/each}
         </ol>
         {#if shown.toy}
           {#if playing === shown.id}
@@ -208,6 +226,15 @@
 
   .card li + li {
     margin-block-start: 0.15rem;
+  }
+
+  /* a formula stands on its own line, unnumbered, the way the script sets it */
+  .card li.formula {
+    /* a block, not a list item: the numbering skips it */
+    display: block;
+    margin-block: 0.35rem;
+    text-align: center;
+    overflow-x: auto;
   }
 
   .toy {

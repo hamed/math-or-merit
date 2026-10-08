@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { ROOM_JITTER, radiusScale, roomPositions } from './layout';
+import { ROOM_JITTER, noise, radiusScale, roomPositions } from './layout';
+
+describe('noise', () => {
+  it('spans [-1, 1], centred on zero', () => {
+    // regression 2026-10-07: a signed final XOR made it [-2, 0), so every
+    // room sat up-left of its cells by a jitter's width on average
+    const xs = Array.from({ length: 10_000 }, (_, i) => noise(i, 1));
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(-1);
+    expect(Math.max(...xs)).toBeLessThanOrEqual(1);
+    expect(Math.min(...xs)).toBeLessThan(-0.99);
+    expect(Math.max(...xs)).toBeGreaterThan(0.99);
+    expect(Math.abs(xs.reduce((s, x) => s + x, 0) / xs.length)).toBeLessThan(0.05);
+  });
+});
 
 describe('roomPositions', () => {
   it('returns an empty layout for unmeasured canvases instead of hanging', () => {

@@ -44,11 +44,14 @@ export const CHAT: Wait = { kind: 'chat' };
 export const auto = (ms: number): Wait => ({ kind: 'auto', ms });
 
 /**
- * How long chit-chat stays before moving on: a second and a half, plus about
- * 150 words a minute — a pace for readers of a second language (brief 3.2).
+ * How long chit-chat stays before moving on, ms: the script's
+ * `max(minread, words × perword)`, in seconds (decl.tex; GRAMMAR.md §6). A
+ * stage passes its script's numbers; the defaults are decl.tex's own — a
+ * second and a half at least, 150 words a minute, a pace for readers of a
+ * second language (brief 3.2).
  */
-export function readingMs(words: number): number {
-  return 1500 + 400 * Math.max(0, words);
+export function readingMs(words: number, perword = 0.4, minread = 1.5): number {
+  return Math.round(1000 * Math.max(minread, Math.max(0, words) * perword));
 }
 
 /** Sanity-checkable at data level, like `validateBeats`. */
@@ -151,6 +154,11 @@ export class StepMachine {
   }
 
   /** Jump toward a step, but never past a hold the reader has not done (like `restore`). */
+  /** Count every hold before `index` as done: a jump the reader asked for explicitly. */
+  releaseBefore(index: number): void {
+    for (let i = 0; i < Math.min(index, this.steps.length); i++) if (this.steps[i].wait.kind === 'action') this.released.add(this.steps[i].id);
+  }
+
   reach(index: number): void {
     this.restore({ index, released: [...this.released] });
   }

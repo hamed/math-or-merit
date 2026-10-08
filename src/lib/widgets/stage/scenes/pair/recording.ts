@@ -171,17 +171,16 @@ export function richest(frame: ArrayLike<number>): { index: number; share: numbe
 
 /**
  * The defaults (owner, 2026-09-26: "stop sooner … a few shapes in between";
- * later the same day: "0.5 is too large and jittery, maybe .25?"). Measured
- * over 60 runs at a quarter stake: the richest first holds 40% after about
- * 46,000 trades (32,000–66,000), when about 29 still hold 10¢ or more,
- * effective participants is about four and the Gini 0.95 — the same end as
- * at a half stake, reached in smaller, smoother steps.
+ * "0.5 is too large and jittery, maybe .25?"; 2026-09-27: "still jittery",
+ * a tenth). Measured over 40 runs at a tenth: the richest first holds 40%
+ * after about 278,000 trades (200,000–384,000) — at a quarter it was about
+ * 48,000: the same end, reached in smaller, smoother steps.
  */
 export const DEFAULT_RUN: RunSettings = {
   n: 100,
-  beta: 0.25,
+  beta: 0.1,
   stop: { kind: 'share', share: 0.4 },
-  cap: 100_000,
+  cap: 1_000_000,
 };
 
 /**

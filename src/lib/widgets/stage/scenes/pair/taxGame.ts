@@ -11,8 +11,10 @@
  * lazy one cannot.
  */
 export const GAME = {
-  beta: 0.25,
-  perSecond: 1_000,
+  beta: 0.1,
+  // a tenth concentrates about 6.25× slower than the quarter this was tuned at:
+  // the room trades that much faster, so a second of play means what it did
+  perSecond: 6_250,
   seconds: 30,
   rate: 0.25,
   target: 20,

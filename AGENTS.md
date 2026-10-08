@@ -18,6 +18,7 @@ Core hook: a fair local exchange process can still produce extreme wealth concen
 * Plain CSS
 * mdsvex for prose with components
 * Paraglide / inlang for UI strings only
+* `script/` (LaTeX, ADR-019): every reader-facing word, and the stage's order and waits. It compiles into `messages/en.json` and `src/lib/content/story.gen.ts`; never edit those two by hand. The grammar is `script/GRAMMAR.md`.
 * Rust/WASM is reserved as a future seam, not active now
 
 ## Commands

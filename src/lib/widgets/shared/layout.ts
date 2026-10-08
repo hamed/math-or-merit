@@ -7,7 +7,8 @@ export interface Point {
 export function noise(index: number, salt: number): number {
   let h = (index * 374761393 + salt * 668265263) >>> 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-  return ((h ^ (h >>> 16)) / 0xffff_ffff) * 2 - 1;
+  // `^` yields a signed 32-bit int; without the `>>> 0` this spans [-2, 0)
+  return (((h ^ (h >>> 16)) >>> 0) / 0xffff_ffff) * 2 - 1;
 }
 
 /**

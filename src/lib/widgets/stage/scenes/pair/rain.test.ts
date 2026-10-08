@@ -1,25 +1,51 @@
 import { describe, expect, it } from 'vitest';
-import { DROPS, RAINED } from './crowd';
+import { DROPS, RAINED, START } from './crowd';
+import { fallTime, gravity } from './hops';
 import { pairLayout } from './layout';
-import { planRain, type Box } from './rain';
-import { RAIN_WAIT_MS } from './script';
+import { ARRIVE_SECONDS, GAP, REACH, planArrival, planRain } from './rain';
+import { PAIR_STEPS, RAIN_WAIT_MS } from './script';
+import { arrival } from './hops';
 
 for (const [w, h] of [[1366, 768], [390, 844], [1920, 1080]]) {
   describe(`the rain on a ${w}×${h} stage`, () => {
     const L = pairLayout(w, h);
-    const band: Box = { x: w * 0.06, y: h * 0.6, w: w * 0.88, h: h * 0.3 };
-    const plan = planRain(L.crowdHomes, band, L.radius(1));
+    const g = gravity(L.whole);
+    // the title's nine feet, along a title above the crowd
+    const feet = Array.from({ length: 9 }, (_, k) => ({ x: w * (0.15 + 0.7 * (k / 8)), y: h * 0.32 }));
+    const plan = planRain({ homes: L.crowdHomes, band: L.crowdBand, feet, radius: L.radius, g });
 
-    it('gives every drop to its owner, so everyone ends with what crowd.ts says', () => {
+    it('gives every coin to its owner, so everyone ends with what crowd.ts says', () => {
       expect(plan.catches.map((c) => [c.who, c.count])).toEqual(DROPS.map((d) => [d.who, d.count]));
-      const caught = new Array(RAINED.length).fill(0);
-      for (const c of plan.catches) caught[c.who] += c.count;
-      expect(caught).toEqual([...RAINED]);
+      const held = [...START];
+      for (const c of plan.catches) held[c.who] += c.count;
+      expect(held).toEqual([...RAINED]);
+    });
+
+    it('drops each coin straight down from its foot, falling from rest under g onto its catcher', () => {
+      const held = [...START];
+      // every foot drops the same number of coins: three each
+      const per = DROPS.length / feet.length;
+      expect(plan.catches.map((c) => c.foot.x).sort((a, b) => a - b)).toEqual(feet.flatMap((f) => new Array(per).fill(f.x)));
+      for (const c of plan.catches) {
+        const r = L.radius(held[c.who]);
+        expect(c.meet.x).toBe(c.foot.x);
+        // the coin's line falls inside the body, and the coin lands on its outline
+        expect(Math.abs(c.foot.x - c.spot.x)).toBeLessThanOrEqual(REACH * r + 1e-6);
+        expect(Math.hypot(c.meet.x - c.spot.x, c.meet.y - c.spot.y)).toBeCloseTo(r, 6);
+        expect(c.land - c.release).toBeCloseTo(fallTime(c.meet.y - c.foot.y, g), 9);
+        expect(c.release).toBeGreaterThanOrEqual(0);
+        held[c.who] += c.count;
+      }
+    });
+
+    it('lands one coin at a time, a beat apart', () => {
+      const lands = plan.catches.map((c) => c.land);
+      for (let k = 1; k < lands.length; k++) expect(lands[k] - lands[k - 1]).toBeGreaterThanOrEqual(GAP - 1e-9);
     });
 
     it('never has anyone in two places at once: each move starts where the last one ended', () => {
       const moves = [
-        ...plan.catches.map((c) => ({ who: c.who, from: c.from, to: c.spot, start: c.depart, end: c.land })),
+        ...plan.catches.map((c) => ({ who: c.who, from: c.from, to: c.spot, start: c.hops[0]?.start ?? c.land, end: c.land })),
         ...plan.chases.map((c) => ({ who: c.who, from: c.from, to: c.to, start: c.depart, end: c.arrive })),
       ].sort((a, b) => a.start - b.start);
       const at = L.crowdHomes.map((p) => ({ ...p }));
@@ -34,7 +60,8 @@ for (const [w, h] of [[1366, 768], [390, 844], [1920, 1080]]) {
       expect(plan.finals.map((p) => [p.x, p.y])).toEqual(at.map((p) => [p.x, p.y]));
     });
 
-    it('keeps everyone in the crowd\'s band', () => {
+    it("keeps everyone in the crowd's band", () => {
+      const band = L.crowdBand;
       for (const p of plan.finals) {
         expect(p.x).toBeGreaterThanOrEqual(band.x - 1e-9);
         expect(p.x).toBeLessThanOrEqual(band.x + band.w + 1e-9);
@@ -48,3 +75,22 @@ for (const [w, h] of [[1366, 768], [390, 844], [1920, 1080]]) {
     });
   });
 }
+
+describe('the crowd hopping in', () => {
+  const step = PAIR_STEPS.find((s) => s.action === 'arrive')!;
+
+  it('is home before the step moves on, on every stage up to 4K', () => {
+    expect(step.wait).toMatchObject({ kind: 'auto' });
+    const waits = (step.wait as { ms: number }).ms / 1000;
+    expect(waits).toBeGreaterThanOrEqual(ARRIVE_SECONDS);
+    for (const [w, h] of [[390, 844], [844, 390], [1280, 800], [1920, 1080], [2560, 1440], [3840, 2160]]) {
+      const L = pairLayout(w, h);
+      const plan = planArrival({ entries: L.crowdEntries, homes: L.crowdHomes, radius: L.radius, g: gravity(L.whole) });
+      plan.forEach((hops, i) => {
+        expect(hops.at(-1)!.to.x, `${w}×${h} #${i}`).toBeCloseTo(L.crowdHomes[i].x, 6);
+        expect(hops.at(-1)!.to.y, `${w}×${h} #${i}`).toBeCloseTo(L.crowdHomes[i].y, 6);
+        expect(arrival(hops, hops[0].start), `${w}×${h} #${i}`).toBeLessThanOrEqual(ARRIVE_SECONDS);
+      });
+    }
+  });
+});

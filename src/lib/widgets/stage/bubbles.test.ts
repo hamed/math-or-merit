@@ -6,6 +6,7 @@ import {
   comicOutline,
   shoutSegments,
   stackChat,
+  TALK_MIN,
   type ChatItem,
   type Tail,
 } from './bubbles';
@@ -23,13 +24,21 @@ describe('the talk, as a chat window', () => {
     for (let i = 1; i < placed.length; i++) expect(placed[i].y).toBeGreaterThanOrEqual(placed[i - 1].y + items[i - 1].h);
   });
 
-  it('leans each bubble to its speaker, reaching past the middle: two alike overlap by a third', () => {
-    const blue = placed[0];
-    const red = placed[1];
-    expect(blue.x + 300 / 2).toBeLessThan(COLUMN.mid);
-    expect(red.x + 300 / 2).toBeGreaterThan(COLUMN.mid);
-    const overlap = blue.x + 300 - red.x;
-    expect(overlap).toBeCloseTo(300 / 3, 6);
+  it('runs the talk over the middle two thirds of centre to centre, each line flush with its own side', () => {
+    // owner review 2026-09-27: the talk is two thirds of centre to centre
+    const third = (RED.x - BLUE.x) / 6;
+    const left = BLUE.x + third;
+    const right = RED.x - third;
+    const width = Math.max(right - left, TALK_MIN);
+    const mid = (BLUE.x + RED.x) / 2;
+    expect(placed[0].x).toBeCloseTo(Math.min(left, mid - width / 2), 6);
+    expect(placed[1].x + 300).toBeCloseTo(Math.max(right, mid + width / 2), 6);
+  });
+
+  it('keeps the talk readable when the two stand close: never narrower than a line', () => {
+    const near = [{ x: 600, y: 620, r: 40 }, { x: 700, y: 620, r: 40 }];
+    const laid = stackChat([said(280, 50, near[0]), said(280, 50, near[1])], chatColumn(near, 1366, 100, 480));
+    expect(laid[1].x + 280 - laid[0].x).toBeGreaterThanOrEqual(TALK_MIN - 1e-6);
   });
 
   it('sets a logged event in the middle, with no tail', () => {
@@ -63,17 +72,20 @@ describe('the talk, as a chat window', () => {
     for (const p of laid.filter((q) => !q.gone)) expect(p.y).toBeGreaterThanOrEqual(COLUMN.top - 1);
   });
 
-  it('puts what is said to the reader on the speaker\'s outer side, not in the middle', () => {
-    const mixed = [said(240, 50), { w: 200, h: 40, anchor: BLUE, aside: true }, said(240, 50, RED), { w: 200, h: 40, anchor: RED, aside: true }];
-    const laid = stackChat(mixed, COLUMN);
-    // Blue's aside ends near Blue and reaches out, away from the middle
-    expect(laid[1].x + 200).toBeLessThan(BLUE.x + BLUE.r);
-    expect(laid[1].x).toBeLessThan(laid[0].x);
-    // Red's reaches out the other way
-    expect(laid[3].x).toBeGreaterThan(RED.x - RED.r);
-    // just above the speaker, pointing at him
-    expect(laid[1].y + 40).toBeLessThanOrEqual(BLUE.y - BLUE.r);
-    expect(laid[1].tail!.tip.y).toBeGreaterThan(40);
+  it('puts what is said to the reader up and outward, about 45°, pointing at his centre', () => {
+    const blueAside = stackChat([said(240, 50), { w: 200, h: 40, anchor: BLUE, aside: true }], COLUMN)[1];
+    // above and to the left of Blue: its bottom-right corner on his upper-left diagonal
+    const bx = BLUE.x - (blueAside.x + 200);
+    const by = BLUE.y - (blueAside.y + 40);
+    expect(bx).toBeGreaterThan(0);
+    expect(by).toBeCloseTo(bx, 6);
+    const redAside = stackChat([said(240, 50, RED), { w: 200, h: 40, anchor: RED, aside: true }], COLUMN)[1];
+    expect(redAside.x - RED.x).toBeCloseTo(RED.y - (redAside.y + 40), 6);
+    const base = { x: redAside.x + redAside.tail!.base, y: redAside.y + 40 };
+    const tip = { x: redAside.x + redAside.tail!.tip.x, y: redAside.y + redAside.tail!.tip.y };
+    const aim = { x: RED.x - base.x, y: RED.y - base.y };
+    const dir = { x: tip.x - base.x, y: tip.y - base.y };
+    expect((aim.x * dir.x + aim.y * dir.y) / (Math.hypot(aim.x, aim.y) * Math.hypot(dir.x, dir.y))).toBeGreaterThan(0.99);
   });
 
   it('moves an aside off the talk when there is room outside it, and never hides the newest', () => {
@@ -97,11 +109,16 @@ describe('the talk, as a chat window', () => {
     expect(crammed[2].gone).toBe(false);
   });
 
-  it('keeps only the newest two asides on each side', () => {
+  it('keeps an aside through passing calls, until an aside or the talk says something', () => {
+    const laid = stackChat([{ w: 150, h: 36, anchor: RED, aside: true }, { w: 90, h: 30, anchor: BLUE, aside: true, brief: true }], COLUMN);
+    expect(laid[0].gone).toBe(false);
+  });
+
+  it('lets an aside go as soon as anyone says the next thing', () => {
     const asides = Array.from({ length: 4 }, () => ({ w: 150, h: 36, anchor: BLUE, aside: true }));
-    const laid = stackChat(asides, { ...COLUMN, top: -10_000 });
-    expect(laid.map((p) => p.gone)).toEqual([true, true, false, false]);
-    expect(laid[3].y).toBeGreaterThan(laid[2].y);
+    expect(stackChat(asides, { ...COLUMN, top: -10_000 }).map((p) => p.gone)).toEqual([true, true, true, false]);
+    const then = stackChat([{ w: 150, h: 36, anchor: BLUE, aside: true }, said(200, 40, RED)], COLUMN);
+    expect(then.map((p) => p.gone)).toEqual([true, false]);
   });
 
   it('keeps only the newest few when asked to', () => {

@@ -12,7 +12,7 @@ import { loadDeferred } from './helpers';
 
 const STAGE_KEY = 'merit-or-math:stage:pair:v1';
 /** The stage's holds, released so a test can land anywhere past them. */
-const HOLDS = ['call.red', 'call.blue', 'equal', 'guess.what', 'guess.stake'];
+const HOLDS = ['meet', 'equal', 'guess.what', 'guess.stake'];
 
 const stage = (page: Page) => page.locator('.step-stage');
 const stepNow = async (page: Page) => Number(await stage(page).getAttribute('data-step'));
@@ -24,10 +24,26 @@ async function stepIds(page: Page): Promise<string[]> {
   });
 }
 
-/** Open the essay with the stage restored at step `id`, holds released unless `holding`. */
-async function openAt(page: Page, id: string, holding: readonly string[] = []): Promise<string[]> {
+/**
+ * Open the essay with the stage restored at step `id` — a step's name, or
+ * `@keyline` for the first key line after both have been met (followed by
+ * another) — holds released unless `holding`. Never a scene's label: the owner
+ * renames those.
+ */
+async function openAt(page: Page, at: string, holding: readonly string[] = []): Promise<string[]> {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const ids = await stepIds(page);
+  const id =
+    at === '@keyline'
+      ? await page.evaluate(async () => {
+          const { PAIR_STEPS, indexOf } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+          const met = indexOf('meet');
+          const i = PAIR_STEPS.findIndex(
+            (s: { wait: { kind: string } }, k: number) => k > met && s.wait.kind === 'reader' && PAIR_STEPS[k + 1]?.wait.kind === 'reader',
+          );
+          return PAIR_STEPS[i].id as string;
+        })
+      : at;
   await page.evaluate(
     ({ key, index, released }) => sessionStorage.setItem(key, JSON.stringify({ index, released })),
     { key: STAGE_KEY, index: ids.indexOf(id), released: HOLDS.filter((h) => !holding.includes(h)) },
@@ -88,30 +104,78 @@ test('the title fits a phone and the stage owns the viewport', async ({ page }) 
   expect(height).toBeGreaterThanOrEqual(844 - 1);
 });
 
+test('under reduced motion the faces follow a room scrubbed back to its start', async ({ page }) => {
+  // reduced motion on before the stage mounts
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'dial.7');
+  // each room member's face, by its slot: the room draws them in a new order as fortunes change
+  const faces = () =>
+    page.evaluate(() =>
+      Object.fromEntries(
+        [...document.querySelectorAll<SVGGElement>('svg.art g.room g.face')].map((g) => [g.dataset.slot, [...g.querySelectorAll('path')].map((p) => p.getAttribute('d')).join('|')]),
+      ),
+    );
+  await page.getByRole('button', { name: 'To the end' }).first().click();
+  await page.waitForTimeout(300);
+  const end = await faces();
+  await page.getByRole('button', { name: 'Back to the start' }).first().click();
+  await page.waitForTimeout(300);
+  const start = await faces();
+  const slots = Object.keys(end);
+  expect(slots.length).toBeGreaterThan(90);
+  // everyone equal again, and every face drawn for it: not the end's faces left on the start's bodies
+  const kept = slots.filter((slot) => start[slot] === end[slot]).length;
+  expect(kept).toBeLessThan(slots.length / 2);
+});
+
+test('the matched room’s copies show the same faces at the same moment, however the reader scrubbed there', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'match.result');
+  const copies = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll<SVGGElement>('svg.art g.face[data-mirror]')].map((g) => `${g.dataset.mirror}:${[...g.querySelectorAll('path')].map((p) => p.getAttribute('d')).join('|')}`),
+    );
+  const end = page.getByRole('button', { name: 'To the end' }).first();
+  await end.click();
+  await page.waitForTimeout(300);
+  const first = await copies();
+  await page.getByRole('button', { name: 'Back to the start' }).first().click();
+  await page.waitForTimeout(300);
+  await end.click();
+  await page.waitForTimeout(300);
+  expect(first.length).toBe(2);
+  expect(await copies()).toEqual(first);
+});
+
 test('one key press is one step, and the reverse key goes back', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'merit.1b');
+  await openAt(page, '@keyline');
+  const start = await stepNow(page);
   await page.keyboard.press('ArrowDown');
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('merit.1r'));
+  await expect.poll(() => stepNow(page)).toBe(start + 1);
   await page.keyboard.press('ArrowUp');
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('merit.1b'));
+  await expect.poll(() => stepNow(page)).toBe(start);
 });
 
 test('a trackpad flick and its inertia tail advance exactly one step', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'merit.1b');
+  await openAt(page, '@keyline');
+  const start = await stepNow(page);
   await page.mouse.move(720, 450);
   await trackpadFlick(page, 1);
   await page.waitForTimeout(700);
-  expect(await stepNow(page)).toBe(ids.indexOf('merit.1r'));
+  expect(await stepNow(page)).toBe(start + 1);
   await trackpadFlick(page, -1);
   await page.waitForTimeout(700);
-  expect(await stepNow(page)).toBe(ids.indexOf('merit.1b'));
+  expect(await stepNow(page)).toBe(start);
 });
 
 test('a swipe is one step', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const ids = await openAt(page, 'merit.1b');
+  await openAt(page, '@keyline');
+  const start = await stepNow(page);
   await page.evaluate(() => {
     const target = document.body;
     const begin = new Touch({ identifier: 1, target, clientX: 195, clientY: 700 });
@@ -119,22 +183,26 @@ test('a swipe is one step', async ({ page }) => {
     window.dispatchEvent(new TouchEvent('touchstart', { touches: [begin], bubbles: true, cancelable: true }));
     window.dispatchEvent(new TouchEvent('touchend', { changedTouches: [end], bubbles: true, cancelable: true }));
   });
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('merit.1r'));
+  await expect.poll(() => stepNow(page)).toBe(start + 1);
 });
 
-test('a hold waits for the reader: Red is called by a click, not by scrolling past', async ({ page }) => {
+test('a hold waits for the reader: both are met by a click each, in any order, never by scrolling past', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'call.red', ['call.red', 'call.blue']);
+  const ids = await openAt(page, 'meet', ['meet']);
   await page.keyboard.press('ArrowDown');
   await page.waitForTimeout(600);
-  expect(await stepNow(page)).toBe(ids.indexOf('call.red'));
+  expect(await stepNow(page)).toBe(ids.indexOf('meet'));
+  // one met: still waiting for the other
+  await page.locator('.pair-scene .hit').last().click();
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(ids.indexOf('meet'));
   await page.locator('.pair-scene .hit').first().click();
-  await expect.poll(() => stepNow(page)).toBeGreaterThan(ids.indexOf('call.red'));
+  await expect.poll(() => stepNow(page)).toBeGreaterThan(ids.indexOf('meet'));
 });
 
 test('the chapter index stays in view while the stage waits for the reader', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openAt(page, 'merit.1b');
+  await openAt(page, '@keyline');
   const index = page.locator('.index');
   await expect(index).toHaveClass(/shown/);
   await page.waitForTimeout(400);
@@ -143,9 +211,10 @@ test('the chapter index stays in view while the stage waits for the reader', asy
 
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'gini.ask');
+  await openAt(page, 'gini.value');
+  const at = await stepNow(page);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(stage(page)).toHaveAttribute('data-step', String(ids.indexOf('gini.ask')));
+  await expect(stage(page)).toHaveAttribute('data-step', String(at));
 });
 
 test('past its last step the stage lets the page go on', async ({ page }) => {
@@ -169,7 +238,7 @@ test('in the live tax game a click is a tap on the room, never a step', async ({
   expect(await stepNow(page)).toBe(ids.indexOf('stop.how'));
   // the reading keys still move on, and leaving ends the game
   await page.keyboard.press('ArrowDown');
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.hand'));
+  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
   await expect(page.locator('.meter')).toBeHidden();
 });
 
@@ -182,9 +251,15 @@ test('the machine is the reader’s: Play trades, a tap photographs, and every d
     .toBeGreaterThan(0);
 
   await page.locator('.deck-tap button').nth(1).click();
-  const biggest = page.locator('.hit.tap').first();
-  const at = (await biggest.boundingBox())!;
-  await page.mouse.click(at.x + at.width / 2, at.y + at.height / 2);
+  // the biggest fortune the reader can reach: the talk may sit over part of the room, and a click there is the talk's
+  const reachable = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('.hit.tap')].findIndex((el) => {
+      const b = el.getBoundingClientRect();
+      return document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2) === el;
+    }),
+  );
+  expect(reachable).toBeGreaterThanOrEqual(0);
+  await page.locator('.hit.tap').nth(reachable).click();
   await expect(page.locator('.bubble.paper')).toHaveCount(1);
 
   await page.locator('.bubble .choice').last().click();

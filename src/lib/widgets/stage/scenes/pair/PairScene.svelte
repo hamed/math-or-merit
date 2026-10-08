@@ -13,23 +13,33 @@
    * window (bubbles.ts): time runs down the column, lines stay while they are
    * still context, and what happened is logged among them.
    */
-  import { getContext, onMount, type Snippet } from 'svelte';
+  import { getContext, onMount, tick, untrack, type Snippet } from 'svelte';
   import { gsap } from '../../gsap';
   import Bubble from '../../Bubble.svelte';
-  import CardStack, { type Card } from '../../CardStack.svelte';
+  import CardStack, { type Card, type CardLine } from '../../CardStack.svelte';
   import TimePlayer from '../../TimePlayer.svelte';
   import Coin from '../Coin.svelte';
   import Reel from './Reel.svelte';
   import Teletype from './Teletype.svelte';
-  import { STEP_STAGE_CONTEXT, readingMs, type Speaker, type StepStageContext } from '../../steps';
+  import { STEP_STAGE_CONTEXT, type Speaker, type StepStageContext } from '../../steps';
   import {
     CALLS,
+    CARDS,
+    HEADLINE,
+    MAP_LABEL,
+    NUDGE_MS,
     PAIR_STEPS,
     REACTIONS,
+    REEL,
+    REEL_ANSWER,
+    reelSpin,
+    START,
+    actEnd,
     RUN_MS,
     indexOf,
     levyLesson,
     panelStart,
+    readFor,
     valuesFor,
     type Pose,
     type RoomMode,
@@ -48,11 +58,13 @@
   import TurnoverPlot from './TurnoverPlot.svelte';
   import StopSlider, { RATE_STOPS } from '../../../sandbox/StopSlider.svelte';
   import { createRun } from './run.svelte';
-  import { BIG, COINS, CROWD, RAINED, SMALL } from './crowd';
-  import { FALL, hopsFor, noise, planRain } from './rain';
+  import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
+  import { GATHER_SECONDS, noise, planArrival, planRain } from './rain';
+  import { CROSSING, FALL, RISE, arrival, fallTime, gravity, hopsBy, squashed, type Hop } from './hops';
+  import { titleFeet } from './titleFeet';
   import { deciderFace, pairLayout, pile } from './layout';
   import type { Point } from '../../../shared/layout';
-  import { bubbleLines, bubbleWords, chatColumn, stackChat, type BubbleChoice } from '../../bubbles';
+  import { bubbleLines, bubbleWords, chatColumn, stackChat, talkSpan, type BubbleChoice } from '../../bubbles';
   import {
     CLASSIC_AGENT_FILL,
     CLASSIC_AGENT_STROKE,
@@ -60,6 +72,7 @@
     headlineForStyle,
     spreadStyles,
     styleNoun,
+    type AgentShape,
     type AgentStyle,
   } from '../../../shared/agentStyle';
   import { svgShapePath } from '../../../shared/shapePath';
@@ -81,6 +94,13 @@
   import { collectStats, frontPageFor } from '../../../sandbox/newsroom';
   import { fitSquareRelationship, measureWealth } from '$lib/research';
   import { openBranch } from '../../branch';
+  import AgentFace from '../../../shared/face/AgentFace.svelte';
+  import { GROUND, drawStill } from '../../../shared/face/draw';
+  import { faceRadius } from '../../../shared/face/face';
+  import { FaceBoard, type FaceColours } from '../../../shared/face/faceElement';
+  import { CONTEMPT, stillOf } from '../../../shared/face/moments';
+  import { FACE_CHOICES, chooseFace, faceStyle, loadFaceStyle, type FaceChoice } from '../../../shared/face/faceStyle.svelte';
+  import { StageFaces, talkSeconds, type Body, type FaceScene, type HeldLine, type TitleCue } from './stageFaces';
 
   const stage = getContext<StepStageContext | undefined>(STEP_STAGE_CONTEXT);
 
@@ -88,20 +108,10 @@
     'https://www.investing.com/news/stock-market-news/spacex-ipo-makes-elon-musk-worlds-first-trillionaire-4741087';
   const CREDIT_URL = 'https://github.com/hamed';
 
-  /** A `·` list from prose.md arrives as numbered messages; read them back in order. */
-  function words(key: string): string[] {
-    const out: string[] = [];
-    for (let i = 1; i < 40; i++) {
-      const word = say(`${key}_${i}`);
-      if (word === `${key}_${i}`) break;
-      out.push(word);
-    }
-    return out;
-  }
-
-  const MATH_WORDS = words('open_reel_math');
+  /** The reel's words, as the script lists them under \reveal{math}. */
+  const MATH_WORDS = REEL.map((key) => say(key));
   /** The reel lands third from last, with two wrong words after it to overshoot onto. */
-  const MATH_AT = MATH_WORDS.length - 3;
+  const MATH_AT = REEL_ANSWER;
 
   /** Which crowd circle each protagonist is. */
   const WHO: Record<Speaker, number> = { blue: BIG, red: SMALL };
@@ -117,23 +127,65 @@
   let host: HTMLDivElement;
   let mathReel: HTMLSpanElement;
   let titleEl: HTMLElement;
-  let widestWord = 0;
+  /** The reel's words, px wide at the title's size (Reel.svelte measures them). */
+  let reelWidths: readonly number[] = [];
+  /** The space between the title's words, em: its CSS `gap`. */
+  const TITLE_GAP = 0.16;
   /**
-   * The largest the title may be so the reel's widest word stays on the stage
-   * (owner review 2026-09-26). Everything in the title scales together, so one
-   * measurement at any size gives the answer: the title is centred, and the
-   * widest word starts where MATH starts.
+   * The title's words, in em of its own size: MERIT, OR, MATH with its mark,
+   * and each of the reel's words. Everything in the title scales together, so
+   * one measurement at any size sizes it (`titleFit`).
    */
-  let titleMax = $state(Infinity);
+  let titleEm = $state<{ merit: number; or: number; math: number; reel: readonly number[] }>({ merit: 0, or: 0, math: 0, reel: [] });
 
-  function fitTitle(): void {
-    if (!titleEl || !mathReel || !widestWord || !width) return;
+  function measureTitle(): void {
+    if (!titleEl || !mathReel || !reelWidths.length) return;
     const size = parseFloat(getComputedStyle(titleEl).fontSize);
-    const title = titleEl.offsetWidth;
-    const start = rtl ? title - (mathReel.offsetLeft + mathReel.offsetWidth) : mathReel.offsetLeft;
-    const reach = start + widestWord - title / 2;
-    if (reach <= 0) return;
-    titleMax = (size * (width / 2 - 16)) / reach;
+    const em = (el: HTMLElement | null) => (el?.offsetWidth ?? 0) / size;
+    const next = {
+      merit: em(titleEl.querySelector<HTMLElement>('.word.merit')),
+      or: em(titleEl.querySelector<HTMLElement>('.word.or')),
+      // the reel holds the answer's width; the mark follows it
+      math: em(mathReel.querySelector<HTMLElement>('.reel')) + em(mathReel.querySelector<HTMLElement>('.mark')),
+      reel: reelWidths.map((w) => w / size),
+    };
+    // measured again at every size the title takes: only a new face changes the answer
+    const near = (a: number, b: number) => Math.abs(a - b) < 0.02;
+    const same =
+      near(next.merit, titleEm.merit) &&
+      near(next.or, titleEm.or) &&
+      near(next.math, titleEm.math) &&
+      next.reel.length === titleEm.reel.length &&
+      next.reel.every((w, i) => near(w, titleEm.reel[i]));
+    if (!same) titleEm = next;
+  }
+
+  /**
+   * How big the title is, and how it stands (owner, 2026-10-07: "as big as
+   * possible"). On one line it is as wide as the stage allows with the reel's
+   * widest word in place — the line slides aside while that word spins past
+   * (`spin`) — and no taller than leaves the crowd its room. On a narrow stage,
+   * when that is bigger, it stands on two lines, MERIT OR over MATH, and only
+   * the lower line slides.
+   */
+  const titleFit = $derived.by(() => {
+    const e = titleEm;
+    if (!e.reel.length || !width || !height) return null;
+    const room = width - 32;
+    const widest = Math.max(...e.reel);
+    const start = e.merit + e.or + 2 * TITLE_GAP;
+    const one = Math.min(height * 0.2, room / Math.max(start + e.math, start + widest));
+    const two = Math.min(height * 0.1, room / Math.max(e.merit + TITLE_GAP + e.or, e.math, widest));
+    return two > one * 1.2 ? { size: two, lines: 2 } : { size: one, lines: 1 };
+  });
+
+  /** The title's line slid `em` toward its start, away from the reel's long words. */
+  const slideX = (em: number) => (em ? `translateX(${((rtl ? 1 : -1) * em).toFixed(3)}em) ` : '');
+
+  /** How far, em, the title's line slides aside so the reel's word `i` — or a wider one before it — stays on the stage. */
+  function titleShift(i: number): number {
+    const shown = Math.max(0, ...titleEm.reel.slice(0, i + 1));
+    return Math.max(0, shown - titleEm.math) / 2;
   }
   let width = $state(0);
   let height = $state(0);
@@ -153,9 +205,12 @@
     alpha: number;
     /** 1 — holds nothing: an empty ring, visible but with no area. */
     empty: number;
-    /** Squash and stretch, about the point where they touch the ground. */
-    sx: number;
-    sy: number;
+    /**
+     * Squash and stretch, about the point where they touch the ground: e^q
+     * wide, e^−q tall (hops.ts `squashed`). One number, tweened, so the area
+     * holds at every frame of a squash, not only at its ends.
+     */
+    q: number;
   }
   interface Token {
     x: number;
@@ -170,13 +225,15 @@
     orOn: 0,
     mathOn: 0,
     mathPos: 0,
+    /** How far the title's line has slid aside for a long word on the reel, em. */
+    titleSlide: 0,
     markOn: 0,
     compact: 0,
     titleOn: 1,
     lift: 0,
-    people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1, empty: 1, sx: 1, sy: 1 })) as Person[],
+    people: Array.from({ length: CROWD }, () => ({ x: 0, y: 0, r: 0, alpha: 1, empty: 1, q: 0 })) as Person[],
     /** The room's other ninety-eight (Scene 10), each on its way in or in place. */
-    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, r: 0, alpha: 0, sx: 1, sy: 1, empty: 0 })),
+    room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, r: 0, alpha: 0, q: 0, empty: 0 })),
     /** How much of the turnover chart is drawn, 0–1 (Scene 18). */
     turnDraw: 0,
     /** How much of the Lorenz curve is drawn, 0–1 (Scene 16's walk). */
@@ -212,9 +269,12 @@
     const step = PAIR_STEPS[index];
     if (step.wait.kind !== 'action' || stage?.isReleased(step.id)) return step.pose;
     if (step.id === 'equal') return { ...step.pose, holdings: { ...reader.held } };
-    // only the one calling is still waiting; whoever was clicked before stays named
-    const caller = callerOf(step.id);
-    return caller ? { ...step.pose, named: { ...step.pose.named, [caller]: reader.named[caller] } } : step.pose;
+    // whoever has not been clicked yet is still waiting
+    const callers = callersOf(step.id);
+    if (!callers.length) return step.pose;
+    const named = { ...step.pose.named };
+    for (const who of callers) named[who] = reader.named[who];
+    return { ...step.pose, named };
   }
 
   function pairSpot(pose: Pose, who: Speaker) {
@@ -231,22 +291,21 @@
   /** Where each of the sixteen is, and how big, in a pose. */
   function people(pose: Pose): Person[] {
     const nobody = L.presence;
-    const still = { alpha: 1, sx: 1, sy: 1 };
+    const still = { alpha: 1, q: 0 };
     return L.crowdHomes.map((home, i) => {
       const who = whoIs(i);
       switch (pose.crowd) {
+        // plain circles from the start, already different sizes (owner review 2026-09-27)
         case 'away':
-          return { ...L.crowdEntries[i], r: nobody, empty: 1, ...still };
+          return { ...L.crowdEntries[i], r: L.radius(CROWD_START[i]), empty: 0, ...still };
         case 'idle':
-          return { ...home, r: nobody, empty: 1, ...still };
+          return { ...home, r: L.radius(CROWD_START[i]), empty: 0, ...still };
         case 'paid': {
           const at = rainPlan.finals[i] ?? home;
-          return RAINED[i] > 0
-            ? { x: at.x, y: at.y, r: L.radius(RAINED[i]), empty: 0, ...still }
-            : { x: at.x, y: at.y, r: nobody, empty: 1, ...still };
+          return { x: at.x, y: at.y, r: L.radius(RAINED[i]), empty: 0, ...still };
         }
         default: {
-          if (!who) return { ...L.crowdExits[i], r: nobody, empty: 1, ...still, alpha: 0 };
+          if (!who) return { ...L.crowdExits[i], r: L.radius(RAINED[i]), empty: 0, ...still, alpha: 0 };
           const spot = pairSpot(pose, who);
           // in the line, the two are eaten by the walk's circle like everyone else
           const alpha = pose.place === 'room' && pose.roomMode === 'line' ? (spot as { alpha?: number }).alpha ?? 1 : 1;
@@ -262,9 +321,9 @@
     return L.room.positions.map((p, i) => {
       if (pose.place === 'room') {
         const t = modeTarget(pose.roomMode, i, pose.source);
-        return { x: t.x, y: t.y, r: t.r, alpha: t.alpha, sx: 1, sy: 1, empty: t.empty ? 1 : 0 };
+        return { x: t.x, y: t.y, r: t.r, alpha: t.alpha, q: 0, empty: t.empty ? 1 : 0 };
       }
-      return { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y, r: L.room.radius, alpha: 0, sx: 1, sy: 1 };
+      return { x: p.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: p.y, r: L.room.radius, alpha: 0, q: 0 };
     });
   }
 
@@ -280,6 +339,7 @@
       orOn: pose.or ? 1 : 0,
       mathOn: pose.math ? 1 : 0,
       mathPos: pose.math ? MATH_AT : 0,
+      titleSlide: 0,
       markOn: pose.mark ? 1 : 0,
       compact: pose.compact ? 1 : 0,
       titleOn: pose.cleared ? 0 : 1,
@@ -304,6 +364,18 @@
     view.fly = [];
     for (const token of view.payout) token.on = 0;
     dragging = null;
+    // a step cut short still lands its results on the faces
+    for (const feel of [...unfelt]) feel();
+  }
+
+  /** Results waiting on a playing timeline: a step cut short lands them at once (`stopMotion`). */
+  const unfelt = new Set<() => void>();
+  function feelAt(tl: ReturnType<typeof gsap.timeline>, at: number, feel: () => void): void {
+    const once = () => {
+      if (unfelt.delete(once)) feel();
+    };
+    unfelt.add(once);
+    tl.call(once, [], at);
   }
 
   /** Draw a pose at once. */
@@ -315,6 +387,7 @@
     view.orOn = t.orOn;
     view.mathOn = t.mathOn;
     view.mathPos = t.mathPos;
+    view.titleSlide = t.titleSlide;
     view.markOn = t.markOn;
     view.compact = t.compact;
     view.titleOn = t.titleOn;
@@ -329,6 +402,8 @@
     view.flipLift = 0;
     view.flipTint = t.flipTint;
     view.roomOn = t.roomOn;
+    // the decider rests once a pose is drawn; a toss playing lifts it
+    cue.air = false;
     people(pose).forEach((p, i) => Object.assign(view.people[i], p));
     roomPeople(pose).forEach((p, i) => Object.assign(view.room[i], p));
     view.ticks = Object.fromEntries(ticksFor(pose.roomMode).map((t) => [t.key, { x: t.x, alpha: t.shown ? 1 : 0 }]));
@@ -345,6 +420,9 @@
 
   function settle(index: number): void {
     current = index;
+    titleCue = null;
+    hush = false;
+    placeDial(index, false);
     stopMotion();
     stopCalls();
     reaction = null;
@@ -362,6 +440,7 @@
     draw(poseAt(index));
     showAll(index);
     enter(index);
+    settleFaces();
   }
 
   function play(index: number, from: number): void {
@@ -372,7 +451,7 @@
     if (from >= 0) {
       levyView = levyLesson(PAIR_STEPS[from].pose.levy);
       draw(poseAt(from));
-    }
+    } else draw(START); // a fresh stage plays its first step from nothing
     const step = PAIR_STEPS[index];
     const pose = poseAt(index);
     logReady = !step.log;
@@ -384,21 +463,28 @@
     cardPlaying = null;
     fourPick = null;
     if (step.id === 'eff.try') fourCoins = [4, 4, 4, 4];
-    if (step.action === 'run') {
-      if (stage?.reduced) {
-        run.start();
-        run.finish();
-        logReady = true;
-      } else
-        run.start(() => {
-          logReady = true;
-          printPaper();
-        });
+    hush = false;
+    placeDial(index, true);
+    if (step.action === 'run' && stage?.reduced) {
+      run.start();
+      run.finish();
+      logReady = true;
     }
     prepareRooms(index, true);
     if (step.action !== 'coins') levyView = levyLesson(step.pose.levy);
     if (step.id === 'run.banter') playBanter();
     timeline = gsap.timeline();
+    if (step.action === 'run' && !stage?.reduced) {
+      // no talk over a running room: it fades first, the run starts, and its result brings the talk back
+      hush = true;
+      feelAt(timeline, RUN_HUSH, () =>
+        run.start(() => {
+          hush = false;
+          logReady = true;
+          printPaper();
+        }),
+      );
+    }
     choreograph(step.action, pose, timeline);
     revealLines(index);
     enter(index);
@@ -406,8 +492,7 @@
 
   function nudge(index: number): void {
     const id = PAIR_STEPS[index].id;
-    const caller = callerOf(id);
-    if (caller) callOut(caller);
+    for (const who of callersOf(id)) if (!reader.named[who]) callOut(who);
     if (id === 'equal') wiggle('blue');
   }
 
@@ -437,24 +522,34 @@
     return true;
   }
 
+  /** How long a bubble stays before the talk moves on: its words, a beat for each line after the first, and its own pause. */
+  const readOf = (b: { text: string; pauseMs?: number }) => readFor(bubbleWords(b.text)) + Math.max(0, bubbleLines(b.text).length - 1) * LINE_BEAT_MS + (b.pauseMs ?? 0);
+  /** A line's `\\pause`, carried onto the bubble that says it. */
+  const withPause = (line: { pauseMs?: number }) => (line.pauseMs ? { pauseMs: line.pauseMs } : {});
+
+  /** How long step `index` stays, ms, when it moves on by itself: what it says, and the step's own `\\pause` after. */
   function readingTime(index: number): number {
     const step = PAIR_STEPS[index];
-    if (step.id === 'run') return Math.max(1500, tuning.runMs) + 5500;
-    if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readingMs(bubbleWords(line.text)), 0);
+    const pause = step.pauseMs ?? 0;
+    if (step.id === 'run') return RUN_HUSH * 1000 + Math.max(1500, tuning.runMs) + 5500 + pause;
+    if (step.id === 'run.banter') return banterLines().reduce((sum, line) => sum + readOf(line), 0) + pause;
     const concept = conceptLine(step.id);
-    if (concept) return readingMs(bubbleWords(concept.text));
-    const dynamic = step.id === 'guess.react' && session.bet ? REACTIONS.betLines[session.bet].message : null;
+    if (concept) return readOf(concept) + pause;
+    const bet = step.id === 'guess.react' && session.bet ? REACTIONS.betLines[session.bet] : null;
+    if (bet) return readOf({ text: say(bet.message), ...withPause(bet) }) + pause;
+    if (step.id === 'why.after') {
+      const line = run.state.finished > 1 ? REACTIONS.whyAgain : REACTIONS.whyAfter;
+      return readOf({ text: say(line.message), ...withPause(line) }) + pause;
+    }
     const line = step.lines?.[0];
-    if (!line && !dynamic) return readingMs(0);
-    const text = dynamic ? say(dynamic) : say(line!.message, valuesFor(step));
-    return readingMs(bubbleWords(text)) + (bubbleLines(text).length - 1) * LINE_BEAT_MS;
+    if (!line) return readOf({ text: '' }) + pause;
+    return readOf({ text: say(line.message, valuesFor(step)) }) + pause;
   }
 
   /** Things a step starts that are not tweens: the calls, the coin mover. */
   function enter(index: number): void {
     const id = PAIR_STEPS[index].id;
-    const caller = callerOf(id);
-    if (caller && !stage?.isReleased(id)) startCalls(caller);
+    if (callersOf(id).length && !stage?.isReleased(id)) startCalls(callersOf(id));
     if (id === 'equal' && !stage?.isReleased('equal')) reacted = { first: false, eleven: false, over: false };
   }
 
@@ -520,7 +615,58 @@
   function nudgeDial(stake: number): void {
     dialThumb = stake;
     if (dialTimer !== undefined) window.clearTimeout(dialTimer);
-    dialTimer = window.setTimeout(() => turnDial(stake), 250);
+    dialTimer = window.setTimeout(() => {
+      turnDial(stake);
+      dockDial();
+    }, 250);
+  }
+
+  /**
+   * Scene 20's dial (owner, 2026-10-07): Red hands it over in her bubble; once
+   * the reader has turned it, or has had the time to read the bubble, it moves
+   * out of the room's way — to the charts' column, or on a phone to the rail at
+   * the foot — gliding from where it was. Never from under a hand still on it.
+   */
+  let dialDocked = $state(true);
+  let dockTimer: number | undefined;
+  let dialHeld = false;
+  let dockPending = false;
+  const dialHere = $derived(PAIR_STEPS[current].pose.source === 'dial' && (PAIR_STEPS[current].pose.control !== 'stake' || dialDocked));
+
+  function dockDial(): void {
+    if (dialDocked) return;
+    if (dialHeld) {
+      dockPending = true;
+      return;
+    }
+    const from = host?.querySelector('.bubble .stake-dial')?.getBoundingClientRect();
+    dialDocked = true;
+    if (!from || stage?.reduced) return;
+    void tick().then(() => {
+      const el = host?.querySelector<HTMLElement>('.stake-dial');
+      const to = el?.getBoundingClientRect();
+      if (!el || !to) return;
+      el.animate([{ transform: `translate(${from.x - to.x}px, ${from.y - to.y}px)` }, { transform: 'none' }], {
+        duration: 700,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+      });
+    });
+  }
+
+  function releaseDial(): void {
+    dialHeld = false;
+    if (dockPending) {
+      dockPending = false;
+      dockDial();
+    }
+  }
+
+  /** Where the dial starts as step `index` begins: in Red's bubble only as she hands it over. */
+  function placeDial(index: number, playing: boolean): void {
+    window.clearTimeout(dockTimer);
+    dockPending = false;
+    dialDocked = !(playing && PAIR_STEPS[index].action === 'dial');
+    if (!dialDocked) dockTimer = window.setTimeout(dockDial, readingTime(index));
   }
 
   /** A stake the way the sandbox writes it: 0.1%, 25%, 99.99%. */
@@ -703,8 +849,13 @@
     levy,
   });
 
-  /** Scene 20: a fresh room at the reader's stake, the same length every time. */
-  const DIAL_TRADES = 40_000;
+  /**
+   * Scene 20: a fresh room at the reader's stake, the same length every time:
+   * at the essay's tenth, 250,000 trades leave about five effective
+   * participants and the richest near a third (40 seeds), as 40,000 did at a
+   * quarter.
+   */
+  const DIAL_TRADES = 250_000;
   const DIAL_MS = 5_000;
   let dialStake = $state(DEFAULT_RUN.beta);
   /** Where the dial's thumb is while it is being dragged. */
@@ -715,12 +866,13 @@
   const gameRun = createRun(() => fixed(GAME.beta, 10_000_000), () => 0, OWN);
 
   /**
-   * Scene 23: one seed, twice — trades only, and trades with a 2% levy shared
-   * back. At the quarter stake over 60,000 trades that leaves about 4 against
-   * about 42 still counting (20 seeds), the map's own square for those dials.
+   * Scene 23: one seed, twice — trades only, and trades with a levy shared
+   * back. At the essay's tenth over 375,000 trades a 0.3% levy leaves about 4
+   * against about 41 still counting (40 seeds) — at a quarter it took 60,000
+   * trades and 2%: two-fifths the stake, about a seventh of the levy.
    */
-  const MATCH_TRADES = 60_000;
-  const MATCH_LEVY = 0.02;
+  const MATCH_TRADES = 375_000;
+  const MATCH_LEVY = 0.003;
   const MATCH_MS = 7_000;
   const leftRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES), () => MATCH_MS, OWN);
   const rightRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES, MATCH_LEVY), () => MATCH_MS, OWN);
@@ -1327,6 +1479,7 @@
       who: line.who,
       at: line.who,
       text: say(line.message, { blue: dollars(L.room.blue), red: dollars(L.room.red) }),
+      ...withPause(line),
     }));
   }
 
@@ -1352,7 +1505,7 @@
       banterTimer = window.setTimeout(() => {
         banterShown += 1;
         next();
-      }, readingMs(bubbleWords(lines[banterShown - 1].text)));
+      }, readOf(lines[banterShown - 1]));
     };
     next();
   }
@@ -1373,17 +1526,27 @@
     paper?: { masthead: string; text: string; source: string; style: AgentStyle };
     /** Said to the reader, not to the other one: on the speaker's outer side. */
     aside?: boolean;
+    /** A passing line (a call): it never pushes an aside away. */
+    brief?: boolean;
+    /** The feeling words it is said with: they show on the speaker's face (stageFaces `feel`). */
+    feel?: readonly string[];
+    /** Its own `\\pause`, ms: it stays this much longer than its words take to read. */
+    pauseMs?: number;
     choices?: readonly BubbleChoice[];
     /** A control the reader holds, inside the bubble (Scene 20's dial). */
     control?: Snippet;
   }
 
   /** The line of a Scene 3 hold, once more and a little louder each time. */
-  const callLevel = $state({ blue: 0, red: 0 });
+  const callLevel = $state({ blue: -1, red: -1 });
+  /** When each last called, and when each was clicked: the talk plays them in that order. */
+  const callAt = $state({ blue: 0, red: 0 });
+  const metAt = $state({ blue: 0, red: 0 });
   /** A coin-moving reaction (Scene 5), spoken on an event rather than a step. */
   let reaction = $state<Said | null>(null);
 
-  const callerOf = (id: string): Speaker | null => (id === CALLS.red ? 'red' : id === CALLS.blue ? 'blue' : null);
+  /** Who calls at a step: both, in the meeting (owner review 2026-09-27: each on its own, at random). */
+  const callersOf = (id: string): Speaker[] => (PAIR.filter((who) => CALLS[who] === id) as Speaker[]);
 
   /** Whether the current step's result may be logged yet: a toss logs once it has landed. */
   let logReady = $state(true);
@@ -1408,16 +1571,16 @@
       }
       if (step.id === 'why.after') {
         const line = run.state.finished > 1 ? REACTIONS.whyAgain : REACTIONS.whyAfter;
-        out.push({ id: `${step.id}:${line.message}`, who: line.who, at: line.who, text: say(line.message) });
+        out.push({ id: `${step.id}:${line.message}`, who: line.who, at: line.who, text: say(line.message), ...withPause(line) });
         continue;
       }
       if (step.id === 'guess.react') {
         const bet = session.bet ? REACTIONS.betLines[session.bet] : null;
-        if (bet) out.push({ id: `${step.id}:${session.bet}`, who: bet.who, at: bet.who, text: say(bet.message), aside: true });
+        if (bet) out.push({ id: `${step.id}:${session.bet}`, who: bet.who, at: bet.who, text: say(bet.message), aside: true, ...withPause(bet) });
         continue;
       }
       if (step.id === 'end.longer' && line?.who) {
-        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message), aside: step.aside });
+        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message), aside: step.aside, feel: step.feel });
         // what the room did, each time it was played on
         if (longers > 0 && !(i === current && run.state.running)) {
           const text = say('log_run', { trades: formatNumber(run.state.trades), share: formatNumber(run.state.share, { style: 'percent' }) });
@@ -1426,12 +1589,12 @@
         continue;
       }
       if (step.id === 'stop.how' && line?.who) {
-        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)) });
+        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), feel: step.feel });
         const result = game.result;
         if (result) {
           const said = result.won ? REACTIONS.stopWon : REACTIONS.stopLost;
           const values: Record<string, number> = result.won ? { count: result.count } : { seconds: result.seconds, taps: result.taps };
-          out.push({ id: `stop.result:${game.round}`, who: said.who, at: said.who, text: say(said.message, values) });
+          out.push({ id: `stop.result:${game.round}`, who: said.who, at: said.who, text: say(said.message, values), ...withPause(said) });
         }
         continue;
       }
@@ -1442,15 +1605,23 @@
         for (let k = i + 1; k <= current && !superseded; k++) superseded = speaks(k);
         if (superseded) continue;
       }
-      const caller = callerOf(step.id);
-      if (caller) {
-        const waiting = !(view.paint[caller] > 0.5);
-        const level = waiting ? callLevel[caller] : 0;
-        const pool = caller === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
-        out.push({ id: `${step.id}#${level}`, who: waiting ? null : caller, at: caller, text: say(pool[level]), aside: true });
+      const callers = callersOf(step.id);
+      if (callers.length) {
+        // each calls on his own clock until clicked, then introduces himself: in the order it happened
+        const heard: { at: number; said: Said }[] = [];
+        for (const who of callers) {
+          if (reader.named[who] || stage?.isReleased(step.id)) {
+            const intro = who === 'red' ? REACTIONS.introRed : REACTIONS.introBlue;
+            heard.push({ at: metAt[who], said: { id: `${step.id}:met-${who}`, who, at: who, text: say(intro.message), aside: true, ...withPause(intro) } });
+          } else if (callLevel[who] >= 0) {
+            const pool = who === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
+            heard.push({ at: callAt[who], said: { id: `${step.id}:${who}#${callLevel[who]}`, who: null, at: who, text: say(pool[callLevel[who]]), aside: true, brief: true } });
+          }
+        }
+        out.push(...heard.sort((a, b) => a.at - b.at).map((h) => h.said));
         continue;
       }
-      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside });
+      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside, brief: step.brief, feel: step.feel });
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
     if (PAIR_STEPS[current].pose.control === 'sandbox') out.push(...sandboxPapers);
@@ -1458,8 +1629,8 @@
     // an open toy has its own Done: the offer's links go while it is open
     const choices = choicesAt(current);
     if (last && choices) out[out.length - 1] = { ...last, choices };
-    // the stake dial sits in Red's newest bubble while it is the reader's to turn
-    if (PAIR_STEPS[current].pose.control === 'stake') {
+    // the stake dial sits in Red's newest bubble while she hands it over
+    if (PAIR_STEPS[current].pose.control === 'stake' && !dialDocked) {
       let k = out.length - 1;
       while (k >= 0 && !(out[k].who === 'red' && !out[k].kind)) k--;
       if (k >= 0) out[k] = { ...out[k], control: stakeDial };
@@ -1472,6 +1643,7 @@
         at: line.who,
         text: say(line.message, { count: formatNumber(fourCount, { maximumFractionDigits: 2 }) }),
         aside: true,
+        ...withPause(line),
       });
     }
     return out;
@@ -1510,11 +1682,12 @@
 
   /** Scenes 15–17: the lines whose words are what the room shows right now. */
   function conceptLine(id: string): Said | null {
-    const said = (line: { who: Speaker; message: string }, values: Record<string, string | number>): Said => ({
+    const said = (line: { who: Speaker; message: string; pauseMs?: number }, values: Record<string, string | number>): Said => ({
       id: `${id}:${JSON.stringify(values)}`,
       who: line.who,
       at: line.who,
       text: say(line.message, values),
+      ...withPause(line),
     });
     const count = formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 1 });
     switch (id) {
@@ -1552,6 +1725,7 @@
           id: `dial.said:${dialRun.recording()?.seed ?? 0}:${kind}`,
           who: line.who,
           at: line.who,
+          ...withPause(line),
           text: say(line.message, {
             stake: formatNumber(stake, { style: 'percent' }),
             share: formatNumber(dialRun.state.share, { style: 'percent' }),
@@ -1566,6 +1740,7 @@
           id: `match.result:${leftRun.recording()?.seed ?? 0}`,
           who: line.who,
           at: line.who,
+          ...withPause(line),
           text: say(line.message, { a: matchCounts.a, b: matchCounts.b }),
         };
       }
@@ -1579,8 +1754,8 @@
     const id = PAIR_STEPS[index].id;
     if (PAIR_STEPS[index].pose.choice) {
       return [
-        { label: say('more_choice_1'), act: tellMe },
-        { label: say('more_choice_2'), act: () => stage?.advance() },
+        { label: say(REACTIONS.joke[0]), act: tellMe },
+        { label: say(REACTIONS.joke[1]), act: () => stage?.advance() },
       ];
     }
     const link = (REACTIONS.links as Record<string, string>)[id];
@@ -1646,29 +1821,26 @@
   let cardHeight = $state(0);
 
   /** The rule card reads the rule that is running: the live stake, never typed in. */
+  /** The picture the stage draws for a card, by the plot the script names (read when needed: snippets come after the script). */
+  const pictureOf = (plot: string): Snippet | undefined =>
+    ({ histogram: histogramPicture, lorenz: giniPicture, participants: participantsPicture, turnover: turnoverPicture })[plot];
+  /** The toy a card can hold, by the name the script gives it. */
+  const toyOf = (name: string): Snippet | undefined => ({ gini: giniToy })[name];
+
+  /**
+   * A card as the script writes it (script/cards/): title, lines, formulas, a
+   * picture, a toy. The rule card reads the rule that is running: the live
+   * stake, never typed in.
+   */
   function cardFor(id: string): Card | null {
-    const lines = (key: string, count: number) => Array.from({ length: count }, (_, k) => say(`${key}_${k + 1}`));
-    if (id === 'histogram') return { id, title: say('card_histogram_title'), lines: lines('card_histogram', 3), picture: histogramPicture };
-    if (id === 'gini') return { id, title: say('card_gini_title'), lines: lines('card_gini', 2), picture: giniPicture, toy: giniToy };
-    if (id === 'participants') {
-      return {
-        id,
-        title: say('card_participants_title'),
-        lines: [...lines('card_participants', 2), say('participation_formula')],
-        picture: participantsPicture,
-      };
-    }
-    if (id === 'turnover') return { id, title: say('card_turnover_title'), lines: lines('card_turnover', 2), picture: turnoverPicture };
-    if (id === 'limit') return { id, title: say('card_limit_title'), lines: lines('card_limit', 3) };
-    if (id === 'stake') return { id, title: say('card_stake_title'), lines: lines('card_stake', 2) };
-    if (id === 'levy') return { id, title: say('card_levy_title'), lines: lines('card_levy', 3) };
-    if (id !== 'rule') return null;
+    const card = CARDS[id];
+    if (!card) return null;
     const stake = formatNumber(tuning.beta, { style: 'percent' });
-    return {
-      id,
-      title: say('card_rule_title'),
-      lines: [say('card_rule_1'), say('card_rule_2', { stake }), say('card_rule_3'), say('card_rule_4')],
-    };
+    const lines = card.blocks.flatMap((b): CardLine[] => (b.kind === 'line' ? [say(b.key, { stake })] : b.kind === 'formula' ? [{ formula: b.tex }] : []));
+    const plot = card.blocks.find((b) => b.kind === 'plot');
+    const picture = plot?.kind === 'plot' ? pictureOf(plot.id) : undefined;
+    const toy = card.toy ? toyOf(card.toy) : undefined;
+    return { id, title: say(card.title), lines, ...(picture ? { picture } : {}), ...(toy ? { toy } : {}) };
   }
 
   /** On a wide stage the rule stands in the charts' column: nothing pops open over the room for it. */
@@ -1732,15 +1904,15 @@
     window.setTimeout(() => (ripples = ripples.filter((q) => q.id !== id)), 1500);
   });
 
-  /** The title's size, as its CSS computes it: clamp(2.4rem, min(11.5vw, 19svh), 10rem). */
-  const titleFont = $derived(Math.min(titleMax, Math.min(160, Math.max(38.4, Math.min(width * 0.115, height * 0.19)))));
+  /** The title's size, px: as `titleFit` sets it, or as its CSS starts it before its words are measured. */
+  const titleFont = $derived(titleFit?.size ?? Math.min(160, Math.max(38.4, Math.min(width * 0.115, height * 0.19))));
   /** How small the title gets once they start talking. */
   const COMPACT = 0.4;
 
   /** The band the talk lives in: under the title (small by now), over the two. */
   const region = $derived.by(() => {
     const pose = poseAt(current);
-    const top = pose.cleared ? Math.max(height * 0.05, pose.cards.length > 0 ? 68 : 0) : height * 0.03 + titleFont * 1.2 * COMPACT + 12;
+    const top = pose.cleared ? Math.max(height * 0.05, pose.cards.length > 0 ? 68 : 0) : height * 0.03 + titleFont * 1.2 * (titleFit?.lines ?? 1) * COMPACT + 12;
     // in the room the talk floats over the crowd, down to just above the two;
     // over a picture, it stops above the picture
     const chartTop: Record<string, number> = {
@@ -1771,7 +1943,8 @@
   const inPicture = $derived(PAIR_STEPS[current].pose.place === 'room' && PICTURES.includes(PAIR_STEPS[current].pose.roomMode));
 
   const column = $derived.by(() => {
-    const right = L.column ? L.column.x - 8 : width;
+    // the charts' column is only kept clear while there are charts: in the room
+    const right = L.column && PAIR_STEPS[current].pose.place === 'room' ? L.column.x - 8 : width;
     const c = chatColumn(PAIR.map((who) => anchorOf(who)), right, region.top, region.bottom);
     if (!inPicture) return c;
     const box = L.room.box;
@@ -1784,16 +1957,18 @@
   });
   const bubbleWidth = $derived(Math.min(368, (column.right - column.left) * 0.8));
 
+  /** Asides beside their speaker need room on both sides; a phone keeps one column, and so does the room. */
+  const beside = $derived(!inPicture && width >= 700 && PAIR_STEPS[current].pose.place !== 'room');
+  /** Where the talk runs when it sits beside the two: from one centre to the other. */
+  const span = $derived(beside ? talkSpan(PAIR.map((who) => ({ w: 0, h: 0, anchor: anchorOf(who) })), column) : null);
+
   const placed = $derived(
     stackChat(
-      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null, aside: b.aside })),
+      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null, aside: b.aside, brief: b.brief })),
       column,
       PAIR_STEPS[current].pose.place === 'room' ? 4 : 6,
       2,
-      // asides beside their speaker need room on both sides; a phone keeps one
-      // column, and so does the room, where the two stand among a hundred and
-      // the talk stacks right over them
-      !inPicture && width >= 700 && PAIR_STEPS[current].pose.place !== 'room',
+      beside,
     ),
   );
 
@@ -1843,31 +2018,58 @@
     );
   }
 
-  function spin(tl: ReturnType<typeof gsap.timeline>, answer: number): void {
-    tl.set(view, { mathPos: 0 });
+  function spin(tl: ReturnType<typeof gsap.timeline>): void {
+    tl.set(view, { mathPos: 0, titleSlide: 0 });
+    // the crowd looks up at the reel, and follows it while it spins
+    tl.call(() => lookUp(mathReel, true));
     tl.to(view, { mathOn: 1, duration: 0.25, ease: 'none' });
-    // Slow enough to read the two funny words, then a steady readable run past
-    // the answer (never under about a quarter second a word), two words over,
-    // and back to rest.
-    tl.to(view, { mathPos: 2, duration: 1.1, ease: 'sine.in' });
-    tl.to(view, { mathPos: answer + 2, duration: answer / 3.6, ease: 'none' });
-    tl.to(view, { mathPos: answer, duration: 0.75, ease: 'power2.inOut' });
+    // the line slides aside as the words grow longer, and back as the reel comes home to the answer
+    let reached = 0;
+    for (const x of reelSpin()) {
+      const slide = x.to < reached ? 0 : titleShift(x.to);
+      tl.to(view, { mathPos: x.to, titleSlide: slide, duration: x.seconds, ease: x.ease });
+      reached = Math.max(reached, x.to);
+    }
+    // landed: a last look at the answer, each for their own while
+    tl.call(() => lookUp(mathReel));
+  }
+
+  /** The title's newest word, as the crowd sees it (stageFaces `TitleCue`); set as each word arrives. */
+  let titleCue: TitleCue | null = null;
+  function lookUp(word: Element | null, live = false): void {
+    if (!word || !host) return;
+    const box = word.getBoundingClientRect();
+    const at = host.getBoundingClientRect();
+    titleCue = { x: box.x + box.width / 2 - at.x, y: box.y + box.height / 2 - at.y, since: seconds, live };
+  }
+
+  /** The title's words, as `lookUp` follows them: they arrive without moving anyone. */
+  const TITLE_ACTIONS = new Set(['merit', 'or', 'reel-math']);
+  /** The opening's crowd stands about, at ease — chatting, now and then a hop — unless the timeline is moving them. */
+  function atEase(): boolean {
+    const step = PAIR_STEPS[current];
+    const phase = step?.pose.crowd;
+    return (phase === 'idle' || phase === 'paid') && (!timeline?.isActive() || TITLE_ACTIONS.has(step.action ?? ''));
   }
 
   function choreograph(action: string | undefined, pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
     switch (action) {
       case 'type':
         tl.to(view, { type: 1, duration: 3.6, ease: 'none' }, 0.5);
+        return;
+      case 'arrive':
         arrive(tl);
         return;
       case 'merit':
+        tl.call(() => lookUp(titleEl.querySelector('.word.merit')));
         tl.to(view, { meritOn: 1, duration: 0.9, ease: 'power1.out' });
         return;
       case 'or':
+        tl.call(() => lookUp(titleEl.querySelector('.word.or')));
         tl.to(view, { orOn: 1, duration: 0.6, ease: 'none' });
         return;
       case 'reel-math':
-        spin(tl, MATH_AT);
+        spin(tl);
         return;
       case 'payout':
         payout(tl);
@@ -1930,133 +2132,133 @@
   interface Hopper {
     x: number;
     y: number;
-    sx: number;
-    sy: number;
+    q: number;
   }
 
+  /** The stage's gravity, px/s² (hops.ts): every hop and every falling coin obeys it. */
+  const G = $derived(gravity(L.whole));
+
   /**
-   * Small hops from `from` to `to`, leaving at `depart` and landing for good at
-   * `arrive` — the Pixar lamp, not a cannonball (owner review 2026-09-26):
-   * crouch, stretch into the air, squash on landing, and no two hops alike.
-   * Nobody flies: a long way is many small hops, never one big arc.
+   * Plays hops (hops.ts) on a timeline (owner, 2026-10-07: "physics should
+   * work here"): a crouch that squashes, a stretched take-off, a parabola under
+   * the stage's gravity — x steady, y slowing to the top and quickening down —
+   * and a landing squash that settles: quick on a small, hard body, slow and
+   * wobbling on a big, soft one. Every squash keeps the area.
    */
-  function hopAlong(
-    tl: Timeline,
-    p: Hopper,
-    from: Point,
-    to: Point,
-    depart: number,
-    arrive: number,
-    height: number,
-    key: number,
-    hopLength = L.radius(1) * 2.2,
-  ): void {
-    const n = hopsFor(Math.hypot(to.x - from.x, to.y - from.y), hopLength);
-    if (n === 0 || arrive <= depart) return;
-    const weights = Array.from({ length: n }, (_, k) => 0.8 + noise(key, k) * 0.55);
-    const total = weights.reduce((sum, w) => sum + w, 0);
-    let t = depart;
-    for (let k = 0; k < n; k++) {
-      const dur = ((arrive - depart) * weights[k]) / total;
-      const a = { x: from.x + ((to.x - from.x) * k) / n, y: from.y + ((to.y - from.y) * k) / n };
-      const b = { x: from.x + ((to.x - from.x) * (k + 1)) / n, y: from.y + ((to.y - from.y) * (k + 1)) / n };
-      const h = height * (0.6 + noise(key, k + 50) * 0.7);
-      const crouch = dur * 0.16;
-      const air = dur * 0.62;
-      const land = dur * 0.22;
-      tl.to(p, { sx: 1.16, sy: 0.82, duration: crouch, ease: 'power1.out' }, t);
-      tl.to(p, { sx: 0.9, sy: 1.13, duration: air * 0.4, ease: 'power1.out' }, t + crouch);
-      tl.to(p, { x: b.x, duration: air, ease: 'none' }, t + crouch);
-      tl.to(p, { y: Math.min(a.y, b.y) - h, duration: air / 2, ease: 'power2.out' }, t + crouch);
-      tl.to(p, { y: b.y, duration: air / 2, ease: 'power2.in' }, t + crouch + air / 2);
-      tl.to(p, { sx: 1, sy: 1, duration: air * 0.3 }, t + crouch + air * 0.45);
-      tl.to(p, { sx: 1.2, sy: 0.8, duration: land * 0.4, ease: 'power1.out' }, t + crouch + air);
-      tl.to(p, { sx: 1, sy: 1, duration: land * 0.6, ease: 'back.out(3)' }, t + crouch + air + land * 0.4);
-      t += dur;
+  function playHops(tl: Timeline, p: Hopper, hops: readonly Hop[]): void {
+    for (const h of hops) {
+      const gt = h.gait;
+      const up = h.apex - h.lift;
+      tl.to(p, { q: gt.squash * 0.8, duration: Math.max(0.02, h.lift - h.start), ease: 'power2.out' }, h.start);
+      tl.to(p, { q: -gt.stretch, duration: up * 0.5, ease: 'power1.out' }, h.lift);
+      tl.to(p, { q: 0, duration: up * 0.5, ease: 'power1.in' }, h.lift + up * 0.5);
+      // across at a steady speed, up and down as a parabola under g
+      tl.to(p, { x: h.to.x, duration: h.land - h.lift, ease: 'none' }, h.lift);
+      tl.to(p, { y: h.top, duration: up, ease: RISE }, h.lift);
+      tl.to(p, { y: h.to.y, duration: h.land - h.apex, ease: FALL }, h.apex);
+      tl.to(p, { q: gt.squash, duration: 0.05, ease: 'power1.out' }, h.land);
+      tl.to(p, { q: 0, duration: Math.max(0.08, h.end - h.land - 0.05), ease: gt.soft > 0.4 ? 'elastic.out(1, 0.55)' : 'back.out(2.5)' }, h.land + 0.05);
     }
   }
 
-  /** A jump on the spot whose top is at `peak`: crouch, up, down, squash. */
-  function jumpAt(tl: Timeline, p: Hopper, spot: Point, peak: number, height: number): void {
-    tl.to(p, { sx: 1.18, sy: 0.8, duration: 0.09, ease: 'power1.out' }, peak - 0.27);
-    tl.to(p, { sx: 0.88, sy: 1.16, y: spot.y - height, duration: 0.18, ease: 'power2.out' }, peak - 0.18);
-    tl.to(p, { sx: 1, sy: 1, y: spot.y, duration: 0.2, ease: 'power2.in' }, peak);
-    tl.to(p, { sx: 1.22, sy: 0.78, duration: 0.06, ease: 'power1.out' }, peak + 0.2);
-    tl.to(p, { sx: 1, sy: 1, duration: 0.16, ease: 'back.out(3)' }, peak + 0.26);
+  /**
+   * `p`, a body of radius `r`, hops from `from` to `to`, leaving at `depart`,
+   * at its own gait — and, given `by`, bounding further if it must to be there
+   * by then; returns when it has settled there.
+   */
+  function hopTo(tl: Timeline, p: Hopper, from: Point, to: Point, depart: number, r: number, stride = 1, by = Infinity): number {
+    const hops = hopsBy(from, to, depart, r, L.radius(1), G, by, stride);
+    playHops(tl, p, hops);
+    return arrival(hops, depart);
   }
 
-  /** Scene 2 begins: people hop in from the nearer side, each at their own pace, and settle. */
+  /** Scene 2 begins: people hop in from the nearer side, each at their own gait — the small quick and short, the big slow and long. */
+  const arrivalPlan = $derived(planArrival({ entries: L.crowdEntries, homes: L.crowdHomes, radius: L.radius, g: G }));
   function arrive(tl: Timeline): void {
-    const one = L.radius(1);
     view.people.forEach((person, i) => {
-      tl.set(person, { ...L.crowdEntries[i], r: L.presence, empty: 1, alpha: 1, sx: 1, sy: 1 }, 0);
-      const from = L.crowdEntries[i];
-      const to = L.crowdHomes[i];
-      const hops = hopsFor(Math.hypot(to.x - from.x, to.y - from.y), one * 2.2);
-      const depart = 0.15 + noise(i, 1) * 1.4;
-      // everyone has settled before the title's first word lands
-      const arrive = Math.min(4.3, depart + hops * (0.26 + noise(i, 2) * 0.12) + noise(i, 3) * 0.5);
-      hopAlong(tl, person, from, to, depart, arrive, one * (0.7 + noise(i, 4) * 0.5), i * 7 + 1);
+      tl.set(person, { ...L.crowdEntries[i], r: L.radius(CROWD_START[i]), empty: 0, alpha: 1, q: 0 }, 0);
+      playHops(tl, person, arrivalPlan[i]);
     });
   }
 
-  /** Where the crowd ends the rain: the scramble, planned once for this stage's size. */
-  const rainPlan = $derived(planRain(L.crowdHomes, L.crowdBand, L.radius(1)));
+  /**
+   * Where the coins drop from: every flat foot of the title's letters on its
+   * line (titleFeet.ts), measured whenever the title is laid out; until then,
+   * evenly along the title.
+   */
+  let feet = $state<Point[]>([]);
+  function measureFeet(): void {
+    // only the title at rest: not shrunk to the top, nor slid aside
+    if (!titleEl || !host || !mathReel || view.compact > 0 || view.titleSlide !== 0) return;
+    // on two lines, only the lower one: a coin from the upper would fall through it
+    const words = [
+      ...(titleFit?.lines === 2 ? [] : [titleEl.querySelector<HTMLElement>('.word.merit'), titleEl.querySelector<HTMLElement>('.word.or')]),
+      mathReel.querySelectorAll<HTMLElement>('.strip .slot')[MATH_AT] ?? null,
+      titleEl.querySelector<HTMLElement>('.mark'),
+    ].filter((w): w is HTMLElement => w !== null);
+    const box = host.getBoundingClientRect();
+    feet = titleFeet(words, box, rtl);
+  }
+  // once the title has its size and shape, and stands at rest, measure where it stands on its line
+  const titleAtRest = $derived(view.compact === 0 && view.titleSlide === 0);
+  $effect(() => {
+    void [titleFit?.size, titleFit?.lines, width, height];
+    if (titleAtRest) requestAnimationFrame(measureFeet);
+  });
+  const dropFeet = $derived.by((): Point[] => {
+    if (feet.length) return feet;
+    const box = L.crowdBand;
+    return Array.from({ length: COINS }, (_, k) => ({ x: box.x + ((k + 0.5) / COINS) * box.w, y: L.height * 0.35 }));
+  });
+
+  /** Where the crowd ends the rain: the scramble, planned once for this stage's size and title. */
+  const rainPlan = $derived(planRain({ homes: L.crowdHomes, band: L.crowdBand, feet: dropFeet, radius: L.radius, g: G }));
 
   /**
-   * Coins pop out of the MATH reel and rain down, and everyone scrambles for
-   * them (owner, 2026-09-26): each drop's owner hops under it and jumps to meet
-   * it; the nearest one or two go for it too and arrive a beat late. One
-   * catches a lot, one very little — those two stay.
+   * Coins drop straight down from the title's feet, under the stage's gravity,
+   * and land on whoever is under them (owner, 2026-10-07): each coin's owner
+   * hops over at their own gait until its line falls inside them, and gives a
+   * little under the blow; now and then a neighbour goes for it too, a beat
+   * late. One catches a lot, one nothing — those two stay.
    */
   function payout(tl: Timeline): void {
-    const hostBox = host.getBoundingClientRect();
-    const reelBox = mathReel.getBoundingClientRect();
-    const from = { x: reelBox.left - hostBox.left + reelBox.width / 2, y: reelBox.top - hostBox.top + reelBox.height / 2 };
-    const one = L.radius(1);
-    const caught = new Array<number>(CROWD).fill(0);
+    const held = [...CROWD_START];
     tl.to(view, { markOn: 1, duration: 0.5, ease: 'none' }, 0);
-    let token = 0;
-    for (const c of rainPlan.catches) {
+    for (const [token, c] of rainPlan.catches.entries()) {
       const person = view.people[c.who];
-      hopAlong(tl, person, c.from, c.spot, c.depart, c.land - 0.28, one * 0.8, c.drop * 13 + 3);
-      const before = caught[c.who];
-      caught[c.who] += c.count;
-      const r = before > 0 ? L.radius(before) : L.presence;
-      jumpAt(tl, person, c.spot, c.land, Math.max(one * 1.1, r * 0.45));
-      for (let k = 0; k < c.count; k++) {
-        const coin = view.payout[token++];
-        const off = (k - (c.count - 1) / 2) * L.coinRadius * 1.3;
-        tl.set(coin, { x: from.x, y: from.y, on: 1 }, c.land - FALL + k * 0.04);
-        tl.to(coin, { x: c.spot.x + off, duration: FALL, ease: 'power1.out' }, c.land - FALL + k * 0.04);
-        tl.to(coin, { y: c.spot.y - one * 1.1 - r, duration: FALL, ease: 'power2.in' }, c.land - FALL + k * 0.04);
-        tl.set(coin, { on: 0 }, c.land + k * 0.04);
-      }
-      tl.set(person, { empty: 0 }, c.land);
-      tl.to(person, { r: L.radius(caught[c.who]), duration: 0.25, ease: 'back.out(3)' }, c.land);
+      playHops(tl, person, c.hops);
+      const had = held[c.who];
+      held[c.who] += c.count;
+      // a straight fall from the foot, from rest: y quickening, x still
+      const coin = view.payout[token];
+      tl.set(coin, { x: c.foot.x, y: c.foot.y, on: 1 }, c.release);
+      tl.to(coin, { y: c.meet.y, duration: c.land - c.release, ease: FALL }, c.release);
+      tl.set(coin, { on: 0 }, c.land);
+      // the blow: a squash that keeps the area, the softer the deeper; and the coin is theirs
+      const soft = Math.min(1, Math.max(0, (L.radius(had) / L.radius(1) - 1) / 3.5));
+      tl.to(person, { q: 0.05 + 0.12 * soft, duration: 0.05, ease: 'power1.out' }, c.land);
+      tl.to(person, { q: 0, duration: 0.2 + 0.3 * soft, ease: soft > 0.4 ? 'elastic.out(1, 0.55)' : 'back.out(2.5)' }, c.land + 0.05);
+      tl.to(person, { r: L.radius(held[c.who]), duration: 0.25, ease: 'back.out(3)' }, c.land);
+      // a coin caught is a result: one coin to someone with one is joy, to someone with eight a shrug
+      feelAt(tl, c.land, () => faces.field.react(c.who, had, had + c.count));
     }
-    for (const [k, c] of rainPlan.chases.entries()) {
-      hopAlong(tl, view.people[c.who], c.from, c.to, c.depart, c.arrive, one * 0.7, k * 17 + 5);
-    }
+    for (const c of rainPlan.chases) playHops(tl, view.people[c.who], c.hops);
   }
 
   /** Everyone else hops off the stage with what they caught; the two hop under their words. */
   function leave(pose: Pose, tl: Timeline): void {
     const targets = people(pose);
-    const one = L.radius(1);
     view.people.forEach((person, i) => {
       const from = { x: person.x, y: person.y };
       if (whoIs(i)) {
         const to = { x: targets[i].x, y: targets[i].y };
-        hopAlong(tl, person, from, to, 0.4, 2.1, Math.max(one * 0.6, person.r * 0.25), i * 5 + 2);
-        tl.to(person, { r: targets[i].r, duration: 0.5 }, 1.6);
+        const there = hopTo(tl, person, from, to, 0.4, person.r, CROSSING, GATHER_SECONDS);
+        tl.to(person, { r: targets[i].r, duration: 0.5 }, Math.max(0.4, there - 0.5));
         return;
       }
-      const depart = noise(i, 3) * 0.7;
       const exit = L.crowdExits[i];
-      const hops = hopsFor(Math.abs(exit.x - from.x), one * 2.2);
-      hopAlong(tl, person, from, { x: exit.x, y: from.y }, depart, depart + hops * 0.22, one * 0.6, i * 11 + 4);
-      tl.set(person, { alpha: 0 }, depart + hops * 0.22);
+      const gone = hopTo(tl, person, from, { x: exit.x, y: from.y }, noise(i, 3) * 0.6, person.r, CROSSING, GATHER_SECONDS);
+      tl.set(person, { alpha: 0 }, gone);
     });
   }
 
@@ -2072,10 +2274,9 @@
       if (i === L.room.blue || i === L.room.red) return;
       const v = view.room[i];
       const exit = { x: v.x < w / 2 ? -L.room.radius * 4 : w + L.room.radius * 4, y: v.y };
-      const depart = noise(i, 7) * 1.2;
-      const hops = Math.max(3, Math.round(Math.abs(exit.x - v.x) / (L.room.radius * 6)));
-      hopAlong(tl, v, { x: v.x, y: v.y }, exit, depart, depart + hops * 0.28, L.room.radius * 0.8, i * 7 + 5, L.room.radius * 6);
-      tl.set(v, { alpha: 0 }, depart + hops * 0.28);
+      // dust hops out like the small, or it would take all day
+      const gone = hopTo(tl, v, { x: v.x, y: v.y }, exit, noise(i, 7) * 1.2, Math.max(v.r, L.room.radius * 0.5), CROSSING);
+      tl.set(v, { alpha: 0 }, gone);
     });
     tweenTo(pose, tl, 1.4, 1.2);
     tl.to(view, { roomOn: 0, duration: 0.4 }, 2.8);
@@ -2097,9 +2298,8 @@
       const entry = { x: spot.x < w / 2 ? -L.room.radius * 3 : w + L.room.radius * 3, y: spot.y };
       // one by one over five seconds or so, unhurried: long, low hops (owner review 2026-09-26)
       const depart = 0.5 + (i / L.room.positions.length) * 4.6 + noise(i, 4) * 0.5;
-      const hops = Math.max(3, Math.round(Math.hypot(spot.x - entry.x, spot.y - entry.y) / (L.room.radius * 6)));
-      tl.set(view.room[i], { ...entry, alpha: 1, sx: 1, sy: 1 }, depart);
-      hopAlong(tl, view.room[i], entry, spot, depart, depart + hops * (0.36 + noise(i, 5) * 0.1), L.room.radius * 0.9, i * 3 + 9, L.room.radius * 6);
+      tl.set(view.room[i], { ...entry, alpha: 1, q: 0 }, depart);
+      hopTo(tl, view.room[i], entry, spot, depart, L.room.radius, CROSSING);
     });
     tl.call(() => {
       view.held = t.held;
@@ -2151,6 +2351,11 @@
    */
   function toss(pose: Pose, tl: ReturnType<typeof gsap.timeline>): void {
     const winner: Speaker = pose.flip === 'blue' ? 'blue' : 'red';
+    // both start and watch the coin until it lands, and only then feel the result
+    cue.air = true;
+    faces.field.startle(BIG);
+    faces.field.startle(SMALL);
+    const before = { blue: view.held.blue + view.table.blue, red: view.held.red + view.table.red };
     const start = view.flipAngle;
     const turns = 5;
     const end = start - (start % (2 * Math.PI)) + turns * 2 * Math.PI + (winner === 'blue' ? Math.PI : 0);
@@ -2161,6 +2366,10 @@
     tl.to(view, { flipLift: high, duration: 0.95, ease: 'power2.out' }, 0.15);
     tl.to(view, { flipLift: 0, duration: 0.9, ease: 'bounce.out' }, 1.1);
     const landed = 2.4;
+    tl.call(() => (cue.air = false), [], landed);
+    feelAt(tl, landed, () => {
+      for (const who of PAIR) faces.field.react(WHO[who], before[who], pose.holdings[who]);
+    });
     // The stakes on the table become flying coins once the coin has landed;
     // they are made now, hidden, so the timeline owns every tween it plays.
     const slots = tableSlots(view.table.blue, view.table.red);
@@ -2205,35 +2414,55 @@
 
   // ---- Scene 3: meeting them -------------------------------------------------
 
-  let callTimer: number | undefined;
+  const callTimers: Record<Speaker, number | undefined> = { blue: undefined, red: undefined };
+  let releaseTimer: number | undefined;
 
   function stopCalls(): void {
-    if (callTimer !== undefined) window.clearTimeout(callTimer);
-    callTimer = undefined;
+    for (const who of PAIR) {
+      if (callTimers[who] !== undefined) window.clearTimeout(callTimers[who]);
+      callTimers[who] = undefined;
+    }
+    if (releaseTimer !== undefined) window.clearTimeout(releaseTimer);
+    releaseTimer = undefined;
   }
 
-  function startCalls(who: Speaker): void {
-    callLevel[who] = 0;
-    callTimer = window.setTimeout(() => callOut(who), 4200);
+  /** Both start calling, each after his own random wait: nobody goes first on purpose. */
+  function startCalls(who: readonly Speaker[]): void {
+    for (const w of who) {
+      if (reader.named[w]) continue;
+      callLevel[w] = -1;
+      if (stage?.reduced) callOut(w);
+      else callTimers[w] = window.setTimeout(() => callOut(w), 400 + Math.random() * 2200);
+    }
   }
 
-  /** The caller tries again, a little louder, while the reader has not clicked. */
+  /** A caller tries again, a little louder, while the reader has not clicked him; each on his own clock. */
   function callOut(who: Speaker): void {
-    stopCalls();
-    if (view.paint[who] > 0.5) return;
+    if (callTimers[who] !== undefined) window.clearTimeout(callTimers[who]);
+    callTimers[who] = undefined;
+    if (reader.named[who]) return;
     const pool = who === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
     callLevel[who] = Math.min(pool.length - 1, callLevel[who] + 1);
+    callAt[who] = performance.now();
     if (stage?.reduced) return;
-    callTimer = window.setTimeout(() => callOut(who), 4000 + Math.random() * 2500);
+    // the stage nudges every decl.tex \nudge, each caller on a clock of his own
+    callTimers[who] = window.setTimeout(() => callOut(who), NUDGE_MS * (0.75 + Math.random() * 0.5));
   }
 
+  /** The reader clicks a circle: it takes its colours and introduces itself; once both have, the talk moves on. */
   function name(who: Speaker): void {
     const id = CALLS[who];
     if (current !== indexOf(id) || reader.named[who]) return;
     reader.named = { ...reader.named, [who]: true };
-    stopCalls();
+    metAt[who] = performance.now();
+    if (callTimers[who] !== undefined) window.clearTimeout(callTimers[who]);
+    callTimers[who] = undefined;
     gsap.fromTo(view.paint, { [who]: 0 }, { [who]: 1, duration: 0.4, ease: 'back.out(2.5)' });
-    stage?.release(id);
+    if (!callersOf(id).every((w) => reader.named[w])) return;
+    // the second introduction is read before the talk goes on
+    const intro = who === 'red' ? REACTIONS.introRed : REACTIONS.introBlue;
+    const wait = stage?.reduced ? 0 : readOf({ text: say(intro.message), ...withPause(intro) });
+    releaseTimer = window.setTimeout(() => stage?.release(id), wait);
   }
 
   // ---- Scene 5: the reader makes them equal ----------------------------------
@@ -2374,6 +2603,351 @@
 
   let seconds = $state(0);
 
+  // ---- faces (owner, 2026-10-07) ---------------------------------------------------
+
+  /** The decider is in the air: a toss sets it as it plays. */
+  const cue = $state({ air: false });
+  /**
+   * The talk steps back while the room runs (owner, 2026-10-07: "no point to
+   * have the speech bubble over the running simulation"): it fades before the
+   * run starts and stays faded while any run plays; the result brings it back.
+   */
+  let hush = $state(false);
+  const RUN_HUSH = 0.5;
+  const hushed = $derived(hush || (run.state.running && !game.playing));
+
+  /** Whose mouth moves, until when on the ambient clock; an aside is said to the reader. */
+  let talking = $state<{ who: Speaker; until: number; aside: boolean } | null>(null);
+  let lastTalk = '';
+  /** When the newest line was said, on the ambient clock. */
+  let lineSince = 0;
+  $effect(() => {
+    const newest = said[said.length - 1];
+    if (!newest || newest.id === lastTalk || !newest.at) return;
+    lastTalk = newest.id;
+    lineSince = untrack(() => seconds);
+    talking = { who: newest.at, until: lineSince + talkSeconds(newest.text), aside: !!newest.aside };
+    // the feeling it is said with, on the speaker's face
+    for (const word of newest.feel ?? []) faces.feel(WHO[newest.at], word);
+  });
+
+  /**
+   * The newest line still on show (stageFaces `HeldLine`): while its bubble
+   * shows it holds the pair's eyes — on each other, or an aside's speaker on
+   * the reader — and the room attends to it, each in their own time. An
+   * event in the talk does not end it; the next line, or its bubble going, does.
+   */
+  function heldLine(): HeldLine | null {
+    if (hushed) return null;
+    for (let k = said.length - 1; k >= 0; k--) {
+      const b = said[k];
+      if (b.kind === 'event' || b.kind === 'paper' || !b.at) continue;
+      if (!placed[k] || placed[k].gone) return null;
+      return { who: b.at, aside: !!b.aside, since: b.id === lastTalk ? lineSince : 0 };
+    }
+    return null;
+  }
+
+  /** The reader's pointer over the stage, and when it last moved (ambient clock): a few in the room follow it. */
+  let pointer: (Point & { at: number }) | null = null;
+  function trackPointer(event: PointerEvent): void {
+    if (event.pointerType !== 'mouse') return;
+    const p = local(event);
+    pointer = { x: p.x, y: p.y, at: seconds };
+  }
+  /** Everyone's feelings, looks and drawings (stageFaces.ts): the eight, the room's hundred, the matched copies. */
+  const faces = new StageFaces(CROWD, 100, BIG, SMALL);
+  /** Where faces are drawn: groups placed by the template (`mountFace`), written to by the tick. */
+  const board = new FaceBoard();
+  const mountFace = board.mount;
+  const faceLook = $derived(faceStyle.look);
+  /** Where the room stands as people. Elsewhere its members are marks on a chart, and marks have no face. */
+  const PEOPLE_MODES: readonly RoomMode[] = ['free', 'equal', 'zero', 'double', 'half', 'one', 'four', 'levy4', 'map'];
+  /** The game's sixteen coins, shared equally: a face of normal proportions at the seats. */
+  const EQUAL_COINS = (BLUE_CATCHES + RED_CATCHES) / 2;
+  /** An equal share's radius: eight coins at the seats, the room's own in the room. */
+  const equalR = $derived(L.radius(EQUAL_COINS) + (L.room.radius - L.radius(EQUAL_COINS)) * view.roomOn);
+  const peopleStand = $derived(PAIR_STEPS[current].pose.place !== 'room' || PEOPLE_MODES.includes(PAIR_STEPS[current].pose.roomMode));
+
+  /** A face's radius, in quarter pixels, for the overlap rule. */
+  const faceSize = (r: number, r0: number) => Math.round(faceRadius(r, r0) * 4) / 4;
+  /** Room member `j`'s face: Blue's and Red's seats are their own bodies. */
+  const slotOfRoom = (j: number) => (j === L.room.blue ? BIG : j === L.room.red ? SMALL : faces.roomSlot(j));
+  const roomSlots = $derived(Int32Array.from(L.room.positions, (_, j) => slotOfRoom(j)));
+
+  /** The matched room's Blue and Red, where they stand in its copy. */
+  function mirrorBodies(): [Body, Body] | null {
+    if (view.mirrorOn <= 0.01 || PAIR_STEPS[current].pose.roomMode !== 'matched') return null;
+    const body = (i: number): Body => {
+      const at = matchedAt(1, L.room.positions[i]);
+      const r = (mirror.sized ? L.room.radius * Math.sqrt(Math.max(0, mirror.wealth[i]) * 100) : L.room.radius) * matchBox.scale;
+      return { x: at.x, y: at.y, r: Math.max(0.5, r), alpha: view.mirrorOn };
+    };
+    return [body(L.room.blue), body(L.room.red)];
+  }
+
+  /** What the faces can see now. */
+  function faceScene(): FaceScene {
+    const pose = PAIR_STEPS[current].pose;
+    const moving: Point[] = [];
+    for (const t of view.payout) if (t.on > 0.5) moving.push(t);
+    for (const t of view.fly) if (t.on > 0.5) moving.push(t);
+    return {
+      depth: L.whole * 2.5,
+      people: view.people,
+      room: view.roomOn > 0.01 && peopleStand ? view.room : null,
+      mirror: mirrorBodies(),
+      speaker: talking?.who ?? null,
+      aside: talking?.aside ?? false,
+      facing: pose.place === 'seats',
+      coin: cue.air ? { x: L.flip.x, y: L.flip.y + view.flipLift } : null,
+      moving,
+      held: heldLine(),
+      // they let go of it a little after it stops
+      pointer: pointer && seconds - pointer.at < 2.5 ? pointer : null,
+      chat: atEase(),
+      // the reel holds them only while it is still spinning
+      title: titleCue && atEase() ? (titleCue.live && !timeline?.isActive() ? { ...titleCue, live: false } : titleCue) : null,
+    };
+  }
+
+  /** The room's colours, as each face is drawn in them. */
+  const roomColours = $derived(roomStyles.map((st): FaceColours => ({ stroke: st.stroke, fill: st.fill, fillOpacity: 0.75 })));
+  const twinColours = (['blue', 'red'] as const).map((who): FaceColours => ({ stroke: PROTAGONISTS[who].stroke, fill: PROTAGONISTS[who].fill, fillOpacity: 0.75 }));
+
+  /** Every face on show, drawn as it stands now, in one pass; only what changed reaches the page. */
+  function paintFaces(now = Infinity): void {
+    const look = faceLook;
+    const reduced = !!stage?.reduced;
+    view.people.forEach((p, i) => {
+      // Blue and Red have faces the whole game; the rest while they stand as people
+      const faced = look !== 'none' && (whoIs(i) !== null || peopleStand) && p.alpha > 0.01 && p.r > 0.05;
+      const named = !!whoIs(i) && view.paint[whoIs(i)!] > 0.5;
+      const colours = { stroke: costumeStroke(i), fill: costumeFill(i), fillOpacity: named ? 0.75 : 1 };
+      board.render(i, look !== 'none' && faced ? faces.paint(i, look, 'circle', p, equalR, reduced, now) : null, colours);
+    });
+    const roomFaced = look !== 'none' && view.roomOn > 0.01 && peopleStand;
+    view.room.forEach((spot, j) => {
+      const faced = roomFaced && j !== L.room.blue && j !== L.room.red && spot.alpha > 0.3 && !!roomStyles[j];
+      const slot = faces.roomSlot(j);
+      board.render(slot, faced ? faces.paint(slot, look, roomStyles[j].shape, spot, L.room.radius, reduced, now) : null, roomColours[j]);
+    });
+    const twins = look === 'none' ? null : mirrorBodies();
+    (['blue', 'red'] as const).forEach((who, k) => {
+      const slot = faces.mirrorSlot(who);
+      board.render(slot, twins && look !== 'none' ? faces.paint(slot, look, 'circle', twins[k], L.room.radius * matchBox.scale, reduced, now) : null, twinColours[k]);
+    });
+  }
+
+  /** The room's frame the faces last saw: each new frame's results are felt, so faces are a moving average of them. */
+  let runSeen: Float64Array | null = null;
+  let runFrame = -1;
+  let runSeeks = 0;
+  let runOf: Run | null = null;
+  /** Where the matched room's copies last stood in the right room's recording (−1: not yet seen), and its seeks then. */
+  let mirrorFrame = -1;
+  let mirrorSeeks = 0;
+  /** The copies of Blue and Red among the right room's shares; nobody else in it has a face. */
+  const mirrorSlots = $derived(Int32Array.from(L.room.positions, (_, j) => (j === L.room.blue ? faces.mirrorSlot('blue') : j === L.room.red ? faces.mirrorSlot('red') : -1)));
+
+  /**
+   * Results from the room on screen, felt by everyone in it (stageFaces
+   * `followFrames`: playback felt result by result, a seek rebuilt); the
+   * richest's contempt rising with their share.
+   */
+  function followRun(): void {
+    const field = faces.field;
+    field.contemptTo.fill(0);
+    if (!runShown) {
+      runSeen = null;
+      runOf = null;
+      mirrorFrame = -1;
+      return;
+    }
+    const st = shown.state;
+    const w = shown.wealth();
+    if (runSeen && runOf === shown && runSeen.length === w.length && (st.frame !== runFrame || st.seeks !== runSeeks)) {
+      const rec = shown.recording();
+      if (rec && rec.frames.length > Math.max(st.frame, runFrame)) faces.followFrames(roomSlots, rec.frames, runFrame, st.frame, st.seeks !== runSeeks);
+      // a live room ahead of its recording: what changed since the last look
+      else field.reactAll(roomSlots, runSeen, w);
+    }
+    if (runOf !== shown || st.frame !== runFrame || st.seeks !== runSeeks || !runSeen || runSeen.length !== w.length) {
+      runSeen = Float64Array.from(w);
+      runFrame = st.frame;
+      runSeeks = st.seeks;
+      runOf = shown;
+    }
+    // the richest looks down on everyone: from nothing to all of it as their share reaches the run's 40%
+    if (st.winner >= 0) field.contemptTo[slotOfRoom(st.winner)] = Math.min(1, st.share / 0.4);
+    // the matched room's copies follow their own room's recording the same way: first seen, or after a seek, as at that moment
+    const right = rightRun.recording();
+    const ms = rightRun.state;
+    if (view.mirrorOn > 0.01 && right && right.frames.length > ms.frame) {
+      if (mirrorFrame < 0 || mirrorFrame >= right.frames.length) faces.recallFrames(mirrorSlots, right.frames, ms.frame);
+      else if (ms.frame !== mirrorFrame || ms.seeks !== mirrorSeeks) faces.followFrames(mirrorSlots, right.frames, mirrorFrame, ms.frame, ms.seeks !== mirrorSeeks);
+      mirrorFrame = ms.frame;
+      mirrorSeeks = ms.seeks;
+    } else mirrorFrame = -1;
+  }
+
+  /** The room's faces as they would be at the moment on screen. */
+  function recallRun(): void {
+    const rec = shown.recording();
+    if (rec) faces.recallFrames(roomSlots, rec.frames, shown.state.frame);
+  }
+
+  /**
+   * Under reduced motion nothing on a face moves by itself, but the faces still
+   * follow what the stage shows (PR #21 review): a room scrubbed to another
+   * moment, a step's new sizes and looks, a new line, a resize — each settles
+   * them at once.
+   */
+  let stillKey = '';
+  function stillFaces(): void {
+    const rooms = runShown ? `${shown.state.revision}:${shown.state.frame}` : '-';
+    const mirrored = view.mirrorOn > 0.01 ? `${leftRun.state.revision}:${rightRun.state.revision}` : '-';
+    const key = `${current}|${rooms}|${mirrored}|${width}x${height}|${faceLook}|${lastTalk}|${hushed}`;
+    if (key === stillKey) return;
+    stillKey = key;
+    settleFaces();
+  }
+
+  let lastTick = 0;
+  /** One tick a frame, on the ambient clock: who looks where, feelings and rhythms, then the drawings. */
+  function tickFaces(now: number): void {
+    // the ambient clock can start before the stage knows the reader asked for no motion: ask every tick
+    if (stage?.reduced) {
+      stillFaces();
+      return;
+    }
+    const dt = Math.min(0.1, Math.max(0, now - lastTick));
+    lastTick = now;
+    if (talking && now >= talking.until) talking = null;
+    // the coin in the air holds them: the startle lasts the whole flight
+    if (cue.air) for (const i of [BIG, SMALL]) faces.field.startle(i, 0.8);
+    followRun();
+    if (faceLook !== 'none') {
+      faces.aim(faceScene(), now, dt);
+      faces.field.step(dt);
+    }
+    paintFaces(now);
+  }
+
+  /** A settled stage: everyone at rest, then what this step has just seen, all at once. */
+  function settleFaces(): void {
+    faces.rest();
+    const field = faces.field;
+    const pose = PAIR_STEPS[current].pose;
+    // a toss that has just played: its result shows until the next stakes
+    if (pose.place === 'seats' && (pose.flip === 'blue' || pose.flip === 'red') && pose.table.blue + pose.table.red === 0) {
+      let t = current;
+      while (t > 0 && PAIR_STEPS[t].action !== 'toss') t--;
+      if (t > 0) {
+        const before = PAIR_STEPS[t - 1].pose;
+        for (const who of PAIR) field.react(WHO[who], before.holdings[who] + before.table[who], PAIR_STEPS[t].pose.holdings[who]);
+      }
+    }
+    // the rain has fallen: what each one caught
+    if (pose.crowd === 'paid') CROWD_START.forEach((had, i) => field.react(i, had, RAINED[i]));
+    // a room on screen: its last few frames
+    runSeen = null;
+    runOf = null;
+    mirrorFrame = -1;
+    if (runShown) recallRun();
+    // the line on show, as it was said
+    const newest = said[said.length - 1];
+    if (newest?.at) for (const word of newest.feel ?? []) faces.feel(WHO[newest.at], word);
+    followRun();
+    // where everyone looks when settled; with no motion, the same whenever the page was opened
+    faces.aim(faceScene(), stage?.reduced ? 0 : seconds, 0);
+    field.settle();
+    paintFaces();
+  }
+
+  // a new look redraws every face at once, motion or not
+  $effect(() => {
+    void faceLook;
+    untrack(paintFaces);
+  });
+
+  /**
+   * How much of a face shows, 0 … 1, when faces drawn after it may sit on it: it fades as
+   * one comes near, so a huddle never wears two faces in one place (the rain's crowd).
+   * `faces` are in drawing order, each a centre and a face radius.
+   */
+  function unhidden(k: number, list: readonly { x: number; y: number; f: number }[]): number {
+    const a = list[k];
+    let shown = 1;
+    for (let j = k + 1; j < list.length; j++) {
+      const b = list[j];
+      if (b.f <= 0) continue;
+      // 1: their features just touch
+      const apart = Math.hypot(b.x - a.x, b.y - a.y) / (0.55 * (a.f + b.f));
+      shown = Math.min(shown, Math.max(0, Math.min(1, (apart - 0.7) / 0.5)));
+    }
+    return shown;
+  }
+  /** The eight in drawing order (Blue and Red last, on top), their faces, and how much of each shows. */
+  const peopleOrder = $derived([...view.people.keys()].filter((i) => !whoIs(i)).concat([BIG, SMALL]));
+  const personFaces = $derived(peopleOrder.map((i) => ({ x: view.people[i].x, y: view.people[i].y, f: view.people[i].alpha > 0.3 ? faceSize(view.people[i].r, equalR) : 0 })));
+  const personShown = $derived.by(() => {
+    const out = new Array<number>(CROWD).fill(1);
+    peopleOrder.forEach((i, k) => (out[i] = unhidden(k, personFaces)));
+    return out;
+  });
+  /** The richest in the room, when a run shows one and it is not Blue or Red: their face goes on top of everyone's. */
+  const roomWinner = $derived.by(() => {
+    if (!runShown) return -1;
+    const w = shown.state.winner;
+    return w >= 0 && w !== L.room.blue && w !== L.room.red ? w : -1;
+  });
+  /** The room's faces as drawn — largest first, then the richest's on top, then Blue and Red — and how much of each shows. */
+  const roomShown = $derived.by(() => {
+    const order = roomOrder.filter((i) => i !== roomWinner).concat(roomWinner >= 0 ? [roomWinner] : []);
+    const list = [
+      ...order.map((i) => {
+        const spot = view.room[i];
+        const own = i !== L.room.blue && i !== L.room.red && spot.alpha > 0.3;
+        return { x: spot.x, y: spot.y, f: own ? faceSize(spot.r, L.room.radius) : 0 };
+      }),
+      ...[BIG, SMALL].map((i) => ({ x: view.people[i].x, y: view.people[i].y, f: faceSize(view.people[i].r, equalR) })),
+    ];
+    const out = new Array<number>(view.room.length).fill(0);
+    order.forEach((i, k) => (out[i] = list[k].f > 0 ? unhidden(k, list) : 0));
+    return out;
+  });
+
+  /**
+   * Coins drawn inside person `i` of the eight, under their face: the
+   * fortunes at the seats, or the four's (Scenes 17 and 22).
+   */
+  function personCoins(i: number): { count: number; fit: number; opacity: number } | null {
+    const who = whoIs(i);
+    if (!who) return null;
+    const four = fourCoinsOf(who === 'blue' ? L.room.blue : L.room.red);
+    if (four !== null) return { count: four, fit: Math.max(view.people[i].r, L.coinRadius), opacity: 1 };
+    if (view.coinsOn <= 0.01) return null;
+    const count = view.held[who];
+    return { count, fit: Math.max(L.minRadius, L.radius(count)), opacity: view.coinsOn };
+  }
+
+  /** The coins one of the four holds, by their room seat, while their lesson shows; null otherwise. */
+  function fourCoinsOf(j: number): number | null {
+    const pose = PAIR_STEPS[current].pose;
+    if (pose.place !== 'room') return null;
+    const k = cast.four.indexOf(j);
+    if (k < 0) return null;
+    if (pose.roomMode === 'four') return fourCoins[k];
+    if (pose.roomMode === 'levy4' && !arranging) return levyView.coins[k];
+    return null;
+  }
+
+  /** The winner's picture in the paper: a very contemptuous face in the reader's look. */
+  function paperFace(shape: AgentShape) {
+    return faceLook === 'none' ? null : drawStill(faceLook, shape, 10, 10, stillOf(CONTEMPT));
+  }
+
   function costumeFill(i: number): string {
     const who = whoIs(i);
     if (!who) return CLASSIC_AGENT_FILL;
@@ -2405,28 +2979,39 @@
   }
 
   /** Squash and stretch about the bottom of a shape of radius `r`, where it meets the ground. */
-  function squash(r: number, sx: number, sy: number): string {
-    if (Math.abs(sx - 1) < 1e-3 && Math.abs(sy - 1) < 1e-3) return '';
+  function squash(r: number, q: number): string {
+    if (Math.abs(q) < 1e-3) return '';
+    const { sx, sy } = squashed(q);
     return `translate(0 ${r.toFixed(2)}) scale(${sx.toFixed(3)} ${sy.toFixed(3)}) translate(0 ${(-r).toFixed(2)})`;
   }
 
-  /** Breath for the pair, a hop and a jiggle for the crowd — ambient, on the inner group only. */
+  /**
+   * Breath for everyone, and now and then a little hop for the crowd standing
+   * about — ambient, on the inner group only. The faces carry the life now
+   * (owner, 2026-10-07: "not jump too much … just play with faces"): a hop is
+   * rare, a parabola under the stage's gravity, and the breath stretches a
+   * body without changing its area, because area is wealth.
+   */
   function life(i: number): string {
     if (stage?.reduced) return '';
     const b = breath(seconds, i);
-    const crowdPhase = PAIR_STEPS[current]?.pose.crowd;
     let hop = 0;
-    let tremble = 0;
-    if ((crowdPhase === 'idle' || crowdPhase === 'paid') && !timeline?.isActive()) {
-      // each at their own rhythm: now and then a little hop, and never quite still
-      const r = view.people[i].r;
-      const rate = 0.45 + noise(i, 30) * 0.7;
-      hop = Math.max(0, Math.sin(seconds * rate * Math.PI * 2 + noise(i, 31) * 6)) ** 14 * r * (0.5 + noise(i, 32) * 0.6);
-      tremble = Math.sin(seconds * (3 + noise(i, 33) * 4) + i) * 0.6 + Math.sin(seconds * (9 + noise(i, 34) * 5) + 2 * i) * 0.3;
+    if (atEase()) {
+      const h = 0.3 * view.people[i].r;
+      const flight = 2 * fallTime(h, G);
+      const every = 7 + noise(i, 30) * 6;
+      const t = (seconds + noise(i, 31) * every) % every;
+      if (t < flight) hop = Math.max(0, h - (G / 2) * (t - flight / 2) ** 2);
+      // a laugh shared with a partner: both hop once, a little
+      const laugh = faceLook === 'none' ? -1 : faces.laughing(i, seconds);
+      const lh = 0.18 * view.people[i].r;
+      const lf = 2 * fallTime(lh, G);
+      if (laugh >= 0 && laugh < lf) hop = Math.max(hop, lh - (G / 2) * (laugh - lf / 2) ** 2);
     }
     let shake = 0;
     if (wiggling && whoIs(i) === wiggling.who && seconds < wiggling.until) shake = Math.sin(seconds * 42) * 4;
-    return `translate(${(b.dx + shake + tremble).toFixed(2)} ${(b.dy - hop).toFixed(2)}) scale(${(b.scale * pop(i)).toFixed(4)})`;
+    const q = squashed(-(b.scale - 1) * 1.5);
+    return `translate(${(b.dx + shake).toFixed(2)} ${(b.dy - hop).toFixed(2)}) scale(${(q.sx * pop(i)).toFixed(4)} ${(q.sy * pop(i)).toFixed(4)})`;
   }
 
 
@@ -2434,19 +3019,24 @@
     const observer = new ResizeObserver(() => {
       width = host.clientWidth;
       height = host.clientHeight;
-      fitTitle();
+      measureTitle();
       // a resize re-lays everything out: draw the current step where it now belongs
       if (!timeline || !timeline.isActive()) draw(poseAt(current));
+      paintFaces();
     });
     width = host.clientWidth;
     height = host.clientHeight;
     observer.observe(host);
     stage?.attach(PAIR_STEPS, { play, settle, nudge, hurry, readingMs: readingTime });
-    fitTitle();
-    void document.fonts?.ready.then(fitTitle);
+    measureTitle();
+    void document.fonts?.ready.then(measureTitle);
     recallAnswers();
     loadTuning();
-    const stopAmbient = ambientClock((s) => (seconds = s), stage?.reduced ?? false);
+    loadFaceStyle();
+    const stopAmbient = ambientClock((s) => {
+      seconds = s;
+      tickFaces(s);
+    }, stage?.reduced ?? false);
     return () => {
       observer.disconnect();
       stopAmbient();
@@ -2536,13 +3126,23 @@
     {#if sb.tap === 'levy'}
       <div class="deck-dials one"><StopSlider label={say('sandbox_take')} bind:value={sb.take} stops={RATE_STOPS} format={stakeLabel} /></div>
     {/if}
+    <!-- every face on the stage, now and on the way back up (owner, 2026-10-07); one line, so the charts stay in view -->
+    <label class="deck-tap">
+      <span>{say('sandbox_faces')}</span>
+      <select value={faceLook} onchange={(e) => chooseFace(e.currentTarget.value as FaceChoice)}>
+        {#each FACE_CHOICES as choice (choice)}
+          <option value={choice}>{say(`sandbox_face_${choice}`)}</option>
+        {/each}
+      </select>
+    </label>
     {/if}
   </div>
 {/snippet}
 
 {#snippet stakeDial()}
-  <!-- the sandbox's own slider and stops: 0.1% to 99.99% (owner review 2026-09-26) -->
-  <div class="stake-dial">
+  <!-- the sandbox's own slider and stops: 0.1% to 99.99% (owner review 2026-09-26); a hand on it holds it in place -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="stake-dial" onpointerdown={() => (dialHeld = true)}>
     <StopSlider label={say('dial_name')} value={dialThumb} stops={RATE_STOPS} format={stakeLabel} onChange={nudgeDial} />
   </div>
 {/snippet}
@@ -2553,15 +3153,24 @@
   {/await}
 {/snippet}
 
+<svelte:window onpointerup={releaseDial} onpointercancel={releaseDial} />
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- while the reader's hand is in the live room, a click anywhere in it is a tap, never a step -->
-<div class="pair-scene" bind:this={host} onpointermove={dragMove} data-control={game.playing || PAIR_STEPS[current].pose.control === 'sandbox' ? '' : undefined}>
+<div
+  class="pair-scene"
+  bind:this={host}
+  onpointermove={(event) => {
+    dragMove(event);
+    trackPointer(event);
+  }}
+  data-control={game.playing || PAIR_STEPS[current].pose.control === 'sandbox' ? '' : undefined}>
   <!-- Once the stage is cleared (Scene 5) its words are gone, so their links
        must not stay in the tab order, invisible. -->
   <div class="words" style={`opacity:${view.titleOn}; transform: translateY(${view.lift}px)`} inert={view.titleOn < 0.5}>
     <div class="teletype-slot" style={`opacity:${1 - view.compact}`} inert={view.compact > 0.5}>
       <Teletype
-        headline={say('open_headline')}
+        headline={say(HEADLINE)}
         source={say('open_source')}
         href={SOURCE_URL}
         progress={view.type}
@@ -2572,21 +3181,26 @@
     <!-- In reading order: the common sense first, the question second. -->
     <h1
       class="title"
+      class:stacked={titleFit?.lines === 2}
       bind:this={titleEl}
       aria-label={say('open_title')}
-      style={`--title-max:${Number.isFinite(titleMax) ? `${titleMax.toFixed(1)}px` : '10rem'}; transform: translateY(${(-view.compact * height * 0.18).toFixed(1)}px) scale(${(1 - view.compact * (1 - COMPACT)).toFixed(3)})`}
+      style={`${titleFit ? `--title-size:${titleFit.size.toFixed(1)}px; ` : ''}transform: ${titleFit?.lines === 1 ? slideX(view.titleSlide) : ''}translateY(${(-view.compact * height * 0.18).toFixed(1)}px) scale(${(1 - view.compact * (1 - COMPACT)).toFixed(3)})`}
     >
       <span class="word merit" style={`opacity:${view.meritOn}`} aria-hidden="true">{say('open_title_merit')}</span>
       <span class="word or" style={`opacity:${view.orOn}`} aria-hidden="true">{say('open_title_or')}</span>
-      <span class="word math" bind:this={mathReel}>
+      <span
+        class="word math"
+        bind:this={mathReel}
+        style={titleFit?.lines === 2 && view.titleSlide ? `transform: ${slideX(view.titleSlide)}` : undefined}
+      >
         <Reel
           words={MATH_WORDS}
           answer={MATH_AT}
           position={view.mathPos}
           shown={view.mathOn}
-          onmeasure={(w) => {
-            widestWord = w;
-            fitTitle();
+          onmeasure={(widths) => {
+            reelWidths = widths;
+            measureTitle();
           }}
         /><span
           class="mark"
@@ -2608,9 +3222,10 @@
           {#each roomOrder as i (i)}
             {@const spot = view.room[i]}
             {#if i !== L.room.blue && i !== L.room.red && spot.alpha > 0.01 && roomStyles[i]}
+              {@const four = fourCoinsOf(i)}
               <path
                 d={svgShapePath(roomStyles[i].shape, Math.max(0.6, spot.r))}
-                transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.sx, spot.sy)}`}
+                transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.q)}`}
                 fill={spot.empty > 0.5 ? 'none' : roomStyles[i].fill}
                 stroke={roomStyles[i].stroke}
                 stroke-dasharray={spot.empty > 0.5 ? '2.5 2.5' : undefined}
@@ -2618,8 +3233,30 @@
                 stroke-width="1.3"
                 opacity={spot.alpha}
               />
+              {#if four}
+                <!-- one of the four: their coins inside them, under a wash, as at the seats (owner, 2026-10-07) -->
+                <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)})`}>
+                  {#each pile(four, L.coinRadius, Math.max(spot.r, L.coinRadius)) as c, j (j)}
+                    <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
+                  {/each}
+                  {#if faceLook !== 'none' && peopleStand}<path d={svgShapePath(roomStyles[i].shape, Math.max(0.6, spot.r))} fill={roomStyles[i].fill} fill-opacity="0.5" />{/if}
+                </g>
+              {/if}
+              <!-- mounted while faces show, faded by opacity: a face that comes and goes costs no new nodes -->
+              {#if faceLook !== 'none' && peopleStand && i !== roomWinner}
+                <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.q)}`} opacity={spot.alpha * roomShown[i]}>
+                  <g class="face" data-slot={faces.roomSlot(i)} use:mountFace={faces.roomSlot(i)}></g>
+                </g>
+              {/if}
             {/if}
           {/each}
+          {#if roomWinner >= 0 && faceLook !== 'none' && peopleStand}
+            <!-- the richest's face over everyone's: what the run made them is the news (owner, 2026-10-07) -->
+            {@const spot = view.room[roomWinner]}
+            <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.q)}`} opacity={spot.alpha * roomShown[roomWinner]}>
+              <g class="face" data-slot={faces.roomSlot(roomWinner)} use:mountFace={faces.roomSlot(roomWinner)}></g>
+            </g>
+          {/if}
         </g>
       {/if}
 
@@ -2651,6 +3288,9 @@
               fill-opacity="0.75"
               stroke-width={i === L.room.blue || i === L.room.red ? 2.2 : 1.1}
             />
+            {#if (i === L.room.blue || i === L.room.red) && faceLook !== 'none'}
+              <g transform={`translate(${at.x.toFixed(1)} ${at.y.toFixed(1)})`} class="face" data-mirror={i === L.room.blue ? 'blue' : 'red'} use:mountFace={faces.mirrorSlot(i === L.room.blue ? 'blue' : 'red')}></g>
+            {/if}
           {/each}
         </g>
         <g class="match-labels" opacity={view.mirrorShift}>
@@ -2670,7 +3310,7 @@
 
       {#if PAIR_STEPS[current].pose.roomMode === 'map' && view.mapOn > 0.001}
         {@const m = mapBox}
-        <g class="map" role="img" aria-label={say('map_all')}>
+        <g class="map" role="img" aria-label={say(MAP_LABEL)}>
           {#each MAP_PARTICIPANTS as row, iy (iy)}
             {#each row as count, ix (ix)}
               {#if view.mapOn >= MAP_ORDER[iy][ix]}
@@ -2711,11 +3351,17 @@
         <circle class="eater" cx={eater.x} cy={eater.y} r={eater.r} />
       {/if}
 
-      {#each view.people as person, i (i)}
+      {#each peopleOrder as i (i)}
+        {@const person = view.people[i]}
         {#if person.alpha > 0.01 && person.r > 0.05}
+          {@const coins = personCoins(i)}
           <g transform={`translate(${person.x.toFixed(2)} ${person.y.toFixed(2)})`} opacity={person.alpha}>
-            <g transform={squash(person.r, person.sx, person.sy)}>
+            <g transform={squash(person.r, person.q)}>
             <g transform={life(i)}>
+              {#if whoIs(i) && person.empty <= 0.5}
+                <!-- the two who stay are a little less see-through, and on top of everyone (owner, 2026-10-07) -->
+                <circle r={person.r} fill={GROUND} fill-opacity="0.6" />
+              {/if}
               <circle
                 r={person.r}
                 fill={person.empty > 0.5 ? 'none' : costumeFill(i)}
@@ -2725,14 +3371,19 @@
                 stroke-width={strokeWidth(i)}
                 vector-effect="non-scaling-stroke"
               />
-              {#if whoIs(i) && view.coinsOn > 0.01}
-                {@const count = view.held[whoIs(i)!]}
-                <g opacity={view.coinsOn}>
-                  {#each pile(count, L.coinRadius, Math.max(L.minRadius, L.radius(count))) as spot, k (k)}
+              {#if coins && coins.count > 0}
+                <g opacity={coins.opacity}>
+                  {#each pile(coins.count, L.coinRadius, coins.fit) as spot, k (k)}
                     <Coin cx={spot.x} cy={spot.y} r={L.coinRadius} face={k % 2 ? 'back' : 'front'} />
                   {/each}
                 </g>
               {/if}
+              {#if coins && coins.count > 0 && faceLook !== 'none'}
+                <!-- the coins lie under the skin: a wash of the body's own colour, so the face reads on top -->
+                <circle r={person.r} fill={costumeFill(i)} fill-opacity={0.5 * coins.opacity} />
+              {/if}
+              <!-- the face: drawn by the frame's tick (stageFaces.ts), not by a component -->
+              <g class="face" opacity={personShown[i]} use:mountFace={i}></g>
             </g>
             </g>
           </g>
@@ -2860,9 +3511,6 @@
             {@const v = agentView(agent)}
             <g transform={`translate(${v.x.toFixed(1)} ${v.y.toFixed(1)})`}>
               {#if fourPick === k}<circle class="pick" r={v.r + 7} />{/if}
-              {#each pile(fourCoins[k], L.coinRadius, Math.max(v.r, L.coinRadius)) as c, j (j)}
-                <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
-              {/each}
             </g>
           {/each}
         {/if}
@@ -2878,9 +3526,6 @@
           {#each cast.four as agent, k (agent)}
             {@const v = agentView(agent)}
             <g transform={`translate(${v.x.toFixed(1)} ${v.y.toFixed(1)})`}>
-              {#each pile(levyView.coins[k], L.coinRadius, Math.max(v.r, L.coinRadius)) as c, j (j)}
-                <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
-              {/each}
               <text class="coin-count" y={Math.max(v.r, L.coinRadius) + 18} text-anchor="middle">{formatNumber(levyView.coins[k])}</text>
             </g>
           {/each}
@@ -2945,10 +3590,10 @@
 
     {#if !L.column && PAIR_STEPS[current].pose.control === 'sandbox'}
       <div class="dial phone deck-phone">{@render sandboxDeck(true)}</div>
-    {:else if !L.column && runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run') && !inPicture && PAIR_STEPS[current].pose.place === 'room'}
+    {:else if !L.column && !inPicture && PAIR_STEPS[current].pose.place === 'room' && (dialHere || (runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run')))}
       <div class="dial phone">
-        {@render player([shown])}
-        {#if PAIR_STEPS[current].pose.source === 'dial' && PAIR_STEPS[current].pose.control !== 'stake'}{@render stakeDial()}{/if}
+        {#if runShown && shown.state.done && shown.state.frames > 1}{@render player([shown])}{/if}
+        {#if dialHere}{@render stakeDial()}{/if}
       </div>
     {/if}
 
@@ -2987,7 +3632,7 @@
       {/each}
     {/if}
 
-    {#if !L.column && runShown && current <= indexOf('why.once')}
+    {#if !L.column && runShown && current <= actEnd('run')}
       <p class="readout" aria-live="off">
         {say('run_readout', {
           trades: formatNumber(run.state.trades),
@@ -3037,7 +3682,7 @@
     {/each}
 
     <!-- while the game plays, the talk steps back and lets taps through to the room -->
-    <div class="bubbles" class:through={game.playing} aria-live="polite">
+    <div class="bubbles" class:through={game.playing} class:hushed aria-live="polite">
       {#each said as bubble, i (bubble.id)}
         {@const place = placed[i]}
         {#if place}
@@ -3054,7 +3699,7 @@
             paper={bubble.paper}
             hidden={bubble.kind === 'paper' && bigPaper !== null}
             aside={bubble.aside ?? false}
-            maxWidth={bubbleWidth}
+            maxWidth={span && !bubble.aside && bubble.at ? Math.min(bubbleWidth, span.right - span.left) : bubbleWidth}
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
             choices={bubble.choices}
@@ -3068,11 +3713,13 @@
     </div>
 
     {#if bigPaper}
+      {@const portrait = paperFace(bigPaper.style.shape)}
       <article class="big-paper" bind:this={bigEl} aria-hidden="true">
         <p class="big-masthead">{bigPaper.masthead}</p>
         <div class="big-spread">
           <svg class="big-photo" viewBox="-14 -14 28 28">
             <path d={svgShapePath(bigPaper.style.shape, 10)} fill={bigPaper.style.fill} stroke={bigPaper.style.stroke} stroke-width="1.4" />
+            {#if portrait}<AgentFace drawing={portrait} fill={bigPaper.style.fill} stroke={bigPaper.style.stroke} uid="face-paper" />{/if}
           </svg>
           <div>
             <p class="big-headline">{bigPaper.text}</p>
@@ -3117,7 +3764,7 @@
             {#if shown.state.done && shown.state.frames > 1}
               <div class="dial">{@render player([shown])}</div>
             {/if}
-            {#if pose.source === 'dial' && pose.control !== 'stake'}{@render stakeDial()}{/if}
+            {#if dialHere}{@render stakeDial()}{/if}
           </section>
         {/if}
         {#if !APART.includes(pose.roomMode) && pose.thumbs.length > 0}
@@ -3209,10 +3856,12 @@
     display: flex;
     justify-content: center;
     align-items: baseline;
-    gap: clamp(0.4rem, 1.4vw, 1.4rem);
+    /* em, so the words keep their places at every size (TITLE_GAP); no gap between two lines */
+    gap: 0 0.16em;
     margin: 0;
     font-family: var(--font-serif);
-    font-size: min(clamp(2.4rem, min(11.5vw, 19svh), 10rem), var(--title-max, 10rem));
+    /* the scene sizes it (titleFit); this only until its words are measured */
+    font-size: var(--title-size, clamp(2.4rem, min(11.5vw, 19svh), 10rem));
     font-weight: 750;
     letter-spacing: -0.035em;
     line-height: 1.2;
@@ -3224,6 +3873,16 @@
   .word.or {
     color: var(--accent);
     font-weight: 600;
+  }
+
+  /* MERIT OR over MATH, on a narrow stage */
+  .title.stacked {
+    flex-wrap: wrap;
+  }
+
+  .title.stacked .word.math {
+    flex-basis: 100%;
+    text-align: center;
   }
 
   .credit {
@@ -3408,7 +4067,8 @@
   }
 
   .deck-buttons button,
-  .deck-tap button {
+  .deck-tap button,
+  .deck-tap select {
     padding: 0.3rem 0.8rem;
     border: 1px solid var(--line);
     border-radius: 999px;
@@ -3795,6 +4455,16 @@
     position: absolute;
     inset: 0;
     z-index: 4;
+    pointer-events: none;
+    transition: opacity 400ms ease;
+  }
+
+  .bubbles.hushed {
+    opacity: 0;
+    transition: opacity 500ms ease;
+  }
+
+  .bubbles.hushed :global(.bubble) {
     pointer-events: none;
   }
 

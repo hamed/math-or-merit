@@ -1,0 +1,33 @@
+# Builds the script's PDFs (ADR-019). Separate from deploy: a broken script
+# fails here, never the site. Lint runs inside the build, so a script that
+# breaks the grammar makes no PDF.
+name: Script PDF
+
+on:
+  push:
+    paths: ['script/**', 'src/lib/script/**', 'scripts/script*.ts', '.github/workflows/script-pdf.yml']
+  pull_request:
+    paths: ['script/**', 'src/lib/script/**', 'scripts/script*.ts', '.github/workflows/script-pdf.yml']
+  workflow_dispatch:
+
+jobs:
+  pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends latexmk texlive-luatex texlive-latex-extra \
+            texlive-lang-arabic fonts-noto-core fonts-dejavu
+
+      - run: npm run script:pdf
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: script-pdf
+          path: script/out/*.pdf

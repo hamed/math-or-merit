@@ -18,6 +18,10 @@
   import { bubbleLines, comicOutline, shoutSegments, type BubbleChoice, type Tail } from './bubbles';
   import { PROTAGONISTS, SPEAKER_TONES, type AgentStyle } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
+  import AgentFace from '../shared/face/AgentFace.svelte';
+  import { drawStill } from '../shared/face/draw';
+  import { faceStyle } from '../shared/face/faceStyle.svelte';
+  import { CONTEMPT, stillOf } from '../shared/face/moments';
   import type { Speaker } from './steps';
 
   interface Props {
@@ -40,6 +44,8 @@
     coin?: Speaker;
     /** The widest it may grow, px: a bubble never spans its whole column. */
     maxWidth?: number;
+    /** Which way its lines lean: toward the speaker in the talk, toward his circle in an aside. */
+    align?: 'left' | 'right' | null;
     /** How many lines are showing; the rest keep their space, unseen. */
     shown?: number;
     /** Scrolled out of the top of a full panel. */
@@ -75,6 +81,7 @@
     coin,
     paper,
     maxWidth = 368,
+    align = null,
     shown = Infinity,
     gone = false,
     onsize,
@@ -122,7 +129,7 @@
   class:gone
   class:still={reduced}
   data-speaker={speaker ?? 'none'}
-  style={`left:${x}px; top:${y}px; max-inline-size:${maxWidth}px; --ink:${tone.ink}; visibility:${w > 0 && !hidden ? 'visible' : 'hidden'}`}
+  style={`left:${x}px; top:${y}px; max-inline-size:${maxWidth}px; --ink:${tone.ink}; visibility:${w > 0 && !hidden ? 'visible' : 'hidden'}${align ? `; text-align:${align}` : ''}`}
   bind:clientWidth={w}
   bind:clientHeight={h}
   onpointerenter={() => onrest?.(true)}
@@ -143,11 +150,14 @@
     </svg>
   {/if}
   {#if paper}
+    <!-- the winner, as the paper prints them: very contemptuous (owner, 2026-10-07) -->
+    {@const portrait = faceStyle.look === 'none' ? null : drawStill(faceStyle.look, paper.style.shape, 10, 10, stillOf(CONTEMPT))}
     <article class="page" aria-label={`${paper.masthead}: ${paper.text}`}>
       <p class="masthead">{paper.masthead}</p>
       <div class="spread">
         <svg class="photo" viewBox="-14 -14 28 28" aria-hidden="true">
           <path d={svgShapePath(paper.style.shape, 10)} fill={paper.style.fill} stroke={paper.style.stroke} stroke-width="1.6" />
+          {#if portrait}<AgentFace drawing={portrait} fill={paper.style.fill} stroke={paper.style.stroke} uid={`face-paper-${id}`} />{/if}
         </svg>
         <div>
           <p class="headline">{paper.text}</p>

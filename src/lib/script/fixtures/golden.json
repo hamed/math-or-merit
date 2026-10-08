@@ -1,0 +1,509 @@
+[
+  {
+    "file": "golden.tex",
+    "mode": "timeline",
+    "items": [
+      {
+        "kind": "comment",
+        "text": "% The brief's golden sample (§9), in grammar v0.1: \\params{blue=4, red=12}",
+        "line": 1
+      },
+      {
+        "kind": "comment",
+        "text": "% became \\expect, because it checks the state rather than setting it.",
+        "line": 2
+      },
+      {
+        "kind": "comment",
+        "text": "% Every act is made of scenes, so the cow act gained its scene heading (v0.1).",
+        "line": 3
+      },
+      {
+        "kind": "structure",
+        "level": "section",
+        "star": false,
+        "short": "Rounds",
+        "title": "The game",
+        "label": "game",
+        "line": 4
+      },
+      {
+        "kind": "structure",
+        "level": "subsection",
+        "star": false,
+        "title": "Round two",
+        "label": "round2",
+        "line": 6
+      },
+      {
+        "kind": "actions",
+        "body": [
+          {
+            "k": "cue",
+            "action": {
+              "name": "expect",
+              "args": [
+                "blue=4, red=12"
+              ],
+              "line": 7
+            }
+          }
+        ],
+        "line": 7
+      },
+      {
+        "kind": "bubble",
+        "id": "round2.1",
+        "speaker": "blue",
+        "name": "Blue",
+        "manner": [],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Wait!"
+              }
+            ],
+            "line": 9
+          },
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "I have 4. I can't put in as much as you."
+              }
+            ],
+            "line": 10
+          }
+        ],
+        "line": 9
+      },
+      {
+        "kind": "bubble",
+        "id": "round2.2",
+        "speaker": "red",
+        "name": "Red",
+        "manner": [],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Put in half of what you have."
+              }
+            ],
+            "line": 12
+          }
+        ],
+        "line": 12
+      },
+      {
+        "kind": "bubble",
+        "id": "round2.3",
+        "speaker": "blue",
+        "name": "Blue",
+        "manner": [],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Only 2?"
+              }
+            ],
+            "line": 14
+          }
+        ],
+        "line": 14
+      },
+      {
+        "kind": "bubble",
+        "id": "round2.4",
+        "speaker": "red",
+        "name": "Red",
+        "manner": [],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Yes. And I'll match that."
+              }
+            ],
+            "line": 16
+          }
+        ],
+        "line": 16
+      },
+      {
+        "kind": "actions",
+        "body": [
+          {
+            "k": "cue",
+            "action": {
+              "name": "stake",
+              "args": [
+                "2"
+              ],
+              "line": 18
+            }
+          }
+        ],
+        "line": 18
+      },
+      {
+        "kind": "bubble",
+        "id": "round2.5",
+        "speaker": "blue",
+        "name": "Blue",
+        "manner": [],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "So we always put in half"
+              }
+            ],
+            "line": 20
+          },
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "of what the poorer one has."
+              }
+            ],
+            "line": 21
+          }
+        ],
+        "line": 20
+      },
+      {
+        "kind": "bubble",
+        "id": "round2.6",
+        "speaker": "red",
+        "name": "Red",
+        "manner": [],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Yes. That way everybody can keep playing."
+              }
+            ],
+            "line": 23
+          },
+          {
+            "k": "attach",
+            "nodes": [
+              {
+                "t": "cmd",
+                "name": "marginpar",
+                "args": [
+                  [
+                    {
+                      "t": "text",
+                      "v": "The stake is half of the poorer fortune, every round."
+                    }
+                  ]
+                ]
+              }
+            ],
+            "line": 24
+          }
+        ],
+        "line": 23
+      },
+      {
+        "kind": "actions",
+        "body": [
+          {
+            "k": "cue",
+            "action": {
+              "name": "card",
+              "args": [
+                "rule"
+              ],
+              "line": 26
+            }
+          }
+        ],
+        "line": 26
+      },
+      {
+        "kind": "bubble",
+        "id": "round2.7",
+        "speaker": "blue",
+        "name": "Blue",
+        "manner": [
+          "flow"
+        ],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Smart."
+              }
+            ],
+            "line": 28
+          },
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Okay, let's go."
+              }
+            ],
+            "line": 29
+          },
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "I'll win it back."
+              }
+            ],
+            "line": 30
+          }
+        ],
+        "line": 28
+      },
+      {
+        "kind": "actions",
+        "body": [
+          {
+            "k": "cue",
+            "action": {
+              "name": "flip",
+              "args": [
+                "blue"
+              ],
+              "line": 32
+            }
+          }
+        ],
+        "line": 32
+      },
+      {
+        "kind": "bubble",
+        "id": "round2.8",
+        "speaker": "blue",
+        "name": "Blue",
+        "manner": [
+          "flow"
+        ],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Told you."
+              }
+            ],
+            "line": 34
+          }
+        ],
+        "line": 34
+      },
+      {
+        "kind": "structure",
+        "level": "subsection",
+        "star": false,
+        "title": "The offer",
+        "label": "offer",
+        "line": 36
+      },
+      {
+        "kind": "bubble",
+        "id": "offer.1",
+        "speaker": "blue",
+        "name": "Blue",
+        "manner": [],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Real life is"
+              }
+            ],
+            "line": 38
+          },
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "much more complicated than this."
+              }
+            ],
+            "line": 39
+          }
+        ],
+        "line": 38
+      },
+      {
+        "kind": "bubble",
+        "id": "offer.2",
+        "speaker": "red",
+        "name": "Red",
+        "manner": [],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Of course it is."
+              }
+            ],
+            "line": 41
+          },
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Want to hear a joke?"
+              }
+            ],
+            "line": 42
+          }
+        ],
+        "line": 41
+      },
+      {
+        "kind": "actions",
+        "body": [
+          {
+            "k": "cue",
+            "action": {
+              "name": "choice",
+              "args": [
+                "Yes",
+                "cow"
+              ],
+              "line": 44
+            }
+          },
+          {
+            "k": "cue",
+            "action": {
+              "name": "choice",
+              "args": [
+                "Not now",
+                "guess"
+              ],
+              "line": 45
+            }
+          }
+        ],
+        "line": 44
+      },
+      {
+        "kind": "structure",
+        "level": "subsection",
+        "star": false,
+        "title": "Your guess",
+        "label": "guess",
+        "line": 47
+      },
+      {
+        "kind": "structure",
+        "level": "section",
+        "star": false,
+        "title": "The cow",
+        "label": "act:cow",
+        "line": 49
+      },
+      {
+        "kind": "structure",
+        "level": "subsection",
+        "star": false,
+        "title": "The cow",
+        "label": "cow",
+        "line": 51
+      },
+      {
+        "kind": "bubble",
+        "id": "cow.1",
+        "speaker": "author",
+        "name": "Author",
+        "manner": [],
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Once upon a time."
+              }
+            ],
+            "line": 53
+          }
+        ],
+        "line": 53
+      },
+      {
+        "kind": "actions",
+        "body": [
+          {
+            "k": "cue",
+            "action": {
+              "name": "return",
+              "args": [],
+              "line": 55
+            }
+          }
+        ],
+        "line": 55
+      }
+    ]
+  },
+  {
+    "file": "cards/rule.tex",
+    "mode": "unit",
+    "items": [
+      {
+        "kind": "structure",
+        "level": "section",
+        "star": false,
+        "title": "The rule",
+        "line": 1
+      },
+      {
+        "kind": "words",
+        "body": [
+          {
+            "k": "text",
+            "nodes": [
+              {
+                "t": "text",
+                "v": "Pick two people at random."
+              }
+            ],
+            "line": 3
+          }
+        ],
+        "line": 3
+      }
+    ]
+  }
+]

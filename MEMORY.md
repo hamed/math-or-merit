@@ -134,10 +134,11 @@ leave them while the draft is under review.
 ## 2026-09-24 — the essay is a dialogue
 
 - **Direction (D19):** two characters, Blue and Red, argue; the reader decides.
-  The narrator is retired. Only lines marked ★ in `notes/prose.md` are the
-  owner's approved wording; every other line is marked `(draft)` and is not his
-  voice — don't polish drafts, don't treat existing essay text as his.
-- **Words first, still.** `prose.md` leads; code follows it. Narrator lines are
+  The narrator is retired. In `script/*.tex` (ADR-019; `notes/prose.md` before
+  2026-09-27), a line without `\todo{draft}` is the owner's approved wording;
+  every `\todo{draft}` line is not his voice — don't polish drafts, don't treat
+  existing essay text as his.
+- **Words first, still.** The script (`script/`) leads; code follows it. Narrator lines are
   not deleted until the scene replacing them ships — they wait, word for word,
   in its "Retiring" appendix so he can claim any he wrote.
 - **A keep-true claim outlives its wording.** Deleting a card must never delete

@@ -52,7 +52,8 @@ describe('a recorded run', () => {
 });
 
 describe('the shared rule and the longer run', () => {
-  const plain = { ...DEFAULT_RUN, stop: { kind: 'trades' as const, trades: 20_000 } };
+  // long enough at the essay's stake for the room to concentrate (a tenth concentrates ~6× slower than a quarter)
+  const plain = { ...DEFAULT_RUN, stop: { kind: 'trades' as const, trades: 150_000 }, cap: 150_000 };
 
   it('keeps every coin with the levy too: collected, pooled, returned in full', () => {
     const levied = record({ ...plain, levy: 0.03 }, 9);
@@ -77,9 +78,9 @@ describe('the shared rule and the longer run', () => {
 
   it('plays a room on without touching what already happened', () => {
     const first = record(DEFAULT_RUN, 3);
-    const longer = extend(first, { ...DEFAULT_RUN, stop: { kind: 'trades', trades: 30_000 } }, 4);
+    const longer = extend(first, { ...DEFAULT_RUN, stop: { kind: 'trades', trades: 600_000 } }, 4);
     expect(longer.frames.slice(0, first.frames.length)).toEqual(first.frames);
-    expect(longer.trades.at(-1)).toBe(first.trades.at(-1)! + 30_000);
+    expect(longer.trades.at(-1)).toBe(first.trades.at(-1)! + 600_000);
     expect(richest(longer.frames.at(-1)!).share).toBeGreaterThan(richest(first.frames.at(-1)!).share);
   });
 

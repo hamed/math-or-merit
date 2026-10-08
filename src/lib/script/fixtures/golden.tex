@@ -1,0 +1,55 @@
+% The brief's golden sample (§9), in grammar v0.1: \params{blue=4, red=12}
+% became \expect, because it checks the state rather than setting it.
+% Every act is made of scenes, so the cow act gained its scene heading (v0.1).
+\section[Rounds]{The game}\label{game}
+
+\subsection{Round two}\label{round2}
+\expect{blue=4, red=12}
+
+Blue: Wait!
+I have 4. I can't put in as much as you.
+
+Red: Put in half of what you have.
+
+Blue: Only 2?
+
+Red: Yes. And I'll match that.
+
+\stake{2}
+
+Blue: So we always put in half
+of what the poorer one has.
+
+Red: Yes. That way everybody can keep playing.
+\marginpar{The stake is half of the poorer fortune, every round.}
+
+\card{rule}
+
+Blue (flow): Smart.
+Okay, let's go.
+I'll win it back.
+
+\flip{blue}
+
+Blue (flow): Told you.
+
+\subsection{The offer}\label{offer}
+
+Blue: Real life is
+much more complicated than this.
+
+Red: Of course it is.
+Want to hear a joke?
+
+\choice{Yes}{cow}
+\choice{Not now}{guess}
+
+\subsection{Your guess}\label{guess}
+
+\section{The cow}\label{act:cow}
+
+\subsection{The cow}\label{cow}
+
+Author: Once upon a time.
+
+\return
