@@ -10,7 +10,6 @@ import type { StoryChoice } from '../script/compile';
 
 /** Where each of a side trip's captions (the author's lines, in order) falls, by beat of its scene. */
 export const CAPTION_BEATS: Readonly<Record<string, readonly number[]>> = {
-  cow: [0, 2, 7, 8, 10],
   human: [1],
 };
 

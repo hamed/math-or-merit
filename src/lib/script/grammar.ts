@@ -46,6 +46,8 @@ const STORY: Record<string, ActionSpec> = {
   match: { kind: 'authored', args: 0 },
   /** n rounds, each two from the room stepping out to play the coin, then back (Scene 10). */
   pairs: { kind: 'authored', args: 1 },
+  /** A picture posted with the bubble, by name (the stage's pictures): the joke's plates. */
+  picture: { kind: 'authored', args: 1 },
   pin: { kind: 'authored', args: 1 },
   /** A widget inside a unit — a card's toy — opened on request. */
   toy: { kind: 'authored', args: 1 },

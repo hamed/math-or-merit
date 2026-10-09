@@ -10,6 +10,7 @@ import { parseScript } from '../../../../script/parse';
 import { lint } from '../../../../script/lint';
 import { readingMs } from '../../steps';
 import { ROUND_SECONDS } from './roomRounds';
+import { PICTURES } from '../cast/pictures';
 import { STORY } from '../../../../content/story.gen';
 import { CAPTION_BEATS, sideTrip } from '../../../../content/story';
 
@@ -186,8 +187,20 @@ describe('the title’s reel', () => {
 });
 
 describe('what the scene promises, whatever the words', () => {
-  it('holds only where the scene knows how to let go: meeting both, 8 and 8, a guess, a bet', () => {
-    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'guess.what', 'guess.stake']);
+  it('holds only where the scene knows how to let go: meeting both, 8 and 8, the joke offered, a guess, a bet', () => {
+    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake']);
+  });
+
+  it('tells the joke in the talk, every picture a real one, and offers the spherical human at its end', () => {
+    const offer = indexOf('more.joke');
+    const end = indexOf('joke.human');
+    expect(offer).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(offer);
+    const posted = PAIR_STEPS.slice(offer + 1, end).flatMap((s) => s.pictures ?? []);
+    expect(posted.length).toBeGreaterThan(0);
+    for (const name of PAIR_STEPS.flatMap((s) => s.pictures ?? [])) expect(Object.keys(PICTURES), name).toContain(name);
+    expect(REACTIONS.joke).toHaveLength(2);
+    expect(REACTIONS.human).toHaveLength(2);
   });
 
   it('offers both calls at once, and has an introduction for each click', () => {

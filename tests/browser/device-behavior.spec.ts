@@ -4,7 +4,7 @@ import { loadDeferred } from './helpers';
 /*
  * The essay as it reads since iteration 2 (2026-09-27): one step stage from the
  * title to the reader's own machine (ADR-017, ADR-018), three optional side
- * trips (the cow, the person who becomes a circle, and "All the dials" — the
+ * trips (the person who becomes a circle, and "All the dials" — the
  * whole old sandbox). The suite that tested the old scrolling widgets was
  * retired with them; the sandbox's own checks stay, entered through its side
  * trip.
@@ -12,7 +12,7 @@ import { loadDeferred } from './helpers';
 
 const STAGE_KEY = 'merit-or-math:stage:pair:v1';
 /** The stage's holds, released so a test can land anywhere past them. */
-const HOLDS = ['meet', 'equal', 'guess.what', 'guess.stake'];
+const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake'];
 
 const stage = (page: Page) => page.locator('.step-stage');
 const stepNow = async (page: Page) => Number(await stage(page).getAttribute('data-step'));
@@ -248,6 +248,20 @@ test('any card in the deck can be picked, not only the top one', async ({ page }
   await expect(page.locator('.cards .card h2')).toHaveText(title);
 });
 
+test('the joke is told in the talk, pictures and all, or skipped', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const ids = await openAt(page, 'more.joke', ['more.joke']);
+  const choices = page.locator('.bubble .choice');
+  // "Not now": past the joke, to what follows it
+  await choices.nth(1).click();
+  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('joke.human') + 1);
+  // "Yes": the joke, its plates posted in the talk
+  await openAt(page, 'more.joke', ['more.joke']);
+  await page.locator('.bubble .choice').first().click();
+  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('more.joke') + 1);
+  await expect(page.locator('.bubble .pictures img').first()).toBeVisible();
+});
+
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');
@@ -312,24 +326,26 @@ test('illustrated side trips load nothing until the reader takes them', async ({
   page.on('response', (response) => responses.push(response.url()));
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(800);
-  for (const part of ['CowCastScene.svelte', '/cast/', 'PersonTradeScene.svelte', '/person/', '/sandbox/Sandbox.svelte']) {
+  for (const part of ['PersonTradeScene.svelte', '/person/', '/sandbox/Sandbox.svelte']) {
     expect(responses.some((url) => url.includes(part)), part).toBe(false);
   }
-  await openSideTrip(page, 'cow');
-  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
+  // the joke's plates are pictures in the talk now: none is fetched before the joke is told
+  expect(responses.some((url) => url.includes('/cast/') && /\.webp(\?(?!import)|$)/.test(url)), 'a plate').toBe(false);
+  await openSideTrip(page, 'human');
+  await loadDeferred(page, 'the spherical human', page.locator('[data-branch="human"] .pin-scene'));
   await scrollSettled(page);
-  await expect.poll(() => responses.some((url) => url.includes('CowCastScene.svelte'))).toBe(true);
+  await expect.poll(() => responses.some((url) => url.includes('PersonTradeScene.svelte'))).toBe(true);
 });
 
-test('the cow side trip releases the reader past both of its boundaries', async ({ page }) => {
+test('a side trip releases the reader past both of its boundaries', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await openSideTrip(page, 'cow');
-  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
+  await openSideTrip(page, 'human');
+  await loadDeferred(page, 'the spherical human', page.locator('[data-branch="human"] .pin-scene'));
   await scrollSettled(page);
 
-  const scene = page.locator('.pin-scene').first();
+  const scene = page.locator('[data-branch="human"] .pin-scene').first();
   const spacer = scene.locator('..');
   await expect(spacer).toHaveClass(/pin-spacer/);
   const bounds = await spacer.evaluate((el) => {
@@ -349,14 +365,14 @@ test('the cow side trip releases the reader past both of its boundaries', async 
   expect(await page.evaluate(() => scrollY)).toBeLessThan(bounds.start);
 });
 
-test('scrolling after the cow’s final action brings its closing lines onscreen', async ({ page }) => {
+test('scrolling after a side trip’s final action brings its closing choices onscreen', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await openSideTrip(page, 'cow');
-  await loadDeferred(page, 'cow scene', page.locator('.cast-stage'));
+  await openSideTrip(page, 'human');
+  await loadDeferred(page, 'the spherical human', page.locator('[data-branch="human"] .pin-scene'));
   await scrollSettled(page);
-  const spacer = page.locator('.pin-scene').first().locator('..');
+  const spacer = page.locator('[data-branch="human"] .pin-scene').first().locator('..');
   await expect(spacer).toHaveClass(/pin-spacer/);
   const end = await spacer.evaluate((el) => {
     const box = el.getBoundingClientRect();
@@ -369,8 +385,8 @@ test('scrolling after the cow’s final action brings its closing lines onscreen
   }
   await page.waitForTimeout(700);
   expect(await page.evaluate(() => scrollY)).toBeGreaterThan(end);
-  const lineTop = await page.locator('[data-branch="cow"] .said').first().evaluate((el) => el.getBoundingClientRect().top);
-  expect(lineTop).toBeLessThan(900);
+  const choicesTop = await page.locator('[data-branch="human"] .choice-row').first().evaluate((el) => el.getBoundingClientRect().top);
+  expect(choicesTop).toBeLessThan(900);
 });
 
 // ---- "All the dials": the whole old sandbox, as a side trip -------------------

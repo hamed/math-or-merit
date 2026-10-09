@@ -160,6 +160,8 @@ export interface PairStep extends StepSpec {
   readonly actionMs?: number;
   /** `\\pairs{n}`: how many demonstration rounds the room plays. */
   readonly rounds?: number;
+  /** The pictures posted with its line (`\\picture{name}`), by name. */
+  readonly pictures?: readonly string[];
 }
 
 // ---- decl.tex's numbers: the only absolute times the script sets (GRAMMAR.md §6) ----------
@@ -256,7 +258,10 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   // both call at once: one step, the reader clicks either first
   meet: (s) => cue(s, 'meet'),
   equal: (s) => cue(s, 'equalize'),
-  'more.joke': (s) => targets(s, 'cow'),
+  // the joke offer: "Yes" goes on into the joke, "Not now" past it (owner, 2026-10-09: the joke is part of the chat)
+  'more.joke': (s) => answers(s, 'joke'),
+  // the joke's last line: the spherical human, offered as a side trip
+  'joke.human': (s) => targets(s, 'human'),
   'guess.what': (s) => answers(s, 'prediction'),
   'guess.stake': (s) => answers(s, 'bet'),
   'guess.react': (s) => when(s, 'bet'),
@@ -370,7 +375,7 @@ export const EXPECT_PROBLEMS: string[] = [];
 
 /** What a step's actions do to the stage. */
 function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: string; rounds?: number } {
-  let p: Pose = { ...prev, choice: targets(s, 'cow') };
+  let p: Pose = { ...prev, choice: answers(s, 'joke') };
   let action: Action | undefined;
   let log: string | undefined;
   let rounds: number | undefined;
@@ -537,6 +542,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
     const speaks = s.who && message && id !== 'title.type' && !SPOKEN.has(id);
     const aside = conditioned ? flowing(s.groups, 'aside') : s.manner.includes('aside');
     const feel = s.manner.filter((m) => FEELINGS.has(m));
+    const pictures = picturesOf(s.cues);
     return {
       id,
       wait,
@@ -551,6 +557,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
       ...(pause && wait.kind === 'chat' ? { pauseMs: pause } : {}),
       ...(action && action !== 'run' ? { actionMs: played } : {}),
       ...(rounds ? { rounds } : {}),
+      ...(speaks && pictures.length ? { pictures } : {}),
     };
   });
   return { steps, problems };
@@ -588,12 +595,18 @@ export function valuesFor(step: PairStep): Record<string, number> {
 
 // ---- the lines the scene speaks on events, as the scene has always asked for them ------
 
-type Said = { who: 'blue' | 'red'; message: string; pauseMs?: number };
+type Said = { who: 'blue' | 'red'; message: string; pauseMs?: number; pictures?: readonly string[] };
 
-/** A bubble the scene speaks when something happens, with its own `\\pause` (the scene adds it to the line's reading time). */
+/** The pictures a step's or a bubble's cues post (`\\picture{name}`), in order. */
+export function picturesOf(cues: readonly { readonly name: string; readonly args: readonly string[] }[]): string[] {
+  return cues.flatMap((c) => (c.name === 'picture' && c.args[0] ? [c.args[0].trim()] : []));
+}
+
+/** A bubble the scene speaks when something happens, with its own `\\pause` and pictures. */
 export function spoken(b: StoryBubble): Said {
   const pause = pauseOf({ cues: b.cues ?? [] });
-  return { who: b.who as Said['who'], message: b.key, ...(pause ? { pauseMs: pause } : {}) };
+  const pictures = picturesOf(b.cues ?? []);
+  return { who: b.who as Said['who'], message: b.key, ...(pause ? { pauseMs: pause } : {}), ...(pictures.length ? { pictures } : {}) };
 }
 const bubbleOf = spoken;
 const group = (id: string, kind: 'groups' | 'reactions', cond: string): Said[] =>
@@ -624,6 +637,8 @@ export const REACTIONS = {
   equalOverRed: group('equal', 'reactions', 'red-above-eight')[1].message,
   /** Scene 11's "Yes · Not now". */
   joke: choices('more.joke'),
+  /** The joke's end: the spherical human, or on. */
+  human: choices('joke.human'),
   /** Scene 12: the four outcomes, in the order of PREDICTIONS; the four bets, in the order of BETS. */
   guesses: choices('guess.what'),
   bets: choices('guess.stake'),

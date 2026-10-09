@@ -94,7 +94,8 @@
   import DebugPanel from './DebugPanel.svelte';
   import { collectStats, frontPageFor } from '../../../sandbox/newsroom';
   import { fitSquareRelationship, measureWealth } from '$lib/research';
-  import { openBranch } from '../../branch';
+  import { goToStep, openBranch } from '../../branch';
+  import { PICTURES as POSTED } from '../cast/pictures';
   import AgentFace from '../../../shared/face/AgentFace.svelte';
   import { GROUND, drawStill } from '../../../shared/face/draw';
   import { faceRadius } from '../../../shared/face/face';
@@ -531,10 +532,15 @@
     return true;
   }
 
-  /** How long a bubble stays before the talk moves on: its words, a beat for each line after the first, and its own pause. */
-  const readOf = (b: { text: string; pauseMs?: number }) => readFor(bubbleWords(b.text)) + Math.max(0, bubbleLines(b.text).length - 1) * LINE_BEAT_MS + (b.pauseMs ?? 0);
-  /** A line's `\\pause`, carried onto the bubble that says it. */
-  const withPause = (line: { pauseMs?: number }) => (line.pauseMs ? { pauseMs: line.pauseMs } : {});
+  /** A picture posted in the talk takes about this long to look at, ms. */
+  const PICTURE_MS = 1400;
+  /** How long a bubble stays before the talk moves on: its words, a beat for each line after the first, a look at each picture, and its own pause. */
+  const readOf = (b: { text: string; pauseMs?: number; pictures?: readonly string[] }) => readFor(bubbleWords(b.text)) + Math.max(0, bubbleLines(b.text).length - 1) * LINE_BEAT_MS + (b.pictures?.length ?? 0) * PICTURE_MS + (b.pauseMs ?? 0);
+  /** What a line brings with it onto the bubble that says it: its `\\pause`, its pictures. */
+  const withPause = (line: { pauseMs?: number; pictures?: readonly string[] }) => ({
+    ...(line.pauseMs ? { pauseMs: line.pauseMs } : {}),
+    ...(line.pictures?.length ? { pictures: line.pictures } : {}),
+  });
 
   /** How long step `index` stays, ms, when it moves on by itself: what it says, and the step's own `\\pause` after. */
   function readingTime(index: number): number {
@@ -554,7 +560,7 @@
     // words read, and the step's action played out, whichever is longer
     const played = step.actionMs ?? 0;
     if (!line) return Math.max(readOf({ text: '' }), played) + pause;
-    return Math.max(readOf({ text: say(line.message, valuesFor(step)) }), played) + pause;
+    return Math.max(readOf({ text: say(line.message, valuesFor(step)), pictures: step.pictures }), played) + pause;
   }
 
   /** Things a step starts that are not tweens: the calls, the coin mover. */
@@ -1545,6 +1551,8 @@
     feel?: readonly string[];
     /** Its own `\\pause`, ms: it stays this much longer than its words take to read. */
     pauseMs?: number;
+    /** Pictures posted with it, by name (cast/pictures.ts): the joke's plates. */
+    pictures?: readonly string[];
     choices?: readonly BubbleChoice[];
     /** A control the reader holds, inside the bubble (Scene 20's dial). */
     control?: Snippet;
@@ -1634,7 +1642,7 @@
         out.push(...heard.sort((a, b) => a.at - b.at).map((h) => h.said));
         continue;
       }
-      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside, brief: step.brief, feel: step.feel });
+      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside, brief: step.brief, feel: step.feel, pictures: step.pictures });
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
     if (PAIR_STEPS[current].pose.control === 'sandbox') out.push(...sandboxPapers);
@@ -1766,9 +1774,17 @@
   function choicesAt(index: number): readonly BubbleChoice[] | null {
     const id = PAIR_STEPS[index].id;
     if (PAIR_STEPS[index].pose.choice) {
+      // the joke is told in the talk: "Yes" lets the offer go, on into the joke; "Not now" jumps past it
       return [
-        { label: say(REACTIONS.joke[0]), act: tellMe },
-        { label: say(REACTIONS.joke[1]), act: () => stage?.advance() },
+        { label: say(REACTIONS.joke[0]), act: () => stage?.release(id) },
+        { label: say(REACTIONS.joke[1]), act: () => goToStep('pair', PAIR_STEPS[Math.min(PAIR_STEPS.length - 1, indexOf('joke.human') + 1)].id, true) },
+      ];
+    }
+    if (id === 'joke.human') {
+      // a key line, not a hold: the spherical human opens below, or the talk goes on
+      return [
+        { label: say(REACTIONS.human[0]), act: () => openBranch('human') },
+        { label: say(REACTIONS.human[1]), act: () => stage?.advance() },
       ];
     }
     const link = (REACTIONS.links as Record<string, string>)[id];
@@ -2673,10 +2689,6 @@
   }
 
   // ---- Scene 11: the choice ---------------------------------------------------
-
-  function tellMe(): void {
-    openBranch('cow');
-  }
 
   // ---- drawing helpers -------------------------------------------------------
 
@@ -3779,10 +3791,15 @@
             paper={bubble.paper}
             hidden={bubble.kind === 'paper' && bigPaper !== null}
             aside={bubble.aside ?? false}
-            maxWidth={span && !bubble.aside && bubble.at ? Math.min(bubbleWidth, span.right - span.left) : bubbleWidth}
+            maxWidth={bubble.pictures?.length
+              ? Math.min(460, column.right - column.left - 16)
+              : span && !bubble.aside && bubble.at
+                ? Math.min(bubbleWidth, span.right - span.left)
+                : bubbleWidth}
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
             choices={bubble.choices}
+            pictures={bubble.pictures?.flatMap((name) => (POSTED[name] ? [POSTED[name]] : []))}
             control={bubble.control}
             onsize={(w, h) => (sizes[bubble.id] = { w, h })}
             onrest={(on) => stage?.pause(on)}
