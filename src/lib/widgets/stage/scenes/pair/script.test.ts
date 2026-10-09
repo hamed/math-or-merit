@@ -9,6 +9,7 @@ import { compile } from '../../../../script/compile';
 import { parseScript } from '../../../../script/parse';
 import { lint } from '../../../../script/lint';
 import { readingMs } from '../../steps';
+import { ROUND_SECONDS } from './roomRounds';
 import { STORY } from '../../../../content/story.gen';
 import { CAPTION_BEATS, sideTrip } from '../../../../content/story';
 
@@ -146,6 +147,23 @@ describe('decl.tex’s numbers set the stage’s times', () => {
       const step = PAIR_STEPS[i];
       if (pauseOf(s) && !step.action && step.wait.kind === 'auto') expect(step.wait.ms).toBe(pauseOf(s));
     });
+  });
+});
+
+describe('the room’s demonstration rounds', () => {
+  it('reads \\pairs{n} as n rounds, and waits for them however short its words', () => {
+    const script = parseScript({
+      lang: 'en',
+      decl: { file: 'decl.tex', text: readFileSync('src/lib/script/fixtures/decl.tex', 'utf8') },
+      files: [{ file: 'x.tex', text: '\\subsection{A}\\label{a}\n\nRed (flow): Two at random.\n\\pairs{2}\n' }],
+    });
+    expect(lint(script).filter((p) => p.level === 'error')).toEqual([]);
+    expect(compile(script).story.steps[0].cues).toEqual([{ name: 'pairs', args: ['2'] }]);
+    // the adapter: on the stage's own steps, any step that plays pairs waits for every round
+    for (const step of PAIR_STEPS.filter((s) => s.action === 'pairs')) {
+      expect(step.rounds).toBeGreaterThan(0);
+      expect(step.actionMs).toBe(Math.round(step.rounds! * ROUND_SECONDS * 1000));
+    }
   });
 });
 

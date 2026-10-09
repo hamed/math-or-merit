@@ -17,6 +17,7 @@
  */
 import { HOLDINGS } from './game';
 import { ARRIVE_SECONDS, GATHER_SECONDS, RAIN_SECONDS } from './rain';
+import { ROUND_SECONDS } from './roomRounds';
 import { CHAT, HOLD, READER, auto, readingMs, type LineSpec, type StepSpec, type Wait } from '../../steps';
 import { STORY } from '../../../../content/story.gen';
 import type { StoryBubble, StoryGroup, StoryStep } from '../../../../script/compile';
@@ -125,6 +126,7 @@ export type Action =
   | 'ante'
   | 'toss'
   | 'room'
+  | 'pairs'
   | 'run'
   | 'arrange'
   | 'walk'
@@ -154,6 +156,10 @@ export interface PairStep extends StepSpec {
   readonly feel?: readonly string[];
   /** A chit-chat step's `\\pause[n]`, ms: it stays this much longer than its words take to read. */
   readonly pauseMs?: number;
+  /** How long its action plays, ms: a chit-chat step stays until its words are read and its action is done. */
+  readonly actionMs?: number;
+  /** `\\pairs{n}`: how many demonstration rounds the room plays. */
+  readonly rounds?: number;
 }
 
 // ---- decl.tex's numbers: the only absolute times the script sets (GRAMMAR.md §6) ----------
@@ -363,10 +369,11 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
 export const EXPECT_PROBLEMS: string[] = [];
 
 /** What a step's actions do to the stage. */
-function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: string } {
+function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: string; rounds?: number } {
   let p: Pose = { ...prev, choice: targets(s, 'cow') };
   let action: Action | undefined;
   let log: string | undefined;
+  let rounds: number | undefined;
   if (s.manner.includes('teletype')) [p, action] = [{ ...p, teletype: true }, 'type'];
   for (const c of [...s.cues, ...(s.together ?? []).flatMap((t) => t.cues)]) {
     const [arg = ''] = c.args;
@@ -474,6 +481,10 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
           const side = arg as 'blue' | 'red';
           p = { ...p, flip: side, table: NOTHING, holdings: { ...p.holdings, [side]: p.holdings[side] + pot } };
           [action, log] = ['toss', 'log_toss'];
+        } else if (c.name === 'pairs') {
+          // the room plays a few rounds by hand before it plays by itself; nothing it does is kept
+          rounds = Math.max(1, Math.round(Number(arg) || 1));
+          action = 'pairs';
         } else if (c.name === 'arrange') {
           // the matched pair's mirror goes once the room is arranged again
           p = { ...p, roomMode: arg as RoomMode, ...(p.source === 'pair' ? { source: 'run' as const } : {}) };
@@ -491,7 +502,7 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
   }
   if (answers(s, 'prediction')) log = 'log_guess';
   if (answers(s, 'bet')) log = 'log_bet';
-  return { pose: p, ...(action ? { action } : {}), ...(log ? { log } : {}) };
+  return { pose: p, ...(action ? { action } : {}), ...(log ? { log } : {}), ...(rounds ? { rounds } : {}) };
 }
 
 const flowing = (groups: readonly StoryGroup[] | undefined, manner: string) => !!groups?.every((g) => g.bubbles.every((b) => b.manner.includes(manner)));
@@ -501,8 +512,9 @@ function build(): { steps: PairStep[]; problems: string[] } {
   let pose = START;
   const steps = STORY.steps.map((s, i): PairStep => {
     const prev = pose;
-    const { pose: next, action, log } = apply(s, prev);
+    const { pose: next, action, log, rounds } = apply(s, prev);
     const pause = pauseOf(s);
+    const played = action === 'pairs' ? Math.round((rounds ?? 1) * ROUND_SECONDS * 1000) : durationOf(action, next, prev);
     pose = next;
     const id = ids[i];
     const conditioned = s.wait === 'when';
@@ -520,7 +532,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
               : action === 'run'
                 ? CHAT
                 : // a pause on its own is its beats; with an action, the beats come after it
-                  auto(pause && !action ? pause : durationOf(action, next, prev) + pause);
+                  auto(pause && !action ? pause : played + pause);
     const message = s.variants?.keys[0] ?? s.key;
     const speaks = s.who && message && id !== 'title.type' && !SPOKEN.has(id);
     const aside = conditioned ? flowing(s.groups, 'aside') : s.manner.includes('aside');
@@ -537,6 +549,8 @@ function build(): { steps: PairStep[]; problems: string[] } {
       ...(log ? { log } : {}),
       ...(speaks && feel.length ? { feel } : {}),
       ...(pause && wait.kind === 'chat' ? { pauseMs: pause } : {}),
+      ...(action && action !== 'run' ? { actionMs: played } : {}),
+      ...(rounds ? { rounds } : {}),
     };
   });
   return { steps, problems };

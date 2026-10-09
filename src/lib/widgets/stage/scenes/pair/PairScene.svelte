@@ -60,6 +60,7 @@
   import { createRun } from './run.svelte';
   import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
   import { GATHER_SECONDS, noise, planArrival, planRain } from './rain';
+  import { OUT_SCALE, ROUND_STAKE, planRounds } from './roomRounds';
   import { CROSSING, FALL, RISE, arrival, fallTime, gravity, hopsBy, squashed, type Hop } from './hops';
   import { titleFeet } from './titleFeet';
   import { deciderFace, pairLayout, pile } from './layout';
@@ -218,6 +219,8 @@
     y: number;
     on: number;
     face: 'front' | 'back';
+    /** Its radius, px, when not the pair's coin: the room's rounds play at the room's scale. */
+    r?: number;
   }
 
   const view = $state({
@@ -256,6 +259,9 @@
     flipLift: 0,
     /** 0 — a plain coin, nobody's colour yet; 1 — each face in its owner's colour. */
     flipTint: 0,
+    /** Where the decider is tossed when it is not at the pair's table, and how big it is there: the room's demonstration rounds. */
+    flipAt: null as Point | null,
+    flipR: 0,
     roomOn: 0,
     payout: Array.from({ length: COINS }, () => ({ x: 0, y: 0, on: 0, face: 'front' })) as Token[],
     fly: [] as Token[],
@@ -402,6 +408,8 @@
     view.flipAngle = t.flipAngle;
     view.flipLift = 0;
     view.flipTint = t.flipTint;
+    view.flipAt = null;
+    view.flipR = 0;
     view.roomOn = t.roomOn;
     // the decider rests once a pose is drawn; a toss playing lifts it
     cue.air = false;
@@ -543,8 +551,10 @@
       return readOf({ text: say(line.message), ...withPause(line) }) + pause;
     }
     const line = step.lines?.[0];
-    if (!line) return readOf({ text: '' }) + pause;
-    return readOf({ text: say(line.message, valuesFor(step)) }) + pause;
+    // words read, and the step's action played out, whichever is longer
+    const played = step.actionMs ?? 0;
+    if (!line) return Math.max(readOf({ text: '' }), played) + pause;
+    return Math.max(readOf({ text: say(line.message, valuesFor(step)) }), played) + pause;
   }
 
   /** Things a step starts that are not tweens: the calls, the coin mover. */
@@ -2092,6 +2102,9 @@
       case 'room':
         fillRoom(pose, tl);
         return;
+      case 'pairs':
+        playRounds(tl);
+        return;
       case 'arrange':
         arrange(pose, tl);
         return;
@@ -2308,6 +2321,69 @@
       view.held = t.held;
       view.table = t.table;
     }, [], 1.1);
+  }
+
+  /** Scene 10's demonstration rounds, planned for this stage (roomRounds.ts). */
+  const roundPlan = $derived(
+    planRounds(
+      { positions: L.room.positions, radius: L.room.radius, box: L.room.box, blue: L.room.blue, red: L.room.red, unit: L.radius(1), g: G },
+      PAIR_STEPS[current]?.rounds ?? 2,
+    ),
+  );
+
+  /**
+   * Before the room plays by itself, it plays by hand (owner, 2026-10-09): two
+   * at a time step out to the front, grown so the reader sees them, while the
+   * rest step back; each puts in a tenth of the poorer one's fortune, the
+   * decider is tossed between them, the winner takes both, and they hop home.
+   * Nothing it does is kept: the run starts the room fresh.
+   */
+  function playRounds(tl: Timeline): void {
+    const r0 = L.room.radius;
+    // coins at the players' scale: a stake about a third of a player across, the decider a little bigger
+    const coinR = r0 * OUT_SCALE * 0.32;
+    view.fly = roundPlan.flatMap(() => [0, 1].map((k) => ({ x: 0, y: 0, on: 0, face: (k ? 'back' : 'front') as Token['face'], r: coinR })));
+    roundPlan.forEach((round, k) => {
+      const [a, b] = [view.room[round.a], view.room[round.b]];
+      const rest = view.room.filter((_, i) => i !== round.a && i !== round.b && i !== L.room.blue && i !== L.room.red);
+      const wins = round.winner === round.a ? [a, b] : [b, a];
+      tl.to(rest, { alpha: 0.3, duration: 0.5 }, round.start);
+      tl.to([a, b], { r: r0 * OUT_SCALE, duration: 0.7, ease: 'power2.out' }, round.start + 0.1);
+      playHops(tl, a, round.outA);
+      playHops(tl, b, round.outB);
+      // the stakes in: a coin from each, to the middle between them
+      const coins = view.fly.slice(2 * k, 2 * k + 2);
+      [round.spotA, round.spotB].forEach((spot, j) => {
+        tl.set(coins[j], { x: spot.x, y: spot.y, on: 1 }, round.stake);
+        tl.to(coins[j], { x: round.coin.x + (j ? 1 : -1) * coinR * 1.2, y: round.coin.y + coinR * 2.2, duration: 0.45, ease: 'power2.inOut' }, round.stake + 0.05);
+      });
+      // the decider, tossed between them; everyone watches it
+      const turns = 4 + k;
+      tl.set(view, { flipAt: round.coin, flipR: coinR * 1.35, flipTint: 0, flipLift: 0 }, round.flip - 0.2);
+      tl.to(view, { flipOn: 1, duration: 0.2 }, round.flip - 0.2);
+      tl.call(() => (cue.air = true), [], round.flip);
+      tl.to(view, { flipAngle: `+=${turns * 2 * Math.PI + (k % 2 ? Math.PI : 0)}`, duration: round.landed - round.flip, ease: 'power3.out' }, round.flip);
+      tl.to(view, { flipLift: -r0 * OUT_SCALE * 3, duration: (round.landed - round.flip) * 0.5, ease: RISE }, round.flip);
+      tl.to(view, { flipLift: 0, duration: (round.landed - round.flip) * 0.5, ease: FALL }, round.flip + (round.landed - round.flip) * 0.5);
+      tl.call(() => (cue.air = false), [], round.landed);
+      // the winner takes both stakes, and both feel it
+      for (const coin of coins) tl.to(coin, { x: wins[0].x, y: wins[0].y, duration: 0.35, ease: 'power2.in' }, round.landed + 0.1);
+      tl.set(coins, { on: 0 }, round.landed + 0.45);
+      tl.to(wins[0], { r: r0 * OUT_SCALE * Math.sqrt(1 + ROUND_STAKE), duration: 0.35, ease: 'back.out(2)' }, round.landed + 0.45);
+      tl.to(wins[1], { r: r0 * OUT_SCALE * Math.sqrt(1 - ROUND_STAKE), duration: 0.35, ease: 'power2.out' }, round.landed + 0.45);
+      feelAt(tl, round.landed + 0.45, () => {
+        faces.field.react(faces.roomSlot(round.winner), 1, 1 + ROUND_STAKE);
+        faces.field.react(faces.roomSlot(round.winner === round.a ? round.b : round.a), 1, 1 - ROUND_STAKE);
+      });
+      tl.to(view, { flipOn: 0, duration: 0.3 }, round.back);
+      // home, their own size again — a tenth richer, a tenth poorer
+      playHops(tl, a, round.backA);
+      playHops(tl, b, round.backB);
+      tl.to(wins[0], { r: r0 * Math.sqrt(1 + ROUND_STAKE), duration: 0.6 }, round.back + 0.1);
+      tl.to(wins[1], { r: r0 * Math.sqrt(1 - ROUND_STAKE), duration: 0.6 }, round.back + 0.1);
+      tl.to(rest, { alpha: 1, duration: 0.5 }, round.end - 0.3);
+    });
+    tl.call(() => (view.fly = []), [], roundPlan.at(-1)?.end ?? 0);
   }
 
   /** Where coin `k` of a fortune of `count` sits on the stage right now. */
@@ -2703,7 +2779,7 @@
       speaker: talking?.who ?? null,
       aside: talking?.aside ?? false,
       facing: pose.place === 'seats',
-      coin: cue.air ? { x: L.flip.x, y: L.flip.y + view.flipLift } : null,
+      coin: cue.air ? { x: (view.flipAt ?? L.flip).x, y: (view.flipAt ?? L.flip).y + view.flipLift } : null,
       moving,
       held: heldLine(),
       // they let go of it a little after it stops
@@ -3570,7 +3646,7 @@
       {/if}
 
       {#each view.fly as token, k (k)}
-        {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius} face={token.face} />{/if}
+        {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={token.r ?? L.coinRadius} face={token.face} />{/if}
       {/each}
 
       {#if dragging}
@@ -3579,10 +3655,11 @@
 
       {#if view.flipOn > 0.01}
         {@const face = deciderFace(view.flipAngle)}
-        <g transform={`translate(${L.flip.x} ${(L.flip.y + view.flipLift).toFixed(2)})`} opacity={view.flipOn}>
+        {@const spot = view.flipAt ?? L.flip}
+        <g transform={`translate(${spot.x} ${(spot.y + view.flipLift).toFixed(2)})`} opacity={view.flipOn}>
           <g transform={`scale(${face.squash.toFixed(3)} 1)`}>
             <Coin
-              r={L.coinRadius * 1.6}
+              r={view.flipR || L.coinRadius * 1.6}
               face={face.side === 'red' ? 'front' : 'back'}
               tint={view.flipTint > 0.5 ? PROTAGONISTS[face.side].fill : undefined}
             />

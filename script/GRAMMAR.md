@@ -210,6 +210,7 @@ on) or **reader** (it waits for the reader; the wait is never written).
 | `\control{x}` | the reader holds `stake`, `tax`, `sandbox`, or `none` |
 | `\levy{x}` | the lesson's pool: `collect`, `return` |
 | `\match` | the room and its mirror, on the same luck |
+| `\pairs{n}` | n rounds: two from the room, drawn at random, step out, play the coin, and go back |
 | `\card{id}` | drops `cards/<id>.tex` into the stack; the PDF draws the card where it first drops |
 | `\pin{id}` | pins the concept's picture to the side rail |
 | `\toy{id}` | in a unit: a widget inside it, opened on request |
