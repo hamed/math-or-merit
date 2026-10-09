@@ -110,6 +110,25 @@ describe('the talk, as a chat window', () => {
     expect(crammed[2].gone).toBe(false);
   });
 
+  it('never sets an aside down on the talk at 45° when it could stand clear of it', () => {
+    const apart = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
+      a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y;
+    const blue = { x: 150, y: 640, r: 50 };
+    for (let x = 250; x <= 1100; x += 50) {
+      const red = { x, y: 560, r: 26 };
+      const column = chatColumn([blue, red], 1280, 60, 520);
+      const lines = [
+        { w: 300, h: 60, anchor: red },
+        { w: 260, h: 40, anchor: red },
+        { w: 300, h: 80, anchor: red, aside: true },
+      ];
+      const laid = stackChat(lines, column).map((p, i) => ({ ...p, ...lines[i] }));
+      const roomAbove = laid.some((p) => !p.aside && p.y > column.top + lines[2].h + 20);
+      if (!roomAbove) continue;
+      for (const talk of laid.slice(0, 2).filter((p) => !p.gone)) expect(apart(laid[2], talk), `Red at ${x}`).toBe(true);
+    }
+  });
+
   it('keeps an aside through passing calls, until an aside or the talk says something', () => {
     const laid = stackChat([{ w: 150, h: 36, anchor: RED, aside: true }, { w: 90, h: 30, anchor: BLUE, aside: true, brief: true }], COLUMN);
     expect(laid[0].gone).toBe(false);

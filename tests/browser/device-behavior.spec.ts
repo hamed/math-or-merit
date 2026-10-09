@@ -328,7 +328,8 @@ test('the joke is told in the talk, pictures and all, or skipped', async ({ page
   const choices = page.locator('.bubble .choice');
   // "Not now": past the joke, to what follows it
   await choices.nth(1).click();
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('joke.human') + 1);
+  const past = await page.evaluate(async () => (await import('/src/lib/widgets/stage/scenes/pair/script.ts')).JOKE_SKIP as string);
+  await expect.poll(() => stepNow(page)).toBe(ids.indexOf(past));
   // "Yes": the joke, its plates posted in the talk
   await openAt(page, 'more.joke', ['more.joke']);
   await page.locator('.bubble .choice').first().click();

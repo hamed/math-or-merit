@@ -26,6 +26,7 @@
     CALLS,
     CARDS,
     HEADLINE,
+    JOKE_SKIP,
     MAP_LABEL,
     NUDGE_MS,
     PAIR_STEPS,
@@ -544,7 +545,7 @@
   }
 
   /** A picture posted in the talk takes about this long to look at, ms. */
-  const PICTURE_MS = 1400;
+  const PICTURE_MS = 2500;
   /** How long a bubble stays before the talk moves on: its words, a beat for each line after the first, a look at each picture, and its own pause. */
   const readOf = (b: { text: string; pauseMs?: number; pictures?: readonly string[] }) => readFor(bubbleWords(b.text)) + Math.max(0, bubbleLines(b.text).length - 1) * LINE_BEAT_MS + (b.pictures?.length ?? 0) * PICTURE_MS + (b.pauseMs ?? 0);
   /** What a line brings with it onto the bubble that says it: its `\\pause`, its pictures. */
@@ -1433,7 +1434,13 @@
     };
   });
   /** A step's live values: the pair's coins, and while the matched rooms stand, the review's measures. */
-  const valuesOf = (step: (typeof PAIR_STEPS)[number]) => ({ ...valuesFor(step), ...(step.pose.roomMode === 'matched' ? matchedValues : {}) });
+  /** The morning paper's headline on the run's winner: what Blue repeats as the reason (`\\val{headline}`). */
+  const headline = $derived(run.state.done && run.state.winner >= 0 ? (frontPage()?.text ?? '') : '');
+  const valuesOf = (step: (typeof PAIR_STEPS)[number]) => ({
+    ...valuesFor(step),
+    ...(step.pose.ran ? { headline } : {}),
+    ...(step.pose.roomMode === 'matched' ? matchedValues : {}),
+  });
 
   // ---- the side rail, the sheets (optional toys) --------------------------------
 
@@ -1837,14 +1844,7 @@
       // the joke is told in the talk: "Yes" lets the offer go, on into the joke; "Not now" jumps past it
       return [
         { label: say(REACTIONS.joke[0]), act: () => stage?.release(id) },
-        { label: say(REACTIONS.joke[1]), act: () => goToStep('pair', PAIR_STEPS[Math.min(PAIR_STEPS.length - 1, indexOf('joke.human') + 1)].id, true) },
-      ];
-    }
-    if (id === 'joke.human') {
-      // a key line, not a hold: the spherical human opens below, or the talk goes on
-      return [
-        { label: say(REACTIONS.human[0]), act: () => openBranch('human') },
-        { label: say(REACTIONS.human[1]), act: () => stage?.advance() },
+        { label: say(REACTIONS.joke[1]), act: () => goToStep('pair', JOKE_SKIP, true) },
       ];
     }
     const link = (REACTIONS.links as Record<string, string>)[id];
@@ -3293,6 +3293,13 @@
   });
 </script>
 
+{#snippet richest(state: { share: number; trades: number })}
+  <!-- the number first, big; what it is, small, on the same line; then when (owner, 2026-10-09) -->
+  {@const [before, after = ''] = say('run_richest', { share: '\u0000' }).split('\u0000')}
+  <p class="richest">{before}<strong>{formatNumber(state.share, { style: 'percent' })}</strong>{after}</p>
+  <p class="after">{say('run_after', { trades: formatNumber(state.trades) })}</p>
+{/snippet}
+
 {#snippet histogramPicture()}
   <div class="card-plot">
     <Histogram wealth={shown.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={shown.state.revision} startDollars={START_DOLLARS} />
@@ -3959,12 +3966,7 @@
     {/if}
 
     {#if !L.column && runShown && current <= actEnd('run')}
-      <p class="readout" aria-live="off">
-        {say('run_readout', {
-          trades: formatNumber(run.state.trades),
-          share: formatNumber(run.state.share, { style: 'percent' }),
-        })}
-      </p>
+      <div class="readout" aria-live="off">{@render richest(run.state)}</div>
     {/if}
 
     {#if anyRunning && !game.playing}
@@ -4086,8 +4088,7 @@
         {#if pose.control === 'sandbox'}
           <section class="chart live">
             {#if runShown}
-              <p class="big">{formatNumber(shown.state.share, { style: 'percent' })}</p>
-              <p class="small">{say('run_readout', { trades: formatNumber(shown.state.trades), share: formatNumber(shown.state.share, { style: 'percent' }) })}</p>
+              {@render richest(shown.state)}
             {/if}
             {#if shown.state.done && !shown.state.playing && shown.state.frames > 1}
               <div class="dial">{@render player([shown])}</div>
@@ -4103,8 +4104,7 @@
           {/if}
         {:else if runShown && !APART.includes(pose.roomMode)}
           <section class="chart live">
-            <p class="big">{formatNumber(shown.state.share, { style: 'percent' })}</p>
-            <p class="small">{say('run_readout', { trades: formatNumber(shown.state.trades), share: formatNumber(shown.state.share, { style: 'percent' }) })}</p>
+            {@render richest(shown.state)}
             {#if shown.state.done && shown.state.frames > 1}
               <div class="dial">{@render player([shown])}</div>
             {/if}
@@ -4480,6 +4480,7 @@
     font-family: var(--font-sans);
     font-size: 0.85rem;
     font-weight: 700;
+    white-space: nowrap;
     cursor: pointer;
     transform: translateX(-100%);
   }
@@ -4893,12 +4894,31 @@
     line-height: 1.1;
   }
 
-  .chart .small {
-    margin: 0.15rem 0 0;
+  /* the run's result: the share big and bold, what it is in small type beside it, and when below */
+  .richest {
+    margin: 0;
     color: var(--ink-mid);
     font-family: var(--font-sans);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  .richest strong {
+    margin-inline-end: 0.3em;
+    color: var(--accent-deep);
+    font-size: 2.1rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    vertical-align: -0.12em;
+  }
+
+  .after {
+    margin: 0.1rem 0 0;
+    color: var(--ink-soft);
+    font-family: var(--font-sans);
     font-size: 0.78rem;
-    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
   }
 
   .chart.rule ol {
@@ -5011,7 +5031,7 @@
     z-index: 3;
     inset-block-start: 1.05rem;
     inset-inline-start: 7.2rem;
-    max-inline-size: calc(100% - 7.2rem - 8.5rem);
+    max-inline-size: calc(100% - 7.2rem - 5.5rem);
     margin: 0;
     line-height: 1.25;
     color: var(--ink-mid);

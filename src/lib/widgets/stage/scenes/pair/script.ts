@@ -282,7 +282,6 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   // the joke offer: "Yes" goes on into the joke, "Not now" past it (owner, 2026-10-09: the joke is part of the chat)
   'more.joke': (s) => answers(s, 'joke'),
   // the joke's last line: the spherical human, offered as a side trip
-  'joke.human': (s) => targets(s, 'human'),
   'guess.what': (s) => answers(s, 'prediction'),
   'guess.stake': (s) => answers(s, 'bet'),
   'guess.react': (s) => when(s, 'bet'),
@@ -684,6 +683,9 @@ const callerStep = (who: string): StoryStep => [storyOf('meet'), ...(storyOf('me
  * banter by who won (Scene 13), and the rest. All of it is written in the
  * script, where it plays; this is the scene's index into it.
  */
+/** Where the joke's "Not now" goes: the step its choice names (`\\choice{Not now}{guess}`). */
+export const JOKE_SKIP: string = labelStep(storyOf('more.joke').choices.find((c) => c.target && !c.target.includes('='))?.target ?? '');
+
 export const REACTIONS = {
   callRed: callerStep('red').variants!.keys,
   callBlue: callerStep('blue').variants!.keys,
@@ -697,7 +699,6 @@ export const REACTIONS = {
   /** Scene 11's "Yes · Not now". */
   joke: choices('more.joke'),
   /** The joke's end: the spherical human, or on. */
-  human: choices('joke.human'),
   /** Scene 12: the four outcomes, in the order of PREDICTIONS; the four bets, in the order of BETS. */
   guesses: choices('guess.what'),
   bets: choices('guess.stake'),

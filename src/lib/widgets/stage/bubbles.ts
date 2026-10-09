@@ -199,8 +199,10 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
         const cx = side ? a.x - d : a.x + d;
         const x45 = side ? cx - item.w : cx;
         const y45 = a.y - d - item.h;
-        if (x45 >= column.left && x45 + item.w <= column.right && y45 >= column.top - 1) {
-          const box: Box = { x: x45, y: y45, w: item.w, h: item.h };
+        const at45: Box = { x: x45, y: y45, w: item.w, h: item.h };
+        // only where it covers nothing still showing: else it stacks above him, clear of the talk
+        if (x45 >= column.left && x45 + item.w <= column.right && y45 >= column.top - 1 && (gone || !taken.some((t) => overlaps(at45, t)))) {
+          const box = at45;
           if (!gone) taken.push(box);
           placed[i] = { x: box.x, y: box.y, gone, tail: tailAtCorner(box, a, side) };
           return;

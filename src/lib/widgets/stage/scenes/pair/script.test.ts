@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { validateSteps } from '../../steps';
 import { ROUNDS, UNITS } from './game';
 import { BETS, PREDICTIONS } from '../../../shared/runLog.svelte';
-import { CARDS, EXPECT_PROBLEMS, MATCHED_VALUES, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin, spoken } from './script';
+import { CARDS, EXPECT_PROBLEMS, JOKE_SKIP, MATCHED_VALUES, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin, spoken } from './script';
 import { compile } from '../../../../script/compile';
 import { parseScript } from '../../../../script/parse';
 import { lint } from '../../../../script/lint';
@@ -236,16 +236,16 @@ describe('what the scene promises, whatever the words', () => {
     expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake']);
   });
 
-  it('tells the joke in the talk, every picture a real one, and offers the spherical human at its end', () => {
+  it('tells the joke in the talk, one real picture to a bubble, and "Not now" goes past all of it', () => {
     const offer = indexOf('more.joke');
-    const end = indexOf('joke.human');
+    const past = indexOf(JOKE_SKIP);
     expect(offer).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(offer);
-    const posted = PAIR_STEPS.slice(offer + 1, end).flatMap((s) => s.pictures ?? []);
-    expect(posted.length).toBeGreaterThan(0);
+    expect(past).toBeGreaterThan(offer + 1);
+    const told = PAIR_STEPS.slice(offer + 1, past);
+    expect(told.flatMap((s) => s.pictures ?? []).length).toBeGreaterThan(0);
+    for (const s of told) expect((s.pictures ?? []).length, s.id).toBeLessThanOrEqual(1);
     for (const name of PAIR_STEPS.flatMap((s) => s.pictures ?? [])) expect(Object.keys(PICTURES), name).toContain(name);
     expect(REACTIONS.joke).toHaveLength(2);
-    expect(REACTIONS.human).toHaveLength(2);
   });
 
   it('offers both calls at once, and has an introduction for each click', () => {
