@@ -839,6 +839,59 @@ The explorable should be allowed to ask questions whose answers surprise its aut
 
 ---
 
+## Deferred from the 2026-10-09 story pass
+
+### Recording what readers do
+
+Owner, 2026-10-09: "nice to record somehow which one people click the most. also that same
+person, which guess made, which bet made. how played with the games and dials and sandbox".
+Owner's choice the same day: note it for later; nothing is sent yet.
+
+- **What it would record**, per visit, never who the reader is:
+  - whom they clicked first in the meeting;
+  - their guess and their bet (Scene 12);
+  - how many times they ran the room again;
+  - the stakes they tried on the dial;
+  - each tax game's result, with taps and seconds;
+  - whether they opened the sandbox, and what they changed there.
+
+  A visit is a random id made in the browser, never an account, a name or an IP-derived
+  fingerprint.
+- **Where it could go:**
+  - a privacy-friendly hosted counter with custom events (GoatCounter, Plausible). It is
+    cheap, cookie-free and aggregate, but the events are flat: "guess=giant" can be
+    counted, while "the same reader guessed giant and bet a coffee" is harder to keep.
+  - the owner's own small endpoint (a serverless function writing rows). It keeps the
+    joint record (guess with bet with play), but it is a backend to run and secure.
+  - local only: each reader's own log, shown back to them at the end ("you guessed one
+    giant; the room agreed"). Nothing leaves the machine; no research value beyond that
+    reader.
+- **Open:**
+  - consent: a notice is the least; asking first is the honest default for joint records;
+  - whether the guess-and-bet record is the research question itself (do people who bet
+    more guess differently?). If it is, the owner's endpoint is the only option above
+    that keeps it.
+- The site is static on GitHub Pages, so anything beyond local needs a third party or a
+  function host.
+
+### The spherical human
+
+The joke used to end on the offer "Want to see how a person becomes a circle?". Owner,
+2026-10-09: "I think I will pass how person become circle for now, we may use it in
+another place, maybe." The offer is gone from the joke. The side trip still exists, in
+the index and in the essay below the stage. A later place for it might be beside the
+first time the room shows people as circles, or in the sandbox's "about".
+
+### Pointing at a picture, further
+
+`\point{…}` rings a spot and turns the two and the room towards it (2026-10-09). The
+owner also imagined Red walking to the spot he describes. That needs Red to leave his
+place in the room and come back, as the demonstration rounds do, so it would reuse
+`roomRounds.ts`'s hops. Worth doing where a picture is new and busy (the histogram's
+first showing, the outcome map). Not yet built.
+
+---
+
 ## Deferred possibilities
 
 These may be valuable later but are premature while the agent is a placeholder circle:
