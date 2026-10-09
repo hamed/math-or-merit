@@ -146,8 +146,10 @@ export type Action =
 export interface PairStep extends StepSpec {
   readonly pose: Pose;
   readonly action?: Action;
-  /** Clears the talk: a new setting, a new conversation. */
+  /** Clears the talk: a new scene (every `\\subsection`), a new conversation (owner, 2026-10-09). */
   readonly panel?: true;
+  /** Starts a part of the story (a `\\section`): what the phone rail and the index count by. */
+  readonly act?: true;
   /** Its line goes as soon as the next one is said. */
   readonly brief?: true;
   /**
@@ -556,7 +558,8 @@ function build(): { steps: PairStep[]; problems: string[] } {
       pose: next,
       ...(speaks ? { lines: [{ who: s.who as LineSpec['who'], message: message! }] } : {}),
       ...(action ? { action } : {}),
-      ...(s.act && i > 0 ? { panel: true as const } : {}),
+      ...(i > 0 && s.scene !== STORY.steps[i - 1].scene ? { panel: true as const } : {}),
+      ...(s.act && i > 0 ? { act: true as const } : {}),
       ...(s.manner.includes('brief') ? { brief: true as const } : {}),
       ...(aside ? { aside: true as const } : {}),
       ...(log ? { log } : {}),
@@ -579,9 +582,9 @@ export const ROLE_PROBLEMS: readonly string[] = BUILT.problems;
 
 export const indexOf = (id: string): number => PAIR_STEPS.findIndex((step) => step.id === id);
 
-/** The last step of the act that holds a step: where its talk clears. */
+/** The last step of the part of the story (the act) that holds a step. */
 export function actEnd(id: string): number {
-  for (let i = indexOf(id) + 1; i < PAIR_STEPS.length; i++) if (PAIR_STEPS[i].panel) return i - 1;
+  for (let i = indexOf(id) + 1; i < PAIR_STEPS.length; i++) if (PAIR_STEPS[i].act) return i - 1;
   return PAIR_STEPS.length - 1;
 }
 

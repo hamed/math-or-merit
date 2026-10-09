@@ -268,6 +268,17 @@ describe('what the scene promises, whatever the words', () => {
     for (const s of PAIR_STEPS) expect(s.pose.place === 'room' || s.pose.roomMode === 'free', s.id).toBe(true);
   });
 
+  it('clears the talk at every scene, and counts parts by the act', () => {
+    const story = STORY.steps;
+    for (const [i, s] of PAIR_STEPS.entries()) {
+      if (i === 0) continue;
+      expect(!!s.panel, s.id).toBe(story[i].scene !== story[i - 1].scene);
+      expect(!!s.act, s.id).toBe(story[i].act);
+    }
+    expect(PAIR_STEPS[indexOf(labelStep('why'))].act).toBeUndefined();
+    expect(actEnd('run')).toBeGreaterThanOrEqual(indexOf(labelStep('why')));
+  });
+
   it('lets every step belong to a panel that starts with a clear', () => {
     for (let i = indexOf('meet'); i < PAIR_STEPS.length; i++) expect(PAIR_STEPS[panelStart(i)].panel, PAIR_STEPS[i].id).toBe(true);
   });

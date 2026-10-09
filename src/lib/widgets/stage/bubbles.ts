@@ -377,6 +377,15 @@ export function bubbleWords(text: string): number {
   return text.replace(/\*\*/g, '').split(/[\s/]+/).filter(Boolean).length;
 }
 
+/**
+ * Whether a pointer event over a bubble is the reader resting on it: a mouse or
+ * pen that MOVED there. A finger has no hover, and a pointer standing still
+ * under a bubble that just appeared is not reading it.
+ */
+export function restsOn(e: { pointerType: string; movementX: number; movementY: number }): boolean {
+  return e.pointerType !== 'touch' && (e.movementX !== 0 || e.movementY !== 0);
+}
+
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(Math.max(v, lo), hi);
 }

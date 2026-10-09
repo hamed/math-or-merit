@@ -157,6 +157,11 @@ Manner words, in the parentheses, stay English in every language:
 | `interrupts` | appears beside the bubble before it |
 | `thought`, `wait` | reserved |
 
+A bubble of several lines is usually `flow` (owner, 2026-10-09: "always use
+flow for multi lines"): its lines come one after another, and the talk goes on
+once they are read. Leave `flow` off only where the reader should stop and
+think.
+
 Feeling words, in the same parentheses, show on the speaker's face as the line
 is said: subtly, and they fade as any feeling does. `Blue (proud): …`,
 `Red (aside, calm): …`.

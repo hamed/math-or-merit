@@ -224,7 +224,7 @@ test('the index lists the story’s parts, one entry each, never their scenes, a
   });
   // the pointer resting on the line opens it
   await page.locator('.index .here').hover();
-  const entries = page.locator('#scene-list button.part');
+  const entries = page.locator('#scene-list .part');
   await expect(entries).toHaveCount(parts.length);
   const texts = (await entries.allTextContents()).map((t) => t.trim());
   // a part of several scenes is one entry: its later scenes are not listed
@@ -232,6 +232,51 @@ test('the index lists the story’s parts, one entry each, never their scenes, a
   for (const title of several.titles.slice(1)) expect(texts.some((t) => t.endsWith(title))).toBe(false);
   await entries.nth(parts.indexOf(several)).click();
   await expect.poll(() => stepNow(page)).toBe(several.at);
+});
+
+test('a link to a scene opens the stage there, and the address follows the scene', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
+  const gini = await page.evaluate(async () => {
+    const { STORY } = await import('/src/lib/content/story.gen.ts');
+    const sc = STORY.scenes.find((s: { label: string }) => s.label === 'gini')!;
+    return STORY.steps.findIndex((s: { id: string }) => s.id === sc.step);
+  });
+  await expect.poll(() => stepNow(page)).toBe(gini);
+  await expect(stage(page)).toBeInViewport({ ratio: 0.9 });
+  // moving on, the address names the scene the reader is in
+  await openAt(page, 'count.2');
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#count');
+});
+
+test('a stray click or scroll during a run does not skip it; Skip does', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'run.1');
+  await page.keyboard.press('ArrowRight');
+  const skip = page.locator('.pair-scene .skip');
+  await expect(skip).toBeVisible();
+  const at = await stepNow(page);
+  await page.mouse.click(640, 400);
+  await page.mouse.wheel(0, 300);
+  await page.waitForTimeout(600);
+  expect(await stepNow(page)).toBe(at);
+  await expect(skip).toBeVisible();
+  await expect(skip).toHaveClass(/called/);
+  await skip.click();
+  await expect(skip).toBeHidden();
+});
+
+test('chit-chat goes on when a bubble arrives under a pointer that stands still', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'rules.1');
+  const at = await stepNow(page);
+  // the pointer waits, still, just above the line on screen: the talk slides up under it
+  const box = (await page.locator('.pair-scene .bubble').last().boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y - 60);
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => stepNow(page), { timeout: 20_000 }).toBeGreaterThanOrEqual(at + 3);
 });
 
 test('any card in the deck can be picked, not only the top one', async ({ page }) => {
@@ -289,7 +334,11 @@ test('a reload returns the reader to the step they were reading', async ({ page 
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');
   const at = await stepNow(page);
+  // the address names the scene by now; coming back is still to the very step
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#gini');
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(stage(page)).toHaveAttribute('data-step', String(at));
+  await page.waitForTimeout(800);
   await expect(stage(page)).toHaveAttribute('data-step', String(at));
 });
 

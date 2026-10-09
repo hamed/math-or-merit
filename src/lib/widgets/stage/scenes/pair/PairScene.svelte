@@ -513,14 +513,11 @@
       shrinkPaper();
       return true;
     }
-    if (id === 'run' && run.state.running) {
-      run.finish();
-      return true;
-    }
-    // a room still playing finishes on the first press (never the live game: that one is the reader's)
-    const playing = [run, dialRun, leftRun, rightRun].filter((r) => r.state.running);
-    if (playing.length > 0) {
-      playing.forEach((r) => r.finish());
+    // a press while a room plays is not a skip (owner, 2026-10-09: "a wrong click
+    // or scroll misses a part, for example skips the simulation"): it shows the
+    // Skip button, which is
+    if (playing().length > 0) {
+      skipCalled++;
       return true;
     }
     if (id === 'run.banter' && banterShown < banterLines().length) {
@@ -531,6 +528,15 @@
     if (reveal.id !== PAIR_STEPS[index].id || reveal.shown >= reveal.total) return false;
     showAll(index);
     return true;
+  }
+
+  /** The rooms playing by themselves right now (never the live game: that one is the reader's). */
+  const playing = () => [run, dialRun, leftRun, rightRun].filter((r) => r.state.running);
+  /** Counts the presses a run swallowed: each one draws the eye to Skip. */
+  let skipCalled = $state(0);
+  /** The reader asked to see the end: every room still playing finishes. */
+  function skipRuns(): void {
+    playing().forEach((r) => r.finish());
   }
 
   /** A picture posted in the talk takes about this long to look at, ms. */
@@ -905,6 +911,7 @@
   const MATCH_MS = 7_000;
   const leftRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES), () => MATCH_MS, OWN);
   const rightRun = createRun(() => fixed(DEFAULT_RUN.beta, MATCH_TRADES, MATCH_LEVY), () => MATCH_MS, OWN);
+  const anyRunning = $derived(run.state.running || dialRun.state.running || leftRun.state.running || rightRun.state.running);
 
   /**
    * Scene 26: the reader's machine — the sandbox's dials, on the same room,
@@ -1341,6 +1348,8 @@
   // ---- Scene 17's four: coins moved by the reader --------------------------------
 
   const fourCount = $derived(effectiveCount(fourCoins));
+  /** The reader's hands are in the scene: a missed tap must not move the story on. */
+  const handsOn = $derived(game.playing || PAIR_STEPS[current].pose.control === 'sandbox' || current === indexOf('eff.try'));
 
   /** Tap one of the four to take a coin from them, then another to give it. */
   function tapFour(k: number): void {
@@ -3340,7 +3349,7 @@
 <svelte:window onpointerup={releaseDial} onpointercancel={releaseDial} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<!-- while the reader's hand is in the live room, a click anywhere in it is a tap, never a step -->
+<!-- while the reader's hand is in a live room or on the four's coins, a click anywhere is theirs, never a step -->
 <div
   class="pair-scene"
   bind:this={host}
@@ -3348,7 +3357,7 @@
     dragMove(event);
     trackPointer(event);
   }}
-  data-control={game.playing || PAIR_STEPS[current].pose.control === 'sandbox' ? '' : undefined}>
+  data-control={handsOn ? '' : undefined}>
   <!-- Once the stage is cleared (Scene 5) its words are gone, so their links
        must not stay in the tab order, invisible. -->
   <div class="words" style={`opacity:${view.titleOn}; transform: translateY(${view.lift}px)`} inert={view.titleOn < 0.5}>
@@ -3865,6 +3874,16 @@
       </p>
     {/if}
 
+    {#if anyRunning && !game.playing}
+      {@const box = L.room.box}
+      <!-- the only way to cut a run short: a stray click or scroll no longer does -->
+      {#key skipCalled}
+        <button type="button" class="skip" class:called={skipCalled > 0} style={`left:${box.x + box.w - 10}px; top:${box.y + 10}px`} onclick={skipRuns}>
+          {say('run_skip')}
+        </button>
+      {/key}
+    {/if}
+
     {#if current === indexOf('eff.try')}
       {#each cast.four as agent, k (agent)}
         {@const v = agentView(agent)}
@@ -4356,6 +4375,41 @@
     transform: translateX(-50%);
   }
 
+  /* a run's one way to its end: quiet until a press asks for it */
+  .skip {
+    position: absolute;
+    z-index: 5;
+    padding: 0.3rem 0.9rem;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    background: rgb(255 250 240 / 92%);
+    color: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transform: translateX(-100%);
+  }
+
+  .skip:hover,
+  .skip:focus-visible {
+    border-color: var(--accent);
+    color: var(--accent);
+    outline: none;
+  }
+
+  .skip.called {
+    animation: skip-called 900ms ease-out;
+  }
+
+  @keyframes skip-called {
+    20% {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateX(-100%) scale(1.15);
+    }
+  }
+
   /* the tax game's start, over the room's middle */
   .start-game {
     position: absolute;
@@ -4450,6 +4504,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .start-game,
+    .skip.called,
     .pulse {
       animation: none;
     }

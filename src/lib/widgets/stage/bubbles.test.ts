@@ -4,6 +4,7 @@ import {
   bubbleWords,
   chatColumn,
   comicOutline,
+  restsOn,
   shoutSegments,
   stackChat,
   TALK_MIN,
@@ -171,5 +172,20 @@ describe('the words in a bubble', () => {
 
   it('counts words, not markup', () => {
     expect(bubbleWords('What if one does? / **Very riiich.**')).toBe(6);
+  });
+});
+
+describe('resting on a bubble', () => {
+  it('is a mouse or pen that moved onto it', () => {
+    expect(restsOn({ pointerType: 'mouse', movementX: 3, movementY: 0 })).toBe(true);
+    expect(restsOn({ pointerType: 'pen', movementX: 0, movementY: -1 })).toBe(true);
+  });
+
+  it('is never a pointer standing still under a bubble that came to it', () => {
+    expect(restsOn({ pointerType: 'mouse', movementX: 0, movementY: 0 })).toBe(false);
+  });
+
+  it('is never a finger', () => {
+    expect(restsOn({ pointerType: 'touch', movementX: 5, movementY: 5 })).toBe(false);
   });
 });

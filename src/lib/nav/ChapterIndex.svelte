@@ -15,6 +15,10 @@
    * "From the very beginning", which forgets the visit and starts at time 0.
    * Picking a part goes to its first scene at once, past any hold on the way:
    * the index is the way to a place, and the owner's way to test one.
+   *
+   * Every scene has an address (owner, 2026-10-09: "if someone wants to teach
+   * someone about gini, just send that link"): the address bar follows the
+   * scene on the stage, `#gini`, and a link to it opens the stage there.
    */
 
   /** The line across the viewport that decides which chapter you are "in" outside the stage. */
@@ -78,6 +82,7 @@
     const stageEl = document.querySelector<HTMLElement>('.step-stage');
     const state = document.documentElement.getAttribute(STAGE_STATE_ATTRIBUTE);
     stageStep = stageEl && state ? Number(stageEl.dataset.step ?? 0) : null;
+    followScene();
     // the opening owns the first screen alone while it plays; after that the
     // index is always there — it is the way out, and the way to any scene
     shown = state === 'reading' || (state !== 'playing' && window.scrollY > window.innerHeight * 0.6) || open;
@@ -96,6 +101,31 @@
     open = false;
     if (sc.sideTrip) openBranch(sc.label as BranchId);
     else if (sc.step) goToIndex(STAGE, STORY.steps.findIndex((s) => s.id === sc.step));
+  }
+
+  /** A scene of the stage a link can name: a chapter of the essay with the same name keeps its own. */
+  const linkable = (label: string): Scene | null =>
+    list.some((c) => c.id === label) ? null : (STORY.scenes.find((sc) => sc.label === label && !sc.sideTrip) ?? null);
+
+  /** Go where a link points: a chapter, or a scene of the stage. */
+  function goFragment(fragment: string): void {
+    const sc = linkable(fragment);
+    if (sc) goScene(sc);
+    else goChapter(fragment);
+  }
+
+  /** Not before a link the page opened on has been followed: until then the address is the reader's. */
+  let landed = false;
+
+  /** The address bar names the scene on the stage, and lets go of it once the reader leaves the stage. */
+  function followScene(): void {
+    if (!landed) return;
+    const label = stageStep === null ? null : (STORY.steps[stageStep]?.scene ?? null);
+    const want = label && linkable(label) ? `#${label}` : '';
+    if (want === location.hash) return;
+    // a chapter's own address stays until the stage takes over again
+    if (!want && !linkable(location.hash.slice(1))) return;
+    history.replaceState(history.state, '', want || location.pathname + location.search);
   }
 
   /** Time 0: forget the visit — the stage's place, its holds, the reader's answers — and start again. */
@@ -152,12 +182,29 @@
     if (stageEl) watch.observe(stageEl, { attributes: true, attributeFilter: ['data-step'] });
     measure();
 
-    // A shared link lands on its chapter: the anchor exists before we do, but
-    // the pinned scenes resize the document as they measure, so land again.
+    // A shared link lands on its chapter or its scene: the anchor exists before
+    // we do, but the pinned scenes resize the document as they measure, so land again.
     const fragment = location.hash.slice(1);
-    if (fragment) setTimeout(() => goChapter(fragment), 400);
+    // a reader coming back (a reload, Back) is put back on their own step, not the scene's first
+    const [visit] = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    const returning = visit?.type === 'reload' || visit?.type === 'back_forward';
+    const landing = window.setTimeout(
+      () => {
+        if (fragment && !(returning && linkable(fragment))) goFragment(fragment);
+        landed = true;
+      },
+      fragment ? 400 : 0,
+    );
+    // a link followed inside the page, or an address typed in
+    const onHash = () => {
+      const to = location.hash.slice(1);
+      if (to) goFragment(to);
+    };
+    window.addEventListener('hashchange', onHash);
 
     return () => {
+      window.clearTimeout(landing);
+      window.removeEventListener('hashchange', onHash);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       window.removeEventListener('keydown', onKey);
@@ -187,15 +234,19 @@
     </li>
     {#each story as p, k (p.act + p.scenes[0].label)}
       <li>
-        <button
-          type="button"
+        <!-- a real link, so it can be copied and sent; a click goes there at once -->
+        <a
+          href={`#${p.scenes[0].label}`}
           class="part"
           class:current={p === part}
           aria-current={p === part ? 'true' : undefined}
-          onclick={() => goScene(p.scenes[0])}
+          onclick={(e) => {
+            e.preventDefault();
+            goScene(p.scenes[0]);
+          }}
         >
           <span class="number">{k + 1}</span>{p.act}
-        </button>
+        </a>
       </li>
     {/each}
     {#if trips.length}
@@ -311,7 +362,10 @@
     list-style: none;
   }
 
-  .list button {
+  .list button,
+  .list a {
+    display: block;
+    box-sizing: border-box;
     inline-size: 100%;
     border: none;
     padding-block: 0.45rem;
@@ -323,22 +377,25 @@
     font-size: 0.98rem;
     line-height: 1.25;
     text-align: start;
+    text-decoration: none;
     cursor: pointer;
   }
 
-  .list button.part {
+  .list .part {
     display: flex;
     align-items: baseline;
     gap: 0.7rem;
   }
 
   .list button:hover,
-  .list button:focus-visible {
+  .list button:focus-visible,
+  .list a:hover,
+  .list a:focus-visible {
     background: rgb(189 98 69 / 12%);
     color: var(--ink-strong);
   }
 
-  .list button.current {
+  .list .current {
     background: rgb(189 98 69 / 9%);
     color: var(--accent-deep);
     font-weight: 700;
