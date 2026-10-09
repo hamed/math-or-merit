@@ -186,6 +186,25 @@ test('a swipe is one step', async ({ page }) => {
   await expect.poll(() => stepNow(page)).toBe(start + 1);
 });
 
+test('the two call the reader in turns, never over each other, Red first', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'meet', ['meet']);
+  const lines = await page.evaluate(async () => {
+    const { REACTIONS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const messages = (await import('/messages/en.json')).default as Record<string, string>;
+    return { red: REACTIONS.callRed.map((k: string) => messages[k]), blue: REACTIONS.callBlue.map((k: string) => messages[k]) };
+  });
+  // each new call, in the order it was said
+  const heard: string[] = [];
+  for (let k = 0; k < 30 && heard.length < 4; k++) {
+    const shown = (await page.locator('.pair-scene .bubble .lines').allTextContents()).map((t) => t.trim());
+    for (const line of shown) if (!heard.includes(line)) heard.push(line);
+    await page.waitForTimeout(300);
+  }
+  expect(heard.slice(0, 4)).toEqual([lines.red[0], lines.blue[0], lines.red[1], lines.blue[1]]);
+});
+
 test('a hold waits for the reader: both are met by a click each, in any order, never by scrolling past', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const ids = await openAt(page, 'meet', ['meet']);

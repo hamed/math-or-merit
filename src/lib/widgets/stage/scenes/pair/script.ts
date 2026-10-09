@@ -54,6 +54,8 @@ export interface Pose {
   /** Coins each has staked on the table. */
   readonly table: Coins;
   readonly flip: Flip;
+  /** The decider has been shown, both faces, once (round one): after that it simply appears. */
+  readonly presented: boolean;
   readonly place: Place;
   /** How many people are in the room (Scene 14). */
   readonly room: number;
@@ -131,6 +133,7 @@ export type Action =
   | 'clear'
   | 'ante'
   | 'toss'
+  | 'present'
   | 'room'
   | 'pairs'
   | 'run'
@@ -205,6 +208,7 @@ export const START: Pose = {
   holdings: { blue: 15, red: 1 },
   table: { blue: 0, red: 0 },
   flip: 'hidden',
+  presented: false,
   place: 'marks',
   room: 2,
   choice: false,
@@ -243,6 +247,8 @@ export function levyLesson(stage: 0 | 1 | 2): { coins: number[]; pool: number } 
 
 /** How long the rain step lasts: every drop, the last fall, and a moment to stand still (rain.ts). */
 export const RAIN_WAIT_MS = Math.round(RAIN_SECONDS * 1000);
+/** The decider's first showing: plain, then in its colours, turning slowly so both faces are seen, at rest on Marx (PairScene `present`). */
+export const PRESENT_MS = 3600;
 
 /** How long the run takes on screen, ms: slow enough to see it happen (brief Scene 13). */
 export const RUN_MS = 16_000;
@@ -372,6 +378,8 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
       return 1500;
     case 'toss':
       return 3600;
+    case 'present':
+      return PRESENT_MS;
     case 'arrange':
       return pose.roomMode === 'piles' ? 4800 : pose.roomMode === 'ruler' ? 3400 : prev.roomMode === 'turnover' ? 1800 : 2000;
     default:
@@ -424,7 +432,9 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         [p, action] = [{ ...p, coins: true }, 'lattice'];
         break;
       case 'reveal:coin':
-        p = { ...p, flip: 'shown' };
+        // the first time, it comes out and turns to show both faces (owner, 2026-10-09)
+        if (!p.presented) action = 'present';
+        p = { ...p, flip: 'shown', presented: true };
         break;
       case 'reveal:curve':
         [p, action] = [{ ...p, lorenz: 1 }, 'walk'];
@@ -605,7 +615,7 @@ export function valuesFor(step: PairStep): Record<string, number> {
 
 // ---- the lines the scene speaks on events, as the scene has always asked for them ------
 
-type Said = { who: 'blue' | 'red'; message: string; pauseMs?: number; pictures?: readonly string[] };
+type Said = { who: 'blue' | 'red'; message: string; pauseMs?: number; pictures?: readonly string[]; feel?: readonly string[] };
 
 /**
  * The live values a line may say while the matched rooms stand (Scene 23's
@@ -620,11 +630,18 @@ export function picturesOf(cues: readonly { readonly name: string; readonly args
   return cues.flatMap((c) => (c.name === 'image' && c.args[0] ? [c.args[0].trim()] : []));
 }
 
-/** A bubble the scene speaks when something happens, with its own `\\pause` and pictures. */
+/** A bubble the scene speaks when something happens, with its own `\\pause`, pictures and feelings. */
 export function spoken(b: StoryBubble): Said {
   const pause = pauseOf({ cues: b.cues ?? [] });
   const pictures = picturesOf(b.cues ?? []);
-  return { who: b.who as Said['who'], message: b.key, ...(pause ? { pauseMs: pause } : {}), ...(pictures.length ? { pictures } : {}) };
+  const feel = (b.manner ?? []).filter((m) => FEELINGS.has(m));
+  return {
+    who: b.who as Said['who'],
+    message: b.key,
+    ...(pause ? { pauseMs: pause } : {}),
+    ...(pictures.length ? { pictures } : {}),
+    ...(feel.length ? { feel } : {}),
+  };
 }
 const bubbleOf = spoken;
 const group = (id: string, kind: 'groups' | 'reactions', cond: string): Said[] =>
@@ -649,10 +666,10 @@ export const REACTIONS = {
   /** Each one's introduction, once the reader has clicked him. */
   introRed: firstOf('meet', 'reactions', 'met-red'),
   introBlue: firstOf('meet', 'reactions', 'met-blue'),
-  equalFirst: firstOf('equal', 'reactions', 'first-move').message,
-  equalEleven: firstOf('equal', 'reactions', 'blue-reaches-eleven').message,
-  equalOverBlue: group('equal', 'reactions', 'red-above-eight')[0].message,
-  equalOverRed: group('equal', 'reactions', 'red-above-eight')[1].message,
+  equalFirst: firstOf('equal', 'reactions', 'first-move'),
+  equalEleven: firstOf('equal', 'reactions', 'blue-reaches-eleven'),
+  equalOverBlue: group('equal', 'reactions', 'red-above-eight')[0],
+  equalOverRed: group('equal', 'reactions', 'red-above-eight')[1],
   /** Scene 11's "Yes · Not now". */
   joke: choices('more.joke'),
   /** The joke's end: the spherical human, or on. */

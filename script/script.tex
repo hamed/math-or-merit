@@ -96,8 +96,10 @@ The two survivors, still neutral. Red calls first. A click makes a circle
 take its colours and introduce itself at once; then the other one calls. If
 the reader waits, the caller tries again, a little louder.
 
-% Both call at once, each at its own random moments; the reader clicks
-% either first. Each one's introduction answers the click.
+% They take turns, never over each other, looking out at the reader: Red's
+% first line, then Blue's first, then Red's second, and so on, each answering
+% the last (owner, 2026-10-09). The reader clicks either first; each one's
+% introduction answers the click, and the other goes on alone.
 Red (aside, brief):
 \begin{enumerate}
   \item Hi.
@@ -107,6 +109,8 @@ Red (aside, brief):
   \item I'm the wiser one.
   \item Wisdom multiplies.
   \item Money divides.
+  \item Still here.
+  \item Either of us. Just click.
 \end{enumerate}
 \hide{headline}
 \meet{red}
@@ -121,6 +125,8 @@ Blue (aside, brief):
   \item Brain or Bank?
   \item Money coumpounds. 
   \item Wisdom doesn't.
+  \item Still richer.
+  \item Me first. Obviously.
 \end{enumerate}
 \meet{blue}
 \todo{draft}
@@ -239,14 +245,17 @@ Red (flow, glad): Eight and eight. Perfect.
 
 \subsection{Round one}\label{round1}
 
-The stakes are the same coins, on the table below the pair. The decider is
-one plain coin until it is tossed: Marx is Red's side, the bank is Blue's.
+The stakes are the same coins, on the table below the pair. The decider
+comes out plain, takes its colours — Marx is Red's side, the bank is Blue's —
+and turns slowly so both faces are seen, coming to rest on Marx. It is
+tossed as Red says who wins on which side, turns in the air until he has
+said it, and lands.
 
 % Blue is the brief's trader A, Red is trader B. The rule is deliberately
-% incomplete here.
+% incomplete here. A new scene: the talk about shapes and coins fades, and
+% Red starts with the rule itself (owner, 2026-10-09).
 
-Red (calm): The rules are simple.
-We each put half on the table.
+Red (calm): We each put half on the table.
 
 Blue (flow, sure): Half of 8.
 4 each.
@@ -254,19 +263,21 @@ Blue (flow, sure): Half of 8.
 
 Four coins from each circle move to the table.
 
-Red (calm): We flip a coin.
-Blue side, you win.
-Red side, I win.
+Red (calm, flow): We flip a coin.
 \reveal{coin}
+\todo{draft}
+
+Red (flow): Red side, I win.
+Blue side, you win.
+\flip{red}
+\expect{blue=4, red=12}
+\todo{draft}
+
+The coin turns in the air while he says it; its faces change only when it
+is edge-on. Red lands. Blue 4, Red 12.
 
 Red: The winner takes it all.
 \adapt{[r1.winner] echoes a well-known song title in English. The line must still read plainly — the winner of the toss takes both stakes.}
-
-The coin turns; its faces change only when it is edge-on. Red lands. Blue 4,
-Red 12.
-
-\flip{red}
-\expect{blue=4, red=12}
 
 \begin{description}
   \item[log.toss] \val{winner} wins. Blue \val{blue}, Red \val{red}.

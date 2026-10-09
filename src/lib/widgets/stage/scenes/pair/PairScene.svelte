@@ -29,6 +29,7 @@
     MAP_LABEL,
     NUDGE_MS,
     PAIR_STEPS,
+    PRESENT_MS,
     REACTIONS,
     REEL,
     REEL_ANSWER,
@@ -359,7 +360,8 @@
       table: { ...pose.table },
       flipOn: pose.flip === 'hidden' ? 0 : 1,
       flipAngle: restingAngle(pose),
-      flipTint: pose.flip === 'blue' || pose.flip === 'red' ? 1 : 0,
+      // in its colours once it has been shown (round one); plain before
+      flipTint: pose.flip !== 'hidden' && pose.presented ? 1 : 0,
       roomOn: pose.place === 'room' ? 1 : 0,
     };
   }
@@ -503,7 +505,8 @@
 
   function nudge(index: number): void {
     const id = PAIR_STEPS[index].id;
-    for (const who of callersOf(id)) if (!reader.named[who]) callOut(who);
+    // a press while they call brings the next line at once, from whoever's turn it is
+    if (callersOf(id).length) callTurn();
     if (id === 'equal') wiggle('blue');
   }
 
@@ -565,7 +568,7 @@
     }
     const line = step.lines?.[0];
     // words read, and the step's action played out, whichever is longer
-    const played = step.actionMs ?? 0;
+    const played = (step.actionMs ?? 0) + tossHang(index) * 1000;
     if (!line) return Math.max(readOf({ text: '' }), played) + pause;
     return Math.max(readOf({ text: say(line.message, valuesOf(step)), pictures: step.pictures }), played) + pause;
   }
@@ -2174,6 +2177,9 @@
       case 'toss':
         toss(pose, tl);
         return;
+      case 'present':
+        present(pose, tl);
+        return;
       case 'room':
         fillRoom(pose, tl);
         return;
@@ -2498,6 +2504,34 @@
   }
 
   /**
+   * The decider comes out (owner, 2026-10-09: "one side is red, one side is
+   * blue. coin changes color and makes a few turns so both sides show and ends
+   * with the Marx side"): plain at first, then in its colours — Marx is Red's,
+   * the bank is Blue's — turning slowly, twice round, to rest on Marx.
+   */
+  function present(pose: Pose, tl: Timeline): void {
+    tweenTo(pose, tl, 0, 0.4);
+    tl.set(view, { flipAngle: 0, flipTint: 0 }, 0.41);
+    tl.set(view, { flipTint: 1 }, 0.9);
+    tl.to(view, { flipAngle: 4 * Math.PI, duration: PRESENT_MS / 1000 - 1.2, ease: 'sine.inOut' }, 0.9);
+  }
+
+  /** When a toss lands, seconds after it starts, if nothing is said over it. */
+  const TOSS_LANDS = 2.4;
+
+  /**
+   * A toss said over (round one, owner 2026-10-09: "we flip it, coin starts
+   * turning. red I win, blue you win. coin lands"): the decider stays up,
+   * turning, until the words are said. Seconds it hangs there.
+   */
+  function tossHang(index: number): number {
+    const step = PAIR_STEPS[index];
+    const line = step.lines?.[0];
+    if (step.action !== 'toss' || !line) return 0;
+    return Math.max(0, readOf({ text: say(line.message) }) / 1000 - TOSS_LANDS + 0.4);
+  }
+
+  /**
    * The decider goes up turning and comes down on the winner's face. A face
    * only ever changes while the coin is edge-on, and each face wears its
    * owner's colour from the moment it is tossed: Marx is Red's, the bank is
@@ -2512,14 +2546,15 @@
     const before = { blue: view.held.blue + view.table.blue, red: view.held.red + view.table.red };
     const start = view.flipAngle;
     const turns = 5;
-    const end = start - (start % (2 * Math.PI)) + turns * 2 * Math.PI + (winner === 'blue' ? Math.PI : 0);
+    const hang = tossHang(current);
+    const end = start - (start % (2 * Math.PI)) + (turns + Math.round(hang * 2)) * 2 * Math.PI + (winner === 'blue' ? Math.PI : 0);
     const high = -L.whole * 0.9;
     tl.to(view, { flipOn: 1, duration: 0.2 }, 0);
     tl.set(view, { flipTint: 1 }, 0.15);
-    tl.to(view, { flipAngle: end, duration: 2.1, ease: 'power3.out' }, 0.15);
+    tl.to(view, { flipAngle: end, duration: 2.1 + hang, ease: hang ? 'power2.out' : 'power3.out' }, 0.15);
     tl.to(view, { flipLift: high, duration: 0.95, ease: 'power2.out' }, 0.15);
-    tl.to(view, { flipLift: 0, duration: 0.9, ease: 'bounce.out' }, 1.1);
-    const landed = 2.4;
+    tl.to(view, { flipLift: 0, duration: 0.9, ease: 'bounce.out' }, 1.1 + hang);
+    const landed = TOSS_LANDS + hang;
     tl.call(() => (cue.air = false), [], landed);
     feelAt(tl, landed, () => {
       for (const who of PAIR) faces.field.react(WHO[who], before[who], pose.holdings[who]);
@@ -2568,39 +2603,54 @@
 
   // ---- Scene 3: meeting them -------------------------------------------------
 
-  const callTimers: Record<Speaker, number | undefined> = { blue: undefined, red: undefined };
+  /**
+   * The meeting's one clock (owner, 2026-10-09: "they both talk, but do not
+   * talk over each other … they inspire the next thing of the next one"): the
+   * two take turns, each line answering the other's last, Red first, as the
+   * script's two lists are written. One left alone calls at his own pace.
+   */
+  let callTimer: number | undefined;
+  let nextCaller: Speaker = 'red';
   let releaseTimer: number | undefined;
 
   function stopCalls(): void {
-    for (const who of PAIR) {
-      if (callTimers[who] !== undefined) window.clearTimeout(callTimers[who]);
-      callTimers[who] = undefined;
-    }
+    if (callTimer !== undefined) window.clearTimeout(callTimer);
+    callTimer = undefined;
     if (releaseTimer !== undefined) window.clearTimeout(releaseTimer);
     releaseTimer = undefined;
   }
 
-  /** Both start calling, each after his own random wait: nobody goes first on purpose. */
+  /** The calling starts: Red opens, a moment after the step. */
   function startCalls(who: readonly Speaker[]): void {
-    for (const w of who) {
-      if (reader.named[w]) continue;
-      callLevel[w] = -1;
-      if (stage?.reduced) callOut(w);
-      else callTimers[w] = window.setTimeout(() => callOut(w), 400 + Math.random() * 2200);
-    }
+    stopCalls();
+    for (const w of who) if (!reader.named[w]) callLevel[w] = -1;
+    nextCaller = who.includes('red') ? 'red' : who[0];
+    if (stage?.reduced) for (const w of who) callOut(w);
+    else callTimer = window.setTimeout(callTurn, 700);
   }
 
-  /** A caller tries again, a little louder, while the reader has not clicked him; each on his own clock. */
+  /** The one whose turn it is calls his next line; the other answers once it is read. */
+  function callTurn(): void {
+    if (callTimer !== undefined) window.clearTimeout(callTimer);
+    callTimer = undefined;
+    const waiting = callersOf(PAIR_STEPS[current].id).filter((w) => !reader.named[w]);
+    if (waiting.length === 0) return;
+    const who = waiting.includes(nextCaller) ? nextCaller : waiting[0];
+    callOut(who);
+    nextCaller = other(who);
+    if (stage?.reduced) return;
+    const pool = who === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
+    // two share the decl.tex \nudge between them; one alone takes all of it
+    const beat = (waiting.length > 1 ? NUDGE_MS / 2 : NUDGE_MS) * (0.85 + Math.random() * 0.3);
+    callTimer = window.setTimeout(callTurn, Math.max(beat, readOf({ text: say(pool[callLevel[who]]) })));
+  }
+
+  /** A caller says his next line, a little more insistent, while the reader has not clicked him. */
   function callOut(who: Speaker): void {
-    if (callTimers[who] !== undefined) window.clearTimeout(callTimers[who]);
-    callTimers[who] = undefined;
     if (reader.named[who]) return;
     const pool = who === 'red' ? REACTIONS.callRed : REACTIONS.callBlue;
     callLevel[who] = Math.min(pool.length - 1, callLevel[who] + 1);
     callAt[who] = performance.now();
-    if (stage?.reduced) return;
-    // the stage nudges every decl.tex \nudge, each caller on a clock of his own
-    callTimers[who] = window.setTimeout(() => callOut(who), NUDGE_MS * (0.75 + Math.random() * 0.5));
   }
 
   /** The reader clicks a circle: it takes its colours and introduces itself; once both have, the talk moves on. */
@@ -2609,8 +2659,6 @@
     if (current !== indexOf(id) || reader.named[who]) return;
     reader.named = { ...reader.named, [who]: true };
     metAt[who] = performance.now();
-    if (callTimers[who] !== undefined) window.clearTimeout(callTimers[who]);
-    callTimers[who] = undefined;
     gsap.fromTo(view.paint, { [who]: 0 }, { [who]: 1, duration: 0.4, ease: 'back.out(2.5)' });
     if (!callersOf(id).every((w) => reader.named[w])) return;
     // the second introduction is read before the talk goes on
@@ -2624,8 +2672,23 @@
   let reacted = { first: false, eleven: false, over: false };
   const holding = $derived(current === indexOf('equal') && !stage?.isReleased('equal') && stage?.index === indexOf('equal'));
 
-  function react(key: string, who: Speaker): void {
-    reaction = { id: `react:${key}`, who, at: who, text: say(key), aside: true };
+  function react(line: { who: Speaker; message: string; feel?: readonly string[] }): void {
+    reaction = { id: `react:${line.message}`, who: line.who, at: line.who, text: say(line.message), aside: true, feel: line.feel };
+  }
+
+  /**
+   * Blue gives his coins up one at a time, and minds every one (owner,
+   * 2026-10-09: "he doesn't feel good, still, he loves money, and hard to give
+   * it away"): worried at the first, sadder as they go, cross by the end; a
+   * coin coming back is a relief.
+   */
+  function blueFeels(gave: boolean): void {
+    if (!gave) {
+      faces.feel(WHO.blue, 'glad');
+      return;
+    }
+    const given = reader.held.blue < BLUE_CATCHES ? BLUE_CATCHES - reader.held.blue : 0;
+    faces.feel(WHO.blue, given <= 1 ? 'worried' : given <= 4 ? 'sad' : 'annoyed');
   }
 
   /** A coin on its way from one fortune to the other, drawn where it is. */
@@ -2638,6 +2701,7 @@
   function launch(from: Speaker, start: { x: number; y: number }): void {
     const to = other(from);
     reader.held = { ...reader.held, [from]: reader.held[from] - 1 };
+    if (from === 'blue') blueFeels(true);
     view.held = { ...view.held, [from]: view.held[from] - 1 };
     gsap.to(view.people[WHO[from]], { r: Math.max(L.minRadius, L.radius(reader.held[from])), duration: 0.3, ease: 'back.out(2)' });
     view.fly = [...view.fly, { x: start.x, y: start.y, on: 1, face: 'front' }];
@@ -2662,6 +2726,7 @@
     if (flights.length === 0) view.fly = [];
     const to = flight.to;
     reader.held = { ...reader.held, [to]: reader.held[to] + 1 };
+    if (to === 'blue') blueFeels(false);
     view.held = { ...view.held, [to]: view.held[to] + 1 };
     gsap.to(view.people[WHO[to]], { r: Math.max(L.minRadius, L.radius(reader.held[to])), duration: 0.3, ease: 'back.out(2)' });
     const held = reader.held;
@@ -2672,15 +2737,15 @@
     }
     if (!reacted.first) {
       reacted.first = true;
-      react(REACTIONS.equalFirst, 'blue');
+      react(REACTIONS.equalFirst);
     } else if (held.blue === 11 && !reacted.eleven) {
       reacted.eleven = true;
-      react(REACTIONS.equalEleven, 'blue');
+      react(REACTIONS.equalEleven);
     } else if (held.red > 8 && !reacted.over) {
       reacted.over = true;
-      react(REACTIONS.equalOverBlue, 'blue');
+      react(REACTIONS.equalOverBlue);
       window.setTimeout(() => {
-        if (holding) react(REACTIONS.equalOverRed, 'red');
+        if (holding) react(REACTIONS.equalOverRed);
       }, 1700);
     } else if (held.red <= 8) {
       reacted.over = false;
