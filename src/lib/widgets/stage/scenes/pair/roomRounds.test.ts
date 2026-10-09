@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gravity } from './hops';
 import { pairLayout } from './layout';
-import { MORE_SPEED, OUT_SECONDS, ROUND_SECONDS, STAKE_SECONDS, planRounds, windowSeconds, windowTimes } from './roomRounds';
+import { MORE_SPEED, OUT_SECONDS, ROUND_SECONDS, STAKE_SECONDS, feltIn, planRounds, windowSeconds, windowTimes } from './roomRounds';
 
 for (const [w, h] of [[1280, 800], [390, 844], [3840, 2160]]) {
   describe(`the room's demonstration rounds on a ${w}×${h} stage`, () => {
@@ -26,6 +26,15 @@ for (const [w, h] of [[1280, 800], [390, 844], [3840, 2160]]) {
         expect(r.landed).toBeLessThan(r.back);
         expect(r.end).toBeLessThanOrEqual((k + 1) * ROUND_SECONDS);
       });
+    });
+
+    it('feels a round\'s result only in the window that tosses its coin', () => {
+      const four = planRounds(setup, 4);
+      const part = (from: 'start' | 'stake' | 'flip', to: 'stake' | 'flip' | 'end') => feltIn(four, { first: 0, count: 1, from, to, speed: 1 });
+      expect(part('start', 'stake')).toEqual([]);
+      expect(part('stake', 'flip')).toEqual([]);
+      expect(part('flip', 'end')).toEqual([0]);
+      expect(feltIn(four, { first: 1, count: 3, from: 'start', to: 'end', speed: 1.5 })).toEqual([1, 2, 3]);
     });
 
     it('plays the same rounds every time, and a longer plan begins with the same rounds', () => {

@@ -171,7 +171,7 @@
     </svg>
   {/if}
   {#if paper}
-    <!-- as the paper prints them: the winner very contemptuous (owner, 2026-10-07), anyone else as their fortune feels (field.ts `photoMood`) -->
+    <!-- as the paper prints them: the winner very contemptuous (owner, 2026-10-07), anyone else as their fortune feels (pair/photoMood.ts) -->
     {@const portrait = faceStyle.look === 'none' ? null : drawStill(faceStyle.look, paper.style.shape, 10, 10, stillOf(paper.mood ?? CONTEMPT))}
     <article class="page" aria-label={`${paper.masthead}: ${paper.text}`}>
       <p class="masthead">{paper.masthead}</p>

@@ -350,6 +350,35 @@ test('the four keep the reader on their step: a missed tap or a scroll stays, a 
   expect(await stepNow(page)).toBe(at);
   await page.locator('.bubble .choice').first().click();
   await expect.poll(() => stepNow(page)).toBe(at + 1);
+  // back to them, and Done goes on again (review 2026-10-10: it did nothing on a revisit)
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(() => stepNow(page)).toBe(at);
+  await page.locator('.bubble .choice').first().click();
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
+  // and after a jump straight to them, with their hold long released
+  await openAt(page, 'eff.try');
+  await page.locator('.bubble .choice').first().click();
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
+});
+
+test('stepping back and forth through the told round leaves no timelines behind', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const ids = await openAt(page, 'rule.1');
+  const children = () =>
+    page.evaluate(async () => (await import('/src/lib/widgets/stage/gsap.ts')).gsap.globalTimeline.getChildren(false, true, true).length);
+  const counts: number[] = [];
+  for (let k = 0; k < 8; k++) {
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => stepNow(page)).toBe(ids.indexOf('rule.1') + 1);
+    await page.waitForTimeout(150);
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(() => stepNow(page)).toBe(ids.indexOf('rule.1'));
+    await page.waitForTimeout(150);
+    counts.push(await children());
+  }
+  // bounded: the last cycles keep no more than the first did
+  expect(Math.max(...counts.slice(-3))).toBeLessThanOrEqual(counts[1] + 2);
 });
 
 test('a line about a spot rings it, and only while the line shows', async ({ page }) => {

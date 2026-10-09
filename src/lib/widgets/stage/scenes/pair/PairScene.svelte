@@ -63,7 +63,7 @@
   import { createRun } from './run.svelte';
   import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
   import { GATHER_SECONDS, noise, planArrival, planRain } from './rain';
-  import { OUT_SCALE, ROUND_STAKE, planRounds, windowTimes } from './roomRounds';
+  import { OUT_SCALE, ROUND_STAKE, feltIn, planRounds, resultAt, windowTimes } from './roomRounds';
   import { CROSSING, FALL, RISE, arrival, fallTime, gravity, hopsBy, squashed, type Hop } from './hops';
   import { titleFeet } from './titleFeet';
   import { deciderFace, pairLayout, pile } from './layout';
@@ -104,7 +104,7 @@
   import { faceRadius } from '../../../shared/face/face';
   import { FaceBoard, type FaceColours } from '../../../shared/face/faceElement';
   import { CONTEMPT, stillOf, type Affect } from '../../../shared/face/moments';
-  import { photoMood } from '../../../shared/face/field';
+  import { photoMood } from './photoMood';
   import { FACE_CHOICES, chooseFace, faceStyle, loadFaceStyle, type FaceChoice } from '../../../shared/face/faceStyle.svelte';
   import { StageFaces, talkSeconds, type Body, type FaceScene, type HeldLine, type TitleCue } from './stageFaces';
 
@@ -370,10 +370,15 @@
   }
 
   let timeline: ReturnType<typeof gsap.timeline> | null = null;
+  /** The whole demonstration a step plays a window of (Scene 10): owned here, killed with the step. */
+  let rounds: ReturnType<typeof gsap.timeline> | null = null;
 
   function stopMotion(): void {
     timeline?.kill();
     timeline = null;
+    // the demonstration a step played a window of goes with it
+    rounds?.kill();
+    rounds = null;
     for (const token of view.fly) gsap.killTweensOf(token);
     view.fly = [];
     for (const token of view.payout) token.on = 0;
@@ -1987,12 +1992,12 @@
     if (PAIR_STEPS[index].pose.choice) {
       // the joke is told in the talk: "Yes" lets the offer go, on into the joke; "Not now" jumps past it
       return [
-        { label: say(REACTIONS.joke[0]), act: () => stage?.release(id) },
+        { label: say(REACTIONS.joke[0]), act: () => goOn(id) },
         { label: say(REACTIONS.joke[1]), act: () => goToStep('pair', JOKE_SKIP, true) },
       ];
     }
     // the four hold the story until the reader says Done (owner, 2026-10-10: it "passes easily without me noticing it at all")
-    if (id === 'eff.try') return [{ label: say(REACTIONS.effDone), act: () => stage?.release(id) }];
+    if (id === 'eff.try') return [{ label: say(REACTIONS.effDone), act: () => goOn(id) }];
     const link = (REACTIONS.links as Record<string, string>)[id];
     if (link) return [{ label: say(link), act: () => stage?.advance() }];
     if (id === 'gini.toy') {
@@ -2040,6 +2045,16 @@
       }));
     }
     return null;
+  }
+
+  /**
+   * A link whose only meaning is "go on" (the joke's Yes, the four's Done): the
+   * first time it lets the hold go; on a visit back, the hold is long released,
+   * so it moves on itself (review 2026-10-10: Done did nothing on a revisit).
+   */
+  function goOn(id: string): void {
+    if (stage?.isReleased(id)) stage.advance();
+    else stage?.release(id);
   }
 
   /** Record the reader's answer; if it was what the stage waited for, move on. */
@@ -2580,10 +2595,12 @@
   function playWindow(tl: Timeline, index: number): void {
     const w = PAIR_STEPS[index].rounds;
     if (!w) return;
-    const all = gsap.timeline({ paused: true });
-    playRounds(all);
     const [from, to] = windowTimes(w);
-    tl.add(all.tweenFromTo(from, to, { duration: (to - from) / w.speed, ease: 'none' }), 0);
+    rounds?.kill();
+    rounds = gsap.timeline({ paused: true });
+    // only the results this window plays are felt: never one whose coin has not been tossed yet
+    playRounds(rounds, feltIn(roundPlan, w));
+    tl.add(rounds.tweenFromTo(from, to, { duration: (to - from) / w.speed, ease: 'none' }), 0);
   }
 
   /** A jump to a step inside the demonstration: the room as that step leaves it, the two still out front if their round goes on. */
@@ -2591,8 +2608,10 @@
     const w = PAIR_STEPS[index].rounds;
     if (!w || w.to === 'end') return;
     const all = gsap.timeline({ paused: true });
-    playRounds(all);
+    playRounds(all, []);
     all.seek(windowTimes(w)[1], true);
+    // drawn, and gone: the state it left stays, the timeline does not
+    all.kill();
   }
 
   /**
@@ -2602,7 +2621,7 @@
    * decider is tossed between them, the winner takes both, and they hop home.
    * Nothing it does is kept: the run starts the room fresh.
    */
-  function playRounds(tl: Timeline): void {
+  function playRounds(tl: Timeline, felt: readonly number[]): void {
     const r0 = L.room.radius;
     // coins at the players' scale: a stake about a third of a player across, the decider a little bigger
     const coinR = r0 * OUT_SCALE * 0.32;
@@ -2636,13 +2655,14 @@
       // the winner takes both stakes, where the winner stands at the front, and both feel it
       const at = round.winner === round.a ? round.spotA : round.spotB;
       for (const coin of coins) tl.to(coin, { x: at.x, y: at.y, duration: 0.35, ease: 'power2.in' }, round.landed + 0.1);
-      tl.set(coins, { on: 0 }, round.landed + 0.45);
-      tl.to(wins[0], { r: r0 * OUT_SCALE * Math.sqrt(1 + ROUND_STAKE), duration: 0.35, ease: 'back.out(2)' }, round.landed + 0.45);
-      tl.to(wins[1], { r: r0 * OUT_SCALE * Math.sqrt(1 - ROUND_STAKE), duration: 0.35, ease: 'power2.out' }, round.landed + 0.45);
-      feelAt(tl, round.landed + 0.45, () => {
-        faces.field.react(faces.roomSlot(round.winner), 1, 1 + ROUND_STAKE);
-        faces.field.react(faces.roomSlot(round.winner === round.a ? round.b : round.a), 1, 1 - ROUND_STAKE);
-      });
+      tl.set(coins, { on: 0 }, resultAt(round));
+      tl.to(wins[0], { r: r0 * OUT_SCALE * Math.sqrt(1 + ROUND_STAKE), duration: 0.35, ease: 'back.out(2)' }, resultAt(round));
+      tl.to(wins[1], { r: r0 * OUT_SCALE * Math.sqrt(1 - ROUND_STAKE), duration: 0.35, ease: 'power2.out' }, resultAt(round));
+      if (felt.includes(k))
+        feelAt(tl, resultAt(round), () => {
+          faces.field.react(faces.roomSlot(round.winner), 1, 1 + ROUND_STAKE);
+          faces.field.react(faces.roomSlot(round.winner === round.a ? round.b : round.a), 1, 1 - ROUND_STAKE);
+        });
       tl.to(view, { flipOn: 0, duration: 0.3 }, round.back);
       tl.set(view, { flipInks: null }, round.back + 0.35);
       // home, their own size again — a tenth richer, a tenth poorer
@@ -3452,6 +3472,8 @@
       stopReveal();
       stopBanter();
       dropPaper();
+      stopCountdown();
+      window.clearTimeout(fourHintTimer);
       for (const r of [run, dialRun, gameRun, leftRun, rightRun]) r.stop();
     };
   });

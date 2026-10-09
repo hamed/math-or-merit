@@ -144,3 +144,16 @@ export function planRounds(s: RoundSetup, rounds: number): RoundPlan[] {
   }
   return out;
 }
+
+/** When a round's result is felt: the two have the stakes, a moment after the decider lands. */
+export const resultAt = (r: RoundPlan): number => r.landed + 0.45;
+
+/**
+ * The rounds whose result a window plays (review 2026-10-10): a step told over
+ * the pick or the stakes feels nothing yet; only the step that tosses the coin
+ * feels who won.
+ */
+export function feltIn(plan: readonly RoundPlan[], w: RoundWindow): number[] {
+  const [from, to] = windowTimes(w);
+  return plan.flatMap((r, k) => (resultAt(r) >= from && resultAt(r) <= to ? [k] : []));
+}
