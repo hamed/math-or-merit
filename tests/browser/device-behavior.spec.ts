@@ -262,6 +262,29 @@ test('the joke is told in the talk, pictures and all, or skipped', async ({ page
   await expect(page.locator('.bubble .pictures img').first()).toBeVisible();
 });
 
+test('the levy is reviewed for both rooms, side by side', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const ids = await openAt(page, 'match.result');
+  const last = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const matched = PAIR_STEPS.filter((s: { pose: { roomMode: string } }) => s.pose.roomMode === 'matched');
+    return { id: matched.at(-1).id as string, measures: matched.at(-1).pose.compare.length as number };
+  });
+  await openAt(page, last.id);
+  const rows = page.locator('.compared .pair-row');
+  await expect(rows).toHaveCount(last.measures);
+  for (let k = 0; k < last.measures; k++) await expect(rows.nth(k).locator('.plot')).toHaveCount(2);
+  expect(ids.indexOf(last.id)).toBeGreaterThan(ids.indexOf('match.result'));
+});
+
+test('the tax game starts from the room itself, and shows what a tap takes', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openAt(page, 'stop.how');
+  await page.locator('.start-game').click();
+  await expect(page.locator('.meter')).toBeVisible();
+  await expect(page.locator('.start-game')).toHaveCount(0);
+});
+
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');

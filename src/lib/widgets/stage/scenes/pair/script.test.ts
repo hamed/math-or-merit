@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { validateSteps } from '../../steps';
 import { ROUNDS, UNITS } from './game';
 import { BETS, PREDICTIONS } from '../../../shared/runLog.svelte';
-import { CARDS, EXPECT_PROBLEMS, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin, spoken } from './script';
+import { CARDS, EXPECT_PROBLEMS, MATCHED_VALUES, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin, spoken } from './script';
 import { compile } from '../../../../script/compile';
 import { parseScript } from '../../../../script/parse';
 import { lint } from '../../../../script/lint';
@@ -165,6 +165,23 @@ describe('the room’s demonstration rounds', () => {
       expect(step.rounds).toBeGreaterThan(0);
       expect(step.actionMs).toBe(Math.round(step.rounds! * ROUND_SECONDS * 1000));
     }
+  });
+});
+
+describe('the levy, reviewed', () => {
+  const matched = PAIR_STEPS.map((s, i) => [s, STORY.steps[i]] as const).filter(([s]) => s.pose.roomMode === 'matched');
+
+  it('says only values the matched rooms can give', () => {
+    const known = new Set<string>([...MATCHED_VALUES, 'blue', 'red']);
+    for (const [, story] of matched) for (const v of story.vals ?? []) expect(known, `${story.id}: \\val{${v}}`).toContain(v);
+  });
+
+  it('pins each measure it reviews for both rooms, not to the side rail', () => {
+    const last = matched.at(-1)![0];
+    expect(last.pose.compare.length).toBeGreaterThan(0);
+    // what was pinned before the rooms were matched stays where it was
+    const before = PAIR_STEPS[PAIR_STEPS.indexOf(matched[0][0]) - 1].pose.thumbs;
+    expect(last.pose.thumbs).toEqual(before);
   });
 });
 

@@ -72,6 +72,12 @@ export interface Pose {
   /** Small pictures of concepts already built, in the side rail (brief 5.3). */
   readonly thumbs: readonly string[];
   /**
+   * The measures pinned while the matched rooms stand (Scene 23): each drawn
+   * for both rooms, without the levy beside with it (owner, 2026-10-09: "red
+   * and blue also review what happens with the levy").
+   */
+  readonly compare: readonly string[];
+  /**
    * Whose fortunes the room shows: the run of Scene 13 (played on in Scene
    * 19) · the dial's fresh room (20) · the tax game, live (21–22) · the
    * matched pair, trades only on the left (23) · the reader's own machine (26).
@@ -206,6 +212,7 @@ export const START: Pose = {
   roomMode: 'free',
   lorenz: 0,
   thumbs: [],
+  compare: [],
   source: 'run',
   control: null,
   levy: 0,
@@ -473,7 +480,7 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         [p, action] = [{ ...p, levy: 2 }, 'coins'];
         break;
       case 'match:':
-        [p, action] = [{ ...p, roomMode: 'matched', source: 'pair', levy: 0 }, 'match'];
+        [p, action] = [{ ...p, roomMode: 'matched', source: 'pair', levy: 0, compare: [] }, 'match'];
         break;
       default:
         if (c.name === 'reveal' && arg.startsWith('card:')) p = { ...p, cardOpen: arg.slice(5) };
@@ -495,7 +502,7 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
           p = { ...p, roomMode: arg as RoomMode, ...(p.source === 'pair' ? { source: 'run' as const } : {}) };
           action = 'arrange';
         } else if (c.name === 'card') p = { ...p, cards: [...p.cards, arg] };
-        else if (c.name === 'pin') p = { ...p, thumbs: [...p.thumbs, arg] };
+        else if (c.name === 'pin') p = p.roomMode === 'matched' ? { ...p, compare: [...p.compare, arg] } : { ...p, thumbs: [...p.thumbs, arg] };
         else if (c.name === 'expect') {
           const want = Object.fromEntries(arg.split(',').map((kv) => kv.split('=').map((x) => x.trim())));
           for (const [k, v] of Object.entries(want)) {
@@ -596,6 +603,14 @@ export function valuesFor(step: PairStep): Record<string, number> {
 // ---- the lines the scene speaks on events, as the scene has always asked for them ------
 
 type Said = { who: 'blue' | 'red'; message: string; pauseMs?: number; pictures?: readonly string[] };
+
+/**
+ * The live values a line may say while the matched rooms stand (Scene 23's
+ * review): the levy, and each measure for both rooms — A without the levy, B
+ * with it. The scene computes each one from the rooms on screen.
+ */
+export const MATCHED_VALUES = ['levy', 'a', 'b', 'giniA', 'giniB', 'topA', 'topB', 'turnA', 'turnB'] as const;
+export type MatchedValue = (typeof MATCHED_VALUES)[number];
 
 /** The pictures a step's or a bubble's cues post (`\\picture{name}`), in order. */
 export function picturesOf(cues: readonly { readonly name: string; readonly args: readonly string[] }[]): string[] {

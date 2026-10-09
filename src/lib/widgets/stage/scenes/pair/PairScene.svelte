@@ -41,6 +41,7 @@
     panelStart,
     readFor,
     valuesFor,
+    type MatchedValue,
     type Pose,
     type RoomMode,
     type RoomSource,
@@ -560,7 +561,7 @@
     // words read, and the step's action played out, whichever is longer
     const played = step.actionMs ?? 0;
     if (!line) return Math.max(readOf({ text: '' }), played) + pause;
-    return Math.max(readOf({ text: say(line.message, valuesFor(step)), pictures: step.pictures }), played) + pause;
+    return Math.max(readOf({ text: say(line.message, valuesOf(step)), pictures: step.pictures }), played) + pause;
   }
 
   /** Things a step starts that are not tweens: the calls, the coin mover. */
@@ -760,6 +761,17 @@
     const id = ++rippleId;
     ripples = [...ripples, { id, x: v.x, y: v.y, r: Math.max(v.r, 6), ink: styleOfRoom(i).stroke }];
     window.setTimeout(() => (ripples = ripples.filter((q) => q.id !== id)), 1500);
+    // the tax game shows what a tap does (owner, 2026-10-09: "the tax, easy to miss"): a quarter
+    // leaves the fortune, and the pool goes back to everyone — a ring across the whole room
+    if (PAIR_STEPS[current].pose.control === 'tax') {
+      const box = L.room.box;
+      taken = [...taken, { id, x: v.x, y: v.y - Math.max(v.r, 6) - 6 }];
+      returns = [...returns, { id, x: box.x + box.w / 2, y: box.y + box.h / 2, r: Math.hypot(box.w, box.h) / 2 }];
+      window.setTimeout(() => {
+        taken = taken.filter((q) => q.id !== id);
+        returns = returns.filter((q) => q.id !== id);
+      }, 1400);
+    }
   }
 
   /** The fortune under a finger: the circle it lands in, or the nearest within a few pixels. */
@@ -1364,16 +1376,51 @@
   // ---- Scene 18: turnover ------------------------------------------------------
 
   /** Each round's turnover up to the moment on screen, and its mean at the start and near the end. */
-  const turnover = $derived.by(() => {
-    void shown.state.revision;
-    const rec = shown.recording();
-    if (!rec) return { rounds: [] as number[], early: 0, late: 0, max: 0 };
-    const raw = rec.turnover.slice(1, Math.max(1, shown.state.frame) + 1);
+  /** A run's turnover so far: each round's share of the money that changed hands, as the chart draws it. */
+  function turnoverOf(r: Run) {
+    void r.state.revision;
+    const rec = r.recording();
+    if (!rec) return { rounds: [] as number[], early: 0, late: 0, max: 0, recent: 0 };
+    const raw = rec.turnover.slice(1, Math.max(1, r.state.frame) + 1);
     const mean = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
     // drawn as a five-round moving average, so the trend reads through the noise of single rounds
     const rounds = raw.map((_, k) => mean(raw.slice(Math.max(0, k - 2), k + 3)));
-    return { rounds, early: mean(raw.slice(0, 3)), late: mean(raw.slice(-3)), max: Math.max(1e-9, ...rounds) };
+    // the last tenth of the rounds on screen: where the room has settled
+    const recent = mean(raw.slice(-Math.max(3, Math.ceil(raw.length / 10))));
+    return { rounds, early: mean(raw.slice(0, 3)), late: mean(raw.slice(-3)), max: Math.max(1e-9, ...rounds), recent };
+  }
+  const turnover = $derived(turnoverOf(shown));
+  /** Scene 23's two rooms, each measured the same way: without the levy, and with it. */
+  const matchTurnover = $derived([turnoverOf(leftRun), turnoverOf(rightRun)]);
+  const matchMetrics = $derived.by(() => {
+    void leftRun.state.revision;
+    void rightRun.state.revision;
+    return [measureWealth(leftRun.wealth()), measureWealth(rightRun.wealth())];
   });
+  /**
+   * What the review says (owner, 2026-10-09: "how even a small levy improves
+   * all"), for any line said while the matched rooms stand: the levy, and each
+   * measure for both rooms — a without the levy, b with it.
+   */
+  const matchedValues = $derived.by((): Record<MatchedValue, string> => {
+    const [a, b] = matchMetrics;
+    const [ta, tb] = matchTurnover;
+    const share = (x: number) => formatNumber(x, { style: 'percent', maximumFractionDigits: x < 0.01 ? 2 : 1 });
+    const gini = (x: number) => formatNumber(x, { maximumFractionDigits: 2 });
+    return {
+      levy: formatNumber(MATCH_LEVY, { style: 'percent', maximumFractionDigits: 1 }),
+      a: matchCounts.a,
+      b: matchCounts.b,
+      giniA: gini(a.gini),
+      giniB: gini(b.gini),
+      topA: share(a.topShare),
+      topB: share(b.topShare),
+      turnA: share(ta.recent),
+      turnB: share(tb.recent),
+    };
+  });
+  /** A step's live values: the pair's coins, and while the matched rooms stand, the review's measures. */
+  const valuesOf = (step: (typeof PAIR_STEPS)[number]) => ({ ...valuesFor(step), ...(step.pose.roomMode === 'matched' ? matchedValues : {}) });
 
   // ---- the side rail, the sheets (optional toys) --------------------------------
 
@@ -1610,7 +1657,7 @@
         continue;
       }
       if (step.id === 'stop.how' && line?.who) {
-        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), feel: step.feel });
+        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesOf(step)), feel: step.feel });
         const result = game.result;
         if (result) {
           const said = result.won ? REACTIONS.stopWon : REACTIONS.stopLost;
@@ -1642,7 +1689,7 @@
         out.push(...heard.sort((a, b) => a.at - b.at).map((h) => h.said));
         continue;
       }
-      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside, brief: step.brief, feel: step.feel, pictures: step.pictures });
+      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesOf(step)), aside: step.aside, brief: step.brief, feel: step.feel, pictures: step.pictures });
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
     if (PAIR_STEPS[current].pose.control === 'sandbox') out.push(...sandboxPapers);
@@ -1919,6 +1966,9 @@
    * hundred he is a dot (owner review 2026-09-26: "here he is").
    */
   let ripples = $state<{ id: number; x: number; y: number; r: number; ink: string }[]>([]);
+  /** The tax game's taps, as the reader sees them: the quarter taken, and the pool coming back to everyone. */
+  let taken = $state<{ id: number; x: number; y: number }[]>([]);
+  let returns = $state<{ id: number; x: number; y: number; r: number }[]>([]);
   let rippleId = 0;
   let lastSpoken = '';
   $effect(() => {
@@ -3187,6 +3237,49 @@
   />
 {/snippet}
 
+<!--
+  Scene 23's review: each measure the pair has pinned, for both rooms, side by
+  side on the same footing — without the levy, then with it (owner, 2026-10-09).
+  The newest pinned on top, the earlier ones below it.
+-->
+{#snippet compared(measures: readonly string[], cell: number)}
+  <div class="compared" style={`--cell:${cell.toFixed(0)}px`}>
+    {#each [...measures].reverse() as measure, k (measure)}
+      <section class="pair-row" class:newest={k === 0} aria-label={say(`card_${measure}_title`)}>
+        <p class="pair-title">{say(`card_${measure}_title`)}</p>
+        <div class="pair-cells">
+          {#each [leftRun, rightRun] as r, side (side)}
+            <div class="plot">
+              {#if measure === 'histogram'}
+                <Histogram wealth={r.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={r.state.revision} startDollars={START_DOLLARS} />
+              {:else if measure === 'gini'}
+                <LorenzPlot wealth={r.wealth()} gini={matchMetrics[side].gini} revision={r.state.revision} />
+              {:else if measure === 'participants'}
+                <div class="stat">
+                  <p class="big">{`≈ ${formatNumber(matchMetrics[side].effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
+                  <p class="of">{say('card_participants_title')}</p>
+                </div>
+              {:else}
+                <TurnoverPlot
+                  rounds={matchTurnover[side].rounds}
+                  trades={r.state.trades}
+                  title={say('card_turnover_title')}
+                  xLabel={say('turn_axis_trades')}
+                  yLabel={say('turn_axis_short')}
+                />
+              {/if}
+            </div>
+          {/each}
+        </div>
+        <p class="pair-sides" class:hidden={k > 0}>
+          <span>{say('match_left', { levy: formatNumber(MATCH_LEVY, { style: 'percent', maximumFractionDigits: 1 }) })}</span>
+          <span>{say('match_right', { levy: formatNumber(MATCH_LEVY, { style: 'percent', maximumFractionDigits: 1 }) })}</span>
+        </p>
+      </section>
+    {/each}
+  </div>
+{/snippet}
+
 {#snippet sandboxDeck(folded: boolean)}
   <!-- the sandbox's own dials and stops, in one tidy panel (brief 5.10: "much tidier");
        on a phone it folds to one row, so the room stays in sight and in reach -->
@@ -3386,7 +3479,7 @@
         </g>
         <g class="match-labels" opacity={view.mirrorShift}>
           {#each [0, 1] as side (side)}
-            {@const label = say(side === 0 ? 'match_left' : 'match_right', { levy: formatNumber(MATCH_LEVY, { style: 'percent' }) })}
+            {@const label = say(side === 0 ? 'match_left' : 'match_right', { levy: formatNumber(MATCH_LEVY, { style: 'percent', maximumFractionDigits: 1 }) })}
             <!-- a label wider than its room breaks after its first comma -->
             {@const parts = matchBox.w < 260 && label.includes(', ') ? [label.slice(0, label.indexOf(', ') + 1), label.slice(label.indexOf(', ') + 2)] : [label]}
             <text x={matchBox.lefts[side] + matchBox.w / 2} y={matchBox.top - 10 - (parts.length - 1) * 15} text-anchor="middle"
@@ -3647,6 +3740,20 @@
         <circle class="ripple" cx={ripple.x} cy={ripple.y} r={ripple.r} style={`--ink:${ripple.ink}`} />
       {/each}
 
+      {#if PAIR_STEPS[current].pose.control === 'tax'}
+        <!-- the tax game: where to start, what a tap takes, and the pool going back to everyone -->
+        {#if game.playing && game.elapsed < 4500 && topFive.length}
+          {@const v = agentView(topFive[0])}
+          <circle class="pulse" cx={v.x} cy={v.y} r={Math.max(v.r, 10) + 6} />
+        {/if}
+        {#each returns as ring (ring.id)}
+          <circle class="pool-return" cx={ring.x} cy={ring.y} r={ring.r} />
+        {/each}
+        {#each taken as t (t.id)}
+          <text class="taken" x={t.x} y={t.y} text-anchor="middle">{formatNumber(-GAME.rate, { style: 'percent' })}</text>
+        {/each}
+      {/if}
+
       {#each view.payout as token, i (i)}
         {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius * 0.8} face={i % 2 ? 'back' : 'front'} />{/if}
       {/each}
@@ -3680,6 +3787,23 @@
       {/if}
     </svg>
 
+    {#if !L.column && PAIR_STEPS[current].pose.roomMode === 'matched' && PAIR_STEPS[current].pose.compare.length > 0}
+      <!-- a phone has no column: the newest measure of the review, both rooms' numbers, over the rooms -->
+      {@const measure = PAIR_STEPS[current].pose.compare.at(-1)!}
+      {@const value = (side: number) =>
+        measure === 'gini'
+          ? formatNumber(matchMetrics[side].gini, { maximumFractionDigits: 2 })
+          : measure === 'participants'
+            ? `≈ ${formatNumber(matchMetrics[side].effectiveParticipants, { maximumFractionDigits: 1 })}`
+            : measure === 'turnover'
+              ? formatNumber(matchTurnover[side].recent, { style: 'percent', maximumFractionDigits: 2 })
+              : formatNumber(matchMetrics[side].topShare, { style: 'percent', maximumFractionDigits: 0 })}
+      <div class="compare-strip" style={`top:${matchBox.top + matchBox.h + 34}px`}>
+        <p class="pair-title">{say(`card_${measure}_title`)}</p>
+        <p class="pair-values"><b>{value(0)}</b><b>{value(1)}</b></p>
+      </div>
+    {/if}
+
     {#if !L.column && PAIR_STEPS[current].pose.control === 'sandbox'}
       <div class="dial phone deck-phone">{@render sandboxDeck(true)}</div>
     {:else if !L.column && !inPicture && PAIR_STEPS[current].pose.place === 'room' && (dialHere || (runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run')))}
@@ -3692,11 +3816,19 @@
     {#if PAIR_STEPS[current].pose.control === 'tax' && (game.playing || game.result)}
       {@const box = L.room.box}
       {@const low = metrics.effectiveParticipants < GAME.target}
-      <!-- over the room's top corner; on a phone the talk covers that, so at its foot -->
-      <div class="meter" class:low style={`left:${box.x + 8}px; top:${L.column ? box.y + 6 : box.y + box.h - 44}px`} aria-live="off">
+      <!-- over the middle of the room's top, where it is seen (owner, 2026-10-09); on a phone the talk covers that, so at its foot -->
+      <div class="meter" class:low style={`left:${box.x + box.w / 2}px; top:${L.column ? box.y + 6 : box.y + box.h - 58}px`} aria-live="off">
         <span>{say('stop_meter', { count: formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 0 }) })}</span>
         <span class="clock" aria-hidden="true"><span style={`inline-size:${Math.max(0, 1 - game.elapsed / (GAME.seconds * 1000)) * 100}%`}></span></span>
       </div>
+    {/if}
+
+    {#if PAIR_STEPS[current].id === 'stop.how' && !game.playing}
+      {@const box = L.room.box}
+      <!-- the game's start, as big as the room's middle: the bubble's link alone was easy to miss -->
+      <button type="button" class="start-game" style={`left:${box.x + box.w / 2}px; top:${box.y + box.h / 2}px`} onclick={startGame}>
+        {say(REACTIONS.stopStart)}
+      </button>
     {/if}
 
     {#if tapping}
@@ -3853,6 +3985,9 @@
         {:else if runShown && pose.roomMode === 'matched'}
           {#if leftRun.state.done && leftRun.state.frames > 1}
             <section class="chart live"><div class="dial">{@render player([leftRun, rightRun])}</div></section>
+          {/if}
+          {#if pose.compare.length > 0}
+            {@render compared(pose.compare, (L.column.w - 24) / 2)}
           {/if}
         {:else if runShown && !APART.includes(pose.roomMode)}
           <section class="chart live">
@@ -4204,17 +4339,120 @@
     position: absolute;
     z-index: 4;
     display: grid;
-    gap: 0.25rem;
-    padding: 0.3rem 0.6rem;
-    border: 1px solid var(--line);
+    gap: 0.3rem;
+    min-inline-size: 13rem;
+    padding: 0.45rem 1rem;
+    border: 1.5px solid var(--accent);
     border-radius: 999px;
-    background: rgb(255 250 240 / 88%);
+    background: rgb(255 250 240 / 94%);
+    box-shadow: 0 3px 10px rgb(40 37 31 / 12%);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
+    text-align: center;
     pointer-events: none;
+    transform: translateX(-50%);
+  }
+
+  /* the tax game's start, over the room's middle */
+  .start-game {
+    position: absolute;
+    z-index: 5;
+    padding: 0.7rem 2rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 6px 18px rgb(40 37 31 / 25%);
+    color: var(--paper-bright);
+    font-family: var(--font-sans);
+    font-size: 1.25rem;
+    font-weight: 800;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    animation: start-game 1.6s ease-in-out infinite;
+  }
+
+  .start-game:hover,
+  .start-game:focus-visible {
+    background: var(--accent-deep);
+    outline: none;
+  }
+
+  @keyframes start-game {
+    50% {
+      box-shadow: 0 6px 26px rgb(189 98 69 / 55%);
+    }
+  }
+
+  /* where to tap first: the biggest fortune, for the first few seconds */
+  .pulse {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pulse 900ms ease-out infinite;
+  }
+
+  @keyframes pulse {
+    from {
+      opacity: 0.9;
+      transform: scale(0.85);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.5);
+    }
+  }
+
+  /* what a tap takes, rising off the fortune */
+  .taken {
+    fill: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 800;
+    animation: taken 1300ms ease-out both;
+  }
+
+  @keyframes taken {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-26px);
+    }
+  }
+
+  /* the pool going back to everyone: a ring that crosses the whole room */
+  .pool-return {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pool-return 1300ms ease-out both;
+  }
+
+  @keyframes pool-return {
+    from {
+      opacity: 0.55;
+      transform: scale(0.05);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .start-game,
+    .pulse {
+      animation: none;
+    }
   }
 
   .meter.low {
@@ -4377,6 +4615,97 @@
     border-radius: 10px;
     background: rgb(255 250 240 / 88%);
     overflow: hidden;
+  }
+
+  .compare-strip {
+    position: absolute;
+    z-index: 4;
+    inset-inline: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    background: rgb(255 250 240 / 92%);
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .compare-strip .pair-values {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin: 0;
+    color: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Scene 23's review: a measure for both rooms, the newest pinned on top */
+  .compared {
+    display: grid;
+    gap: 10px;
+    margin-block-start: 10px;
+  }
+
+  .pair-row {
+    padding: 6px 8px 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgb(255 250 240 / 70%);
+  }
+
+  .pair-row.newest {
+    border-color: var(--accent);
+  }
+
+  /* the earlier measures stay, small, under the newest: the review adds up */
+  .pair-row:not(.newest) .pair-cells .plot {
+    block-size: calc(var(--cell) * 0.34);
+  }
+
+  .pair-row:not(.newest) .stat .big {
+    font-size: 1.25rem;
+  }
+
+  .pair-row:not(.newest) .stat .of {
+    display: none;
+  }
+
+  .pair-row:not(.newest) .pair-title {
+    font-size: 0.88rem;
+  }
+
+  .pair-sides.hidden {
+    display: none;
+  }
+
+  .pair-title {
+    margin: 0 0 4px;
+    color: var(--ink);
+    font-family: var(--font-hand);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .pair-cells {
+    display: grid;
+    grid-template-columns: repeat(2, var(--cell));
+    gap: 8px;
+  }
+
+  .pair-cells .plot {
+    inline-size: var(--cell);
+    block-size: var(--cell);
+  }
+
+  .pair-sides {
+    display: grid;
+    grid-template-columns: repeat(2, var(--cell));
+    gap: 8px;
+    margin: 4px 0 0;
+    color: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    text-align: center;
   }
 
   .plot .stat {
