@@ -140,10 +140,18 @@ export const STORY: Story = {
       "sideTrip": false
     },
     {
+      "label": "ruler",
+      "title": "A better ruler",
+      "act": "Line them up",
+      "number": "18",
+      "step": "ruler.1",
+      "sideTrip": false
+    },
+    {
       "label": "gini",
       "title": "Measure the room",
       "act": "Measure the room",
-      "number": "18",
+      "number": "19",
       "step": "gini.1",
       "sideTrip": false
     },
@@ -151,7 +159,7 @@ export const STORY: Story = {
       "label": "count",
       "title": "How many still count?",
       "act": "How many still count?",
-      "number": "19",
+      "number": "20",
       "step": "count.1",
       "sideTrip": false
     },
@@ -159,7 +167,7 @@ export const STORY: Story = {
       "label": "turnover",
       "title": "Is anything moving?",
       "act": "Is anything moving?",
-      "number": "20",
+      "number": "21",
       "step": "turnover.1",
       "sideTrip": false
     },
@@ -167,7 +175,7 @@ export const STORY: Story = {
       "label": "end",
       "title": "Where it ends",
       "act": "Where it ends",
-      "number": "21",
+      "number": "22",
       "step": "end.1",
       "sideTrip": false
     },
@@ -175,7 +183,7 @@ export const STORY: Story = {
       "label": "dial",
       "title": "Your hand on the dial",
       "act": "Your hand on the dial",
-      "number": "22",
+      "number": "23",
       "step": "dial.1",
       "sideTrip": false
     },
@@ -183,7 +191,7 @@ export const STORY: Story = {
       "label": "stop",
       "title": "Now you try to stop it",
       "act": "Now you try to stop it",
-      "number": "23",
+      "number": "24",
       "step": "stop.1",
       "sideTrip": false
     },
@@ -191,7 +199,7 @@ export const STORY: Story = {
       "label": "levy",
       "title": "Put the levy in the rules",
       "act": "Put the levy in the rules",
-      "number": "24",
+      "number": "25",
       "step": "levy.1",
       "sideTrip": false
     },
@@ -199,7 +207,7 @@ export const STORY: Story = {
       "label": "match",
       "title": "Trade and return together",
       "act": "Trade and return together",
-      "number": "25",
+      "number": "26",
       "step": "match.1",
       "sideTrip": false
     },
@@ -207,7 +215,7 @@ export const STORY: Story = {
       "label": "map",
       "title": "The outcome map",
       "act": "The outcome map",
-      "number": "26",
+      "number": "27",
       "step": "map.1",
       "sideTrip": false
     },
@@ -215,7 +223,7 @@ export const STORY: Story = {
       "label": "verdict",
       "title": "The verdict",
       "act": "The verdict",
-      "number": "27",
+      "number": "28",
       "step": "verdict.1",
       "sideTrip": false
     },
@@ -223,7 +231,7 @@ export const STORY: Story = {
       "label": "sandbox",
       "title": "The machine is yours",
       "act": "The machine is yours",
-      "number": "28",
+      "number": "29",
       "step": "sandbox.1",
       "sideTrip": false
     },
@@ -2412,21 +2420,17 @@ export const STORY: Story = {
       "act": true,
       "who": "red",
       "manner": [
-        "aside"
+        "aside",
+        "flow"
       ],
       "key": "sort_1",
       "cues": [],
-      "choices": [
-        {
-          "key": "sort_1_choice_1",
-          "target": ""
-        }
-      ],
-      "wait": "reader"
+      "choices": [],
+      "wait": "chat"
     },
     {
       "id": "sort.a1",
-      "at": "script.tex:711",
+      "at": "script.tex:710",
       "scene": "sort",
       "act": false,
       "who": null,
@@ -2444,21 +2448,22 @@ export const STORY: Story = {
     },
     {
       "id": "sort.2",
-      "at": "script.tex:713",
+      "at": "script.tex:712",
       "scene": "sort",
       "act": false,
       "who": "blue",
       "manner": [
+        "flow",
         "sure"
       ],
       "key": "sort_2",
       "cues": [],
       "choices": [],
-      "wait": "reader"
+      "wait": "chat"
     },
     {
       "id": "sort.3",
-      "at": "script.tex:717",
+      "at": "script.tex:716",
       "scene": "sort",
       "act": false,
       "who": "red",
@@ -2472,7 +2477,7 @@ export const STORY: Story = {
     },
     {
       "id": "sort.4",
-      "at": "script.tex:720",
+      "at": "script.tex:719",
       "scene": "sort",
       "act": false,
       "who": "blue",
@@ -2487,7 +2492,7 @@ export const STORY: Story = {
     },
     {
       "id": "sort.5",
-      "at": "script.tex:723",
+      "at": "script.tex:722",
       "scene": "sort",
       "act": false,
       "who": "red",
@@ -2503,40 +2508,38 @@ export const STORY: Story = {
       "wait": "chat"
     },
     {
-      "id": "sort.6",
-      "at": "script.tex:728",
-      "scene": "sort",
+      "id": "ruler.1",
+      "at": "script.tex:733",
+      "scene": "ruler",
       "act": false,
       "who": "blue",
       "manner": [
+        "flow",
         "annoyed"
       ],
-      "key": "sort_6",
+      "key": "ruler_1",
       "cues": [],
       "choices": [],
-      "wait": "reader"
+      "wait": "chat"
     },
     {
-      "id": "sort.7",
-      "at": "script.tex:732",
-      "scene": "sort",
+      "id": "ruler.2",
+      "at": "script.tex:737",
+      "scene": "ruler",
       "act": false,
       "who": "red",
-      "manner": [],
-      "key": "sort_7",
-      "cues": [],
-      "choices": [
-        {
-          "key": "sort_7_choice_1",
-          "target": ""
-        }
+      "manner": [
+        "flow"
       ],
-      "wait": "reader"
+      "key": "ruler_2",
+      "cues": [],
+      "choices": [],
+      "wait": "chat"
     },
     {
-      "id": "sort.a2",
-      "at": "script.tex:736",
-      "scene": "sort",
+      "id": "ruler.a1",
+      "at": "script.tex:740",
+      "scene": "ruler",
       "act": false,
       "who": null,
       "manner": [],
@@ -2552,77 +2555,59 @@ export const STORY: Story = {
       "wait": "auto"
     },
     {
-      "id": "sort.8",
-      "at": "script.tex:738",
-      "scene": "sort",
+      "id": "ruler.3",
+      "at": "script.tex:742",
+      "scene": "ruler",
       "act": false,
       "who": "red",
-      "manner": [],
-      "key": "sort_8",
+      "manner": [
+        "flow"
+      ],
+      "key": "ruler_3",
       "cues": [],
       "choices": [],
-      "wait": "reader"
+      "wait": "chat"
     },
     {
-      "id": "sort.9",
-      "at": "script.tex:742",
-      "scene": "sort",
+      "id": "ruler.4",
+      "at": "script.tex:746",
+      "scene": "ruler",
       "act": false,
       "who": "blue",
       "manner": [
         "flow",
         "surprised"
       ],
-      "key": "sort_9",
+      "key": "ruler_4",
       "cues": [],
       "choices": [],
       "wait": "chat"
     },
     {
-      "id": "sort.10",
-      "at": "script.tex:746",
-      "scene": "sort",
+      "id": "ruler.5",
+      "at": "script.tex:750",
+      "scene": "ruler",
       "act": false,
       "who": "red",
-      "manner": [],
-      "key": "sort_10",
+      "manner": [
+        "flow"
+      ],
+      "key": "ruler_5",
       "cues": [],
       "choices": [],
-      "wait": "reader"
+      "wait": "chat"
     },
     {
-      "id": "sort.11",
-      "at": "script.tex:750",
-      "scene": "sort",
+      "id": "ruler.6",
+      "at": "script.tex:754",
+      "scene": "ruler",
       "act": false,
       "who": "red",
       "manner": [
         "aside"
       ],
-      "key": "sort_11",
-      "cues": [],
-      "choices": [
-        {
-          "key": "sort_11_choice_1",
-          "target": ""
-        }
-      ],
-      "wait": "reader"
-    },
-    {
-      "id": "sort.a3",
-      "at": "script.tex:755",
-      "scene": "sort",
-      "act": false,
-      "who": null,
-      "manner": [],
+      "key": "ruler_6",
       "cues": [
-        {
-          "name": "arrange",
-          "args": [
-            "free"
-          ]
-        },
         {
           "name": "card",
           "args": [
@@ -2637,7 +2622,7 @@ export const STORY: Story = {
         }
       ],
       "choices": [],
-      "wait": "auto"
+      "wait": "reader"
     },
     {
       "id": "gini.1",
@@ -4063,6 +4048,7 @@ export const STORY: Story = {
     "why": "why.1",
     "act:sort": "sort.1",
     "sort": "sort.1",
+    "ruler": "ruler.1",
     "act:gini": "gini.1",
     "gini": "gini.1",
     "act:count": "count.1",

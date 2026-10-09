@@ -161,19 +161,24 @@ describe('the line keeps everyone\'s size, under a square plot', () => {
         expect(pose.radii[i] / Math.max(0.6, radii[i])).toBeCloseTo(k, 6);
         expect(pose.spots[i].y - pose.radii[i]).toBeGreaterThan(pose.labelY);
       }
-      // side by side, no one on anyone, the poorest first
-      for (let rank = 1; rank < 100; rank++) {
-        const a = pose.order[rank - 1];
-        const b = pose.order[rank];
-        expect(pose.spots[b].x - pose.radii[b]).toBeGreaterThanOrEqual(pose.spots[a].x + pose.radii[a] - 1e-6);
+      // each under their own stretch of the curve: the curve rises over a person
+      // by exactly what they hold, so it grows as the running total does
+      const f = pose.frame;
+      const total = amounts.reduce((sum, a) => sum + a, 0);
+      let running = 0;
+      for (let rank = 0; rank < 100; rank++) {
+        const i = pose.order[rank];
+        expect(pose.spots[i].x).toBeCloseTo((pose.curve[rank].x + pose.curve[rank + 1].x) / 2, 6);
+        running += amounts[i];
+        expect((f.y + f.h - pose.curve[rank + 1].y) / f.h).toBeCloseTo(running / total, 9);
       }
       expect(pose.order[99]).toBe(42);
+      // overlapping, the richest still stands inside the room
+      expect(pose.spots[42].x + pose.radii[42]).toBeLessThanOrEqual(box.x + box.w);
       // the walk's circle ends as one circle holding everyone's area
       const area = pose.radii.reduce((sum, r) => sum + r * r, 0);
       expect(pose.eaten[100] ** 2).toBeCloseTo(area, 6);
       expect(pose.rank[42]).toBe(99);
-      const last = pose.order[99];
-      expect(pose.spots[last].x + pose.radii[last]).toBeLessThanOrEqual(pose.frame.x + pose.frame.w + 1);
     });
   }
 });

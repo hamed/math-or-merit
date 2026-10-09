@@ -232,6 +232,10 @@ describe('the title’s reel', () => {
 });
 
 describe('what the scene promises, whatever the words', () => {
+  it('never moves on by itself from a step that offers a choice: the reader would lose it (owner, 2026-10-09)', () => {
+    for (const [i, s] of STORY.steps.entries()) if (s.choices.length > 0) expect(['reader', 'action'], PAIR_STEPS[i].id).toContain(PAIR_STEPS[i].wait.kind);
+  });
+
   it('holds only where the scene knows how to let go: meeting both, 8 and 8, the joke offered, a guess, a bet', () => {
     expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake']);
   });

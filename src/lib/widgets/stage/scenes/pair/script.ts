@@ -281,7 +281,6 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   equal: (s) => cue(s, 'equalize'),
   // the joke offer: "Yes" goes on into the joke, "Not now" past it (owner, 2026-10-09: the joke is part of the chat)
   'more.joke': (s) => answers(s, 'joke'),
-  // the joke's last line: the spherical human, offered as a side trip
   'guess.what': (s) => answers(s, 'prediction'),
   'guess.stake': (s) => answers(s, 'bet'),
   'guess.react': (s) => when(s, 'bet'),

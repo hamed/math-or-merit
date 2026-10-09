@@ -308,6 +308,29 @@ test('the rule card opens empty and fills as Red tells the rule', async ({ page 
   await expect(rule).toHaveCount(2);
 });
 
+test('the four keep the reader on their step: a missed tap stays, and a coin can be dragged across', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'eff.try');
+  const at = await stepNow(page);
+  const four = page.locator('.pair-scene .hit.four');
+  await expect(four).toHaveCount(4);
+  await page.waitForTimeout(600);
+  // a tap beside them
+  await page.mouse.click(60, 400);
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
+  // a coin dragged from the first to the second
+  const a = (await four.nth(0).boundingBox())!;
+  const b = (await four.nth(1).boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width / 2 + 20, a.y + a.height / 2, { steps: 4 });
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => [await four.nth(0).getAttribute('aria-label'), await four.nth(1).getAttribute('aria-label')].map((l) => l!.trim())).toEqual(['3', '5']);
+  expect(await stepNow(page)).toBe(at);
+});
+
 test('any card in the deck can be picked, not only the top one', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');
@@ -402,7 +425,7 @@ test('the machine is the reader’s: Play trades, a tap photographs, and every d
   await openAt(page, 'sandbox.2');
   await page.locator('.deck .primary').click();
   await expect
-    .poll(async () => Number(((await page.locator('.chart.live .small').textContent()) ?? '0').replace(/[^\d]/g, '').slice(0, 9) || 0))
+    .poll(async () => Number(((await page.locator('.chart.live .after').textContent()) ?? '0').replace(/[^\d]/g, '').slice(0, 9) || 0))
     .toBeGreaterThan(0);
 
   await page.locator('.deck-tap button').nth(1).click();

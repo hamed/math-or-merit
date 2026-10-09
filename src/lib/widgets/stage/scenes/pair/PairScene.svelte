@@ -1359,6 +1359,11 @@
   /** Tap one of the four to take a coin from them, then another to give it. */
   function tapFour(k: number): void {
     if (current !== indexOf('eff.try')) return;
+    if (fourDragged) {
+      // the click that ends a drag is not a tap
+      fourDragged = false;
+      return;
+    }
     if (fourPick === null) {
       if (fourCoins[k] > 0) fourPick = k;
       return;
@@ -1369,7 +1374,48 @@
     }
     const from = fourPick;
     fourPick = null;
-    const a = agentView(cast.four[from]);
+    sendCoin(from, k);
+  }
+
+  /** A coin of the four's dragged across by the reader (owner, 2026-10-09: the toy "is not smooth"): drop it on another of them. */
+  let fourDrag = $state<{ from: number; x: number; y: number; start: Point; moved: boolean } | null>(null);
+  let fourDragged = false;
+
+  function fourDown(event: PointerEvent, k: number): void {
+    if (current !== indexOf('eff.try') || fourCoins[k] <= 0) return;
+    const at = local(event);
+    fourDrag = { from: k, x: at.x, y: at.y, start: at, moved: false };
+    (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
+  }
+
+  function fourMove(event: PointerEvent): void {
+    if (!fourDrag) return;
+    const at = local(event);
+    fourDrag.x = at.x;
+    fourDrag.y = at.y;
+    if (Math.hypot(at.x - fourDrag.start.x, at.y - fourDrag.start.y) > 6) fourDrag.moved = true;
+  }
+
+  function fourUp(event: PointerEvent): void {
+    if (!fourDrag) return;
+    const { from, moved } = fourDrag;
+    const at = local(event);
+    fourDrag = null;
+    if (!moved) return;
+    fourDragged = true;
+    fourPick = null;
+    // dropped on another of the four: the coin is theirs; anywhere else, it goes home
+    const to = cast.four.findIndex((agent, j) => {
+      const v = agentView(agent);
+      return j !== from && Math.hypot(at.x - v.x, at.y - v.y) <= Math.max(v.r, 34);
+    });
+    if (to >= 0) sendCoin(from, to, at);
+  }
+
+  /** One coin from one of the four to another, flying, from where it is (their circle, or the reader's finger). */
+  function sendCoin(from: number, k: number, start: Point | null = null): void {
+    if (fourCoins[from] <= 0) return;
+    const a = start ?? agentView(cast.four[from]);
     const b = agentView(cast.four[k]);
     const token = { x: a.x, y: a.y, on: 1, face: 'front' as const };
     view.fly = [...view.fly, token];
@@ -3455,7 +3501,12 @@
   bind:this={host}
   onpointermove={(event) => {
     dragMove(event);
+    fourMove(event);
     trackPointer(event);
+  }}
+  onpointerdown={(event) => {
+    // a tap beside the four lets go of the coin picked up
+    if (fourPick !== null && !(event.target as Element).closest('.hit')) fourPick = null;
   }}
   data-control={handsOn ? '' : undefined}>
   <!-- Once the stage is cleared (Scene 5) its words are gone, so their links
@@ -3753,7 +3804,9 @@
           </g>
         {/if}
         {#if pose.roomMode === 'line' && view.lorenzDraw > 0}
-          {@const curve = linePose.curve.map((p, k) => `${k ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')}
+          <!-- drawn exactly as far as the walk has added up: its tip is the running total (owner, 2026-10-09) -->
+          {@const drawn = view.lorenzDraw >= 1 ? linePose.curve : linePose.curve.slice(0, walker.k + 1)}
+          {@const curve = drawn.map((p, k) => `${k ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')}
           <g class="lorenz">
             {#if pose.lorenz >= 3}
               {@const [d0, d1] = linePose.diagonal}
@@ -3769,7 +3822,7 @@
             {#if pose.lorenz >= 2}
               <line class="diagonal" x1={linePose.diagonal[0].x} y1={linePose.diagonal[0].y} x2={linePose.diagonal[1].x} y2={linePose.diagonal[1].y} />
             {/if}
-            <path class="curve" d={curve} pathLength="1" stroke-dasharray="1" stroke-dashoffset={(1 - view.lorenzDraw).toFixed(4)} />
+            <path class="curve" d={curve} />
             {#if pose.lorenz >= 3}
               <text class="gini" x={linePose.frame.x + linePose.frame.w * 0.06} y={linePose.frame.y + linePose.frame.h * 0.12}>
                 {`Gini ${formatNumber(metrics.gini, { maximumFractionDigits: 2 })}`}
@@ -3880,6 +3933,9 @@
       {#if dragging}
         <g class="dragged"><Coin cx={dragging.x} cy={dragging.y} r={L.coinRadius * 1.1} face="front" /></g>
       {/if}
+      {#if fourDrag?.moved}
+        <g class="dragged"><Coin cx={fourDrag.x} cy={fourDrag.y} r={L.coinRadius * 1.1} face="front" /></g>
+      {/if}
 
       {#if view.flipOn > 0.01}
         {@const face = deciderFace(view.flipAngle)}
@@ -3985,11 +4041,13 @@
         {@const r = Math.max(v.r, 28)}
         <button
           type="button"
-          class="hit"
+          class="hit four"
           style={`left:${v.x - r}px; top:${v.y - r}px; width:${r * 2}px; height:${r * 2}px;`}
           aria-pressed={fourPick === k}
           aria-label={`${formatNumber(fourCoins[k])} ${fourPick === null ? '' : '←'}`}
           onclick={() => tapFour(k)}
+          onpointerdown={(e) => fourDown(e, k)}
+          onpointerup={fourUp}
         ></button>
       {/each}
     {/if}
