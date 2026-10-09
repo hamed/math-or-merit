@@ -384,7 +384,10 @@
     transition: opacity 260ms ease;
   }
 
-  .line.waiting,
+  .line.waiting {
+    opacity: 0;
+  }
+
   .pictures {
     display: grid;
     gap: 0.35rem;

@@ -266,6 +266,8 @@
     /** Where the decider is tossed when it is not at the pair's table, and how big it is there: the room's demonstration rounds. */
     flipAt: null as Point | null,
     flipR: 0,
+    /** The decider's two faces in two room members' colours, while they play it (Scene 10); null: Blue's and Red's. */
+    flipInks: null as { front: string; back: string } | null,
     roomOn: 0,
     payout: Array.from({ length: COINS }, () => ({ x: 0, y: 0, on: 0, face: 'front' })) as Token[],
     fly: [] as Token[],
@@ -415,6 +417,7 @@
     view.flipTint = t.flipTint;
     view.flipAt = null;
     view.flipR = 0;
+    view.flipInks = null;
     view.roomOn = t.roomOn;
     // the decider rests once a pose is drawn; a toss playing lifts it
     cue.air = false;
@@ -510,6 +513,12 @@
     // a press while they call brings the next line at once, from whoever's turn it is
     if (callersOf(id).length) callTurn();
     if (id === 'equal') wiggle('blue');
+    // a scroll past the four: they ask for the reader's hand
+    if (id === 'eff.try' && !stage?.reduced) {
+      fourHint = true;
+      window.clearTimeout(fourHintTimer);
+      fourHintTimer = window.setTimeout(() => (fourHint = false), 1800);
+    }
   }
 
   function hurry(index: number): boolean {
@@ -1459,6 +1468,10 @@
     sendCoin(from, k);
   }
 
+  /** The four ringed for a moment when the reader tries to scroll past them. */
+  let fourHint = $state(false);
+  let fourHintTimer: number | undefined;
+
   /** A coin of the four's dragged across by the reader (owner, 2026-10-09: the toy "is not smooth"): drop it on another of them. */
   let fourDrag = $state<{ from: number; x: number; y: number; start: Point; moved: boolean } | null>(null);
   let fourDragged = false;
@@ -1834,7 +1847,10 @@
             heard.push({ at: callAt[who], said: { id: `${step.id}:${who}#${callLevel[who]}`, who: null, at: who, text: say(pool[callLevel[who]]), aside: true, brief: true } });
           }
         }
-        out.push(...heard.sort((a, b) => a.at - b.at).map((h) => h.said));
+        // they take turns, one bubble at a time (owner, 2026-10-10): only the newest call shows; an introduction stays
+        heard.sort((a, b) => a.at - b.at);
+        const newestCall = heard.findLast((h) => h.said.brief);
+        out.push(...heard.filter((h) => !h.said.brief || h === newestCall).map((h) => h.said));
         continue;
       }
       out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesOf(step)), aside: step.aside, brief: step.brief, feel: step.feel, pictures: step.pictures });
@@ -1975,6 +1991,8 @@
         { label: say(REACTIONS.joke[1]), act: () => goToStep('pair', JOKE_SKIP, true) },
       ];
     }
+    // the four hold the story until the reader says Done (owner, 2026-10-10: it "passes easily without me noticing it at all")
+    if (id === 'eff.try') return [{ label: say(REACTIONS.effDone), act: () => stage?.release(id) }];
     const link = (REACTIONS.links as Record<string, string>)[id];
     if (link) return [{ label: say(link), act: () => stage?.advance() }];
     if (id === 'gini.toy') {
@@ -2603,17 +2621,21 @@
         tl.set(coins[j], { x: spot.x, y: spot.y, on: 1 }, round.stake);
         tl.to(coins[j], { x: round.coin.x + (j ? 1 : -1) * coinR * 1.2, y: round.coin.y + coinR * 2.2, duration: 0.45, ease: 'power2.inOut' }, round.stake + 0.05);
       });
-      // the decider, tossed between them; everyone watches it
+      // the decider, tossed between them, a face in each one's own colour (owner,
+      // 2026-10-10); it lands on the winner's. Everyone watches it.
       const turns = 4 + k;
-      tl.set(view, { flipAt: round.coin, flipR: coinR * 1.35, flipTint: 0, flipLift: 0 }, round.flip - 0.2);
+      const loser = round.winner === round.a ? round.b : round.a;
+      const inks = { front: styleOfRoom(round.winner).fill, back: styleOfRoom(loser).fill };
+      tl.set(view, { flipAt: round.coin, flipR: coinR * 1.35, flipTint: 1, flipLift: 0, flipAngle: Math.PI, flipInks: inks }, round.flip - 0.2);
       tl.to(view, { flipOn: 1, duration: 0.2 }, round.flip - 0.2);
       tl.call(() => (cue.air = true), [], round.flip);
-      tl.to(view, { flipAngle: `+=${turns * 2 * Math.PI + (k % 2 ? Math.PI : 0)}`, duration: round.landed - round.flip, ease: 'power3.out' }, round.flip);
+      tl.to(view, { flipAngle: turns * 2 * Math.PI, duration: round.landed - round.flip, ease: 'power3.out' }, round.flip);
       tl.to(view, { flipLift: -r0 * OUT_SCALE * 3, duration: (round.landed - round.flip) * 0.5, ease: RISE }, round.flip);
       tl.to(view, { flipLift: 0, duration: (round.landed - round.flip) * 0.5, ease: FALL }, round.flip + (round.landed - round.flip) * 0.5);
       tl.call(() => (cue.air = false), [], round.landed);
-      // the winner takes both stakes, and both feel it
-      for (const coin of coins) tl.to(coin, { x: wins[0].x, y: wins[0].y, duration: 0.35, ease: 'power2.in' }, round.landed + 0.1);
+      // the winner takes both stakes, where the winner stands at the front, and both feel it
+      const at = round.winner === round.a ? round.spotA : round.spotB;
+      for (const coin of coins) tl.to(coin, { x: at.x, y: at.y, duration: 0.35, ease: 'power2.in' }, round.landed + 0.1);
       tl.set(coins, { on: 0 }, round.landed + 0.45);
       tl.to(wins[0], { r: r0 * OUT_SCALE * Math.sqrt(1 + ROUND_STAKE), duration: 0.35, ease: 'back.out(2)' }, round.landed + 0.45);
       tl.to(wins[1], { r: r0 * OUT_SCALE * Math.sqrt(1 - ROUND_STAKE), duration: 0.35, ease: 'power2.out' }, round.landed + 0.45);
@@ -2622,6 +2644,7 @@
         faces.field.react(faces.roomSlot(round.winner === round.a ? round.b : round.a), 1, 1 - ROUND_STAKE);
       });
       tl.to(view, { flipOn: 0, duration: 0.3 }, round.back);
+      tl.set(view, { flipInks: null }, round.back + 0.35);
       // home, their own size again — a tenth richer, a tenth poorer
       playHops(tl, a, round.backA);
       playHops(tl, b, round.backB);
@@ -3963,6 +3986,7 @@
             {@const v = agentView(agent)}
             <g transform={`translate(${v.x.toFixed(1)} ${v.y.toFixed(1)})`}>
               {#if fourPick === k}<circle class="pick" r={v.r + 7} />{/if}
+              {#if fourHint}<circle class="pulse" r={Math.max(v.r, 10) + 8} />{/if}
             </g>
           {/each}
         {/if}
@@ -4059,7 +4083,7 @@
             <Coin
               r={view.flipR || L.coinRadius * 1.6}
               face={face.side === 'red' ? 'front' : 'back'}
-              tint={view.flipTint > 0.5 ? PROTAGONISTS[face.side].fill : undefined}
+              tint={view.flipTint > 0.5 ? (view.flipInks ? view.flipInks[face.side === 'red' ? 'front' : 'back'] : PROTAGONISTS[face.side].fill) : undefined}
             />
           </g>
         </g>

@@ -12,7 +12,7 @@ import { loadDeferred } from './helpers';
 
 const STAGE_KEY = 'merit-or-math:stage:pair:v1';
 /** The stage's holds, released so a test can land anywhere past them. */
-const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake'];
+const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try'];
 
 const stage = (page: Page) => page.locator('.step-stage');
 const stepNow = async (page: Page) => Number(await stage(page).getAttribute('data-step'));
@@ -203,6 +203,22 @@ test('the two call the reader in turns, never over each other, Red first', async
     await page.waitForTimeout(300);
   }
   expect(heard.slice(0, 4)).toEqual([lines.red[0], lines.blue[0], lines.red[1], lines.blue[1]]);
+  // one call on screen at a time
+  const calls = [...lines.red, ...lines.blue];
+  const shown = (await page.locator('.pair-scene .bubble .lines').allTextContents()).map((t) => t.trim());
+  expect(shown.filter((t) => calls.includes(t)).length).toBeLessThanOrEqual(1);
+});
+
+test('a bubble of several lines shows them one after another', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'rules.1');
+  await page.mouse.move(2, 2);
+  await page.keyboard.press('ArrowRight');
+  const second = page.locator('.pair-scene .bubble').last().locator('.line').nth(1);
+  await expect(second).toBeAttached();
+  expect(Number(await second.evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(0.1);
+  await expect.poll(async () => Number(await second.evaluate((el) => getComputedStyle(el).opacity)), { timeout: 4000 }).toBeGreaterThan(0.9);
 });
 
 test('a hold waits for the reader: both are met by a click each, in any order, never by scrolling past', async ({ page }) => {
@@ -308,10 +324,13 @@ test('the rule card opens empty and fills as Red tells the rule', async ({ page 
   await expect(rule).toHaveCount(2);
 });
 
-test('the four keep the reader on their step: a missed tap stays, and a coin can be dragged across', async ({ page }) => {
+test('the four keep the reader on their step: a missed tap or a scroll stays, a coin can be dragged across, and Done goes on', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openAt(page, 'eff.try');
+  await openAt(page, 'eff.try', ['eff.try']);
   const at = await stepNow(page);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
   const four = page.locator('.pair-scene .hit.four');
   await expect(four).toHaveCount(4);
   await page.waitForTimeout(600);
@@ -329,6 +348,8 @@ test('the four keep the reader on their step: a missed tap stays, and a coin can
   await page.mouse.up();
   await expect.poll(async () => [await four.nth(0).getAttribute('aria-label'), await four.nth(1).getAttribute('aria-label')].map((l) => l!.trim())).toEqual(['3', '5']);
   expect(await stepNow(page)).toBe(at);
+  await page.locator('.bubble .choice').first().click();
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
 });
 
 test('a line about a spot rings it, and only while the line shows', async ({ page }) => {
