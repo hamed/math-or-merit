@@ -8,12 +8,13 @@
   /**
    * Where you are, and how to get anywhere (owner review 2026-09-27).
    *
-   * A line of type in the corner naming the scene you are in — "Scene 7 ·
-   * Round two", as the script numbers it. Rest the pointer on it (or press it)
-   * and the whole script opens: every act and its scenes, the side trips, and
+   * A line of type in the corner naming the part of the story you are in: the
+   * script's \section. Rest the pointer on it (or press it) and the parts open,
+   * one entry each — never their scenes (owner, 2026-10-09: "the sections are
+   * too fine … subsections do not show there") — then the side trips, and
    * "From the very beginning", which forgets the visit and starts at time 0.
-   * Picking a scene goes there at once, past any hold on the way: the index is
-   * the way to a place, and the owner's way to test one.
+   * Picking a part goes to its first scene at once, past any hold on the way:
+   * the index is the way to a place, and the owner's way to test one.
    */
 
   /** The line across the viewport that decides which chapter you are "in" outside the stage. */
@@ -36,23 +37,27 @@
     furthest !== null && current !== null && list.indexOf(furthest) > list.indexOf(current) + 1,
   );
 
-  /** The script's acts, each with its scenes; the side trips last. */
-  const acts = $derived.by(() => {
-    const out: { act: string; scenes: typeof STORY.scenes }[] = [];
+  type Scene = (typeof STORY.scenes)[number];
+  /** The script's parts (its \sections), each with its scenes, in order. */
+  const parts = $derived.by(() => {
+    const out: { act: string; scenes: Scene[] }[] = [];
     for (const sc of STORY.scenes) {
       const last = out[out.length - 1];
-      if (last && last.act === sc.act) (last.scenes as (typeof sc)[]).push(sc);
+      if (last && last.act === sc.act) last.scenes.push(sc);
       else out.push({ act: sc.act, scenes: [sc] });
     }
     return out;
   });
+  const story = $derived(parts.filter((p) => !p.scenes[0].sideTrip));
+  const trips = $derived(parts.filter((p) => p.scenes[0].sideTrip));
 
-  /** The scene the stage is on, by the script. */
+  /** The scene the stage is on, by the script, and the part it belongs to. */
   const scene = $derived.by(() => {
     if (stageStep === null) return null;
     const label = STORY.steps[stageStep]?.scene;
     return STORY.scenes.find((sc) => sc.label === label) ?? null;
   });
+  const part = $derived(scene ? (parts.find((p) => p.scenes.includes(scene)) ?? null) : null);
 
   function measure(): void {
     const line = window.innerHeight * READ_LINE;
@@ -87,7 +92,7 @@
     target.el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   }
 
-  function goScene(sc: (typeof STORY.scenes)[number]): void {
+  function goScene(sc: Scene): void {
     open = false;
     if (sc.sideTrip) openBranch(sc.label as BranchId);
     else if (sc.step) goToIndex(STAGE, STORY.steps.findIndex((s) => s.id === sc.step));
@@ -172,29 +177,43 @@
   onpointerleave={(e) => e.pointerType === 'mouse' && hover(false)}
 >
   <button class="here" type="button" aria-expanded={open} aria-controls="scene-list" onclick={() => (open = !open)}>
-    <span class="eyebrow">{open ? 'Jump to' : scene ? `Scene ${scene.number}` : 'You are at'}</span>
-    <span class="name">{scene ? scene.title : current ? current.label : (STORY.scenes[0]?.title ?? '')}</span>
+    <span class="eyebrow">{open ? 'Jump to' : 'You are in'}</span>
+    <span class="name">{part ? part.act : current ? current.label : (STORY.scenes[0]?.act ?? '')}</span>
   </button>
 
   <ul id="scene-list" class="list" hidden={!open}>
     <li class="start">
       <button type="button" onclick={fromTheStart}>⟲ From the very beginning</button>
     </li>
-    {#each acts as group (group.act + group.scenes[0].label)}
-      <li class="act">{group.act}</li>
-      {#each group.scenes as sc (sc.label)}
+    {#each story as p, k (p.act + p.scenes[0].label)}
+      <li>
+        <button
+          type="button"
+          class="part"
+          class:current={p === part}
+          aria-current={p === part ? 'true' : undefined}
+          onclick={() => goScene(p.scenes[0])}
+        >
+          <span class="number">{k + 1}</span>{p.act}
+        </button>
+      </li>
+    {/each}
+    {#if trips.length}
+      <li class="heading">Side trips</li>
+      {#each trips as p (p.act + p.scenes[0].label)}
         <li>
           <button
             type="button"
-            class:current={sc === scene}
-            aria-current={sc === scene ? 'true' : undefined}
-            onclick={() => goScene(sc)}
+            class="part"
+            class:current={p === part}
+            aria-current={p === part ? 'true' : undefined}
+            onclick={() => goScene(p.scenes[0])}
           >
-            <span class="number">{sc.number}</span> {sc.title}
+            <span class="number">{p.scenes[0].number}</span>{p.act}
           </button>
         </li>
       {/each}
-    {/each}
+    {/if}
     {#if canResume && furthest}
       <li class="resume">
         <button type="button" onclick={() => goChapter(furthest.id)}>
@@ -257,7 +276,7 @@
   }
 
   .eyebrow {
-    font-size: 0.58rem;
+    font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -265,8 +284,8 @@
   }
 
   .name {
-    max-inline-size: 12rem;
-    font-size: 0.78rem;
+    max-inline-size: 16rem;
+    font-size: 0.92rem;
     font-weight: 650;
     line-height: 1.2;
     color: var(--ink-mid);
@@ -280,9 +299,10 @@
   }
 
   .list {
-    max-block-size: min(70svh, 30rem);
-    margin-block: 0.5rem 0;
-    padding: 0.35rem;
+    min-inline-size: 17rem;
+    max-block-size: min(78svh, 40rem);
+    margin-block: 0.55rem 0;
+    padding: 0.5rem;
     overflow-y: auto;
     border: 1px solid #d8cdb9;
     border-radius: 0.55rem;
@@ -294,15 +314,22 @@
   .list button {
     inline-size: 100%;
     border: none;
-    padding-block: 0.3rem;
-    padding-inline: 0.55rem;
-    border-radius: 0.35rem;
+    padding-block: 0.45rem;
+    padding-inline: 0.75rem;
+    border-radius: 0.45rem;
     background: none;
     color: var(--ink-mid);
     font-family: inherit;
-    font-size: 0.76rem;
-    text-align: end;
+    font-size: 0.98rem;
+    line-height: 1.25;
+    text-align: start;
     cursor: pointer;
+  }
+
+  .list button.part {
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
   }
 
   .list button:hover,
@@ -312,26 +339,30 @@
   }
 
   .list button.current {
+    background: rgb(189 98 69 / 9%);
     color: var(--accent-deep);
     font-weight: 700;
   }
 
-  .act {
-    margin-block: 0.45rem 0.1rem;
-    padding-inline: 0.55rem;
-    font-size: 0.58rem;
+  .heading {
+    margin-block: 0.7rem 0.15rem;
+    padding-block-start: 0.55rem;
+    padding-inline: 0.75rem;
+    border-block-start: 1px solid #e3dac6;
+    font-size: 0.66rem;
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    text-align: end;
     color: var(--ink-soft);
   }
 
   .number {
-    display: inline-block;
-    min-inline-size: 1.6em;
+    min-inline-size: 1.5em;
     color: var(--ink-soft);
+    font-size: 0.82em;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
+    text-align: end;
   }
 
   .start {
@@ -351,7 +382,7 @@
   }
 
   .resume button {
-    font-size: 0.7rem;
+    font-size: 0.82rem;
     font-style: italic;
     color: var(--ink-soft);
   }
@@ -381,15 +412,16 @@
 
     .here .name {
       text-shadow: none;
-      max-inline-size: 9rem;
-      font-size: 0.72rem;
+      max-inline-size: 12rem;
+      font-size: 0.82rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .list {
-      max-block-size: 60svh;
+      min-inline-size: min(17rem, calc(100vw - 1.5rem));
+      max-block-size: 70svh;
     }
   }
 

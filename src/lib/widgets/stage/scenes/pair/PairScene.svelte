@@ -98,7 +98,8 @@
   import { GROUND, drawStill } from '../../../shared/face/draw';
   import { faceRadius } from '../../../shared/face/face';
   import { FaceBoard, type FaceColours } from '../../../shared/face/faceElement';
-  import { CONTEMPT, stillOf } from '../../../shared/face/moments';
+  import { CONTEMPT, stillOf, type Affect } from '../../../shared/face/moments';
+  import { photoMood } from '../../../shared/face/field';
   import { FACE_CHOICES, chooseFace, faceStyle, loadFaceStyle, type FaceChoice } from '../../../shared/face/faceStyle.svelte';
   import { StageFaces, talkSeconds, type Body, type FaceScene, type HeldLine, type TitleCue } from './stageFaces';
 
@@ -1412,7 +1413,9 @@
       headlineForStyle(style, edition),
       edition,
     );
-    return { masthead: page.paper, text: page.text, source: page.source, style };
+    // the richest looks down on the room; anyone else wears how their fortune feels
+    const mood = photoMood(w[winner], w.length, m.topShare > 0 && w[winner] >= Math.max(...w));
+    return { masthead: page.paper, text: page.text, source: page.source, style, mood };
   }
 
   /**
@@ -1523,7 +1526,7 @@
     /** An event's coin: the face that landed. */
     coin?: Speaker;
     /** The morning paper's front page, printed in the talk. */
-    paper?: { masthead: string; text: string; source: string; style: AgentStyle };
+    paper?: { masthead: string; text: string; source: string; style: AgentStyle; mood?: Affect };
     /** Said to the reader, not to the other one: on the speaker's outer side. */
     aside?: boolean;
     /** A passing line (a call): it never pushes an aside away. */
@@ -2944,8 +2947,8 @@
   }
 
   /** The winner's picture in the paper: a very contemptuous face in the reader's look. */
-  function paperFace(shape: AgentShape) {
-    return faceLook === 'none' ? null : drawStill(faceLook, shape, 10, 10, stillOf(CONTEMPT));
+  function paperFace(paper: NonNullable<Said['paper']>) {
+    return faceLook === 'none' ? null : drawStill(faceLook, paper.style.shape, 10, 10, stillOf(paper.mood ?? CONTEMPT));
   }
 
   function costumeFill(i: number): string {
@@ -3713,7 +3716,7 @@
     </div>
 
     {#if bigPaper}
-      {@const portrait = paperFace(bigPaper.style.shape)}
+      {@const portrait = paperFace(bigPaper)}
       <article class="big-paper" bind:this={bigEl} aria-hidden="true">
         <p class="big-masthead">{bigPaper.masthead}</p>
         <div class="big-spread">

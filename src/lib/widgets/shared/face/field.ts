@@ -6,7 +6,7 @@
  */
 import { noise } from '../layout';
 import { STRIDE, blinkAt, mouthAt, tempoOf, type Expression, type FacePose, type Marks } from './face';
-import { CONTEMPT, expressTo, marksOf, postureTo, type Temperament } from './moments';
+import { CONTEMPT, expressTo, marksOf, postureTo, type Affect, type Temperament } from './moments';
 
 /** How hard a change in fortune lands: u = tanh(FELT · ln(after ÷ before)). */
 export const FELT = 2.1;
@@ -20,6 +20,18 @@ export function felt(before: number, after: number): number {
   if (!(before > 0)) return after > 0 ? 1 : 0;
   if (!(after > 0)) return -1;
   return Math.tanh(FELT * Math.log(after / before));
+}
+
+/**
+ * How someone looks in the paper's photograph (owner, 2026-10-09: "a
+ * photograph of a poor person should not have contempt"): the richest in the
+ * room, contempt; anyone else, how their fortune feels against an equal share
+ * (`felt`) — the poor sad, the comfortable pleased, the average plain.
+ */
+export function photoMood(share: number, n: number, richest: boolean): Affect {
+  if (richest) return CONTEMPT;
+  const u = felt(1 / n, share);
+  return { v: 0.8 * u, a: 0.3 * Math.abs(u) - 0.15, d: 0.5 * u, n: 0 };
 }
 
 /** Seconds for a feeling to fall most of the way (1/e) back to the temperament: moods linger, startles pass. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FacePainter, drawStill } from './draw';
 import { EXPRESSION_RANGE, LOOKS, NEUTRAL, blinkAt, boundPose, faceGeometry, faceRadius, tempoOf, type Expression, type FacePose } from './face';
-import { FaceField, felt } from './field';
+import { FaceField, felt, photoMood } from './field';
 import { BLUE, CONTEMPT, RED, express, marksOf, stillOf, temperament, type Affect } from './moments';
 
 const grid = [-1, -0.5, 0, 0.5, 1];
@@ -248,5 +248,18 @@ describe('speed', () => {
     // 1,000 faces stepped and a hundred read, per frame (about 0.5 ms on the machine this was written on):
     // the stage has 110, and a frame has 16.7 ms. The bound only catches a tenfold slip, never a busy machine.
     expect(perFrame).toBeLessThan(5);
+  });
+});
+
+describe('the paper’s photograph', () => {
+  it('shows the richest with contempt, and a poor person without it, sad', () => {
+    expect(photoMood(0.4, 100, true)).toBe(CONTEMPT);
+    const poor = photoMood(0.001, 100, false);
+    expect(poor).not.toBe(CONTEMPT);
+    expect(poor.v).toBeLessThan(-0.5);
+    expect(poor.d).toBeLessThan(0);
+    // an equal share is plain; a comfortable one pleased
+    expect(Math.abs(photoMood(0.01, 100, false).v)).toBeLessThan(1e-9);
+    expect(photoMood(0.03, 100, false).v).toBeGreaterThan(0.5);
   });
 });

@@ -209,6 +209,45 @@ test('the chapter index stays in view while the stage waits for the reader', asy
   expect(await index.evaluate((element) => element.getBoundingClientRect().top)).toBeCloseTo(0, 0);
 });
 
+test('the index lists the story’s parts, one entry each, never their scenes, and a part opens at its first scene', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openAt(page, '@keyline');
+  const parts = await page.evaluate(async () => {
+    const { STORY } = await import('/src/lib/content/story.gen.ts');
+    const out: { act: string; titles: string[]; at: number; trip: boolean }[] = [];
+    for (const sc of STORY.scenes) {
+      const last = out[out.length - 1];
+      if (last && last.act === sc.act) last.titles.push(sc.title);
+      else out.push({ act: sc.act, titles: [sc.title], at: STORY.steps.findIndex((s: { id: string }) => s.id === sc.step), trip: !!sc.sideTrip });
+    }
+    return out;
+  });
+  // the pointer resting on the line opens it
+  await page.locator('.index .here').hover();
+  const entries = page.locator('#scene-list button.part');
+  await expect(entries).toHaveCount(parts.length);
+  const texts = (await entries.allTextContents()).map((t) => t.trim());
+  // a part of several scenes is one entry: its later scenes are not listed
+  const several = parts.find((p) => !p.trip && p.titles.length > 1 && p.titles.slice(1).every((t) => t !== p.act))!;
+  for (const title of several.titles.slice(1)) expect(texts.some((t) => t.endsWith(title))).toBe(false);
+  await entries.nth(parts.indexOf(several)).click();
+  await expect.poll(() => stepNow(page)).toBe(several.at);
+});
+
+test('any card in the deck can be picked, not only the top one', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openAt(page, 'gini.value');
+  // under the pointer the deck fans out; from the keyboard, pressing it does
+  await page.locator('.cards .stack').focus();
+  await page.keyboard.press('Enter');
+  const tabs = page.locator('.cards .tab');
+  expect(await tabs.count()).toBeGreaterThan(1);
+  // the oldest, at the bottom of the pile
+  const title = ((await tabs.last().textContent()) ?? '').trim();
+  await tabs.last().click();
+  await expect(page.locator('.cards .card h2')).toHaveText(title);
+});
+
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');
