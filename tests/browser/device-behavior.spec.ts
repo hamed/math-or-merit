@@ -298,6 +298,16 @@ test('chit-chat goes on when a bubble arrives under a pointer that stands still'
   await expect.poll(() => stepNow(page), { timeout: 20_000 }).toBeGreaterThanOrEqual(at + 3);
 });
 
+test('the rule card opens empty and fills as Red tells the rule', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const rule = page.locator('.charts .chart.rule li');
+  const ids = await openAt(page, 'rule.1');
+  await expect(page.locator('.charts .chart.rule h3')).toBeVisible();
+  await expect(rule).toHaveCount(0);
+  await openAt(page, ids[ids.indexOf('rule.1') + 2]);
+  await expect(rule).toHaveCount(2);
+});
+
 test('any card in the deck can be picked, not only the top one', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');

@@ -215,7 +215,9 @@ on) or **reader** (it waits for the reader; the wait is never written).
 | `\control{x}` | the reader holds `stake`, `tax`, `sandbox`, or `none` |
 | `\levy{x}` | the lesson's pool: `collect`, `return` |
 | `\match` | the room and its mirror, on the same luck |
-| `\pairs{n}` | n rounds: two from the room, drawn at random, step out, play the coin, and go back |
+| `\pairs{n}` | n rounds: two from the room, drawn at random, step out, play the coin, and go back; after a round told part by part, quicker |
+| `\pairs[part]{1}` | one part of the next round, as it is told: `pick` (two step out), `stake` (the stakes go in), `flip` (the toss, the take, and home) |
+| `\learn{id}{n}` | opens card `id` showing its first n lines: `\learn{rule}{0}` opens it empty, and each line appears once the reader has been told it |
 | `\image{name}` | posts a picture with the bubble, like a photo in a chat; several make a row (the joke's plates: `introduction`, `darwin`, `chemist`, `silence`, `cow-looks`, `cow-moos`, `scratch`, `physicist`, `spherical`, `vacuum`, `football`) |
 | `\card{id}` | drops `cards/<id>.tex` into the stack; the PDF draws the card where it first drops |
 | `\pin{id}` | pins the concept's picture to the side rail |

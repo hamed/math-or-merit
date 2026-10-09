@@ -62,7 +62,7 @@
   import { createRun } from './run.svelte';
   import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
   import { GATHER_SECONDS, noise, planArrival, planRain } from './rain';
-  import { OUT_SCALE, ROUND_STAKE, planRounds } from './roomRounds';
+  import { OUT_SCALE, ROUND_STAKE, planRounds, windowTimes } from './roomRounds';
   import { CROSSING, FALL, RISE, arrival, fallTime, gravity, hopsBy, squashed, type Hop } from './hops';
   import { titleFeet } from './titleFeet';
   import { deciderFace, pairLayout, pile } from './layout';
@@ -451,6 +451,7 @@
     prepareRooms(index, false);
     levyView = levyLesson(PAIR_STEPS[index].pose.levy);
     draw(poseAt(index));
+    settleWindow(index);
     showAll(index);
     enter(index);
     settleFaces();
@@ -1924,7 +1925,9 @@
     const card = CARDS[id];
     if (!card) return null;
     const stake = formatNumber(tuning.beta, { style: 'percent' });
-    const lines = card.blocks.flatMap((b): CardLine[] => (b.kind === 'line' ? [say(b.key, { stake })] : b.kind === 'formula' ? [{ formula: b.tex }] : []));
+    const all = card.blocks.flatMap((b): CardLine[] => (b.kind === 'line' ? [say(b.key, { stake })] : b.kind === 'formula' ? [{ formula: b.tex }] : []));
+    // only what the reader has been told so far (`\\learn`, owner 2026-10-09: "items appear one by one after the reader knows them")
+    const lines = all.slice(0, PAIR_STEPS[current].pose.learned[id] ?? all.length);
     const plot = card.blocks.find((b) => b.kind === 'plot');
     const picture = plot?.kind === 'plot' ? pictureOf(plot.id) : undefined;
     const toy = card.toy ? toyOf(card.toy) : undefined;
@@ -2184,7 +2187,7 @@
         fillRoom(pose, tl);
         return;
       case 'pairs':
-        playRounds(tl);
+        playWindow(tl, current);
         return;
       case 'arrange':
         arrange(pose, tl);
@@ -2404,13 +2407,38 @@
     }, [], 1.1);
   }
 
-  /** Scene 10's demonstration rounds, planned for this stage (roomRounds.ts). */
-  const roundPlan = $derived(
-    planRounds(
+  /** Scene 10's demonstration rounds, planned for this stage (roomRounds.ts): every round up to the step's last. */
+  const roundPlan = $derived.by(() => {
+    const w = PAIR_STEPS[current]?.rounds;
+    return planRounds(
       { positions: L.room.positions, radius: L.room.radius, box: L.room.box, blue: L.room.blue, red: L.room.red, unit: L.radius(1), g: G },
-      PAIR_STEPS[current]?.rounds ?? 2,
-    ),
-  );
+      w ? w.first + w.count : 1,
+    );
+  });
+
+  /**
+   * The stretch of the demonstration a step plays (`\\pairs`): the whole of it
+   * is built, and the step plays its window — a part of the first round as Red
+   * tells it, or the rounds after it, quicker. A step arrived at by a jump
+   * shows the end of its window.
+   */
+  function playWindow(tl: Timeline, index: number): void {
+    const w = PAIR_STEPS[index].rounds;
+    if (!w) return;
+    const all = gsap.timeline({ paused: true });
+    playRounds(all);
+    const [from, to] = windowTimes(w);
+    tl.add(all.tweenFromTo(from, to, { duration: (to - from) / w.speed, ease: 'none' }), 0);
+  }
+
+  /** A jump to a step inside the demonstration: the room as that step leaves it, the two still out front if their round goes on. */
+  function settleWindow(index: number): void {
+    const w = PAIR_STEPS[index].rounds;
+    if (!w || w.to === 'end') return;
+    const all = gsap.timeline({ paused: true });
+    playRounds(all);
+    all.seek(windowTimes(w)[1], true);
+  }
 
   /**
    * Before the room plays by itself, it plays by hand (owner, 2026-10-09): two

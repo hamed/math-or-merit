@@ -44,8 +44,10 @@ const STORY: Record<string, ActionSpec> = {
   control: { kind: 'authored', args: 1 },
   levy: { kind: 'authored', args: 1 },
   match: { kind: 'authored', args: 0 },
-  /** n rounds, each two from the room stepping out to play the coin, then back (Scene 10). */
-  pairs: { kind: 'authored', args: 1 },
+  /** n rounds, each two from the room stepping out to play the coin, then back (Scene 10); `[pick]`, `[stake]`, `[flip]` play one part of a round, as it is told. */
+  pairs: { kind: 'authored', args: 1, optional: true },
+  /** A card's first n lines, as the reader learns them: `\\learn{rule}{0}` opens it empty. */
+  learn: { kind: 'authored', args: 2 },
   /** A picture posted with the bubble, by name (the stage's pictures): the joke's plates. `\image`, since LaTeX's own `\picture` is taken. */
   image: { kind: 'authored', args: 1 },
   pin: { kind: 'authored', args: 1 },

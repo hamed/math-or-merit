@@ -17,7 +17,7 @@
  */
 import { HOLDINGS } from './game';
 import { ARRIVE_SECONDS, GATHER_SECONDS, RAIN_SECONDS } from './rain';
-import { ROUND_SECONDS } from './roomRounds';
+import { MORE_SPEED, PHASE_SPAN, ROUND_PHASES, windowSeconds, type RoundPhase, type RoundWindow } from './roomRounds';
 import { CHAT, HOLD, READER, auto, readingMs, type LineSpec, type StepSpec, type Wait } from '../../steps';
 import { STORY } from '../../../../content/story.gen';
 import type { StoryBubble, StoryGroup, StoryStep } from '../../../../script/compile';
@@ -56,6 +56,10 @@ export interface Pose {
   readonly flip: Flip;
   /** The decider has been shown, both faces, once (round one): after that it simply appears. */
   readonly presented: boolean;
+  /** Rounds the room has played by hand so far (Scene 10's `\\pairs`): the next one draws on from there. */
+  readonly played: number;
+  /** How many lines of a card the reader knows so far (`\\learn`); a card not named here shows them all. */
+  readonly learned: Readonly<Record<string, number>>;
   readonly place: Place;
   /** How many people are in the room (Scene 14). */
   readonly room: number;
@@ -169,8 +173,8 @@ export interface PairStep extends StepSpec {
   readonly pauseMs?: number;
   /** How long its action plays, ms: a chit-chat step stays until its words are read and its action is done. */
   readonly actionMs?: number;
-  /** `\\pairs{n}`: how many demonstration rounds the room plays. */
-  readonly rounds?: number;
+  /** `\\pairs`: the stretch of the room's demonstration rounds this step plays (roomRounds.ts). */
+  readonly rounds?: RoundWindow;
   /** The pictures posted with its line (`\\image{name}`), by name. */
   readonly pictures?: readonly string[];
 }
@@ -209,6 +213,8 @@ export const START: Pose = {
   table: { blue: 0, red: 0 },
   flip: 'hidden',
   presented: false,
+  played: 0,
+  learned: {},
   place: 'marks',
   room: 2,
   choice: false,
@@ -391,11 +397,11 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
 export const EXPECT_PROBLEMS: string[] = [];
 
 /** What a step's actions do to the stage. */
-function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: string; rounds?: number } {
+function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: string; rounds?: RoundWindow } {
   let p: Pose = { ...prev, choice: answers(s, 'joke') };
   let action: Action | undefined;
   let log: string | undefined;
-  let rounds: number | undefined;
+  let rounds: RoundWindow | undefined;
   if (s.manner.includes('teletype')) [p, action] = [{ ...p, teletype: true }, 'type'];
   for (const c of [...s.cues, ...(s.together ?? []).flatMap((t) => t.cues)]) {
     const [arg = ''] = c.args;
@@ -506,9 +512,27 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
           p = { ...p, flip: side, table: NOTHING, holdings: { ...p.holdings, [side]: p.holdings[side] + pot } };
           [action, log] = ['toss', 'log_toss'];
         } else if (c.name === 'pairs') {
-          // the room plays a few rounds by hand before it plays by itself; nothing it does is kept
-          rounds = Math.max(1, Math.round(Number(arg) || 1));
+          // the room plays a few rounds by hand before it plays by itself; nothing it does is kept.
+          // A part of a round is told as it plays; whole rounds after a told one go quicker.
+          const phase = c.opt as RoundPhase | undefined;
+          if (phase !== undefined && !ROUND_PHASES.includes(phase)) EXPECT_PROBLEMS.push(`${s.at}: \\pairs[${phase}] — a part is one of ${ROUND_PHASES.join(', ')}`);
+          if (phase && ROUND_PHASES.includes(phase)) {
+            const [from, to] = PHASE_SPAN[phase];
+            rounds = { first: p.played, count: 1, from, to, speed: 1 };
+            if (phase === 'flip') p = { ...p, played: p.played + 1 };
+          } else {
+            const count = Math.max(1, Math.round(Number(arg) || 1));
+            rounds = { first: p.played, count, from: 'start', to: 'end', speed: p.played > 0 ? MORE_SPEED : 1 };
+            p = { ...p, played: p.played + count };
+          }
           action = 'pairs';
+        } else if (c.name === 'learn') {
+          // the card opens, and shows as many of its lines as the reader has been told
+          const [id = '', n = ''] = c.args.map((x) => x.trim());
+          const lines = STORY.cards[id]?.blocks.length;
+          const count = Number(n);
+          if (lines === undefined || !Number.isInteger(count) || count < 0 || count > lines) EXPECT_PROBLEMS.push(`${s.at}: \\learn{${id}}{${n}} — the card has ${lines ?? 'no'} lines`);
+          p = { ...p, learned: { ...p.learned, [id]: count }, cards: p.cards.includes(id) ? p.cards : [...p.cards, id], cardOpen: id };
         } else if (c.name === 'arrange') {
           // the matched pair's mirror goes once the room is arranged again
           p = { ...p, roomMode: arg as RoomMode, ...(p.source === 'pair' ? { source: 'run' as const } : {}) };
@@ -538,7 +562,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
     const prev = pose;
     const { pose: next, action, log, rounds } = apply(s, prev);
     const pause = pauseOf(s);
-    const played = action === 'pairs' ? Math.round((rounds ?? 1) * ROUND_SECONDS * 1000) : durationOf(action, next, prev);
+    const played = action === 'pairs' && rounds ? Math.round(windowSeconds(rounds) * 1000) : durationOf(action, next, prev);
     pose = next;
     const id = ids[i];
     const conditioned = s.wait === 'when';
