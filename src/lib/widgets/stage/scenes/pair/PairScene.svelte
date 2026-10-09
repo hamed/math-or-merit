@@ -598,6 +598,7 @@
       else run.clear();
     }
     // the game ends when the reader leaves its step: nothing is locked behind winning
+    if (step.id !== 'stop.how') stopCountdown();
     if (game.playing && step.id !== 'stop.how') endGame(null);
     if (pose.source === 'dial') {
       if (entering === 'dial') dialRun.clear();
@@ -729,9 +730,37 @@
   });
 
   /** Scene 21: the game's clock, the reader's taps, and how it went. */
-  const game = $state({ playing: false, elapsed: 0, below: 0, taps: 0, round: 0, result: null as GameResult | null });
+  const game = $state({ playing: false, counting: 0, elapsed: 0, below: 0, taps: 0, round: 0, result: null as GameResult | null });
+
+  /**
+   * The game starts on a count of three, big over the room (owner, 2026-10-09:
+   * "something more exciting for the game time"), and ends on a card with its
+   * score, Play again and Go on.
+   */
+  let countTimer: number | undefined;
+  function stopCountdown(): void {
+    window.clearInterval(countTimer);
+    countTimer = undefined;
+    game.counting = 0;
+  }
 
   function startGame(): void {
+    stopCountdown();
+    game.result = null;
+    if (stage?.reduced) {
+      beginGame();
+      return;
+    }
+    game.counting = 3;
+    countTimer = window.setInterval(() => {
+      game.counting--;
+      if (game.counting > 0) return;
+      stopCountdown();
+      beginGame();
+    }, 750);
+  }
+
+  function beginGame(): void {
     game.playing = true;
     game.elapsed = 0;
     game.below = 0;
@@ -800,6 +829,16 @@
     }
     if (best >= 0) tapRoom(best);
   }
+
+  /** The game is over and its card is up: only its buttons move on (owner, 2026-10-09: "I was in the mode of clicking and then missed the next few bubbles"). */
+  const gameOver = $derived(!game.playing && game.result !== null && current === indexOf('stop.how'));
+  /** How the room stands in the game, for its readout: how many count, against the line, and how close it is to closing. */
+  const gameState = $derived.by(() => {
+    const count = metrics.effectiveParticipants;
+    const left = Math.max(0, Math.ceil(GAME.seconds - game.elapsed / 1000));
+    const closing = game.below > 0 ? Math.max(0, Math.ceil((GAME.closeAfterMs - game.below) / 1000)) : null;
+    return { count, left, closing, warn: count < GAME.target * 1.25, danger: count < GAME.target };
+  });
 
   /** Where a tap lands: the game, or the reader's machine. */
   const tapping = $derived((game.playing && current === indexOf('stop.how')) || PAIR_STEPS[current].pose.control === 'sandbox');
@@ -1354,7 +1393,9 @@
 
   const fourCount = $derived(effectiveCount(fourCoins));
   /** The reader's hands are in the scene: a missed tap must not move the story on. */
-  const handsOn = $derived(game.playing || PAIR_STEPS[current].pose.control === 'sandbox' || current === indexOf('eff.try'));
+  const handsOn = $derived(
+    game.playing || game.counting > 0 || gameOver || PAIR_STEPS[current].pose.control === 'sandbox' || current === indexOf('eff.try'),
+  );
 
   /** Tap one of the four to take a coin from them, then another to give it. */
   function tapFour(k: number): void {
@@ -1916,7 +1957,7 @@
         { label: say(no), act: () => stage?.advance() },
       ];
     }
-    if (id === 'stop.how') return game.playing ? null : [{ label: say(REACTIONS.stopStart), act: startGame }];
+    if (id === 'stop.how') return game.playing || game.counting > 0 || game.result ? null : [{ label: say(REACTIONS.stopStart), act: startGame }];
     if (id === 'sandbox.2') return [{ label: say(REACTIONS.workshop), act: () => openBranch('workshop') }];
     if (id === 'run.again') {
       return [
@@ -2245,7 +2286,16 @@
         // everyone equal again, then a fresh room at the dial's stake
         arrange(pose, tl);
         if (stage?.reduced) turnDial(dialStake);
-        else tl.call(() => turnDial(dialStake), [], 1.6);
+        else
+          tl.call(
+            () => {
+              // the dial moves out of Red's bubble as its room starts, so the talk can step aside
+              dockDial();
+              turnDial(dialStake);
+            },
+            [],
+            1.6,
+          );
         return;
       case 'game':
         arrange(pose, tl);
@@ -2903,7 +2953,10 @@
    */
   let hush = $state(false);
   const RUN_HUSH = 0.5;
-  const hushed = $derived(hush || (run.state.running && !game.playing));
+  /** The stake dial is still in Red's bubble, maybe under the reader's hand: the talk must not go from under it. */
+  const dialInTalk = $derived(PAIR_STEPS[current].pose.control === 'stake' && !dialDocked);
+  // no talk over a room playing by itself (owner, 2026-10-09: "your turn, the bubble is on the way when running simulation")
+  const hushed = $derived(hush || ((run.state.running || (dialRun.state.running && !dialInTalk)) && !game.playing));
 
   /** Whose mouth moves, until when on the ambient clock; an aside is said to the reader. */
   let talking = $state<{ who: Speaker; until: number; aside: boolean } | null>(null);
@@ -3338,6 +3391,17 @@
     };
   });
 </script>
+
+{#snippet gameHud()}
+  <!-- the game as it stands, in one line: how many still count against the line, and the time -->
+  {@const [before, after = ''] = say('stop_meter', { count: '\u0000' }).split('\u0000')}
+  <div class="hud" class:warn={gameState.warn} class:danger={gameState.danger} aria-live="off">
+    <span class="count">{before}<strong>{formatNumber(gameState.count, { maximumFractionDigits: 0 })}</strong>{after}</span>
+    <span class="goal">{say('stop_goal', { target: formatNumber(GAME.target) })}</span>
+    <span class="time">{gameState.closing !== null ? say('stop_closing', { seconds: formatNumber(gameState.closing) }) : say('stop_left', { seconds: formatNumber(gameState.left) })}</span>
+    <span class="clock" aria-hidden="true"><span style={`inline-size:${Math.max(0, 1 - game.elapsed / (GAME.seconds * 1000)) * 100}%`}></span></span>
+  </div>
+{/snippet}
 
 {#snippet richest(state: { share: number; trades: number })}
   <!-- the number first, big; what it is, small, on the same line; then when (owner, 2026-10-09) -->
@@ -3904,6 +3968,10 @@
 
       {#if PAIR_STEPS[current].pose.control === 'tax'}
         <!-- the tax game: where to start, what a tap takes, and the pool going back to everyone -->
+        {#if game.playing && gameState.warn}
+          {@const box = L.room.box}
+          <rect class="edge" class:danger={gameState.danger} x={box.x + 2} y={box.y + 2} width={box.w - 4} height={box.h - 4} rx="18" />
+        {/if}
         {#if game.playing && game.elapsed < 4500 && topFive.length}
           {@const v = agentView(topFive[0])}
           <circle class="pulse" cx={v.x} cy={v.y} r={Math.max(v.r, 10) + 6} />
@@ -3978,17 +4046,39 @@
       </div>
     {/if}
 
-    {#if PAIR_STEPS[current].pose.control === 'tax' && (game.playing || game.result)}
-      {@const box = L.room.box}
-      {@const low = metrics.effectiveParticipants < GAME.target}
-      <!-- over the middle of the room's top, where it is seen (owner, 2026-10-09); on a phone the talk covers that, so at its foot -->
-      <div class="meter" class:low style={`left:${box.x + box.w / 2}px; top:${L.column ? box.y + 6 : box.y + box.h - 58}px`} aria-live="off">
-        <span>{say('stop_meter', { count: formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 0 }) })}</span>
-        <span class="clock" aria-hidden="true"><span style={`inline-size:${Math.max(0, 1 - game.elapsed / (GAME.seconds * 1000)) * 100}%`}></span></span>
-      </div>
+    {#if !L.column && PAIR_STEPS[current].pose.control === 'tax' && game.playing}
+      <!-- on a phone, a bar across the foot of the stage: out of the room's top, never clipped -->
+      <div class="hud-bar" style={`left:12px; top:${height - 74}px; width:${width - 24}px`}>{@render gameHud()}</div>
     {/if}
 
-    {#if PAIR_STEPS[current].id === 'stop.how' && !game.playing}
+    {#if game.counting > 0 && current === indexOf('stop.how')}
+      {@const box = L.room.box}
+      {#key game.counting}
+        <p class="countdown" style={`left:${box.x + box.w / 2}px; top:${box.y + box.h / 2}px`} aria-live="assertive">{formatNumber(game.counting)}</p>
+      {/key}
+    {/if}
+
+    {#if game.playing && gameState.left <= 5 && gameState.left > 0 && current === indexOf('stop.how')}
+      {@const box = L.room.box}
+      {#key gameState.left}
+        <p class="countdown last" style={`left:${box.x + box.w / 2}px; top:${box.y + box.h / 2}px`} aria-hidden="true">{formatNumber(gameState.left)}</p>
+      {/key}
+    {/if}
+
+    {#if gameOver && game.result}
+      {@const box = L.room.box}
+      {@const result = game.result}
+      <!-- the end of the game: the score, and the only two ways on -->
+      <section class="game-over" class:won={result.won} style={`left:${box.x + box.w / 2}px; top:${box.y + box.h * 0.62}px`} aria-live="polite">
+        <p>{result.won ? say('stop_over_won', { count: formatNumber(result.count) }) : say('stop_over_lost', { seconds: formatNumber(result.seconds) })}</p>
+        <div class="buttons">
+          <button type="button" class="again" onclick={startGame}>{say('stop_again')}</button>
+          <button type="button" class="on" onclick={() => stage?.advance()}>{say('stop_on')}</button>
+        </div>
+      </section>
+    {/if}
+
+    {#if PAIR_STEPS[current].id === 'stop.how' && !game.playing && game.counting === 0 && !game.result}
       {@const box = L.room.box}
       <!-- the game's start, as big as the room's middle: the bubble's link alone was easy to miss -->
       <button type="button" class="start-game" style={`left:${box.x + box.w / 2}px; top:${box.y + box.h / 2}px`} onclick={startGame}>
@@ -4078,7 +4168,7 @@
     {/each}
 
     <!-- while the game plays, the talk steps back and lets taps through to the room -->
-    <div class="bubbles" class:through={game.playing} class:hushed aria-live="polite">
+    <div class="bubbles" class:through={game.playing || game.counting > 0} class:hushed aria-live="polite">
       {#each said as bubble, i (bubble.id)}
         {@const place = placed[i]}
         {#if place}
@@ -4134,6 +4224,9 @@
       {@const col = L.column}
       {@const pose = PAIR_STEPS[current].pose}
       <aside class="charts" style={`left:${col.x}px; top:${col.y}px; width:${col.w}px; max-height:${col.h}px`}>
+        {#if pose.control === 'tax' && game.playing}
+          <section class="chart hud-chart">{@render gameHud()}</section>
+        {/if}
         {#if pose.cards.includes('rule') && !pose.ran}
           {@const rule = cardFor('rule')}
           {#if rule}
@@ -4505,27 +4598,6 @@
   }
 
   /* Scene 21: the game's meter and clock, and the room under the reader's finger */
-  .meter {
-    position: absolute;
-    z-index: 4;
-    display: grid;
-    gap: 0.3rem;
-    min-inline-size: 13rem;
-    padding: 0.45rem 1rem;
-    border: 1.5px solid var(--accent);
-    border-radius: 999px;
-    background: rgb(255 250 240 / 94%);
-    box-shadow: 0 3px 10px rgb(40 37 31 / 12%);
-    color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 1.05rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-    pointer-events: none;
-    transform: translateX(-50%);
-  }
-
   /* a run's one way to its end: quiet until a press asks for it */
   .skip {
     position: absolute;
@@ -4560,6 +4632,179 @@
       color: var(--accent);
       transform: translateX(-100%) scale(1.15);
     }
+  }
+
+  /* the tax game as it stands: one line, the count big, coloured as it nears the line */
+  .hud {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 0.2rem 0.7rem;
+    color: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hud .count strong {
+    margin-inline-end: 0.25em;
+    color: #3d7a4a;
+    font-size: 2rem;
+    font-weight: 800;
+    transition: color 300ms ease;
+  }
+
+  .hud.warn .count strong {
+    color: #b7791f;
+  }
+
+  .hud.danger .count strong,
+  .hud.danger .time {
+    color: #b23a2a;
+  }
+
+  .hud .goal {
+    color: var(--ink-soft);
+  }
+
+  .hud .clock {
+    grid-column: 1 / -1;
+    display: block;
+    block-size: 4px;
+    border-radius: 2px;
+    background: var(--line);
+  }
+
+  .hud .clock span {
+    display: block;
+    block-size: 100%;
+    border-radius: 2px;
+    background: currentColor;
+  }
+
+  .hud-bar {
+    position: absolute;
+    z-index: 6;
+    box-sizing: border-box;
+    padding: 0.35rem 0.9rem 0.5rem;
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    background: rgb(255 250 240 / 96%);
+    box-shadow: 0 3px 12px rgb(40 37 31 / 14%);
+  }
+
+  /* the room's edge, as it nears the line and when it is under it */
+  .edge {
+    fill: none;
+    stroke: #b7791f;
+    stroke-width: 3;
+    opacity: 0.6;
+  }
+
+  .edge.danger {
+    stroke: #b23a2a;
+    stroke-width: 5;
+    animation: edge 700ms ease-in-out infinite;
+  }
+
+  @keyframes edge {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  /* 3, 2, 1 before the room starts, and the last five seconds */
+  .countdown {
+    position: absolute;
+    z-index: 6;
+    margin: 0;
+    color: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: clamp(4rem, 14vmin, 9rem);
+    font-weight: 900;
+    line-height: 1;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    animation: count 750ms ease-out both;
+  }
+
+  .countdown.last {
+    color: #b23a2a;
+    opacity: 0.45;
+    animation-duration: 1s;
+  }
+
+  @keyframes count {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(1.6);
+    }
+    30% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0.15;
+      transform: translate(-50%, -50%) scale(0.9);
+    }
+  }
+
+  /* the end of the game */
+  .game-over {
+    position: absolute;
+    z-index: 6;
+    display: grid;
+    justify-items: center;
+    gap: 0.6rem;
+    box-sizing: border-box;
+    inline-size: max-content;
+    max-inline-size: min(26rem, calc(100vw - 32px));
+    padding: 0.9rem 1.3rem 1rem;
+    border: 2px solid #b23a2a;
+    border-radius: 16px;
+    background: var(--paper-bright);
+    box-shadow: 0 8px 26px rgb(40 37 31 / 22%);
+    color: var(--ink-strong);
+    font-family: var(--font-sans);
+    text-align: center;
+    transform: translate(-50%, -50%);
+  }
+
+  .game-over.won {
+    border-color: #3d7a4a;
+  }
+
+  .game-over p {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 750;
+    line-height: 1.3;
+  }
+
+  .game-over .buttons {
+    display: flex;
+    gap: 0.7rem;
+  }
+
+  .game-over button {
+    padding: 0.5rem 1.3rem;
+    white-space: nowrap;
+    border-radius: 999px;
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+  }
+
+  .game-over .again {
+    border: 1.5px solid var(--accent);
+    background: transparent;
+    color: var(--accent-deep);
+  }
+
+  .game-over .on {
+    border: 0;
+    background: var(--accent);
+    color: var(--paper-bright);
   }
 
   /* the tax game's start, over the room's middle */
@@ -4657,28 +4902,11 @@
   @media (prefers-reduced-motion: reduce) {
     .start-game,
     .skip.called,
+    .edge.danger,
+    .countdown,
     .pulse {
       animation: none;
     }
-  }
-
-  .meter.low {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .meter .clock {
-    display: block;
-    block-size: 3px;
-    border-radius: 2px;
-    background: var(--line);
-  }
-
-  .meter .clock span {
-    display: block;
-    block-size: 100%;
-    border-radius: 2px;
-    background: currentColor;
   }
 
   .taps {
@@ -5121,7 +5349,7 @@
   }
 
   .bubbles.through {
-    opacity: 0.35;
+    opacity: 0;
     pointer-events: none;
     transition: opacity 300ms ease;
   }

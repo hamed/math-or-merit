@@ -379,8 +379,23 @@ test('the tax game starts from the room itself, and shows what a tap takes', asy
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'stop.how');
   await page.locator('.start-game').click();
-  await expect(page.locator('.meter')).toBeVisible();
+  await expect(page.locator('.hud')).toBeVisible();
   await expect(page.locator('.start-game')).toHaveCount(0);
+});
+
+test('the tax game ends on a card: a stray click stays, Play again plays, Go on moves on', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const ids = await openAt(page, 'stop.how');
+  await page.locator('.start-game').click();
+  // left alone, the room closes
+  const over = page.locator('.game-over');
+  await expect(over).toBeVisible({ timeout: 60_000 });
+  await page.mouse.click(40, 450);
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(ids.indexOf('stop.how'));
+  await over.getByRole('button').last().click();
+  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
 });
 
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
@@ -407,7 +422,7 @@ test('in the live tax game a click is a tap on the room, never a step', async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   const ids = await openAt(page, 'stop.how');
   await page.locator('.bubble .choice').first().click();
-  await expect(page.locator('.meter')).toBeVisible();
+  await expect(page.locator('.hud')).toBeVisible();
   const taps = page.locator('.taps');
   await expect(taps).toBeVisible();
   const box = (await taps.boundingBox())!;
@@ -417,7 +432,7 @@ test('in the live tax game a click is a tap on the room, never a step', async ({
   // the reading keys still move on, and leaving ends the game
   await page.keyboard.press('ArrowDown');
   await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
-  await expect(page.locator('.meter')).toBeHidden();
+  await expect(page.locator('.hud')).toBeHidden();
 });
 
 test('the machine is the reader’s: Play trades, a tap photographs, and every dial is one link away', async ({ page }) => {
