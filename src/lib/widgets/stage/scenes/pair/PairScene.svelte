@@ -840,6 +840,47 @@
     return { count, left, closing, warn: count < GAME.target * 1.25, danger: count < GAME.target };
   });
 
+  /**
+   * The spot the line on show points at (`\\point{…}`, owner 2026-10-09: "when
+   * describing a picture, it is nice to highlight"): ringed while the line
+   * shows, and looked at. The script names it; the stage knows where it is.
+   */
+  const pointed = $derived.by((): { x: number; y: number; r: number; ry?: number } | null => {
+    const pose = PAIR_STEPS[current].pose;
+    if (!pose.point || arranging || hushed) return null;
+    const body = (who: Speaker) => (pose.place === 'room' ? agentView(L.room[who]) : view.people[WHO[who]]);
+    switch (pose.point) {
+      case 'blue':
+      case 'red': {
+        const b = body(pose.point);
+        return { x: b.x, y: b.y, r: Math.max(b.r, 8) + 10 };
+      }
+      case 'richest': {
+        if (!topFive.length) return null;
+        const v = agentView(topFive[0]);
+        return { x: v.x, y: v.y, r: Math.max(v.r, 8) + 10 };
+      }
+      case 'dust': {
+        const d = rulerPose.dust;
+        return { x: d.x + d.w / 2, y: d.y + d.h / 2, r: d.w / 2 + 10, ry: d.h / 2 + 10 };
+      }
+      case 'diagonal': {
+        const [a, b] = linePose.diagonal;
+        return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, r: 24 };
+      }
+      case 'gap': {
+        const f = linePose.frame;
+        const c = linePose.curve[Math.round(linePose.curve.length * 0.7)];
+        const d = f.y + f.h - ((c.x - f.x) / f.w) * f.h;
+        return { x: c.x, y: (c.y + d) / 2, r: Math.abs(c.y - d) / 2 + 10 };
+      }
+      case 'pool': {
+        const p = poolSpot();
+        return { x: p.x, y: p.y, r: L.radius(8) + 12 };
+      }
+    }
+  });
+
   /** Where a tap lands: the game, or the reader's machine. */
   const tapping = $derived((game.playing && current === indexOf('stop.how')) || PAIR_STEPS[current].pose.control === 'sandbox');
 
@@ -3045,6 +3086,7 @@
       coin: cue.air ? { x: (view.flipAt ?? L.flip).x, y: (view.flipAt ?? L.flip).y + view.flipLift } : null,
       moving,
       held: heldLine(),
+      look: pointed,
       // they let go of it a little after it stops
       pointer: pointer && seconds - pointer.at < 2.5 ? pointer : null,
       chat: atEase(),
@@ -3962,6 +4004,10 @@
         {/if}
       {/if}
 
+      {#if pointed}
+        <ellipse class="point-ring" cx={pointed.x} cy={pointed.y} rx={pointed.r} ry={pointed.ry ?? pointed.r} />
+      {/if}
+
       {#each ripples as ripple (ripple.id)}
         <circle class="ripple" cx={ripple.x} cy={ripple.y} r={ripple.r} style={`--ink:${ripple.ink}`} />
       {/each}
@@ -4837,6 +4883,25 @@
     }
   }
 
+  /* what a line points at (\point): a soft ring that breathes */
+  .point-ring {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    stroke-dasharray: 6 5;
+    opacity: 0.85;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: point-ring 1.4s ease-in-out infinite;
+  }
+
+  @keyframes point-ring {
+    50% {
+      opacity: 0.4;
+      transform: scale(1.08);
+    }
+  }
+
   /* where to tap first: the biggest fortune, for the first few seconds */
   .pulse {
     fill: none;
@@ -4904,6 +4969,7 @@
     .skip.called,
     .edge.danger,
     .countdown,
+    .point-ring,
     .pulse {
       animation: none;
     }

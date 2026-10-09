@@ -27,6 +27,9 @@ import { FEELINGS } from '../../../../script/grammar';
 export type CrowdState = 'away' | 'idle' | 'paid' | 'two';
 export type Place = 'marks' | 'seats' | 'room';
 export type Flip = 'hidden' | 'shown' | 'blue' | 'red';
+/** What a line can point at (`\\point{…}`, owner 2026-10-09: "when describing a picture, it is nice to highlight"): spots the stage knows by name. */
+export const POINTS = ['blue', 'red', 'richest', 'dust', 'diagonal', 'gap', 'pool'] as const;
+export type PointAt = (typeof POINTS)[number];
 
 export interface Coins {
   readonly blue: number;
@@ -58,6 +61,8 @@ export interface Pose {
   readonly presented: boolean;
   /** Rounds the room has played by hand so far (Scene 10's `\\pairs`): the next one draws on from there. */
   readonly played: number;
+  /** The spot this step's line points at (`\\point`), for this step only. */
+  readonly point: PointAt | null;
   /** How many lines of a card the reader knows so far (`\\learn`); a card not named here shows them all. */
   readonly learned: Readonly<Record<string, number>>;
   readonly place: Place;
@@ -214,6 +219,7 @@ export const START: Pose = {
   flip: 'hidden',
   presented: false,
   played: 0,
+  point: null,
   learned: {},
   place: 'marks',
   room: 2,
@@ -288,7 +294,7 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'run.banter': (s) => when(s, 'winner'),
   'run.again': (s) => targets(s, '\\run'),
   'why.after': (s) => when(s, 'runs'),
-  'sort.there': (s) => needs(s, 'count') && s.cues.length === 0 && s.choices.length === 0,
+  'sort.there': (s) => needs(s, 'count') && s.cues.every((c) => c.name === 'point') && s.choices.length === 0,
   'gini.value': (s) => needs(s, 'gini'),
   'gini.toy': (s) => targets(s, '\\reveal{toy:gini}'),
   'eff.brutal': (s) => cue(s, 'arrange', 'zero'),
@@ -396,7 +402,7 @@ export const EXPECT_PROBLEMS: string[] = [];
 
 /** What a step's actions do to the stage. */
 function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: string; rounds?: RoundWindow } {
-  let p: Pose = { ...prev, choice: answers(s, 'joke') };
+  let p: Pose = { ...prev, choice: answers(s, 'joke'), point: null };
   let action: Action | undefined;
   let log: string | undefined;
   let rounds: RoundWindow | undefined;
@@ -524,6 +530,9 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
             p = { ...p, played: p.played + count };
           }
           action = 'pairs';
+        } else if (c.name === 'point') {
+          if (!(POINTS as readonly string[]).includes(arg)) EXPECT_PROBLEMS.push(`${s.at}: \\point{${arg}} — the stage can point at ${POINTS.join(', ')}`);
+          else p = { ...p, point: arg as PointAt };
         } else if (c.name === 'learn') {
           // the card opens, and shows as many of its lines as the reader has been told
           const [id = '', n = ''] = c.args.map((x) => x.trim());

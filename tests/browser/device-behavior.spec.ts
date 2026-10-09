@@ -331,6 +331,14 @@ test('the four keep the reader on their step: a missed tap stays, and a coin can
   expect(await stepNow(page)).toBe(at);
 });
 
+test('a line about a spot rings it, and only while the line shows', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const ids = await openAt(page, 'sort.there');
+  await expect(page.locator('.point-ring')).toHaveCount(1);
+  await openAt(page, ids[ids.indexOf('sort.there') + 1]);
+  await expect(page.locator('.point-ring')).toHaveCount(0);
+});
+
 test('any card in the deck can be picked, not only the top one', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');
