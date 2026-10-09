@@ -73,7 +73,7 @@ const follow = (target) => (SIDE_TRIPS.includes(target) ? openBranch(target) : g
 
   The cow is no side trip any more (owner, 2026-10-09: "joke become part of the
   chat"): Red tells it in the talk, posting the owner's plates with his lines
-  (\picture in the script). CowCastScene and branches/cow.tex are retired, kept
+  (\image in the script). CowCastScene and branches/cow.tex are retired, kept
   in git history and in archive/scenes-pre-chat-joke/.
 
   B1 is PersonTradeScene (its trade half deleted 2026-09-27): the plates down to one circle,

@@ -1425,7 +1425,7 @@ export const STORY: Story = {
       "key": "joke_1",
       "cues": [
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "introduction"
           ]
@@ -1446,13 +1446,13 @@ export const STORY: Story = {
       "key": "joke_2",
       "cues": [
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "darwin"
           ]
         },
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "chemist"
           ]
@@ -1473,13 +1473,13 @@ export const STORY: Story = {
       "key": "joke_3",
       "cues": [
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "silence"
           ]
         },
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "cow-looks"
           ]
@@ -1500,13 +1500,13 @@ export const STORY: Story = {
       "key": "joke_4",
       "cues": [
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "cow-moos"
           ]
         },
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "scratch"
           ]
@@ -1527,13 +1527,13 @@ export const STORY: Story = {
       "key": "joke_5",
       "cues": [
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "physicist"
           ]
         },
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "spherical"
           ]
@@ -1554,7 +1554,7 @@ export const STORY: Story = {
       "key": "joke_6",
       "cues": [
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "vacuum"
           ]
@@ -1575,7 +1575,7 @@ export const STORY: Story = {
       "key": "joke_7",
       "cues": [
         {
-          "name": "picture",
+          "name": "image",
           "args": [
             "football"
           ]

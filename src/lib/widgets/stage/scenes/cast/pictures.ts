@@ -1,5 +1,5 @@
 /**
- * The pictures a bubble can carry (`\picture{name}` in the script, owner
+ * The pictures a bubble can carry (`\image{name}` in the script, owner
  * 2026-10-09: "images posted as attachments"): the owner's cow plates, which
  * Red now posts into the talk as he tells the joke. Content, by name: the
  * stage knows none of them, only that a name is a picture.

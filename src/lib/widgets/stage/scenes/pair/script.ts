@@ -166,7 +166,7 @@ export interface PairStep extends StepSpec {
   readonly actionMs?: number;
   /** `\\pairs{n}`: how many demonstration rounds the room plays. */
   readonly rounds?: number;
-  /** The pictures posted with its line (`\\picture{name}`), by name. */
+  /** The pictures posted with its line (`\\image{name}`), by name. */
   readonly pictures?: readonly string[];
 }
 
@@ -612,9 +612,9 @@ type Said = { who: 'blue' | 'red'; message: string; pauseMs?: number; pictures?:
 export const MATCHED_VALUES = ['levy', 'a', 'b', 'giniA', 'giniB', 'topA', 'topB', 'turnA', 'turnB'] as const;
 export type MatchedValue = (typeof MATCHED_VALUES)[number];
 
-/** The pictures a step's or a bubble's cues post (`\\picture{name}`), in order. */
+/** The pictures a step's or a bubble's cues post (`\\image{name}`), in order. */
 export function picturesOf(cues: readonly { readonly name: string; readonly args: readonly string[] }[]): string[] {
-  return cues.flatMap((c) => (c.name === 'picture' && c.args[0] ? [c.args[0].trim()] : []));
+  return cues.flatMap((c) => (c.name === 'image' && c.args[0] ? [c.args[0].trim()] : []));
 }
 
 /** A bubble the scene speaks when something happens, with its own `\\pause` and pictures. */
