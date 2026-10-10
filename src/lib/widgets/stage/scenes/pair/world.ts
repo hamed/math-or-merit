@@ -1,27 +1,119 @@
 /**
- * The ending's world (owner, 2026-10-10): one dial, the levy, from nothing to
- * everything; the room wears one colour, from Blue's through violet to Red's,
- * as more of it still counts; and the reader's choice travels as a link, so a
- * friend lands on the same world with nothing stored anywhere.
+ * The ending's world (owner, 2026-10-10): three boxes of the same 25 people —
+ * one owner and crumbs, everyone equal, and between them the room the dial
+ * makes. No room runs on screen: each stop of the dial is one finished room,
+ * seeded, the same every time, so a levy always shows the same world and wears
+ * the same colour — pure Blue's at no levy, pure Red's where the levy
+ * saturates, violet between. The reader's choice travels as a link.
  *
- * Headless: no DOM, no Svelte. The colour a shared link shows comes from the
- * levy alone (the measured table), so the same levy is always the same colour.
+ * Headless: no DOM, no Svelte.
  */
 import { FILLS, STROKES } from '../../../shared/agentStyle';
-import { VEIL_COUNTS } from './veilCounts';
+import { record } from './recording';
+
+/** How many people each box holds: few enough to fit a square, and to see. */
+export const VEIL_N = 25;
+/** The room's stake: the one the reader has watched all along. */
+export const VEIL_STAKE = 0.1;
+/** Trades in each finished room: enough that the levy's outcome has settled (and no levy has nearly one owner). */
+export const VEIL_TRADES = 120_000;
+const VEIL_SEED = 20261010;
 
 /**
- * The levy's stops, once a round at the room's stake: nothing, then a
- * multiplying ladder to everything. The middle stop (1%) leaves a lively room:
- * fortunes differ and still change hands.
+ * The levy's stops, once a round, at that stake. Its effect is relative to the
+ * stake; past about a tenth it saturates (measured, 25 people: 0 → about 1.5
+ * still count, 1% → 17, 10% → 24 of 25), so the dial ends there.
  */
-export const VEIL_STOPS: readonly number[] = [0, 0.0003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1];
+export const VEIL_STOPS: readonly number[] = [0, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1];
 
 /** The stop nearest a levy. */
 export function snapLevy(levy: number): number {
   let best = VEIL_STOPS[0];
   for (const s of VEIL_STOPS) if (Math.abs(s - levy) < Math.abs(best - levy)) best = s;
   return best;
+}
+
+/** How far along the dial a levy stands: 0 at no levy, 1 at the last stop. */
+export const levyShade = (levy: number): number => VEIL_STOPS.indexOf(snapLevy(levy)) / (VEIL_STOPS.length - 1);
+
+// ---- the room at each stop ----------------------------------------------------
+
+const made = new Map<number, Float64Array>();
+
+/** Everyone's share in the finished room at a levy: one seeded room, the same every time. */
+export function outcome(levy: number): Float64Array {
+  const at = snapLevy(levy);
+  let w = made.get(at);
+  if (!w) {
+    const r = record({ n: VEIL_N, beta: VEIL_STAKE, stop: { kind: 'trades', trades: VEIL_TRADES }, cap: VEIL_TRADES, levy: at }, VEIL_SEED);
+    w = Float64Array.from(r.frames[r.frames.length - 1]);
+    made.set(at, w);
+  }
+  return w;
+}
+
+/** The left box: the limit with no levy — one owner holds nearly all of it, a few crumbs for the rest. */
+export const KEEPERS: readonly number[] = (() => {
+  const giant = Math.floor(VEIL_N / 2);
+  const crumbs = Array.from({ length: VEIL_N }, (_, i) => (i === giant ? 0 : 0.2 + hash(i, 3)));
+  const sum = crumbs.reduce((t, c) => t + c, 0);
+  return crumbs.map((c, i) => (i === giant ? 0.94 : (0.06 * c) / sum));
+})();
+
+/** The right box: the limit with everything shared back, every round — everyone equal. */
+export const SHARERS: readonly number[] = Array.from({ length: VEIL_N }, () => 1 / VEIL_N);
+
+// ---- where they stand: scattered, hardly touching -------------------------------
+
+function hash(i: number, salt: number): number {
+  let h = Math.imul(i + 1, 0x9e3779b1) ^ Math.imul(salt + 7, 0x85ebca77);
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return ((h >>> 0) % 10_000) / 10_000;
+}
+
+/**
+ * Circles of `radii` scattered in a square of side `size`: each starts near its
+ * own seat (a jittered grid, the same for every box), then they push apart
+ * until they hardly overlap and stay inside. Deterministic, so a person keeps
+ * roughly their seat as the dial moves.
+ */
+export function scatter(radii: readonly number[], size: number): { x: number; y: number }[] {
+  const n = radii.length;
+  const side = Math.ceil(Math.sqrt(n));
+  const cell = size / side;
+  const seat = radii.map((_, i) => ({
+    x: ((i % side) + 0.5 + (hash(i, 1) - 0.5) * 0.5) * cell,
+    y: (Math.floor(i / side) + 0.5 + (hash(i, 2) - 0.5) * 0.5) * cell,
+  }));
+  const p = seat.map((s) => ({ ...s }));
+  const gap = size * 0.012;
+  for (let step = 0; step < 240; step++) {
+    for (let i = 0; i < n; i++)
+      for (let j = i + 1; j < n; j++) {
+        const dx = p[j].x - p[i].x;
+        const dy = p[j].y - p[i].y;
+        const d = Math.hypot(dx, dy) || 1e-6;
+        const need = radii[i] + radii[j] + gap;
+        if (d >= need) continue;
+        // the smaller one moves more: a giant hardly budges for a crumb
+        const push = need - d;
+        const wi = radii[j] / (radii[i] + radii[j] || 1);
+        p[i].x -= (dx / d) * push * wi;
+        p[i].y -= (dy / d) * push * wi;
+        p[j].x += (dx / d) * push * (1 - wi);
+        p[j].y += (dy / d) * push * (1 - wi);
+      }
+    for (let i = 0; i < n; i++) {
+      // a gentle pull back to the seat, and never outside
+      p[i].x += (seat[i].x - p[i].x) * 0.01;
+      p[i].y += (seat[i].y - p[i].y) * 0.01;
+      const r = Math.min(radii[i], size / 2);
+      p[i].x = Math.min(Math.max(p[i].x, r), size - r);
+      p[i].y = Math.min(Math.max(p[i].y, r), size - r);
+    }
+  }
+  return p;
 }
 
 // ---- the colour: OKLab, through three tokens -----------------------------------
@@ -67,25 +159,15 @@ function ramp(stops: readonly string[], t: number): string {
 const FILL_RAMP = [FILLS.blue, FILLS.violet, FILLS.red];
 const STROKE_RAMP = [STROKES.blue, STROKES.violet, STROKES.red];
 
-/** How far along from one owner (Blue's colour) to everyone equal (Red's): 0–1, for `count` of `n` still counting. */
-export const shade = (count: number, n = 100): number => Math.min(1, Math.max(0, (count - 1) / (n - 1)));
-
-/** The room's one colour when `count` of `n` still count. */
-export function veilColour(count: number, n = 100): { fill: string; stroke: string } {
-  const t = shade(count, n);
+/** The colour `t` of the way from Blue's (0) through violet to Red's (1). */
+export function shadeColour(t: number): { fill: string; stroke: string } {
   return { fill: ramp(FILL_RAMP, t), stroke: ramp(STROKE_RAMP, t) };
 }
 
-/** How many still count at a levy, as measured (veilCounts.ts): between stops, read along the ladder. */
-export function expectedCount(levy: number): number {
-  const at = VEIL_STOPS.indexOf(snapLevy(levy));
-  return VEIL_COUNTS[at];
-}
+/** A levy's colour, the same every time: the world's signature. */
+export const worldColour = (levy: number) => shadeColour(levyShade(levy));
 
-/** A levy's colour, the same every time: what a shared link shows. */
-export const worldColour = (levy: number) => veilColour(expectedCount(levy));
-
-// ---- the link: `?world=0.003` ----------------------------------------------------
+// ---- the link: `?world=0.01` ----------------------------------------------------
 
 export const WORLD_PARAM = 'world';
 

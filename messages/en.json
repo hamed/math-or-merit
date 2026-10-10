@@ -398,8 +398,16 @@
   "turn_axis_share": "money changing hands, each round",
   "turn_axis_short": "moved per round",
   "veil_keepers": "Finders keepers",
+  "veil_middle": "Give and take",
   "veil_sharers": "Sharing is caring",
   "veil_levy": "levy, every round",
+  "veil_born": "Who will I be?",
+  "veil_again": "Be born again",
+  "veil_you": "you",
+  "veil_sure": "That's you. Still sure?",
+  "veil_share": "Share this world",
+  "veil_copied": "Link copied",
+  "veil_message": "I chose a {levy} levy. What would you call fair, before you knew where you'd end up?",
   "veil_strip": "Someone chose this world for you: a {levy} levy. Read on, and choose yours.",
   "veil_close": "Close"
 }

@@ -551,8 +551,8 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         [p, action] = [{ ...p, veil: 2 }, 'veil'];
         break;
       case 'reveal:world':
-        // the living room forms between the two limits, trading on from where the run left it
-        [p, action] = [{ ...p, veil: 3, source: 'sandbox' }, 'veil'];
+        // the middle box fills: the room the dial makes, finished
+        [p, action] = [{ ...p, veil: 3 }, 'veil'];
         break;
       case 'hide:headline':
         p = { ...p, compact: true };
@@ -590,7 +590,7 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         p = { ...p, control: 'sandbox', source: 'sandbox' };
         break;
       case 'control:veil':
-        p = { ...p, control: 'veil', source: 'sandbox' };
+        p = { ...p, control: 'veil' };
         break;
       case 'control:none':
         // the reader's hand leaves the tax game: the room shown is the run's again

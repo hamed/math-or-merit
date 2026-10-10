@@ -206,7 +206,7 @@ on) or **reader** (it waits for the reader; the wait is never written).
 
 | Action | Does |
 |---|---|
-| `\reveal{x}` / `\hide{x}` | shows or takes away a thing: `headline`, `merit`, `or`, `math`, `mark`, `coins`, `coin`, `words`, `card:<id>`, `curve`, `diagonal`, `gap`, `lorenz`, `map`, `fit`, `toy:<id>`, and the ending's `keepers` (one owner), `sharers` (everyone equal) and `world` (the living room between them); `\hide{curve}` undoes the walk, in reverse |
+| `\reveal{x}` / `\hide{x}` | shows or takes away a thing: `headline`, `merit`, `or`, `math`, `mark`, `coins`, `coin`, `words`, `card:<id>`, `curve`, `diagonal`, `gap`, `lorenz`, `map`, `fit`, `toy:<id>`, and the ending's `keepers` (one owner), `sharers` (everyone equal) and `world` (the room the dial makes, between them); `\hide{curve}` undoes the walk, in reverse |
 | `\crowd{x}` | the crowd: `idle`, `payout`, `two`, `room`, `empty` |
 | `\stake{n}` | each puts n coins on the table |
 | `\flip{side}` | the coin lands on `blue` or `red`; the result is logged |

@@ -596,8 +596,9 @@ test('back from both dials, the stake-only room has no levy left in it', async (
   expect(Number(levy ?? 0)).toBe(0);
 });
 
-test('the ending: three boxes, one dial; the middle room follows it, and the machine keeps the room', async ({ page }) => {
+test('the ending: three boxes, one dial; the middle shows its finished room at once, who you would be, and a link', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const [veil, machine] = await page.evaluate(async () => {
     const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
@@ -605,37 +606,42 @@ test('the ending: three boxes, one dial; the middle room follows it, and the mac
     return [steps.find((s) => s.pose.control === 'veil')!.id, steps.find((s) => s.pose.control === 'sandbox')!.id];
   });
   await openAt(page, veil);
-  await expect(page.locator('.saying')).toHaveCount(2);
+  await expect(page.locator('.saying')).toHaveCount(3);
   await expect(page.locator('.veil .veil-frame')).toHaveCount(3);
-  // the dial and nothing else: no buttons in the ending
-  await expect(page.locator('.veil-dial input[type=range]')).toHaveCount(1);
-  await expect(page.locator('.veil-dial button')).toHaveCount(0);
-  // all the way: the room turns from Blue's colour to Red's as everyone comes to count
-  const redness = () =>
-    page.locator('.veil .limit').nth(2).locator('circle').first().evaluate((el) => {
-      const hex = el.getAttribute('fill') ?? '#000000';
-      return parseInt(hex.slice(1, 3), 16) - parseInt(hex.slice(5, 7), 16);
-    });
+  // 25 people in each box, plain circles
+  await expect(page.locator('.veil [data-box="mid"] .person > circle')).toHaveCount(25);
+  const middle = page.locator('.veil [data-box="mid"] .person > circle').first();
+  const redness = () => middle.evaluate((el) => {
+    const hex = el.getAttribute('fill') ?? '#000000';
+    return parseInt(hex.slice(1, 3), 16) - parseInt(hex.slice(5, 7), 16);
+  });
   const before = await redness();
+  // the last stop: no waiting, the finished room is there at once, in Red's colour
   await page.locator('.veil-dial input[type=range]').evaluate((el: HTMLInputElement) => {
     el.value = String(Number(el.max));
     el.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  await expect.poll(redness, { timeout: 20_000 }).toBeGreaterThan(before + 40);
-  // the machine opens on the same room, at the reader's levy
+  expect(await redness()).toBeGreaterThan(before + 40);
+  await page.locator('.veil-dial button', { hasText: 'Who will I be' }).click();
+  await expect(page.locator('.veil .born')).toHaveCount(1);
+  await page.evaluate(() => Object.defineProperty(navigator, 'share', { value: undefined }));
+  await page.locator('.veil-dial button', { hasText: 'Share' }).click();
+  await expect(page.locator('.veil-dial button', { hasText: 'copied' })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('world=0.1');
+  // the machine opens at the reader's levy
   await page.evaluate(async (id) => {
     const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
     const to = (PAIR_STEPS as { id: string }[]).findIndex((s) => s.id === id);
     await (await import('/src/lib/widgets/stage/branch.ts')).goToIndex('pair', to);
   }, machine);
-  await expect(page.locator('.deck')).toContainText('100%');
+  await expect(page.locator('.deck')).toContainText('10%');
 });
 
 test('a shared world greets its reader in the friend’s colour, and closes', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/?world=0.003', { waitUntil: 'domcontentloaded' });
+  await page.goto('/?world=0.005', { waitUntil: 'domcontentloaded' });
   const strip = page.locator('.world-strip');
-  await expect(strip).toContainText('0.3%');
+  await expect(strip).toContainText('0.5%');
   await strip.getByRole('button').click();
   await expect(strip).toHaveCount(0);
   await page.goto('/?world=nonsense', { waitUntil: 'domcontentloaded' });
