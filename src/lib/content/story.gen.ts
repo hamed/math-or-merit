@@ -197,7 +197,7 @@ export const STORY: Story = {
     },
     {
       "label": "stop-still",
-      "title": "Make it equal",
+      "title": "More equal",
       "act": "Now you try to stop it",
       "number": "25",
       "step": "stop-still.1",
@@ -205,7 +205,7 @@ export const STORY: Story = {
     },
     {
       "label": "stop-live",
-      "title": "Keep it equal",
+      "title": "Keep it open",
       "act": "Now you try to stop it",
       "number": "26",
       "step": "stop-live.1",

@@ -16,7 +16,7 @@
      * (owner, 2026-10-10: the histogram beside the room must match the one the
      * room makes). Log x across `edges`, people counted plainly; no toggles.
      */
-    bins?: { readonly edges: readonly number[]; readonly counts: readonly number[] };
+    bins?: { readonly edges: readonly number[]; readonly counts: readonly number[]; readonly dust?: boolean };
   }
 
   let { wealth, totalDollars, n, revision = 0, startDollars, bins: given }: Props = $props();
@@ -143,7 +143,11 @@
       {#if count > 0}
         {@const x0 = xOf(view.bins.edges[k])}
         {@const x1 = xOf(view.bins.edges[k + 1])}
-        <rect class="bar" x={x0 + 0.5} y={yOf(count)} width={Math.max(1, x1 - x0 - 1)} height={Math.max(1.2, baseline - yOf(count))} />
+        <!-- with `dust`, the first bar is not an interval: it holds everything under a cent, zero included (review 2026-10-10) -->
+        <rect class="bar" class:dust={given?.dust && k === 0} x={x0 + 0.5} y={yOf(count)} width={Math.max(1, x1 - x0 - 1)} height={Math.max(1.2, baseline - yOf(count))} />
+        {#if given?.dust && k === 0}
+          <text class="dust-label" x={(x0 + x1) / 2} y={Math.max(frame.y + 8, yOf(count) - 3)} text-anchor="middle">&lt; 1¢</text>
+        {/if}
       {/if}
     {/each}
     {#if view.bins.underCount > 0}
@@ -171,6 +175,19 @@
 <style>
   .bar {
     fill: rgb(189 98 69 / 55%);
+  }
+
+  .bar.dust {
+    fill: rgb(189 98 69 / 22%);
+    stroke: rgb(189 98 69 / 60%);
+    stroke-width: 0.8;
+    stroke-dasharray: 2 2;
+  }
+
+  .dust-label {
+    fill: var(--ink-soft);
+    font-size: 7.5px;
+    font-weight: 600;
   }
 
   .note {

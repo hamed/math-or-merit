@@ -412,6 +412,8 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
      */
     play(): void {
       if (!recording || state.running || live) return;
+      // one clock at a time: the reader's Play takes over from a rewind
+      traveller.stop();
       if (state.frame >= recording.frames.length - 1) {
         playOn();
         return;
@@ -422,6 +424,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
     },
     pause(): void {
       replayer.stop();
+      traveller.stop();
       if (live) endLive();
       state.playing = false;
     },

@@ -570,6 +570,31 @@ test('the levy is taught on the room a moment a step, its card filling the colum
   await expect(page.locator('.charts .teach')).toHaveCount(0);
 });
 
+test('the tax rounds keep their instructions on screen while the reader taps', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'stop.tap', ['stop.tap']);
+  await expect(page.locator('.pair-scene .bubbles')).not.toHaveClass(/through/);
+  await expect(page.locator('.pair-scene .bubble').last()).toBeVisible();
+  expect(Number(await page.locator('.pair-scene .bubbles').evaluate((el) => getComputedStyle(el).opacity))).toBeGreaterThan(0.9);
+});
+
+test('back from both dials, the stake-only room has no levy left in it', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const [dials, stakeOnly] = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const steps = PAIR_STEPS as { id: string; pose: { control: string | null; rules: { levy: number } | null; source: string } }[];
+    return [steps.findIndex((s) => s.pose.control === 'rules' && (s.pose.rules?.levy ?? 0) > 0.01), steps.findIndex((s) => s.pose.control === 'stake')];
+  });
+  const ids = await stepIds(page);
+  await openAt(page, ids[dials]);
+  await page.evaluate(async (to) => (await import('/src/lib/widgets/stage/branch.ts')).goToIndex('pair', to), stakeOnly);
+  await expect.poll(() => stepNow(page)).toBe(stakeOnly);
+  // the room that stands there was played without the levy
+  const levy = await page.evaluate(() => (document.querySelector('.pair-scene') as HTMLElement).dataset.levy);
+  expect(Number(levy ?? 0)).toBe(0);
+});
+
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');

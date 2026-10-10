@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { giniCoefficient } from '$lib/research';
-import { TOTAL_R, line, piles, roundRuler, roundStep, ruler } from './roomPoses';
+import { TOTAL_R, decadeBins, line, piles, roundRuler, roundStep, ruler } from './roomPoses';
 
 /** A room after a run: one giant, a few middling, the rest near nothing. */
 function room(): number[] {
@@ -205,4 +205,13 @@ describe('the line keeps everyone\'s size, under a square plot', () => {
       expect(pose.rank[42]).toBe(99);
     });
   }
+});
+
+describe('the multiplying ruler\'s dust bin', () => {
+  it('holds everything under a cent, zero and the tiniest included, apart from the decades', () => {
+    const { counts, edges } = decadeBins([0, 1e-8, 0.0005, 0.005, 0.01, 0.5, 50], 10_000);
+    expect(counts[0]).toBe(4);
+    expect(counts.slice(1).reduce((s, c) => s + c, 0)).toBe(3);
+    expect(edges[1]).toBeCloseTo(0.01, 12);
+  });
 });
