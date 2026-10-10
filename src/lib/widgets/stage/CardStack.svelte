@@ -20,9 +20,11 @@
    * The concept cards (iteration-2 brief 1.6; owner review 2026-09-26). Each
    * concept, once taught, drops a card onto a deck in the stage's corner. A
    * card is a short memo — a few lines and a picture, for short attention and
-   * short memory — and some hold a toy to play with. Any card can be opened,
-   * and the deck can be leafed through. The first is the rule card, which
-   * always reads the rule that is running.
+   * short memory — and some hold a toy to play with. Any card can be picked
+   * from the deck: under the pointer, or once the deck is pressed, it fans out
+   * into tabs, each card's title on its own edge (owner, 2026-10-09: "only the
+   * top one can be picked up"). An open card can be leafed through. The first
+   * is the rule card, which always reads the rule that is running.
    *
    * Knows no concept by name: cards are data.
    */
@@ -60,22 +62,63 @@
     if (index < 0) return;
     ontoggle(cards[(index + step + cards.length) % cards.length].id);
   }
+
+  /** The deck fanned out into tabs, one per card, newest on top. */
+  let fanned = $state(false);
+  const newestFirst = $derived([...cards].reverse());
+  let fan: HTMLUListElement | undefined = $state();
+
+  function pick(id: string): void {
+    fanned = false;
+    ontoggle(id);
+  }
+
+  /** Focus is on its way from the pile to the tabs: the pile leaving the page is not the reader leaving the deck. */
+  let moving = false;
+  function spread(): void {
+    moving = true;
+    fanned = true;
+    // from the keyboard, straight onto the first tab
+    requestAnimationFrame(() => {
+      fan?.querySelector('button')?.focus({ preventScroll: true });
+      moving = false;
+    });
+  }
 </script>
 
 {#if top}
-  <div class="cards">
-    <button
-      type="button"
-      class="stack"
-      aria-expanded={shown !== null}
-      aria-label={`${label}: ${cards.map((c) => c.title).join(', ')}`}
-      onclick={() => ontoggle(shown ? null : top.id)}
-    >
-      {#each cards as card, i (card.id)}
-        <span class="back" style={`--i:${cards.length - 1 - i}`}></span>
-      {/each}
-      <span class="face">{top.title}</span>
-    </button>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="cards"
+    onpointerenter={(e) => e.pointerType === 'mouse' && (fanned = true)}
+    onpointerleave={(e) => e.pointerType === 'mouse' && (fanned = false)}
+    onfocusout={(e) => !moving && !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node) && (fanned = false)}
+  >
+    {#if fanned}
+      <ul class="fan" bind:this={fan} aria-label={label}>
+        {#each newestFirst as card, k (card.id)}
+          <li style={`--k:${k}`}>
+            <button type="button" class="tab" class:on={shown?.id === card.id} aria-current={shown?.id === card.id ? 'true' : undefined} onclick={() => pick(card.id)}>
+              {card.title}
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <button
+        type="button"
+        class="stack"
+        aria-expanded={fanned}
+        aria-label={`${label}: ${cards.map((c) => c.title).join(', ')}`}
+        onclick={spread}
+      >
+        {#each cards as card, i (card.id)}
+          <span class="back" style={`--i:${cards.length - 1 - i}`}></span>
+        {/each}
+        <span class="face">{top.title}</span>
+        {#if cards.length > 1}<span class="count">{cards.length}</span>{/if}
+      </button>
+    {/if}
 
     {#if shown}
       <section class="card" class:wide={playing === shown.id} aria-label={shown.title} bind:clientHeight={height}>
@@ -162,9 +205,76 @@
     font-weight: 700;
   }
 
-  .stack:hover .face,
-  .stack[aria-expanded='true'] .face {
+  .stack:hover .face {
     border-color: var(--accent);
+  }
+
+  /* how many cards are in the deck: the ones under the top are there to pick */
+  .count {
+    position: absolute;
+    inset-block-start: -0.55rem;
+    inset-inline-end: -0.55rem;
+    min-inline-size: 1.25rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--paper-bright);
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  /* the deck fanned: every card's edge, its title on it, one tab each */
+  .fan {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .fan li {
+    margin: 0;
+    animation: fan 200ms ease-out both;
+    animation-delay: calc(var(--k) * 25ms);
+  }
+
+  .fan li + li {
+    margin-block-start: -0.2rem;
+  }
+
+  .tab {
+    min-inline-size: 7.5rem;
+    padding-block: 0.4rem;
+    padding-inline: 0.75rem;
+    border: 1.5px solid var(--line);
+    border-radius: 0.45rem;
+    background: var(--paper-bright);
+    box-shadow: 0 1px 2px rgb(40 37 31 / 12%);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.98rem;
+    font-weight: 700;
+    text-align: start;
+    cursor: pointer;
+    transform: rotate(calc((var(--k) - 1) * 0.4deg));
+  }
+
+  .tab:hover,
+  .tab:focus-visible {
+    position: relative;
+    border-color: var(--accent);
+    color: var(--accent-deep);
+    transform: translateX(0.3rem);
+    outline: none;
+  }
+
+  .tab.on {
+    border-color: var(--accent);
+    background: rgb(189 98 69 / 8%);
   }
 
   .stack:focus-visible {
@@ -274,6 +384,13 @@
     }
   }
 
+  @keyframes fan {
+    from {
+      opacity: 0;
+      transform: translateY(-0.6rem);
+    }
+  }
+
   @keyframes open {
     from {
       opacity: 0;
@@ -283,7 +400,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .stack,
-    .card {
+    .card,
+    .fan li {
       animation: none;
     }
   }

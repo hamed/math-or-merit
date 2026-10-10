@@ -266,8 +266,10 @@ export class StageFaces {
         const i = this.people + j;
         const b = scene.room[j];
         if (!(b.alpha > 0.3)) continue;
+        // a coin in the air is everyone's business: nearly the whole room watches it
+        if (scene.coin && noise(f.seed[i], 82) > -0.85) at(i, b, scene.coin.x, scene.coin.y);
         // one in twenty follows the reader's pointer while it moves
-        if (pointer && noise(f.seed[i], 81) > 0.9) at(i, b, pointer.x, pointer.y);
+        else if (pointer && noise(f.seed[i], 81) > 0.9) at(i, b, pointer.x, pointer.y);
         else if (line && said && this.attends(i, line.since, now)) at(i, b, said.x, said.y);
         else f.glance(i);
       }

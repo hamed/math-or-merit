@@ -94,6 +94,15 @@ describe('the pair’s faces', () => {
     expect(spread(backAt)).toBeGreaterThan(2.5);
   });
 
+  it('turns nearly the whole room to a coin in the air', () => {
+    const faces = fresh();
+    const room = Array.from({ length: 100 }, (_, j) => at(50 + (j % 10) * 70, 100 + Math.floor(j / 10) * 50, 15));
+    faces.aim(scene({ room, coin: { x: 2000, y: 300 } }), 0, 1 / 60);
+    let watching = 0;
+    for (let j = 0; j < 100; j++) if (faces.field.aimYaw[faces.roomSlot(j)] > 0.3) watching++;
+    expect(watching).toBeGreaterThan(85);
+  });
+
   it('lets a few in the room follow the reader’s pointer', () => {
     const faces = fresh();
     const room = Array.from({ length: 100 }, (_, j) => at(50 + (j % 10) * 70, 100 + Math.floor(j / 10) * 50, 15));

@@ -4,11 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { validateSteps } from '../../steps';
 import { ROUNDS, UNITS } from './game';
 import { BETS, PREDICTIONS } from '../../../shared/runLog.svelte';
-import { CARDS, EXPECT_PROBLEMS, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin, spoken } from './script';
+import { CARDS, EXPECT_PROBLEMS, MATCHED_VALUES, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin, spoken } from './script';
 import { compile } from '../../../../script/compile';
 import { parseScript } from '../../../../script/parse';
 import { lint } from '../../../../script/lint';
 import { readingMs } from '../../steps';
+import { ROUND_SECONDS } from './roomRounds';
+import { PICTURES } from '../cast/pictures';
 import { STORY } from '../../../../content/story.gen';
 import { CAPTION_BEATS, sideTrip } from '../../../../content/story';
 
@@ -149,6 +151,40 @@ describe('decl.tex’s numbers set the stage’s times', () => {
   });
 });
 
+describe('the room’s demonstration rounds', () => {
+  it('reads \\pairs{n} as n rounds, and waits for them however short its words', () => {
+    const script = parseScript({
+      lang: 'en',
+      decl: { file: 'decl.tex', text: readFileSync('src/lib/script/fixtures/decl.tex', 'utf8') },
+      files: [{ file: 'x.tex', text: '\\subsection{A}\\label{a}\n\nRed (flow): Two at random.\n\\pairs{2}\n' }],
+    });
+    expect(lint(script).filter((p) => p.level === 'error')).toEqual([]);
+    expect(compile(script).story.steps[0].cues).toEqual([{ name: 'pairs', args: ['2'] }]);
+    // the adapter: on the stage's own steps, any step that plays pairs waits for every round
+    for (const step of PAIR_STEPS.filter((s) => s.action === 'pairs')) {
+      expect(step.rounds).toBeGreaterThan(0);
+      expect(step.actionMs).toBe(Math.round(step.rounds! * ROUND_SECONDS * 1000));
+    }
+  });
+});
+
+describe('the levy, reviewed', () => {
+  const matched = PAIR_STEPS.map((s, i) => [s, STORY.steps[i]] as const).filter(([s]) => s.pose.roomMode === 'matched');
+
+  it('says only values the matched rooms can give', () => {
+    const known = new Set<string>([...MATCHED_VALUES, 'blue', 'red']);
+    for (const [, story] of matched) for (const v of story.vals ?? []) expect(known, `${story.id}: \\val{${v}}`).toContain(v);
+  });
+
+  it('pins each measure it reviews for both rooms, not to the side rail', () => {
+    const last = matched.at(-1)![0];
+    expect(last.pose.compare.length).toBeGreaterThan(0);
+    // what was pinned before the rooms were matched stays where it was
+    const before = PAIR_STEPS[PAIR_STEPS.indexOf(matched[0][0]) - 1].pose.thumbs;
+    expect(last.pose.thumbs).toEqual(before);
+  });
+});
+
 describe('the title’s reel', () => {
   it('runs slowly to the last word, stops on it, and comes back to the answer', () => {
     const spin = reelSpin();
@@ -168,8 +204,20 @@ describe('the title’s reel', () => {
 });
 
 describe('what the scene promises, whatever the words', () => {
-  it('holds only where the scene knows how to let go: meeting both, 8 and 8, a guess, a bet', () => {
-    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'guess.what', 'guess.stake']);
+  it('holds only where the scene knows how to let go: meeting both, 8 and 8, the joke offered, a guess, a bet', () => {
+    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake']);
+  });
+
+  it('tells the joke in the talk, every picture a real one, and offers the spherical human at its end', () => {
+    const offer = indexOf('more.joke');
+    const end = indexOf('joke.human');
+    expect(offer).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(offer);
+    const posted = PAIR_STEPS.slice(offer + 1, end).flatMap((s) => s.pictures ?? []);
+    expect(posted.length).toBeGreaterThan(0);
+    for (const name of PAIR_STEPS.flatMap((s) => s.pictures ?? [])) expect(Object.keys(PICTURES), name).toContain(name);
+    expect(REACTIONS.joke).toHaveLength(2);
+    expect(REACTIONS.human).toHaveLength(2);
   });
 
   it('offers both calls at once, and has an introduction for each click', () => {

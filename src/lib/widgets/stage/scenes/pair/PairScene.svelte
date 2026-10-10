@@ -41,6 +41,7 @@
     panelStart,
     readFor,
     valuesFor,
+    type MatchedValue,
     type Pose,
     type RoomMode,
     type RoomSource,
@@ -60,6 +61,7 @@
   import { createRun } from './run.svelte';
   import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
   import { GATHER_SECONDS, noise, planArrival, planRain } from './rain';
+  import { OUT_SCALE, ROUND_STAKE, planRounds } from './roomRounds';
   import { CROSSING, FALL, RISE, arrival, fallTime, gravity, hopsBy, squashed, type Hop } from './hops';
   import { titleFeet } from './titleFeet';
   import { deciderFace, pairLayout, pile } from './layout';
@@ -93,12 +95,14 @@
   import DebugPanel from './DebugPanel.svelte';
   import { collectStats, frontPageFor } from '../../../sandbox/newsroom';
   import { fitSquareRelationship, measureWealth } from '$lib/research';
-  import { openBranch } from '../../branch';
+  import { goToStep, openBranch } from '../../branch';
+  import { PICTURES as POSTED } from '../cast/pictures';
   import AgentFace from '../../../shared/face/AgentFace.svelte';
   import { GROUND, drawStill } from '../../../shared/face/draw';
   import { faceRadius } from '../../../shared/face/face';
   import { FaceBoard, type FaceColours } from '../../../shared/face/faceElement';
-  import { CONTEMPT, stillOf } from '../../../shared/face/moments';
+  import { CONTEMPT, stillOf, type Affect } from '../../../shared/face/moments';
+  import { photoMood } from '../../../shared/face/field';
   import { FACE_CHOICES, chooseFace, faceStyle, loadFaceStyle, type FaceChoice } from '../../../shared/face/faceStyle.svelte';
   import { StageFaces, talkSeconds, type Body, type FaceScene, type HeldLine, type TitleCue } from './stageFaces';
 
@@ -217,6 +221,8 @@
     y: number;
     on: number;
     face: 'front' | 'back';
+    /** Its radius, px, when not the pair's coin: the room's rounds play at the room's scale. */
+    r?: number;
   }
 
   const view = $state({
@@ -255,6 +261,9 @@
     flipLift: 0,
     /** 0 — a plain coin, nobody's colour yet; 1 — each face in its owner's colour. */
     flipTint: 0,
+    /** Where the decider is tossed when it is not at the pair's table, and how big it is there: the room's demonstration rounds. */
+    flipAt: null as Point | null,
+    flipR: 0,
     roomOn: 0,
     payout: Array.from({ length: COINS }, () => ({ x: 0, y: 0, on: 0, face: 'front' })) as Token[],
     fly: [] as Token[],
@@ -401,6 +410,8 @@
     view.flipAngle = t.flipAngle;
     view.flipLift = 0;
     view.flipTint = t.flipTint;
+    view.flipAt = null;
+    view.flipR = 0;
     view.roomOn = t.roomOn;
     // the decider rests once a pose is drawn; a toss playing lifts it
     cue.air = false;
@@ -522,10 +533,15 @@
     return true;
   }
 
-  /** How long a bubble stays before the talk moves on: its words, a beat for each line after the first, and its own pause. */
-  const readOf = (b: { text: string; pauseMs?: number }) => readFor(bubbleWords(b.text)) + Math.max(0, bubbleLines(b.text).length - 1) * LINE_BEAT_MS + (b.pauseMs ?? 0);
-  /** A line's `\\pause`, carried onto the bubble that says it. */
-  const withPause = (line: { pauseMs?: number }) => (line.pauseMs ? { pauseMs: line.pauseMs } : {});
+  /** A picture posted in the talk takes about this long to look at, ms. */
+  const PICTURE_MS = 1400;
+  /** How long a bubble stays before the talk moves on: its words, a beat for each line after the first, a look at each picture, and its own pause. */
+  const readOf = (b: { text: string; pauseMs?: number; pictures?: readonly string[] }) => readFor(bubbleWords(b.text)) + Math.max(0, bubbleLines(b.text).length - 1) * LINE_BEAT_MS + (b.pictures?.length ?? 0) * PICTURE_MS + (b.pauseMs ?? 0);
+  /** What a line brings with it onto the bubble that says it: its `\\pause`, its pictures. */
+  const withPause = (line: { pauseMs?: number; pictures?: readonly string[] }) => ({
+    ...(line.pauseMs ? { pauseMs: line.pauseMs } : {}),
+    ...(line.pictures?.length ? { pictures: line.pictures } : {}),
+  });
 
   /** How long step `index` stays, ms, when it moves on by itself: what it says, and the step's own `\\pause` after. */
   function readingTime(index: number): number {
@@ -542,8 +558,10 @@
       return readOf({ text: say(line.message), ...withPause(line) }) + pause;
     }
     const line = step.lines?.[0];
-    if (!line) return readOf({ text: '' }) + pause;
-    return readOf({ text: say(line.message, valuesFor(step)) }) + pause;
+    // words read, and the step's action played out, whichever is longer
+    const played = step.actionMs ?? 0;
+    if (!line) return Math.max(readOf({ text: '' }), played) + pause;
+    return Math.max(readOf({ text: say(line.message, valuesOf(step)), pictures: step.pictures }), played) + pause;
   }
 
   /** Things a step starts that are not tweens: the calls, the coin mover. */
@@ -743,6 +761,17 @@
     const id = ++rippleId;
     ripples = [...ripples, { id, x: v.x, y: v.y, r: Math.max(v.r, 6), ink: styleOfRoom(i).stroke }];
     window.setTimeout(() => (ripples = ripples.filter((q) => q.id !== id)), 1500);
+    // the tax game shows what a tap does (owner, 2026-10-09: "the tax, easy to miss"): a quarter
+    // leaves the fortune, and the pool goes back to everyone — a ring across the whole room
+    if (PAIR_STEPS[current].pose.control === 'tax') {
+      const box = L.room.box;
+      taken = [...taken, { id, x: v.x, y: v.y - Math.max(v.r, 6) - 6 }];
+      returns = [...returns, { id, x: box.x + box.w / 2, y: box.y + box.h / 2, r: Math.hypot(box.w, box.h) / 2 }];
+      window.setTimeout(() => {
+        taken = taken.filter((q) => q.id !== id);
+        returns = returns.filter((q) => q.id !== id);
+      }, 1400);
+    }
   }
 
   /** The fortune under a finger: the circle it lands in, or the nearest within a few pixels. */
@@ -1347,16 +1376,51 @@
   // ---- Scene 18: turnover ------------------------------------------------------
 
   /** Each round's turnover up to the moment on screen, and its mean at the start and near the end. */
-  const turnover = $derived.by(() => {
-    void shown.state.revision;
-    const rec = shown.recording();
-    if (!rec) return { rounds: [] as number[], early: 0, late: 0, max: 0 };
-    const raw = rec.turnover.slice(1, Math.max(1, shown.state.frame) + 1);
+  /** A run's turnover so far: each round's share of the money that changed hands, as the chart draws it. */
+  function turnoverOf(r: Run) {
+    void r.state.revision;
+    const rec = r.recording();
+    if (!rec) return { rounds: [] as number[], early: 0, late: 0, max: 0, recent: 0 };
+    const raw = rec.turnover.slice(1, Math.max(1, r.state.frame) + 1);
     const mean = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
     // drawn as a five-round moving average, so the trend reads through the noise of single rounds
     const rounds = raw.map((_, k) => mean(raw.slice(Math.max(0, k - 2), k + 3)));
-    return { rounds, early: mean(raw.slice(0, 3)), late: mean(raw.slice(-3)), max: Math.max(1e-9, ...rounds) };
+    // the last tenth of the rounds on screen: where the room has settled
+    const recent = mean(raw.slice(-Math.max(3, Math.ceil(raw.length / 10))));
+    return { rounds, early: mean(raw.slice(0, 3)), late: mean(raw.slice(-3)), max: Math.max(1e-9, ...rounds), recent };
+  }
+  const turnover = $derived(turnoverOf(shown));
+  /** Scene 23's two rooms, each measured the same way: without the levy, and with it. */
+  const matchTurnover = $derived([turnoverOf(leftRun), turnoverOf(rightRun)]);
+  const matchMetrics = $derived.by(() => {
+    void leftRun.state.revision;
+    void rightRun.state.revision;
+    return [measureWealth(leftRun.wealth()), measureWealth(rightRun.wealth())];
   });
+  /**
+   * What the review says (owner, 2026-10-09: "how even a small levy improves
+   * all"), for any line said while the matched rooms stand: the levy, and each
+   * measure for both rooms — a without the levy, b with it.
+   */
+  const matchedValues = $derived.by((): Record<MatchedValue, string> => {
+    const [a, b] = matchMetrics;
+    const [ta, tb] = matchTurnover;
+    const share = (x: number) => formatNumber(x, { style: 'percent', maximumFractionDigits: x < 0.01 ? 2 : 1 });
+    const gini = (x: number) => formatNumber(x, { maximumFractionDigits: 2 });
+    return {
+      levy: formatNumber(MATCH_LEVY, { style: 'percent', maximumFractionDigits: 1 }),
+      a: matchCounts.a,
+      b: matchCounts.b,
+      giniA: gini(a.gini),
+      giniB: gini(b.gini),
+      topA: share(a.topShare),
+      topB: share(b.topShare),
+      turnA: share(ta.recent),
+      turnB: share(tb.recent),
+    };
+  });
+  /** A step's live values: the pair's coins, and while the matched rooms stand, the review's measures. */
+  const valuesOf = (step: (typeof PAIR_STEPS)[number]) => ({ ...valuesFor(step), ...(step.pose.roomMode === 'matched' ? matchedValues : {}) });
 
   // ---- the side rail, the sheets (optional toys) --------------------------------
 
@@ -1412,7 +1476,9 @@
       headlineForStyle(style, edition),
       edition,
     );
-    return { masthead: page.paper, text: page.text, source: page.source, style };
+    // the richest looks down on the room; anyone else wears how their fortune feels
+    const mood = photoMood(w[winner], w.length, m.topShare > 0 && w[winner] >= Math.max(...w));
+    return { masthead: page.paper, text: page.text, source: page.source, style, mood };
   }
 
   /**
@@ -1523,7 +1589,7 @@
     /** An event's coin: the face that landed. */
     coin?: Speaker;
     /** The morning paper's front page, printed in the talk. */
-    paper?: { masthead: string; text: string; source: string; style: AgentStyle };
+    paper?: { masthead: string; text: string; source: string; style: AgentStyle; mood?: Affect };
     /** Said to the reader, not to the other one: on the speaker's outer side. */
     aside?: boolean;
     /** A passing line (a call): it never pushes an aside away. */
@@ -1532,6 +1598,8 @@
     feel?: readonly string[];
     /** Its own `\\pause`, ms: it stays this much longer than its words take to read. */
     pauseMs?: number;
+    /** Pictures posted with it, by name (cast/pictures.ts): the joke's plates. */
+    pictures?: readonly string[];
     choices?: readonly BubbleChoice[];
     /** A control the reader holds, inside the bubble (Scene 20's dial). */
     control?: Snippet;
@@ -1589,7 +1657,7 @@
         continue;
       }
       if (step.id === 'stop.how' && line?.who) {
-        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), feel: step.feel });
+        out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesOf(step)), feel: step.feel });
         const result = game.result;
         if (result) {
           const said = result.won ? REACTIONS.stopWon : REACTIONS.stopLost;
@@ -1621,7 +1689,7 @@
         out.push(...heard.sort((a, b) => a.at - b.at).map((h) => h.said));
         continue;
       }
-      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesFor(step)), aside: step.aside, brief: step.brief, feel: step.feel });
+      out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesOf(step)), aside: step.aside, brief: step.brief, feel: step.feel, pictures: step.pictures });
     }
     if (reaction && current === indexOf('equal')) out.push(reaction);
     if (PAIR_STEPS[current].pose.control === 'sandbox') out.push(...sandboxPapers);
@@ -1753,9 +1821,17 @@
   function choicesAt(index: number): readonly BubbleChoice[] | null {
     const id = PAIR_STEPS[index].id;
     if (PAIR_STEPS[index].pose.choice) {
+      // the joke is told in the talk: "Yes" lets the offer go, on into the joke; "Not now" jumps past it
       return [
-        { label: say(REACTIONS.joke[0]), act: tellMe },
-        { label: say(REACTIONS.joke[1]), act: () => stage?.advance() },
+        { label: say(REACTIONS.joke[0]), act: () => stage?.release(id) },
+        { label: say(REACTIONS.joke[1]), act: () => goToStep('pair', PAIR_STEPS[Math.min(PAIR_STEPS.length - 1, indexOf('joke.human') + 1)].id, true) },
+      ];
+    }
+    if (id === 'joke.human') {
+      // a key line, not a hold: the spherical human opens below, or the talk goes on
+      return [
+        { label: say(REACTIONS.human[0]), act: () => openBranch('human') },
+        { label: say(REACTIONS.human[1]), act: () => stage?.advance() },
       ];
     }
     const link = (REACTIONS.links as Record<string, string>)[id];
@@ -1890,6 +1966,9 @@
    * hundred he is a dot (owner review 2026-09-26: "here he is").
    */
   let ripples = $state<{ id: number; x: number; y: number; r: number; ink: string }[]>([]);
+  /** The tax game's taps, as the reader sees them: the quarter taken, and the pool coming back to everyone. */
+  let taken = $state<{ id: number; x: number; y: number }[]>([]);
+  let returns = $state<{ id: number; x: number; y: number; r: number }[]>([]);
   let rippleId = 0;
   let lastSpoken = '';
   $effect(() => {
@@ -2088,6 +2167,9 @@
         return;
       case 'room':
         fillRoom(pose, tl);
+        return;
+      case 'pairs':
+        playRounds(tl);
         return;
       case 'arrange':
         arrange(pose, tl);
@@ -2305,6 +2387,69 @@
       view.held = t.held;
       view.table = t.table;
     }, [], 1.1);
+  }
+
+  /** Scene 10's demonstration rounds, planned for this stage (roomRounds.ts). */
+  const roundPlan = $derived(
+    planRounds(
+      { positions: L.room.positions, radius: L.room.radius, box: L.room.box, blue: L.room.blue, red: L.room.red, unit: L.radius(1), g: G },
+      PAIR_STEPS[current]?.rounds ?? 2,
+    ),
+  );
+
+  /**
+   * Before the room plays by itself, it plays by hand (owner, 2026-10-09): two
+   * at a time step out to the front, grown so the reader sees them, while the
+   * rest step back; each puts in a tenth of the poorer one's fortune, the
+   * decider is tossed between them, the winner takes both, and they hop home.
+   * Nothing it does is kept: the run starts the room fresh.
+   */
+  function playRounds(tl: Timeline): void {
+    const r0 = L.room.radius;
+    // coins at the players' scale: a stake about a third of a player across, the decider a little bigger
+    const coinR = r0 * OUT_SCALE * 0.32;
+    view.fly = roundPlan.flatMap(() => [0, 1].map((k) => ({ x: 0, y: 0, on: 0, face: (k ? 'back' : 'front') as Token['face'], r: coinR })));
+    roundPlan.forEach((round, k) => {
+      const [a, b] = [view.room[round.a], view.room[round.b]];
+      const rest = view.room.filter((_, i) => i !== round.a && i !== round.b && i !== L.room.blue && i !== L.room.red);
+      const wins = round.winner === round.a ? [a, b] : [b, a];
+      tl.to(rest, { alpha: 0.3, duration: 0.5 }, round.start);
+      tl.to([a, b], { r: r0 * OUT_SCALE, duration: 0.7, ease: 'power2.out' }, round.start + 0.1);
+      playHops(tl, a, round.outA);
+      playHops(tl, b, round.outB);
+      // the stakes in: a coin from each, to the middle between them
+      const coins = view.fly.slice(2 * k, 2 * k + 2);
+      [round.spotA, round.spotB].forEach((spot, j) => {
+        tl.set(coins[j], { x: spot.x, y: spot.y, on: 1 }, round.stake);
+        tl.to(coins[j], { x: round.coin.x + (j ? 1 : -1) * coinR * 1.2, y: round.coin.y + coinR * 2.2, duration: 0.45, ease: 'power2.inOut' }, round.stake + 0.05);
+      });
+      // the decider, tossed between them; everyone watches it
+      const turns = 4 + k;
+      tl.set(view, { flipAt: round.coin, flipR: coinR * 1.35, flipTint: 0, flipLift: 0 }, round.flip - 0.2);
+      tl.to(view, { flipOn: 1, duration: 0.2 }, round.flip - 0.2);
+      tl.call(() => (cue.air = true), [], round.flip);
+      tl.to(view, { flipAngle: `+=${turns * 2 * Math.PI + (k % 2 ? Math.PI : 0)}`, duration: round.landed - round.flip, ease: 'power3.out' }, round.flip);
+      tl.to(view, { flipLift: -r0 * OUT_SCALE * 3, duration: (round.landed - round.flip) * 0.5, ease: RISE }, round.flip);
+      tl.to(view, { flipLift: 0, duration: (round.landed - round.flip) * 0.5, ease: FALL }, round.flip + (round.landed - round.flip) * 0.5);
+      tl.call(() => (cue.air = false), [], round.landed);
+      // the winner takes both stakes, and both feel it
+      for (const coin of coins) tl.to(coin, { x: wins[0].x, y: wins[0].y, duration: 0.35, ease: 'power2.in' }, round.landed + 0.1);
+      tl.set(coins, { on: 0 }, round.landed + 0.45);
+      tl.to(wins[0], { r: r0 * OUT_SCALE * Math.sqrt(1 + ROUND_STAKE), duration: 0.35, ease: 'back.out(2)' }, round.landed + 0.45);
+      tl.to(wins[1], { r: r0 * OUT_SCALE * Math.sqrt(1 - ROUND_STAKE), duration: 0.35, ease: 'power2.out' }, round.landed + 0.45);
+      feelAt(tl, round.landed + 0.45, () => {
+        faces.field.react(faces.roomSlot(round.winner), 1, 1 + ROUND_STAKE);
+        faces.field.react(faces.roomSlot(round.winner === round.a ? round.b : round.a), 1, 1 - ROUND_STAKE);
+      });
+      tl.to(view, { flipOn: 0, duration: 0.3 }, round.back);
+      // home, their own size again — a tenth richer, a tenth poorer
+      playHops(tl, a, round.backA);
+      playHops(tl, b, round.backB);
+      tl.to(wins[0], { r: r0 * Math.sqrt(1 + ROUND_STAKE), duration: 0.6 }, round.back + 0.1);
+      tl.to(wins[1], { r: r0 * Math.sqrt(1 - ROUND_STAKE), duration: 0.6 }, round.back + 0.1);
+      tl.to(rest, { alpha: 1, duration: 0.5 }, round.end - 0.3);
+    });
+    tl.call(() => (view.fly = []), [], roundPlan.at(-1)?.end ?? 0);
   }
 
   /** Where coin `k` of a fortune of `count` sits on the stage right now. */
@@ -2595,10 +2740,6 @@
 
   // ---- Scene 11: the choice ---------------------------------------------------
 
-  function tellMe(): void {
-    openBranch('cow');
-  }
-
   // ---- drawing helpers -------------------------------------------------------
 
   let seconds = $state(0);
@@ -2700,7 +2841,7 @@
       speaker: talking?.who ?? null,
       aside: talking?.aside ?? false,
       facing: pose.place === 'seats',
-      coin: cue.air ? { x: L.flip.x, y: L.flip.y + view.flipLift } : null,
+      coin: cue.air ? { x: (view.flipAt ?? L.flip).x, y: (view.flipAt ?? L.flip).y + view.flipLift } : null,
       moving,
       held: heldLine(),
       // they let go of it a little after it stops
@@ -2944,8 +3085,8 @@
   }
 
   /** The winner's picture in the paper: a very contemptuous face in the reader's look. */
-  function paperFace(shape: AgentShape) {
-    return faceLook === 'none' ? null : drawStill(faceLook, shape, 10, 10, stillOf(CONTEMPT));
+  function paperFace(paper: NonNullable<Said['paper']>) {
+    return faceLook === 'none' ? null : drawStill(faceLook, paper.style.shape, 10, 10, stillOf(paper.mood ?? CONTEMPT));
   }
 
   function costumeFill(i: number): string {
@@ -3094,6 +3235,49 @@
     onplay={() => runs.forEach((r) => r.play())}
     onpause={() => runs.forEach((r) => r.pause())}
   />
+{/snippet}
+
+<!--
+  Scene 23's review: each measure the pair has pinned, for both rooms, side by
+  side on the same footing — without the levy, then with it (owner, 2026-10-09).
+  The newest pinned on top, the earlier ones below it.
+-->
+{#snippet compared(measures: readonly string[], cell: number)}
+  <div class="compared" style={`--cell:${cell.toFixed(0)}px`}>
+    {#each [...measures].reverse() as measure, k (measure)}
+      <section class="pair-row" class:newest={k === 0} aria-label={say(`card_${measure}_title`)}>
+        <p class="pair-title">{say(`card_${measure}_title`)}</p>
+        <div class="pair-cells">
+          {#each [leftRun, rightRun] as r, side (side)}
+            <div class="plot">
+              {#if measure === 'histogram'}
+                <Histogram wealth={r.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={r.state.revision} startDollars={START_DOLLARS} />
+              {:else if measure === 'gini'}
+                <LorenzPlot wealth={r.wealth()} gini={matchMetrics[side].gini} revision={r.state.revision} />
+              {:else if measure === 'participants'}
+                <div class="stat">
+                  <p class="big">{`≈ ${formatNumber(matchMetrics[side].effectiveParticipants, { maximumFractionDigits: 1 })}`}</p>
+                  <p class="of">{say('card_participants_title')}</p>
+                </div>
+              {:else}
+                <TurnoverPlot
+                  rounds={matchTurnover[side].rounds}
+                  trades={r.state.trades}
+                  title={say('card_turnover_title')}
+                  xLabel={say('turn_axis_trades')}
+                  yLabel={say('turn_axis_short')}
+                />
+              {/if}
+            </div>
+          {/each}
+        </div>
+        <p class="pair-sides" class:hidden={k > 0}>
+          <span>{say('match_left', { levy: formatNumber(MATCH_LEVY, { style: 'percent', maximumFractionDigits: 1 }) })}</span>
+          <span>{say('match_right', { levy: formatNumber(MATCH_LEVY, { style: 'percent', maximumFractionDigits: 1 }) })}</span>
+        </p>
+      </section>
+    {/each}
+  </div>
 {/snippet}
 
 {#snippet sandboxDeck(folded: boolean)}
@@ -3295,7 +3479,7 @@
         </g>
         <g class="match-labels" opacity={view.mirrorShift}>
           {#each [0, 1] as side (side)}
-            {@const label = say(side === 0 ? 'match_left' : 'match_right', { levy: formatNumber(MATCH_LEVY, { style: 'percent' }) })}
+            {@const label = say(side === 0 ? 'match_left' : 'match_right', { levy: formatNumber(MATCH_LEVY, { style: 'percent', maximumFractionDigits: 1 }) })}
             <!-- a label wider than its room breaks after its first comma -->
             {@const parts = matchBox.w < 260 && label.includes(', ') ? [label.slice(0, label.indexOf(', ') + 1), label.slice(label.indexOf(', ') + 2)] : [label]}
             <text x={matchBox.lefts[side] + matchBox.w / 2} y={matchBox.top - 10 - (parts.length - 1) * 15} text-anchor="middle"
@@ -3556,6 +3740,20 @@
         <circle class="ripple" cx={ripple.x} cy={ripple.y} r={ripple.r} style={`--ink:${ripple.ink}`} />
       {/each}
 
+      {#if PAIR_STEPS[current].pose.control === 'tax'}
+        <!-- the tax game: where to start, what a tap takes, and the pool going back to everyone -->
+        {#if game.playing && game.elapsed < 4500 && topFive.length}
+          {@const v = agentView(topFive[0])}
+          <circle class="pulse" cx={v.x} cy={v.y} r={Math.max(v.r, 10) + 6} />
+        {/if}
+        {#each returns as ring (ring.id)}
+          <circle class="pool-return" cx={ring.x} cy={ring.y} r={ring.r} />
+        {/each}
+        {#each taken as t (t.id)}
+          <text class="taken" x={t.x} y={t.y} text-anchor="middle">{formatNumber(-GAME.rate, { style: 'percent' })}</text>
+        {/each}
+      {/if}
+
       {#each view.payout as token, i (i)}
         {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius * 0.8} face={i % 2 ? 'back' : 'front'} />{/if}
       {/each}
@@ -3567,7 +3765,7 @@
       {/if}
 
       {#each view.fly as token, k (k)}
-        {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius} face={token.face} />{/if}
+        {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={token.r ?? L.coinRadius} face={token.face} />{/if}
       {/each}
 
       {#if dragging}
@@ -3576,10 +3774,11 @@
 
       {#if view.flipOn > 0.01}
         {@const face = deciderFace(view.flipAngle)}
-        <g transform={`translate(${L.flip.x} ${(L.flip.y + view.flipLift).toFixed(2)})`} opacity={view.flipOn}>
+        {@const spot = view.flipAt ?? L.flip}
+        <g transform={`translate(${spot.x} ${(spot.y + view.flipLift).toFixed(2)})`} opacity={view.flipOn}>
           <g transform={`scale(${face.squash.toFixed(3)} 1)`}>
             <Coin
-              r={L.coinRadius * 1.6}
+              r={view.flipR || L.coinRadius * 1.6}
               face={face.side === 'red' ? 'front' : 'back'}
               tint={view.flipTint > 0.5 ? PROTAGONISTS[face.side].fill : undefined}
             />
@@ -3587,6 +3786,23 @@
         </g>
       {/if}
     </svg>
+
+    {#if !L.column && PAIR_STEPS[current].pose.roomMode === 'matched' && PAIR_STEPS[current].pose.compare.length > 0}
+      <!-- a phone has no column: the newest measure of the review, both rooms' numbers, over the rooms -->
+      {@const measure = PAIR_STEPS[current].pose.compare.at(-1)!}
+      {@const value = (side: number) =>
+        measure === 'gini'
+          ? formatNumber(matchMetrics[side].gini, { maximumFractionDigits: 2 })
+          : measure === 'participants'
+            ? `≈ ${formatNumber(matchMetrics[side].effectiveParticipants, { maximumFractionDigits: 1 })}`
+            : measure === 'turnover'
+              ? formatNumber(matchTurnover[side].recent, { style: 'percent', maximumFractionDigits: 2 })
+              : formatNumber(matchMetrics[side].topShare, { style: 'percent', maximumFractionDigits: 0 })}
+      <div class="compare-strip" style={`top:${matchBox.top + matchBox.h + 34}px`}>
+        <p class="pair-title">{say(`card_${measure}_title`)}</p>
+        <p class="pair-values"><b>{value(0)}</b><b>{value(1)}</b></p>
+      </div>
+    {/if}
 
     {#if !L.column && PAIR_STEPS[current].pose.control === 'sandbox'}
       <div class="dial phone deck-phone">{@render sandboxDeck(true)}</div>
@@ -3600,11 +3816,19 @@
     {#if PAIR_STEPS[current].pose.control === 'tax' && (game.playing || game.result)}
       {@const box = L.room.box}
       {@const low = metrics.effectiveParticipants < GAME.target}
-      <!-- over the room's top corner; on a phone the talk covers that, so at its foot -->
-      <div class="meter" class:low style={`left:${box.x + 8}px; top:${L.column ? box.y + 6 : box.y + box.h - 44}px`} aria-live="off">
+      <!-- over the middle of the room's top, where it is seen (owner, 2026-10-09); on a phone the talk covers that, so at its foot -->
+      <div class="meter" class:low style={`left:${box.x + box.w / 2}px; top:${L.column ? box.y + 6 : box.y + box.h - 58}px`} aria-live="off">
         <span>{say('stop_meter', { count: formatNumber(metrics.effectiveParticipants, { maximumFractionDigits: 0 }) })}</span>
         <span class="clock" aria-hidden="true"><span style={`inline-size:${Math.max(0, 1 - game.elapsed / (GAME.seconds * 1000)) * 100}%`}></span></span>
       </div>
+    {/if}
+
+    {#if PAIR_STEPS[current].id === 'stop.how' && !game.playing}
+      {@const box = L.room.box}
+      <!-- the game's start, as big as the room's middle: the bubble's link alone was easy to miss -->
+      <button type="button" class="start-game" style={`left:${box.x + box.w / 2}px; top:${box.y + box.h / 2}px`} onclick={startGame}>
+        {say(REACTIONS.stopStart)}
+      </button>
     {/if}
 
     {#if tapping}
@@ -3699,10 +3923,15 @@
             paper={bubble.paper}
             hidden={bubble.kind === 'paper' && bigPaper !== null}
             aside={bubble.aside ?? false}
-            maxWidth={span && !bubble.aside && bubble.at ? Math.min(bubbleWidth, span.right - span.left) : bubbleWidth}
+            maxWidth={bubble.pictures?.length
+              ? Math.min(460, column.right - column.left - 16)
+              : span && !bubble.aside && bubble.at
+                ? Math.min(bubbleWidth, span.right - span.left)
+                : bubbleWidth}
             gone={place.gone}
             shown={bubble.id === reveal.id ? reveal.shown : Infinity}
             choices={bubble.choices}
+            pictures={bubble.pictures?.flatMap((name) => (POSTED[name] ? [POSTED[name]] : []))}
             control={bubble.control}
             onsize={(w, h) => (sizes[bubble.id] = { w, h })}
             onrest={(on) => stage?.pause(on)}
@@ -3713,7 +3942,7 @@
     </div>
 
     {#if bigPaper}
-      {@const portrait = paperFace(bigPaper.style.shape)}
+      {@const portrait = paperFace(bigPaper)}
       <article class="big-paper" bind:this={bigEl} aria-hidden="true">
         <p class="big-masthead">{bigPaper.masthead}</p>
         <div class="big-spread">
@@ -3756,6 +3985,9 @@
         {:else if runShown && pose.roomMode === 'matched'}
           {#if leftRun.state.done && leftRun.state.frames > 1}
             <section class="chart live"><div class="dial">{@render player([leftRun, rightRun])}</div></section>
+          {/if}
+          {#if pose.compare.length > 0}
+            {@render compared(pose.compare, (L.column.w - 24) / 2)}
           {/if}
         {:else if runShown && !APART.includes(pose.roomMode)}
           <section class="chart live">
@@ -4107,17 +4339,120 @@
     position: absolute;
     z-index: 4;
     display: grid;
-    gap: 0.25rem;
-    padding: 0.3rem 0.6rem;
-    border: 1px solid var(--line);
+    gap: 0.3rem;
+    min-inline-size: 13rem;
+    padding: 0.45rem 1rem;
+    border: 1.5px solid var(--accent);
     border-radius: 999px;
-    background: rgb(255 250 240 / 88%);
+    background: rgb(255 250 240 / 94%);
+    box-shadow: 0 3px 10px rgb(40 37 31 / 12%);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
+    text-align: center;
     pointer-events: none;
+    transform: translateX(-50%);
+  }
+
+  /* the tax game's start, over the room's middle */
+  .start-game {
+    position: absolute;
+    z-index: 5;
+    padding: 0.7rem 2rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 6px 18px rgb(40 37 31 / 25%);
+    color: var(--paper-bright);
+    font-family: var(--font-sans);
+    font-size: 1.25rem;
+    font-weight: 800;
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    animation: start-game 1.6s ease-in-out infinite;
+  }
+
+  .start-game:hover,
+  .start-game:focus-visible {
+    background: var(--accent-deep);
+    outline: none;
+  }
+
+  @keyframes start-game {
+    50% {
+      box-shadow: 0 6px 26px rgb(189 98 69 / 55%);
+    }
+  }
+
+  /* where to tap first: the biggest fortune, for the first few seconds */
+  .pulse {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pulse 900ms ease-out infinite;
+  }
+
+  @keyframes pulse {
+    from {
+      opacity: 0.9;
+      transform: scale(0.85);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.5);
+    }
+  }
+
+  /* what a tap takes, rising off the fortune */
+  .taken {
+    fill: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 800;
+    animation: taken 1300ms ease-out both;
+  }
+
+  @keyframes taken {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-26px);
+    }
+  }
+
+  /* the pool going back to everyone: a ring that crosses the whole room */
+  .pool-return {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pool-return 1300ms ease-out both;
+  }
+
+  @keyframes pool-return {
+    from {
+      opacity: 0.55;
+      transform: scale(0.05);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .start-game,
+    .pulse {
+      animation: none;
+    }
   }
 
   .meter.low {
@@ -4280,6 +4615,97 @@
     border-radius: 10px;
     background: rgb(255 250 240 / 88%);
     overflow: hidden;
+  }
+
+  .compare-strip {
+    position: absolute;
+    z-index: 4;
+    inset-inline: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    background: rgb(255 250 240 / 92%);
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .compare-strip .pair-values {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin: 0;
+    color: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Scene 23's review: a measure for both rooms, the newest pinned on top */
+  .compared {
+    display: grid;
+    gap: 10px;
+    margin-block-start: 10px;
+  }
+
+  .pair-row {
+    padding: 6px 8px 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgb(255 250 240 / 70%);
+  }
+
+  .pair-row.newest {
+    border-color: var(--accent);
+  }
+
+  /* the earlier measures stay, small, under the newest: the review adds up */
+  .pair-row:not(.newest) .pair-cells .plot {
+    block-size: calc(var(--cell) * 0.34);
+  }
+
+  .pair-row:not(.newest) .stat .big {
+    font-size: 1.25rem;
+  }
+
+  .pair-row:not(.newest) .stat .of {
+    display: none;
+  }
+
+  .pair-row:not(.newest) .pair-title {
+    font-size: 0.88rem;
+  }
+
+  .pair-sides.hidden {
+    display: none;
+  }
+
+  .pair-title {
+    margin: 0 0 4px;
+    color: var(--ink);
+    font-family: var(--font-hand);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .pair-cells {
+    display: grid;
+    grid-template-columns: repeat(2, var(--cell));
+    gap: 8px;
+  }
+
+  .pair-cells .plot {
+    inline-size: var(--cell);
+    block-size: var(--cell);
+  }
+
+  .pair-sides {
+    display: grid;
+    grid-template-columns: repeat(2, var(--cell));
+    gap: 8px;
+    margin: 4px 0 0;
+    color: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    text-align: center;
   }
 
   .plot .stat {

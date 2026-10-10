@@ -21,7 +21,7 @@
   import AgentFace from '../shared/face/AgentFace.svelte';
   import { drawStill } from '../shared/face/draw';
   import { faceStyle } from '../shared/face/faceStyle.svelte';
-  import { CONTEMPT, stillOf } from '../shared/face/moments';
+  import { CONTEMPT, stillOf, type Affect } from '../shared/face/moments';
   import type { Speaker } from './steps';
 
   interface Props {
@@ -39,7 +39,7 @@
     /** A line someone says, something that happened (a coin landed), or the morning paper. */
     kind?: 'line' | 'event' | 'paper';
     /** The paper's front page, when `kind` is 'paper'. */
-    paper?: { masthead: string; text: string; source: string; style: AgentStyle };
+    paper?: { masthead: string; text: string; source: string; style: AgentStyle; mood?: Affect };
     /** An event's coin: the face that landed, in its owner's colour. */
     coin?: Speaker;
     /** The widest it may grow, px: a bubble never spans its whole column. */
@@ -66,6 +66,8 @@
     aside?: boolean;
     /** A control the reader holds, set inside the bubble (the stake dial). */
     control?: Snippet;
+    /** Pictures posted with the words, like photos in a chat: their sources, in order (the joke's plates). */
+    pictures?: readonly string[];
     reduced?: boolean;
   }
 
@@ -90,6 +92,7 @@
     hidden = false,
     aside = false,
     control,
+    pictures = [],
     reduced = false,
   }: Props = $props();
 
@@ -150,8 +153,8 @@
     </svg>
   {/if}
   {#if paper}
-    <!-- the winner, as the paper prints them: very contemptuous (owner, 2026-10-07) -->
-    {@const portrait = faceStyle.look === 'none' ? null : drawStill(faceStyle.look, paper.style.shape, 10, 10, stillOf(CONTEMPT))}
+    <!-- as the paper prints them: the winner very contemptuous (owner, 2026-10-07), anyone else as their fortune feels (field.ts `photoMood`) -->
+    {@const portrait = faceStyle.look === 'none' ? null : drawStill(faceStyle.look, paper.style.shape, 10, 10, stillOf(paper.mood ?? CONTEMPT))}
     <article class="page" aria-label={`${paper.masthead}: ${paper.text}`}>
       <p class="masthead">{paper.masthead}</p>
       <div class="spread">
@@ -182,6 +185,12 @@
       {/each}
     </span>
   </p>
+  {/if}
+  {#if pictures.length > 0}
+    <!-- posted with the words: as wide as the bubble may grow, two to a row; the shape is kept before they load -->
+    <div class="pictures" class:pair={pictures.length > 1} class:waiting={shown < lines.length} style={`inline-size:${Math.max(160, maxWidth - 36)}px`}>
+      {#each pictures as src, k (k)}<img {src} alt="" loading="lazy" decoding="async" />{/each}
+    </div>
   {/if}
   {#if choices && choices.length > 0}
     {@const listed = choices.some((c) => c.glyph)}
@@ -358,6 +367,28 @@
   }
 
   .line.waiting,
+  .pictures {
+    display: grid;
+    gap: 0.35rem;
+    margin-block: 0.5rem 0.1rem;
+  }
+
+  .pictures.pair {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pictures img {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    aspect-ratio: 1755 / 952;
+    object-fit: cover;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    background: var(--paper);
+  }
+
+  .pictures.waiting,
   .choices.waiting,
   .control.waiting {
     opacity: 0;

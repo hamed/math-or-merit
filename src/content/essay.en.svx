@@ -12,7 +12,6 @@ import { SIDE_TRIPS, sideTrip } from '$lib/content/story';
 import { labelStep } from '$lib/widgets/stage/scenes/pair/script';
 
 // the side trips' words and choices come from the script (script/branches/)
-const cow = sideTrip('cow');
 const human = sideTrip('human');
 /** A choice's target: a side trip opens; any other label is a scene on the stage. */
 const follow = (target) => (SIDE_TRIPS.includes(target) ? openBranch(target) : goToStep('pair', labelStep(target)));
@@ -68,47 +67,19 @@ const follow = (target) => (SIDE_TRIPS.includes(target) ? openBranch(target) : g
 </StepStage>
 
 <!--
-  BRANCHES (A4, D19, 2026-09-24). The cow and the person who becomes a circle
-  are no longer the way in: they are offered by choice — Red's "Want to hear a
-  joke first?" opens the cow, and the cow's "Want to see how a person becomes a
-  circle?" opens the reduction. Collapsed, each is one line on a button; nothing
-  inside loads until it opens.
+  BRANCHES (A4, D19, 2026-09-24). The person who becomes a circle is no longer
+  the way in: it is offered by choice, at the end of Red's joke. Collapsed, it
+  is one line on a button; nothing inside loads until it opens.
 
-  B1 keeps every one of the owner's plates and only the five lines the joke
-  needs (owner: "keep the images, cut the text if must"). Beat indices refer to
-  CowCastScene.BEATS, which lost its bridge and model beats with their cards.
+  The cow is no side trip any more (owner, 2026-10-09: "joke become part of the
+  chat"): Red tells it in the talk, posting the owner's plates with his lines
+  (\image in the script). CowCastScene and branches/cow.tex are retired, kept
+  in git history and in archive/scenes-pre-chat-joke/.
 
-  B2 is PersonTradeScene (its trade half deleted 2026-09-27): the plates down to one circle,
+  B1 is PersonTradeScene (its trade half deleted 2026-09-27): the plates down to one circle,
   and the guard that it never explains how anyone got rich. The two-person game
   that used to follow is played by Blue and Red on the pair stage now.
 -->
-<Branch id="cow" offer={say('cow_offer')}>
-
-<Chapter id="cow" label="The cow" />
-
-<Deferred
-  load={() => import('$lib/widgets/stage/scenes/CowCastScene.svelte')}
-  label="cow scene"
-  reserve="100svh"
->
-  {#snippet content(CowCastScene)}
-    <PinScene pace={0.75} navigation="step" deferAssets>
-      <CowCastScene />
-      {#each cow.captions as caption, c (caption.key)}
-        <Caption beat={caption.beat} display={c === 0}>{#each say(caption.key).split(' / ') as part, i}{#if i}<br />{/if}{part}{/each}</Caption>
-      {/each}
-    </PinScene>
-  {/snippet}
-</Deferred>
-
-{#each cow.lines as line (line.key)}
-<SpeakerText speaker={line.who} name={say(`name_${line.who}`)} text={say(line.key)} />
-{/each}
-
-<ChoiceRow options={cow.choices.map((c) => ({ label: say(c.key), act: () => follow(c.target) }))} />
-
-</Branch>
-
 <Branch id="human" offer={say('human_offer')}>
 
 <Chapter id="spherical-human" label="Now, the spherical human" />
