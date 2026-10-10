@@ -304,8 +304,13 @@ export function effectiveCount(shares: ArrayLike<number>): number {
  * went to `given` instead · the first half (by `half`) own it all, equally ·
  * `owner` owns everything.
  */
+/** The rooms Scene 17 imagines before it counts the real one. */
+export type ImaginedRoom = 'equal' | 'zero' | 'half' | 'one' | 'halves';
+/** A step through the room that visits everyone once (coprime to a hundred), so halves land apart. */
+const SPREAD = 37;
+
 export function imaginedShares(
-  mode: 'equal' | 'zero' | 'double' | 'half' | 'one',
+  mode: ImaginedRoom,
   n: number,
   who: { emptied: number; given: number; owner: number; half: (i: number) => boolean },
 ): Float64Array {
@@ -318,16 +323,22 @@ export function imaginedShares(
       case 'zero':
         shares[i] = i === who.emptied ? 0 : 1 / n;
         break;
-      case 'double':
-        shares[i] = i === who.emptied ? 0 : i === who.given ? 2 / n : 1 / n;
-        break;
       case 'half':
         shares[i] = who.half(i) ? 2 / n : 0;
         break;
       case 'one':
         shares[i] = i === who.owner ? 1 : 0;
         break;
+      case 'halves':
+        break;
     }
+  }
+  if (mode === 'halves') {
+    // each holds half of what the one before holds (owner, 2026-10-10: "1, 1/2, 1/4, 1/8 …"),
+    // scaled to the room's whole wealth; spread through the room, not in a heap
+    let sum = 0;
+    for (let k = 0; k < n; k++) sum += 2 ** -k;
+    for (let k = 0; k < n; k++) shares[(who.owner + k * SPREAD) % n] = 2 ** -k / sum;
   }
   return shares;
 }

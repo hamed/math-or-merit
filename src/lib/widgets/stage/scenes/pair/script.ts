@@ -120,7 +120,7 @@ export type RoomMode =
   | 'line'
   | 'equal'
   | 'zero'
-  | 'double'
+  | 'halves'
   | 'half'
   | 'one'
   | 'four'
@@ -180,6 +180,8 @@ export interface PairStep extends StepSpec {
   readonly actionMs?: number;
   /** `\\pairs`: the stretch of the room's demonstration rounds this step plays (roomRounds.ts). */
   readonly rounds?: RoundWindow;
+  /** `\\solve{2, 1, 2.9}`: the numbers the reader makes in turn, moving the four's coins (Scene 17). */
+  readonly solve?: readonly number[];
   /** The pictures posted with its line (`\\image{name}`), by name. */
   readonly pictures?: readonly string[];
 }
@@ -298,7 +300,7 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'gini.value': (s) => needs(s, 'gini'),
   'gini.toy': (s) => targets(s, '\\reveal{toy:gini}'),
   'eff.brutal': (s) => cue(s, 'arrange', 'zero'),
-  'eff.give': (s) => cue(s, 'arrange', 'double'),
+  'eff.halves': (s) => cue(s, 'arrange', 'halves'),
   'eff.half': (s) => cue(s, 'arrange', 'half'),
   'eff.one': (s) => cue(s, 'arrange', 'one'),
   'eff.room': (s) => needs(s, 'count') && cue(s, 'arrange', 'free') && !cue(s, 'card'),
@@ -361,7 +363,7 @@ function name(steps: readonly StoryStep[]): { ids: string[]; problems: string[] 
 }
 
 /** Steps whose words the scene computes from the room on screen (Scenes 15–23), so they carry no line of their own. */
-const SPOKEN = new Set(['sort.there', 'gini.value', 'eff.brutal', 'eff.give', 'eff.half', 'eff.one', 'eff.room', 'eff.end', 'turn.busy', 'turn.start', 'turn.now', 'match.result']);
+const SPOKEN = new Set(['sort.there', 'gini.value', 'eff.brutal', 'eff.halves', 'eff.half', 'eff.one', 'eff.room', 'eff.end', 'turn.busy', 'turn.start', 'turn.now', 'match.result']);
 
 // ---- a step's actions → the pose it leaves, and how long it plays ----------------------
 
@@ -593,6 +595,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
     const aside = conditioned ? flowing(s.groups, 'aside') : s.manner.includes('aside');
     const feel = s.manner.filter((m) => FEELINGS.has(m));
     const pictures = picturesOf(s.cues);
+    const solve = s.cues.find((c) => c.name === 'solve')?.args[0]?.split(',').map((x) => Number(x.trim()));
     return {
       id,
       wait,
@@ -609,6 +612,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
       ...(action && action !== 'run' ? { actionMs: played } : {}),
       ...(rounds ? { rounds } : {}),
       ...(speaks && pictures.length ? { pictures } : {}),
+      ...(solve?.length ? { solve } : {}),
     };
   });
   return { steps, problems };
@@ -719,7 +723,7 @@ export const REACTIONS = {
   effRoom: lineOf('eff.room'),
   effCases: {
     'eff.brutal': lineOf('eff.brutal'),
-    'eff.give': lineOf('eff.give'),
+    'eff.halves': lineOf('eff.halves'),
     'eff.half': lineOf('eff.half'),
     'eff.one': lineOf('eff.one'),
     'eff.room': lineOf('eff.room'),
@@ -754,7 +758,6 @@ export const REACTIONS = {
   workshop: choices('sandbox.2')[0],
   stopStart: choices('stop.how')[0],
   giniToy: choices('gini.toy'),
-  effDone: choices('eff.try')[0],
   /** Scene 14: Red's answer to the paper — after one run, or after several. */
   whyAfter: firstOf('why.after', 'groups', 'one'),
   whyAgain: firstOf('why.after', 'groups', 'several'),

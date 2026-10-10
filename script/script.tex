@@ -812,59 +812,76 @@ and play with it?
 
 \subsection{How many still count?}\label{count}
 
-The room itself tries the cases: everyone the same; one person emptied; that
-person's money given to one other; half the room owning it all; one owner;
-and back to how it really is. Each time Red says the number. Then four
-people step out of the crowd, four coins each, and the reader moves the
-coins.
+The room itself tries the cases: one person emptied; half the room owning
+it all; one owner; each holding half of what the one before holds; and back
+to how it really is. Each time Red says the number. Then four people step
+out of the crowd, two coins each, and the reader solves a puzzle: move the
+coins until the four make the number Red asks for.
 
-% Owner, 2026-09-26.
+% Owner, 2026-09-26; reordered 2026-10-10: the section opens on "This game
+% is brutal"; the case of the emptied one's money given to one other is cut.
 
-Blue (sure): A hundred players.
+Red (flow, sad): This game is brutal.
+\todo{draft}
+
+Blue (flow, sure): A hundred players.
 That's a lot of competition.
 \todo{draft}
 
-Red: If all hundred had the same,
+Red (flow): If all hundred had the same,
 all hundred would count.
 \arrange{equal}
 \todo{draft}
 
-Red (flow, sad): This game is brutal.
-No money,
-and you don't count at all. \val{count} left.
+Red (flow, sad): Take one person's money away.
+No money, and you don't count. \val{count} left.
 \arrange{zero}
 \todo{draft}
 
-Red: Now give his money to one other person.
-\val{count}. A bit less.
-\arrange{double}
-\todo{draft}
-
-Red: Half of them own it all, equally?
+Red (flow): Half of them own it all, equally?
 \val{count}.
 \arrange{half}
 \todo{draft}
 
-Red: One owns everything?
+Red (flow): One owns everything?
 \val{count}.
 \arrange{one}
 \todo{draft}
 
-Red: This room?
+Red (flow): Each one has half of what the one before has?
+About \val{count}.
+\arrange{halves}
+\todo{draft}
+\marginpar{Shares 1, ½, ¼, ⅛, … of one another, scaled to the room's whole wealth: 1 / Σsᵢ² comes to 3.}
+
+Red (flow): This room?
 About \val{count}.
 \arrange{free}
 \todo{draft}
 
 % {count} is 1 / Σsᵢ² of the room on screen, to one decimal.
 
-Red (aside): Your turn: four people, four coins each.
+Red: Your turn: four people, eight coins.
 Drag a coin from one to another.
 \arrange{four}
-\choice{Done}{tried=yes}
+\solve{2, 1, 2.9}
 \todo{draft}
 
 Red (aside, interrupts): Four people. \val{count} of them count.
 \todo{draft}
+
+% The puzzle: Red asks for each number in turn; solving one brings the
+% next, and solving the last lets the story go on (owner, 2026-10-10). A
+% reader who struggles gets the round's hint, and then may skip. Draft words.
+
+\begin{description}
+  \item[four.goal] Can you make it \val{target}?
+  \item[four.solved] That's it: \val{count}.
+  \item[four.hint.1] Hint: give two of them everything.
+  \item[four.hint.2] Hint: one holds all eight.
+  \item[four.hint.3] Hint: one, one, two, four.
+  \item[four.skip] Skip the puzzle
+\end{description}
 
 % Red, beside the four, reading the number out as the reader moves coins.
 

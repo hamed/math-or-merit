@@ -324,17 +324,15 @@ test('the rule card opens empty and fills as Red tells the rule', async ({ page 
   await expect(rule).toHaveCount(2);
 });
 
-test('the four keep the reader on their step: a missed tap or a scroll stays, a coin can be dragged across, and Done goes on', async ({ page }) => {
+test('the four are a puzzle: a scroll or a missed tap stays, and making each number in turn goes on', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openAt(page, 'eff.try', ['eff.try']);
   const at = await stepNow(page);
-  await page.keyboard.press('ArrowDown');
-  await page.waitForTimeout(400);
-  expect(await stepNow(page)).toBe(at);
   const four = page.locator('.pair-scene .hit.four');
   await expect(four).toHaveCount(4);
-  await page.waitForTimeout(600);
-  // a tap beside them
+  const coins = async () => Promise.all([0, 1, 2, 3].map(async (k) => (await four.nth(k).getAttribute('aria-label'))!.replace(/[^\d]/g, '')));
+  await expect.poll(coins).toEqual(['2', '2', '2', '2']);
+  await page.keyboard.press('ArrowDown');
   await page.mouse.click(60, 400);
   await page.waitForTimeout(400);
   expect(await stepNow(page)).toBe(at);
@@ -346,18 +344,28 @@ test('the four keep the reader on their step: a missed tap or a scroll stays, a 
   await page.mouse.move(a.x + a.width / 2 + 20, a.y + a.height / 2, { steps: 4 });
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 });
   await page.mouse.up();
-  await expect.poll(async () => [await four.nth(0).getAttribute('aria-label'), await four.nth(1).getAttribute('aria-label')].map((l) => l!.trim())).toEqual(['3', '5']);
+  await expect.poll(coins).toEqual(['1', '3', '2', '2']);
+  // a coin by taps: one, then the other
+  const give = async (from: number, to: number, times = 1) => {
+    for (let t = 0; t < times; t++) {
+      await four.nth(from).click();
+      await four.nth(to).click();
+    }
+  };
+  // make it 2: four and four
+  await give(2, 0, 2);
+  await give(3, 0);
+  await give(3, 1);
+  await expect.poll(coins).toEqual(['4', '4', '0', '0']);
   expect(await stepNow(page)).toBe(at);
-  await page.locator('.bubble .choice').first().click();
-  await expect.poll(() => stepNow(page)).toBe(at + 1);
-  // back to them, and Done goes on again (review 2026-10-10: it did nothing on a revisit)
-  await page.keyboard.press('ArrowUp');
-  await expect.poll(() => stepNow(page)).toBe(at);
-  await page.locator('.bubble .choice').first().click();
-  await expect.poll(() => stepNow(page)).toBe(at + 1);
-  // and after a jump straight to them, with their hold long released
-  await openAt(page, 'eff.try');
-  await page.locator('.bubble .choice').first().click();
+  // make it 1: one holds all eight
+  await expect(page.locator('.bubble').filter({ hasText: /make it 1\b/ })).toBeVisible();
+  await give(1, 0, 4);
+  // about 2.9: four, one, one, two
+  await expect(page.locator('.bubble').filter({ hasText: /2\.9/ })).toBeVisible();
+  await give(0, 1);
+  await give(0, 2);
+  await give(0, 3, 2);
   await expect.poll(() => stepNow(page)).toBe(at + 1);
 });
 

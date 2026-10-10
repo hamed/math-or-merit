@@ -120,11 +120,17 @@ for (const [name, box] of [['wide', BOX], ['phone', PHONE]] as const) {
 describe("Scene 17's imagined rooms", async () => {
   const { effectiveCount, imaginedShares } = await import('./roomPoses');
   const who = { emptied: 3, given: 7, owner: 9, half: (i: number) => i < 50 };
-  const count = (mode: 'equal' | 'zero' | 'double' | 'half' | 'one') => effectiveCount(imaginedShares(mode, 100, who));
+  const count = (mode: 'equal' | 'zero' | 'half' | 'one' | 'halves') => effectiveCount(imaginedShares(mode, 100, who));
 
   it('counts all hundred when everyone is equal', () => expect(count('equal')).toBeCloseTo(100, 9));
   it("drops to 99 when one has nothing — no money, you don't count", () => expect(count('zero')).toBeCloseTo(99, 9));
-  it('drops a bit more when that money goes to one other', () => expect(count('double')).toBeCloseTo(98.039, 2));
+  it('is about 3 when each holds half of the one before', () => {
+    expect(count('halves')).toBeCloseTo(3, 6);
+    const shares = imaginedShares('halves', 100, who);
+    expect(shares.reduce((s, x) => s + x, 0)).toBeCloseTo(1, 12);
+    expect(shares[who.owner]).toBeCloseTo(0.5, 9);
+    expect(new Set(Array.from(shares)).size).toBe(100);
+  });
   it('is 50 when half own it all equally', () => expect(count('half')).toBeCloseTo(50, 9));
   it('is 1 when one owns everything', () => expect(count('one')).toBeCloseTo(1, 9));
   it('matches the four-coin case exactly: four equal is 4, all to one is 1', () => {

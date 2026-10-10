@@ -26,6 +26,8 @@ export interface ChatItem {
   readonly h: number;
   /** Who is speaking; null for a logged event, which sits centred. */
   readonly anchor: Anchor | null;
+  /** Stands centred on this x, whoever says it: a bubble carrying a big picture (the stage's middle third). */
+  readonly centre?: number;
   /**
    * Said to the reader (or to nobody), not to the other one: it goes on the
    * speaker's OUTER side, close to him, and never into the middle where the two
@@ -150,7 +152,12 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
   for (const { item, i } of talk) {
     let x = column.mid - item.w / 2;
     let onLeft = true;
-    if (item.anchor) {
+    if (item.anchor && item.centre !== undefined) {
+      onLeft = item.anchor.x <= item.centre;
+      laid.push({ i, x: item.centre - item.w / 2, y, onLeft });
+      y += item.h + BUBBLE_GAP + TAIL_LENGTH * 0.6;
+      continue;
+    } else if (item.anchor) {
       onLeft = item.anchor.x <= column.mid;
       // beside the two (owner review 2026-09-27): the talk runs between their
       // centres, each line flush with its own speaker's end

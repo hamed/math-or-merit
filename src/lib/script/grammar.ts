@@ -56,6 +56,8 @@ const STORY: Record<string, ActionSpec> = {
   /** A widget inside a unit — a card's toy — opened on request. */
   toy: { kind: 'authored', args: 1 },
   meet: { kind: 'reader', args: 1 },
+  /** *reader*: the four's puzzle — make each number in turn by moving coins (Scene 17). */
+  solve: { kind: 'reader', args: 1 },
   equalize: { kind: 'reader', args: 0 },
 };
 

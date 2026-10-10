@@ -52,7 +52,7 @@
   import { MAP_LEVIES, MAP_PARTICIPANTS, MAP_STAKES } from './outcomeMap';
   import { GAME, nextClosureDuration, type GameResult } from './taxGame';
   import { GINI_RAMP } from '../../../shared/presets';
-  import { effectiveCount, imaginedShares, line, piles, ruler, type Tick } from './roomPoses';
+  import { effectiveCount, imaginedShares, line, piles, ruler, type ImaginedRoom, type Tick } from './roomPoses';
   import { toDollars } from '../../../distribution/binning';
   import Histogram from '../../../sandbox/Histogram.svelte';
   import LorenzPlot from '../../../sandbox/LorenzPlot.svelte';
@@ -456,7 +456,7 @@
     arranging = false;
     cardPlaying = null;
     fourPick = null;
-    if (PAIR_STEPS[index].id === 'eff.try') fourCoins = [4, 4, 4, 4];
+    if (PAIR_STEPS[index].id === 'eff.try') startPuzzle();
     prepareRooms(index, false);
     levyView = levyLesson(PAIR_STEPS[index].pose.levy);
     draw(poseAt(index));
@@ -485,7 +485,7 @@
     arranging = false;
     cardPlaying = null;
     fourPick = null;
-    if (step.id === 'eff.try') fourCoins = [4, 4, 4, 4];
+    if (step.id === 'eff.try') startPuzzle();
     hush = false;
     placeDial(index, true);
     if (step.action === 'run' && stage?.reduced) {
@@ -1157,7 +1157,7 @@
   });
 
   /** Scene 17's imagined rooms, as shares; the owner of everything is whoever the run made richest. */
-  function imagined(mode: 'equal' | 'zero' | 'double' | 'half' | 'one'): Float64Array {
+  function imagined(mode: ImaginedRoom): Float64Array {
     return imaginedShares(mode, L.room.positions.length, {
       emptied: cast.emptied,
       given: cast.given,
@@ -1171,7 +1171,8 @@
     const box = L.room.box;
     const side = Math.min(box.w, box.h) * 0.44;
     const cx = box.x + box.w / 2;
-    const cy = box.y + box.h / 2;
+    // low in the room, so Red's instruction has room above Blue and Red (owner, 2026-10-10: it went unseen)
+    const cy = box.y + Math.max(box.h / 2, box.h - side / 2 - Math.min(box.w, box.h) * 0.12);
     return { x: cx + (k % 2 ? 1 : -1) * (side / 2), y: cy + (k < 2 ? -1 : 1) * (side / 2) };
   }
 
@@ -1253,7 +1254,9 @@
   });
 
   /** Coins each of the four holds (sixteen between them), while the reader moves them. */
-  let fourCoins = $state([4, 4, 4, 4]);
+  /** The four's coins: eight between them, two each to start (owner, 2026-10-10: "use less coins … easy to solve"). */
+  const FOUR_START = [2, 2, 2, 2];
+  let fourCoins = $state([...FOUR_START]);
   let fourPick = $state<number | null>(null);
 
   interface Target {
@@ -1279,9 +1282,9 @@
         return at(linePose.spots[i].x, linePose.spots[i].y, linePose.radii[i], linePose.rank[i] < walker.k ? 0 : 1);
       case 'equal':
       case 'zero':
-      case 'double':
       case 'half':
-      case 'one': {
+      case 'one':
+      case 'halves': {
         const share = imagined(mode)[i];
         return share > 0
           ? at(free.x, free.y, L.room.radius * Math.sqrt(share * L.room.positions.length))
@@ -1355,7 +1358,7 @@
     arranging = true;
     const mode = pose.roomMode;
     const n = L.room.positions.length;
-    const still = ['equal', 'zero', 'double', 'half', 'one', 'turnover'];
+    const still = ['equal', 'zero', 'half', 'one', 'halves', 'turnover'];
     const inPlace = still.includes(mode) && (still.includes(PAIR_STEPS[current - 1]?.pose.roomMode ?? '') || PAIR_STEPS[current - 1]?.pose.roomMode === 'free');
     const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => modeTarget(mode, a).x - modeTarget(mode, b).x);
     const slow = mode === 'ruler' ? 1.5 : 1;
@@ -1473,6 +1476,66 @@
     sendCoin(from, k);
   }
 
+  /**
+   * The four's puzzle (owner, 2026-10-10: "present the four people as a
+   * puzzle, to get the given number … that winning condition will let to go
+   * to next. maybe give some hint if the user struggles"): Red asks for each
+   * number of `\\solve` in turn; making it brings the next, and the last lets
+   * the story go on. Stuck a while, or after many moves, Red gives the round's
+   * hint; stuck longer, the reader may skip.
+   */
+  const puzzle = $state({ round: 0, solved: false, moves: 0, hint: 0 });
+  const puzzleTargets = $derived(PAIR_STEPS[indexOf('eff.try')]?.solve ?? []);
+  let puzzleTimer: number | undefined;
+  /** Seconds, and moves, before a hint; seconds more before Skip. */
+  const HINT_AFTER = 25;
+  const HINT_MOVES = 12;
+  const SKIP_AFTER = 20;
+
+  function startPuzzle(): void {
+    fourCoins = [...FOUR_START];
+    puzzle.round = 0;
+    startRound();
+  }
+
+  function startRound(): void {
+    window.clearTimeout(puzzleTimer);
+    puzzle.solved = false;
+    puzzle.moves = 0;
+    puzzle.hint = 0;
+    if (stage?.reduced) return;
+    puzzleTimer = window.setTimeout(giveHint, HINT_AFTER * 1000);
+  }
+
+  function giveHint(): void {
+    window.clearTimeout(puzzleTimer);
+    if (puzzle.solved || current !== indexOf('eff.try')) return;
+    puzzle.hint = Math.min(2, puzzle.hint + 1);
+    if (puzzle.hint < 2) puzzleTimer = window.setTimeout(giveHint, SKIP_AFTER * 1000);
+  }
+
+  /** After every coin lands: is this the number Red asked for? */
+  function checkPuzzle(): void {
+    if (current !== indexOf('eff.try') || puzzle.solved || view.fly.some((t) => t.on > 0)) return;
+    puzzle.moves++;
+    if (puzzle.hint === 0 && puzzle.moves >= HINT_MOVES) giveHint();
+    const target = puzzleTargets[puzzle.round];
+    if (target === undefined || Math.abs(effectiveCount(fourCoins) - target) > 0.01) return;
+    puzzle.solved = true;
+    window.clearTimeout(puzzleTimer);
+    faces.feel(WHO.red, 'glad');
+    puzzleTimer = window.setTimeout(
+      () => {
+        if (current !== indexOf('eff.try')) return;
+        if (puzzle.round + 1 < puzzleTargets.length) {
+          puzzle.round++;
+          startRound();
+        } else goOn('eff.try');
+      },
+      stage?.reduced ? 0 : 1800,
+    );
+  }
+
   /** The four ringed for a moment when the reader tries to scroll past them. */
   let fourHint = $state(false);
   let fourHintTimer: number | undefined;
@@ -1529,6 +1592,7 @@
       onComplete: () => {
         flying.on = 0;
         fourCoins = fourCoins.map((c, j) => (j === k ? c + 1 : c));
+        checkPuzzle();
       },
     });
   }
@@ -1873,13 +1937,24 @@
       if (k >= 0) out[k] = { ...out[k], control: stakeDial };
     }
     if (current === indexOf('eff.try')) {
+      // Red beside the four: the number they make, the one he asks for, and a hint if the reader is stuck
       const line = REACTIONS.effReadout;
+      const count = formatNumber(fourCount, { maximumFractionDigits: 2 });
+      const target = puzzleTargets[puzzle.round];
+      const asked = puzzle.solved
+        ? say('four_solved', { count })
+        : target !== undefined
+          ? say('four_goal', { target: formatNumber(target, { maximumFractionDigits: 1 }) })
+          : '';
+      const hint = puzzle.hint > 0 && !puzzle.solved ? say(`four_hint_${puzzle.round + 1}`) : '';
       out.push({
-        id: `eff.readout:${fourCoins.join('-')}`,
+        id: `eff.readout:${fourCoins.join('-')}:${puzzle.round}:${puzzle.solved}:${puzzle.hint}`,
         who: line.who,
         at: line.who,
-        text: say(line.message, { count: formatNumber(fourCount, { maximumFractionDigits: 2 }) }),
+        text: [say(line.message, { count }), asked, hint].filter(Boolean).join(' / '),
         aside: true,
+        // a running readout: Red's instruction above it stays
+        brief: true,
         ...withPause(line),
       });
     }
@@ -1933,10 +2008,10 @@
       case 'gini.value':
         return said(REACTIONS.giniValue, { gini: formatNumber(metrics.gini, { maximumFractionDigits: 2 }) });
       case 'eff.brutal':
-      case 'eff.give':
       case 'eff.half':
+      case 'eff.halves':
       case 'eff.one': {
-        const mode = ({ 'eff.brutal': 'zero', 'eff.give': 'double', 'eff.half': 'half', 'eff.one': 'one' } as const)[id];
+        const mode = ({ 'eff.brutal': 'zero', 'eff.halves': 'halves', 'eff.half': 'half', 'eff.one': 'one' } as const)[id];
         const n = effectiveCount(imagined(mode));
         return said((REACTIONS.effCases as Record<string, { who: Speaker; message: string }>)[id], {
           count: formatNumber(n, { maximumFractionDigits: n > 10 ? 2 : 1 }),
@@ -1997,7 +2072,8 @@
       ];
     }
     // the four hold the story until the reader says Done (owner, 2026-10-10: it "passes easily without me noticing it at all")
-    if (id === 'eff.try') return [{ label: say(REACTIONS.effDone), act: () => goOn(id) }];
+    // the puzzle lets the story go by itself once solved; a reader stuck long enough may skip it
+    if (id === 'eff.try') return puzzle.hint >= 2 ? [{ label: say('four_skip'), act: () => goOn(id) }] : null;
     const link = (REACTIONS.links as Record<string, string>)[id];
     if (link) return [{ label: say(link), act: () => stage?.advance() }];
     if (id === 'gini.toy') {
@@ -2211,6 +2287,8 @@
     return { ...c, mid: box.x + box.w / 2 };
   });
   const bubbleWidth = $derived(Math.min(368, (column.right - column.left) * 0.8));
+  /** A posted picture fills the middle third of the stage (owner, 2026-10-10); on a phone, the talk's whole width. */
+  const pictureWidth = $derived(width >= 700 ? width / 3 : column.right - column.left - 52);
 
   /** Asides beside their speaker need room on both sides; a phone keeps one column, and so does the room. */
   const beside = $derived(!inPicture && width >= 700 && PAIR_STEPS[current].pose.place !== 'room');
@@ -2219,7 +2297,7 @@
 
   const placed = $derived(
     stackChat(
-      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null, aside: b.aside, brief: b.brief })),
+      said.map((b) => ({ w: sizes[b.id]?.w ?? 0, h: sizes[b.id]?.h ?? 0, anchor: b.at ? anchorOf(b.at) : null, aside: b.aside, brief: b.brief, centre: b.pictures?.length && width >= 700 ? Math.min(width / 2, column.right - (pictureWidth + 36) / 2) : undefined })),
       column,
       PAIR_STEPS[current].pose.place === 'room' ? 4 : 6,
       2,
@@ -3088,7 +3166,7 @@
   const mountFace = board.mount;
   const faceLook = $derived(faceStyle.look);
   /** Where the room stands as people. Elsewhere its members are marks on a chart, and marks have no face. */
-  const PEOPLE_MODES: readonly RoomMode[] = ['free', 'equal', 'zero', 'double', 'half', 'one', 'four', 'levy4', 'map'];
+  const PEOPLE_MODES: readonly RoomMode[] = ['free', 'equal', 'zero', 'half', 'one', 'halves', 'four', 'levy4', 'map'];
   /** The game's sixteen coins, shared equally: a face of normal proportions at the seats. */
   const EQUAL_COINS = (BLUE_CATCHES + RED_CATCHES) / 2;
   /** An equal share's radius: eight coins at the seats, the room's own in the room. */
@@ -3474,6 +3552,7 @@
       dropPaper();
       stopCountdown();
       window.clearTimeout(fourHintTimer);
+      window.clearTimeout(puzzleTimer);
       for (const r of [run, dialRun, gameRun, leftRun, rightRun]) r.stop();
     };
   });
@@ -4278,7 +4357,7 @@
             hidden={bubble.kind === 'paper' && bigPaper !== null}
             aside={bubble.aside ?? false}
             maxWidth={bubble.pictures?.length
-              ? Math.min(460, column.right - column.left - 16)
+              ? pictureWidth + 36
               : span && !bubble.aside && bubble.at
                 ? Math.min(bubbleWidth, span.right - span.left)
                 : bubbleWidth}
