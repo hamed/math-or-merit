@@ -632,7 +632,7 @@
       if (pose.ran) run.ended();
       else run.clear();
     }
-    // the room at the moment of its run the step stands at (`\\time`): set on a jump, or where the
+    // the room at the moment of its run the step stands at (`\\moment`): set on a jump, or where the
     // script moves it; a reader's own scrubbing within a stretch is left alone. A step that moves it
     // starts from where the step before stood.
     if (pose.ran && entering !== 'run' && run.state.done && (!animate || PAIR_STEPS[index - 1]?.pose.time !== pose.time)) {
@@ -1823,7 +1823,7 @@
     return scalingMade;
   });
 
-  /** Frames by the moment the script names (`\\time`): the first frame at or past a Gini, found once per run. */
+  /** Frames by the moment the script names (`\\moment`): the first frame at or past a Gini, found once per run. */
   const giniFrames = new Map<string, number>();
   function frameOf(time: string): number {
     const rec = run.recording();

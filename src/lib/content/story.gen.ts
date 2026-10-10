@@ -2681,7 +2681,7 @@ export const STORY: Story = {
       "key": "ruler_7",
       "cues": [
         {
-          "name": "time",
+          "name": "moment",
           "args": [
             "start"
           ]
@@ -2821,7 +2821,7 @@ export const STORY: Story = {
       "key": "gini_7",
       "cues": [
         {
-          "name": "time",
+          "name": "moment",
           "args": [
             "gini=0.5"
           ]
@@ -2904,7 +2904,7 @@ export const STORY: Story = {
       "key": "gini_11",
       "cues": [
         {
-          "name": "time",
+          "name": "moment",
           "args": [
             "end"
           ]

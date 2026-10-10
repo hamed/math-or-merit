@@ -85,7 +85,7 @@ export interface Pose {
   /** The stake's chart counts time in stake squared (`\\reveal{scaled}`): the three rooms on one curve. */
   readonly scaled: boolean;
   /**
-   * Where in its run the room stands (`\\time`, owner 2026-10-10): `start`,
+   * Where in its run the room stands (`\\moment`, owner 2026-10-10): `start`,
    * `end`, or `gini=0.5` (the first moment its Gini reaches 0.5). The
    * histograms and the Gini plot hold still; only the room moves.
    */
@@ -309,7 +309,7 @@ export const RAIN_WAIT_MS = Math.round(RAIN_SECONDS * 1000);
 export const PRESENT_MS = 3600;
 /** The walk along the line, adding up as it goes, and its undoing, seconds. */
 export const WALK_SECONDS = 4.2;
-/** The room moving through its run to another moment (`\\time`), seconds. */
+/** The room moving through its run to another moment (`\\moment`), seconds. */
 export const TIME_SECONDS = 3.2;
 
 /** How long the run takes on screen, ms: slow enough to see it happen (brief Scene 13). */
@@ -618,8 +618,8 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
           const [stake, levy] = arg.split(',').map((x) => Number(x.trim()));
           if (!(stake > 0 && stake <= 1 && levy >= 0 && levy <= 1)) EXPECT_PROBLEMS.push(`${s.at}: \\rules{${arg}} — a stake in (0, 1], a levy in [0, 1]`);
           [p, action] = [{ ...p, rules: { stake, levy } }, 'rules'];
-        } else if (c.name === 'time') {
-          if (!/^(start|end|gini=0?\.\d+)$/.test(arg)) EXPECT_PROBLEMS.push(`${s.at}: \\time{${arg}} — start, end or gini=0.5`);
+        } else if (c.name === 'moment') {
+          if (!/^(start|end|gini=0?\.\d+)$/.test(arg)) EXPECT_PROBLEMS.push(`${s.at}: \\moment{${arg}} — start, end or gini=0.5`);
           [p, action] = [{ ...p, time: arg }, 'time'];
         } else if (c.name === 'point') {
           if (!(POINTS as readonly string[]).includes(arg)) EXPECT_PROBLEMS.push(`${s.at}: \\point{${arg}} — the stage can point at ${POINTS.join(', ')}`);
