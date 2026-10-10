@@ -890,6 +890,32 @@ place in the room and come back, as the demonstration rounds do, so it would reu
 `roomRounds.ts`'s hops. Worth doing where a picture is new and busy (the histogram's
 first showing, the outcome map). Not yet built.
 
+### The ending, further (from `inbox/ending.md`, 2026-10-10)
+
+The ending, "Before you know", is built: the two limits, the living room under
+one levy dial, Be born, and the world shared as `?world=`. Still open:
+
+- **The donation pays Blue's bet.** Blue never pays the bet he lost. Once the
+  credits exist, the donation line could be "Blue never paid. You can." A
+  comment in the script marks the spot.
+- **Red finishes Blue's rhyme:** "Finders keepers." "…losers weepers." Then
+  Red's own "Sharing is caring."
+- **A picture for a shared link.** A static page can't make a social preview
+  per link; that would need a server, or one prerendered image for each of
+  the nine stops.
+- **Inspiration:**
+  - Lizzie Magie's *The Landlord's Game* (1904), Monopoly's ancestor, shipped
+    with two rule sets, a monopolist one and a "prosperity" one, to teach
+    exactly this.
+  - Le Guin's "The Ones Who Walk Away from Omelas" leaves the choice with the
+    reader.
+  - Vonnegut's "Harrison Bergeron" is the scary forced-equality end.
+  - Nicky Case's *Parable of the Polygons* ends by handing the reader a
+    sandbox.
+- **An honest line for the veil:** the total is fixed, so the average fortune
+  is the same at every levy. Only the spread changes, so choosing a levy is
+  choosing how much risk you'd take with an unknown life.
+
 ---
 
 ## Deferred possibilities

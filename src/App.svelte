@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Essay from './content/essay.en.svx';
   import ChapterIndex from '$lib/nav/ChapterIndex.svelte';
+  import WorldStrip from '$lib/nav/WorldStrip.svelte';
   import { installScrollRestore } from '$lib/nav/scrollRestore';
   import { say } from '$lib/i18n';
 
@@ -24,6 +25,7 @@
 </svelte:head>
 
 <ChapterIndex />
+<WorldStrip />
 
 <main class="essay-shell">
   <Essay />

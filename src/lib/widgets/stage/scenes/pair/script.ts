@@ -104,8 +104,8 @@ export interface Pose {
    * matched pair, trades only on the left (23) · the reader's own machine (26).
    */
   readonly source: RoomSource;
-  /** A control the reader holds in this step: the stake dial, the tax game, the whole machine. */
-  readonly control: 'stake' | 'tax' | 'sandbox' | 'rules' | null;
+  /** A control the reader holds in this step: the stake dial, the tax game, the whole machine, the ending's levy. */
+  readonly control: 'stake' | 'tax' | 'sandbox' | 'rules' | 'veil' | null;
   /** The two dials of Scene 24 (`\\rules{stake, levy}`): the pair Red sets for the reader to see. */
   readonly rules: { readonly stake: number; readonly levy: number } | null;
   /** Scene 22's lesson: 0 before · 1 a quarter of every pile in the pool · 2 the pool shared back. */
@@ -113,6 +113,12 @@ export interface Pose {
   readonly levy: LevyMoment;
   /** Scene 24: 0 no map · 1 every square filled in · 2 and the fitted curve. */
   readonly map: 0 | 1 | 2;
+  /**
+   * The ending (owner, 2026-10-10): 0 none · 1 one owner, above Blue
+   * ("finders keepers") · 2 and everyone equal, above Red ("sharing is
+   * caring") · 3 and the living room between them, the reader's to rule.
+   */
+  readonly veil: 0 | 1 | 2 | 3;
 }
 
 export type RoomSource = 'run' | 'dial' | 'game' | 'pair' | 'sandbox';
@@ -124,7 +130,8 @@ export type RoomSource = 'run' | 'dial' | 'game' | 'pair' | 'sandbox';
  * money given to one other; half owning it all; one owner) · four stepped out
  * of the crowd with coins · dimmed under the turnover chart · four with the
  * levy lesson's coins (Scene 22) · two rooms side by side on the same luck
- * (23) · stepped back behind the outcome map (24).
+ * (23) · stepped back behind the outcome map (24) · between the two limits,
+ * Blue and Red outside it (the ending).
  */
 export type RoomMode =
   | 'free'
@@ -141,7 +148,8 @@ export type RoomMode =
   | 'scaling'
   | 'levy4'
   | 'matched'
-  | 'map';
+  | 'map'
+  | 'veil';
 
 /** What a step does on the way in, for the scene's choreography. */
 export type Action =
@@ -171,6 +179,7 @@ export type Action =
   | 'coins'
   | 'match'
   | 'map'
+  | 'veil'
   | 'empty';
 
 export interface PairStep extends StepSpec {
@@ -265,6 +274,7 @@ export const START: Pose = {
   control: null,
   levy: 0,
   map: 0,
+  veil: 0,
 };
 
 
@@ -365,6 +375,8 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'stop.how': (s) => s.cues.some((c) => c.name === 'taxgame' && c.opt === undefined),
   'match.result': (s) => needs(s, 'a'),
   'map.all': (s) => cue(s, 'reveal', 'map'),
+  // the ending: the reader's guess, settled (owner, 2026-10-10)
+  'veil.guess': (s) => when(s, 'prediction'),
   'sandbox.2': (s) => targets(s, 'workshop'),
 };
 
@@ -452,6 +464,8 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
       return 2600;
     case 'rules':
       return 6800;
+    case 'veil':
+      return 1800;
     case 'arrange':
       return pose.roomMode === 'piles' ? 4800 : pose.roomMode === 'ruler' ? 3400 : prev.roomMode === 'turnover' ? 1800 : 2000;
     default:
@@ -530,6 +544,16 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
       case 'reveal:fit':
         p = { ...p, map: 2 };
         break;
+      case 'reveal:keepers':
+        [p, action] = [{ ...p, veil: 1, map: 0 }, 'veil'];
+        break;
+      case 'reveal:sharers':
+        [p, action] = [{ ...p, veil: 2 }, 'veil'];
+        break;
+      case 'reveal:world':
+        // the living room forms between the two limits, trading on from where the run left it
+        [p, action] = [{ ...p, veil: 3, source: 'sandbox' }, 'veil'];
+        break;
       case 'hide:headline':
         p = { ...p, compact: true };
         break;
@@ -564,6 +588,9 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         break;
       case 'control:sandbox':
         p = { ...p, control: 'sandbox', source: 'sandbox' };
+        break;
+      case 'control:veil':
+        p = { ...p, control: 'veil', source: 'sandbox' };
         break;
       case 'control:none':
         // the reader's hand leaves the tax game: the room shown is the run's again
@@ -639,6 +666,7 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
             ...(p.source === 'pair' ? { source: 'run' as const } : {}),
             ...(arg === 'levy4' ? { levy: 0 as const } : {}),
             ...(arg === 'scaling' ? { scaled: false } : {}),
+            ...(arg === 'veil' ? { map: 0 as const } : { veil: 0 as const }),
           };
           action = 'arrange';
         } else if (c.name === 'card') p = { ...p, cards: [...p.cards, arg] };
@@ -866,6 +894,13 @@ export const REACTIONS = {
     lunch: firstOf('guess.react', 'groups', 'lunch'),
     vacation: firstOf('guess.react', 'groups', 'vacation'),
     percent: firstOf('guess.react', 'groups', 'percent'),
+  },
+  /** The ending: the reader's guess, settled, by what they guessed. */
+  guessSettled: {
+    equal: firstOf('veil.guess', 'groups', 'equal'),
+    spread: firstOf('veil.guess', 'groups', 'spread'),
+    split: firstOf('veil.guess', 'groups', 'split'),
+    giant: firstOf('veil.guess', 'groups', 'giant'),
   },
 } as const;
 
