@@ -17,7 +17,7 @@
  */
 import { HOLDINGS } from './game';
 import { ARRIVE_SECONDS, GATHER_SECONDS, RAIN_SECONDS } from './rain';
-import { ROUND_SECONDS } from './roomRounds';
+import { MORE_SPEED, PHASE_SPAN, ROUND_PHASES, windowSeconds, type RoundPhase, type RoundWindow } from './roomRounds';
 import { CHAT, HOLD, READER, auto, readingMs, type LineSpec, type StepSpec, type Wait } from '../../steps';
 import { STORY } from '../../../../content/story.gen';
 import type { StoryBubble, StoryGroup, StoryStep } from '../../../../script/compile';
@@ -27,6 +27,9 @@ import { FEELINGS } from '../../../../script/grammar';
 export type CrowdState = 'away' | 'idle' | 'paid' | 'two';
 export type Place = 'marks' | 'seats' | 'room';
 export type Flip = 'hidden' | 'shown' | 'blue' | 'red';
+/** What a line can point at (`\\point{…}`, owner 2026-10-09: "when describing a picture, it is nice to highlight"): spots the stage knows by name. */
+export const POINTS = ['blue', 'red', 'richest', 'dust', 'diagonal', 'gap', 'pool'] as const;
+export type PointAt = (typeof POINTS)[number];
 
 export interface Coins {
   readonly blue: number;
@@ -54,6 +57,14 @@ export interface Pose {
   /** Coins each has staked on the table. */
   readonly table: Coins;
   readonly flip: Flip;
+  /** The decider has been shown, both faces, once (round one): after that it simply appears. */
+  readonly presented: boolean;
+  /** Rounds the room has played by hand so far (Scene 10's `\\pairs`): the next one draws on from there. */
+  readonly played: number;
+  /** The spot this step's line points at (`\\point`), for this step only. */
+  readonly point: PointAt | null;
+  /** How many lines of a card the reader knows so far (`\\learn`); a card not named here shows them all. */
+  readonly learned: Readonly<Record<string, number>>;
   readonly place: Place;
   /** How many people are in the room (Scene 14). */
   readonly room: number;
@@ -131,6 +142,7 @@ export type Action =
   | 'clear'
   | 'ante'
   | 'toss'
+  | 'present'
   | 'room'
   | 'pairs'
   | 'run'
@@ -146,8 +158,10 @@ export type Action =
 export interface PairStep extends StepSpec {
   readonly pose: Pose;
   readonly action?: Action;
-  /** Clears the talk: a new setting, a new conversation. */
+  /** Clears the talk: a new scene (every `\\subsection`), a new conversation (owner, 2026-10-09). */
   readonly panel?: true;
+  /** Starts a part of the story (a `\\section`): what the phone rail and the index count by. */
+  readonly act?: true;
   /** Its line goes as soon as the next one is said. */
   readonly brief?: true;
   /**
@@ -164,8 +178,8 @@ export interface PairStep extends StepSpec {
   readonly pauseMs?: number;
   /** How long its action plays, ms: a chit-chat step stays until its words are read and its action is done. */
   readonly actionMs?: number;
-  /** `\\pairs{n}`: how many demonstration rounds the room plays. */
-  readonly rounds?: number;
+  /** `\\pairs`: the stretch of the room's demonstration rounds this step plays (roomRounds.ts). */
+  readonly rounds?: RoundWindow;
   /** The pictures posted with its line (`\\image{name}`), by name. */
   readonly pictures?: readonly string[];
 }
@@ -203,6 +217,10 @@ export const START: Pose = {
   holdings: { blue: 15, red: 1 },
   table: { blue: 0, red: 0 },
   flip: 'hidden',
+  presented: false,
+  played: 0,
+  point: null,
+  learned: {},
   place: 'marks',
   room: 2,
   choice: false,
@@ -241,6 +259,8 @@ export function levyLesson(stage: 0 | 1 | 2): { coins: number[]; pool: number } 
 
 /** How long the rain step lasts: every drop, the last fall, and a moment to stand still (rain.ts). */
 export const RAIN_WAIT_MS = Math.round(RAIN_SECONDS * 1000);
+/** The decider's first showing: plain, then in its colours, turning slowly so both faces are seen, at rest on Marx (PairScene `present`). */
+export const PRESENT_MS = 3600;
 
 /** How long the run takes on screen, ms: slow enough to see it happen (brief Scene 13). */
 export const RUN_MS = 16_000;
@@ -267,8 +287,6 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   equal: (s) => cue(s, 'equalize'),
   // the joke offer: "Yes" goes on into the joke, "Not now" past it (owner, 2026-10-09: the joke is part of the chat)
   'more.joke': (s) => answers(s, 'joke'),
-  // the joke's last line: the spherical human, offered as a side trip
-  'joke.human': (s) => targets(s, 'human'),
   'guess.what': (s) => answers(s, 'prediction'),
   'guess.stake': (s) => answers(s, 'bet'),
   'guess.react': (s) => when(s, 'bet'),
@@ -276,7 +294,7 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'run.banter': (s) => when(s, 'winner'),
   'run.again': (s) => targets(s, '\\run'),
   'why.after': (s) => when(s, 'runs'),
-  'sort.there': (s) => needs(s, 'count') && s.cues.length === 0 && s.choices.length === 0,
+  'sort.there': (s) => needs(s, 'count') && s.cues.every((c) => c.name === 'point') && s.choices.length === 0,
   'gini.value': (s) => needs(s, 'gini'),
   'gini.toy': (s) => targets(s, '\\reveal{toy:gini}'),
   'eff.brutal': (s) => cue(s, 'arrange', 'zero'),
@@ -370,6 +388,8 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
       return 1500;
     case 'toss':
       return 3600;
+    case 'present':
+      return PRESENT_MS;
     case 'arrange':
       return pose.roomMode === 'piles' ? 4800 : pose.roomMode === 'ruler' ? 3400 : prev.roomMode === 'turnover' ? 1800 : 2000;
     default:
@@ -381,11 +401,11 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
 export const EXPECT_PROBLEMS: string[] = [];
 
 /** What a step's actions do to the stage. */
-function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: string; rounds?: number } {
-  let p: Pose = { ...prev, choice: answers(s, 'joke') };
+function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: string; rounds?: RoundWindow } {
+  let p: Pose = { ...prev, choice: answers(s, 'joke'), point: null };
   let action: Action | undefined;
   let log: string | undefined;
-  let rounds: number | undefined;
+  let rounds: RoundWindow | undefined;
   if (s.manner.includes('teletype')) [p, action] = [{ ...p, teletype: true }, 'type'];
   for (const c of [...s.cues, ...(s.together ?? []).flatMap((t) => t.cues)]) {
     const [arg = ''] = c.args;
@@ -422,7 +442,9 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         [p, action] = [{ ...p, coins: true }, 'lattice'];
         break;
       case 'reveal:coin':
-        p = { ...p, flip: 'shown' };
+        // the first time, it comes out and turns to show both faces (owner, 2026-10-09)
+        if (!p.presented) action = 'present';
+        p = { ...p, flip: 'shown', presented: true };
         break;
       case 'reveal:curve':
         [p, action] = [{ ...p, lorenz: 1 }, 'walk'];
@@ -494,9 +516,30 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
           p = { ...p, flip: side, table: NOTHING, holdings: { ...p.holdings, [side]: p.holdings[side] + pot } };
           [action, log] = ['toss', 'log_toss'];
         } else if (c.name === 'pairs') {
-          // the room plays a few rounds by hand before it plays by itself; nothing it does is kept
-          rounds = Math.max(1, Math.round(Number(arg) || 1));
+          // the room plays a few rounds by hand before it plays by itself; nothing it does is kept.
+          // A part of a round is told as it plays; whole rounds after a told one go quicker.
+          const phase = c.opt as RoundPhase | undefined;
+          if (phase !== undefined && !ROUND_PHASES.includes(phase)) EXPECT_PROBLEMS.push(`${s.at}: \\pairs[${phase}] — a part is one of ${ROUND_PHASES.join(', ')}`);
+          if (phase && ROUND_PHASES.includes(phase)) {
+            const [from, to] = PHASE_SPAN[phase];
+            rounds = { first: p.played, count: 1, from, to, speed: 1 };
+            if (phase === 'flip') p = { ...p, played: p.played + 1 };
+          } else {
+            const count = Math.max(1, Math.round(Number(arg) || 1));
+            rounds = { first: p.played, count, from: 'start', to: 'end', speed: p.played > 0 ? MORE_SPEED : 1 };
+            p = { ...p, played: p.played + count };
+          }
           action = 'pairs';
+        } else if (c.name === 'point') {
+          if (!(POINTS as readonly string[]).includes(arg)) EXPECT_PROBLEMS.push(`${s.at}: \\point{${arg}} — the stage can point at ${POINTS.join(', ')}`);
+          else p = { ...p, point: arg as PointAt };
+        } else if (c.name === 'learn') {
+          // the card opens, and shows as many of its lines as the reader has been told
+          const [id = '', n = ''] = c.args.map((x) => x.trim());
+          const lines = STORY.cards[id]?.blocks.length;
+          const count = Number(n);
+          if (lines === undefined || !Number.isInteger(count) || count < 0 || count > lines) EXPECT_PROBLEMS.push(`${s.at}: \\learn{${id}}{${n}} — the card has ${lines ?? 'no'} lines`);
+          p = { ...p, learned: { ...p.learned, [id]: count }, cards: p.cards.includes(id) ? p.cards : [...p.cards, id], cardOpen: id };
         } else if (c.name === 'arrange') {
           // the matched pair's mirror goes once the room is arranged again
           p = { ...p, roomMode: arg as RoomMode, ...(p.source === 'pair' ? { source: 'run' as const } : {}) };
@@ -526,7 +569,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
     const prev = pose;
     const { pose: next, action, log, rounds } = apply(s, prev);
     const pause = pauseOf(s);
-    const played = action === 'pairs' ? Math.round((rounds ?? 1) * ROUND_SECONDS * 1000) : durationOf(action, next, prev);
+    const played = action === 'pairs' && rounds ? Math.round(windowSeconds(rounds) * 1000) : durationOf(action, next, prev);
     pose = next;
     const id = ids[i];
     const conditioned = s.wait === 'when';
@@ -556,7 +599,8 @@ function build(): { steps: PairStep[]; problems: string[] } {
       pose: next,
       ...(speaks ? { lines: [{ who: s.who as LineSpec['who'], message: message! }] } : {}),
       ...(action ? { action } : {}),
-      ...(s.act && i > 0 ? { panel: true as const } : {}),
+      ...(i > 0 && s.scene !== STORY.steps[i - 1].scene ? { panel: true as const } : {}),
+      ...(s.act && i > 0 ? { act: true as const } : {}),
       ...(s.manner.includes('brief') ? { brief: true as const } : {}),
       ...(aside ? { aside: true as const } : {}),
       ...(log ? { log } : {}),
@@ -579,9 +623,9 @@ export const ROLE_PROBLEMS: readonly string[] = BUILT.problems;
 
 export const indexOf = (id: string): number => PAIR_STEPS.findIndex((step) => step.id === id);
 
-/** The last step of the act that holds a step: where its talk clears. */
+/** The last step of the part of the story (the act) that holds a step. */
 export function actEnd(id: string): number {
-  for (let i = indexOf(id) + 1; i < PAIR_STEPS.length; i++) if (PAIR_STEPS[i].panel) return i - 1;
+  for (let i = indexOf(id) + 1; i < PAIR_STEPS.length; i++) if (PAIR_STEPS[i].act) return i - 1;
   return PAIR_STEPS.length - 1;
 }
 
@@ -602,7 +646,7 @@ export function valuesFor(step: PairStep): Record<string, number> {
 
 // ---- the lines the scene speaks on events, as the scene has always asked for them ------
 
-type Said = { who: 'blue' | 'red'; message: string; pauseMs?: number; pictures?: readonly string[] };
+type Said = { who: 'blue' | 'red'; message: string; pauseMs?: number; pictures?: readonly string[]; feel?: readonly string[] };
 
 /**
  * The live values a line may say while the matched rooms stand (Scene 23's
@@ -617,11 +661,18 @@ export function picturesOf(cues: readonly { readonly name: string; readonly args
   return cues.flatMap((c) => (c.name === 'image' && c.args[0] ? [c.args[0].trim()] : []));
 }
 
-/** A bubble the scene speaks when something happens, with its own `\\pause` and pictures. */
+/** A bubble the scene speaks when something happens, with its own `\\pause`, pictures and feelings. */
 export function spoken(b: StoryBubble): Said {
   const pause = pauseOf({ cues: b.cues ?? [] });
   const pictures = picturesOf(b.cues ?? []);
-  return { who: b.who as Said['who'], message: b.key, ...(pause ? { pauseMs: pause } : {}), ...(pictures.length ? { pictures } : {}) };
+  const feel = (b.manner ?? []).filter((m) => FEELINGS.has(m));
+  return {
+    who: b.who as Said['who'],
+    message: b.key,
+    ...(pause ? { pauseMs: pause } : {}),
+    ...(pictures.length ? { pictures } : {}),
+    ...(feel.length ? { feel } : {}),
+  };
 }
 const bubbleOf = spoken;
 const group = (id: string, kind: 'groups' | 'reactions', cond: string): Said[] =>
@@ -640,20 +691,22 @@ const callerStep = (who: string): StoryStep => [storyOf('meet'), ...(storyOf('me
  * banter by who won (Scene 13), and the rest. All of it is written in the
  * script, where it plays; this is the scene's index into it.
  */
+/** Where the joke's "Not now" goes: the step its choice names (`\\choice{Not now}{guess}`). */
+export const JOKE_SKIP: string = labelStep(storyOf('more.joke').choices.find((c) => c.target && !c.target.includes('='))?.target ?? '');
+
 export const REACTIONS = {
   callRed: callerStep('red').variants!.keys,
   callBlue: callerStep('blue').variants!.keys,
   /** Each one's introduction, once the reader has clicked him. */
   introRed: firstOf('meet', 'reactions', 'met-red'),
   introBlue: firstOf('meet', 'reactions', 'met-blue'),
-  equalFirst: firstOf('equal', 'reactions', 'first-move').message,
-  equalEleven: firstOf('equal', 'reactions', 'blue-reaches-eleven').message,
-  equalOverBlue: group('equal', 'reactions', 'red-above-eight')[0].message,
-  equalOverRed: group('equal', 'reactions', 'red-above-eight')[1].message,
+  equalFirst: firstOf('equal', 'reactions', 'first-move'),
+  equalEleven: firstOf('equal', 'reactions', 'blue-reaches-eleven'),
+  equalOverBlue: group('equal', 'reactions', 'red-above-eight')[0],
+  equalOverRed: group('equal', 'reactions', 'red-above-eight')[1],
   /** Scene 11's "Yes · Not now". */
   joke: choices('more.joke'),
   /** The joke's end: the spherical human, or on. */
-  human: choices('joke.human'),
   /** Scene 12: the four outcomes, in the order of PREDICTIONS; the four bets, in the order of BETS. */
   guesses: choices('guess.what'),
   bets: choices('guess.stake'),

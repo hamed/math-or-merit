@@ -12,7 +12,7 @@ import { loadDeferred } from './helpers';
 
 const STAGE_KEY = 'merit-or-math:stage:pair:v1';
 /** The stage's holds, released so a test can land anywhere past them. */
-const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake'];
+const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try'];
 
 const stage = (page: Page) => page.locator('.step-stage');
 const stepNow = async (page: Page) => Number(await stage(page).getAttribute('data-step'));
@@ -186,6 +186,41 @@ test('a swipe is one step', async ({ page }) => {
   await expect.poll(() => stepNow(page)).toBe(start + 1);
 });
 
+test('the two call the reader in turns, never over each other, Red first', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'meet', ['meet']);
+  const lines = await page.evaluate(async () => {
+    const { REACTIONS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const messages = (await import('/messages/en.json')).default as Record<string, string>;
+    return { red: REACTIONS.callRed.map((k: string) => messages[k]), blue: REACTIONS.callBlue.map((k: string) => messages[k]) };
+  });
+  // each new call, in the order it was said
+  const heard: string[] = [];
+  for (let k = 0; k < 30 && heard.length < 4; k++) {
+    const shown = (await page.locator('.pair-scene .bubble .lines').allTextContents()).map((t) => t.trim());
+    for (const line of shown) if (!heard.includes(line)) heard.push(line);
+    await page.waitForTimeout(300);
+  }
+  expect(heard.slice(0, 4)).toEqual([lines.red[0], lines.blue[0], lines.red[1], lines.blue[1]]);
+  // one call on screen at a time
+  const calls = [...lines.red, ...lines.blue];
+  const shown = (await page.locator('.pair-scene .bubble .lines').allTextContents()).map((t) => t.trim());
+  expect(shown.filter((t) => calls.includes(t)).length).toBeLessThanOrEqual(1);
+});
+
+test('a bubble of several lines shows them one after another', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'rules.1');
+  await page.mouse.move(2, 2);
+  await page.keyboard.press('ArrowRight');
+  const second = page.locator('.pair-scene .bubble').last().locator('.line').nth(1);
+  await expect(second).toBeAttached();
+  expect(Number(await second.evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(0.1);
+  await expect.poll(async () => Number(await second.evaluate((el) => getComputedStyle(el).opacity)), { timeout: 4000 }).toBeGreaterThan(0.9);
+});
+
 test('a hold waits for the reader: both are met by a click each, in any order, never by scrolling past', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const ids = await openAt(page, 'meet', ['meet']);
@@ -224,7 +259,7 @@ test('the index lists the story’s parts, one entry each, never their scenes, a
   });
   // the pointer resting on the line opens it
   await page.locator('.index .here').hover();
-  const entries = page.locator('#scene-list button.part');
+  const entries = page.locator('#scene-list .part');
   await expect(entries).toHaveCount(parts.length);
   const texts = (await entries.allTextContents()).map((t) => t.trim());
   // a part of several scenes is one entry: its later scenes are not listed
@@ -232,6 +267,126 @@ test('the index lists the story’s parts, one entry each, never their scenes, a
   for (const title of several.titles.slice(1)) expect(texts.some((t) => t.endsWith(title))).toBe(false);
   await entries.nth(parts.indexOf(several)).click();
   await expect.poll(() => stepNow(page)).toBe(several.at);
+});
+
+test('a link to a scene opens the stage there, and the address follows the scene', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/#gini', { waitUntil: 'domcontentloaded' });
+  const gini = await page.evaluate(async () => {
+    const { STORY } = await import('/src/lib/content/story.gen.ts');
+    const sc = STORY.scenes.find((s: { label: string }) => s.label === 'gini')!;
+    return STORY.steps.findIndex((s: { id: string }) => s.id === sc.step);
+  });
+  await expect.poll(() => stepNow(page)).toBe(gini);
+  await expect(stage(page)).toBeInViewport({ ratio: 0.9 });
+  // moving on, the address names the scene the reader is in
+  await openAt(page, 'count.2');
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#count');
+});
+
+test('a stray click or scroll during a run does not skip it; Skip does', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'run.1');
+  await page.keyboard.press('ArrowRight');
+  const skip = page.locator('.pair-scene .skip');
+  await expect(skip).toBeVisible();
+  const at = await stepNow(page);
+  await page.mouse.click(640, 400);
+  await page.mouse.wheel(0, 300);
+  await page.waitForTimeout(600);
+  expect(await stepNow(page)).toBe(at);
+  await expect(skip).toBeVisible();
+  await expect(skip).toHaveClass(/called/);
+  await skip.click();
+  await expect(skip).toBeHidden();
+});
+
+test('chit-chat goes on when a bubble arrives under a pointer that stands still', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'rules.1');
+  const at = await stepNow(page);
+  // the pointer waits, still, just above the line on screen: the talk slides up under it
+  const box = (await page.locator('.pair-scene .bubble').last().boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y - 60);
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => stepNow(page), { timeout: 20_000 }).toBeGreaterThanOrEqual(at + 3);
+});
+
+test('the rule card opens empty and fills as Red tells the rule', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const rule = page.locator('.charts .chart.rule li');
+  const ids = await openAt(page, 'rule.1');
+  await expect(page.locator('.charts .chart.rule h3')).toBeVisible();
+  await expect(rule).toHaveCount(0);
+  await openAt(page, ids[ids.indexOf('rule.1') + 2]);
+  await expect(rule).toHaveCount(2);
+});
+
+test('the four keep the reader on their step: a missed tap or a scroll stays, a coin can be dragged across, and Done goes on', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'eff.try', ['eff.try']);
+  const at = await stepNow(page);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
+  const four = page.locator('.pair-scene .hit.four');
+  await expect(four).toHaveCount(4);
+  await page.waitForTimeout(600);
+  // a tap beside them
+  await page.mouse.click(60, 400);
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
+  // a coin dragged from the first to the second
+  const a = (await four.nth(0).boundingBox())!;
+  const b = (await four.nth(1).boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width / 2 + 20, a.y + a.height / 2, { steps: 4 });
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => [await four.nth(0).getAttribute('aria-label'), await four.nth(1).getAttribute('aria-label')].map((l) => l!.trim())).toEqual(['3', '5']);
+  expect(await stepNow(page)).toBe(at);
+  await page.locator('.bubble .choice').first().click();
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
+  // back to them, and Done goes on again (review 2026-10-10: it did nothing on a revisit)
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(() => stepNow(page)).toBe(at);
+  await page.locator('.bubble .choice').first().click();
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
+  // and after a jump straight to them, with their hold long released
+  await openAt(page, 'eff.try');
+  await page.locator('.bubble .choice').first().click();
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
+});
+
+test('stepping back and forth through the told round leaves no timelines behind', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const ids = await openAt(page, 'rule.1');
+  const children = () =>
+    page.evaluate(async () => (await import('/src/lib/widgets/stage/gsap.ts')).gsap.globalTimeline.getChildren(false, true, true).length);
+  const counts: number[] = [];
+  for (let k = 0; k < 8; k++) {
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => stepNow(page)).toBe(ids.indexOf('rule.1') + 1);
+    await page.waitForTimeout(150);
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(() => stepNow(page)).toBe(ids.indexOf('rule.1'));
+    await page.waitForTimeout(150);
+    counts.push(await children());
+  }
+  // bounded: the last cycles keep no more than the first did
+  expect(Math.max(...counts.slice(-3))).toBeLessThanOrEqual(counts[1] + 2);
+});
+
+test('a line about a spot rings it, and only while the line shows', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const ids = await openAt(page, 'sort.there');
+  await expect(page.locator('.point-ring')).toHaveCount(1);
+  await openAt(page, ids[ids.indexOf('sort.there') + 1]);
+  await expect(page.locator('.point-ring')).toHaveCount(0);
 });
 
 test('any card in the deck can be picked, not only the top one', async ({ page }) => {
@@ -254,7 +409,8 @@ test('the joke is told in the talk, pictures and all, or skipped', async ({ page
   const choices = page.locator('.bubble .choice');
   // "Not now": past the joke, to what follows it
   await choices.nth(1).click();
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('joke.human') + 1);
+  const past = await page.evaluate(async () => (await import('/src/lib/widgets/stage/scenes/pair/script.ts')).JOKE_SKIP as string);
+  await expect.poll(() => stepNow(page)).toBe(ids.indexOf(past));
   // "Yes": the joke, its plates posted in the talk
   await openAt(page, 'more.joke', ['more.joke']);
   await page.locator('.bubble .choice').first().click();
@@ -281,15 +437,34 @@ test('the tax game starts from the room itself, and shows what a tap takes', asy
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'stop.how');
   await page.locator('.start-game').click();
-  await expect(page.locator('.meter')).toBeVisible();
+  await expect(page.locator('.hud')).toBeVisible();
   await expect(page.locator('.start-game')).toHaveCount(0);
+});
+
+test('the tax game ends on a card: a stray click stays, Play again plays, Go on moves on', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const ids = await openAt(page, 'stop.how');
+  await page.locator('.start-game').click();
+  // left alone, the room closes
+  const over = page.locator('.game-over');
+  await expect(over).toBeVisible({ timeout: 60_000 });
+  await page.mouse.click(40, 450);
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(ids.indexOf('stop.how'));
+  await over.getByRole('button').last().click();
+  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
 });
 
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');
   const at = await stepNow(page);
+  // the address names the scene by now; coming back is still to the very step
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#gini');
   await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(stage(page)).toHaveAttribute('data-step', String(at));
+  await page.waitForTimeout(800);
   await expect(stage(page)).toHaveAttribute('data-step', String(at));
 });
 
@@ -305,7 +480,7 @@ test('in the live tax game a click is a tap on the room, never a step', async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   const ids = await openAt(page, 'stop.how');
   await page.locator('.bubble .choice').first().click();
-  await expect(page.locator('.meter')).toBeVisible();
+  await expect(page.locator('.hud')).toBeVisible();
   const taps = page.locator('.taps');
   await expect(taps).toBeVisible();
   const box = (await taps.boundingBox())!;
@@ -315,7 +490,7 @@ test('in the live tax game a click is a tap on the room, never a step', async ({
   // the reading keys still move on, and leaving ends the game
   await page.keyboard.press('ArrowDown');
   await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
-  await expect(page.locator('.meter')).toBeHidden();
+  await expect(page.locator('.hud')).toBeHidden();
 });
 
 test('the machine is the reader’s: Play trades, a tap photographs, and every dial is one link away', async ({ page }) => {
@@ -323,7 +498,7 @@ test('the machine is the reader’s: Play trades, a tap photographs, and every d
   await openAt(page, 'sandbox.2');
   await page.locator('.deck .primary').click();
   await expect
-    .poll(async () => Number(((await page.locator('.chart.live .small').textContent()) ?? '0').replace(/[^\d]/g, '').slice(0, 9) || 0))
+    .poll(async () => Number(((await page.locator('.chart.live .after').textContent()) ?? '0').replace(/[^\d]/g, '').slice(0, 9) || 0))
     .toBeGreaterThan(0);
 
   await page.locator('.deck-tap button').nth(1).click();

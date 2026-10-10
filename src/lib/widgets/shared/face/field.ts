@@ -22,18 +22,6 @@ export function felt(before: number, after: number): number {
   return Math.tanh(FELT * Math.log(after / before));
 }
 
-/**
- * How someone looks in the paper's photograph (owner, 2026-10-09: "a
- * photograph of a poor person should not have contempt"): the richest in the
- * room, contempt; anyone else, how their fortune feels against an equal share
- * (`felt`) — the poor sad, the comfortable pleased, the average plain.
- */
-export function photoMood(share: number, n: number, richest: boolean): Affect {
-  if (richest) return CONTEMPT;
-  const u = felt(1 / n, share);
-  return { v: 0.8 * u, a: 0.3 * Math.abs(u) - 0.15, d: 0.5 * u, n: 0 };
-}
-
 /** Seconds for a feeling to fall most of the way (1/e) back to the temperament: moods linger, startles pass. */
 const RELAX = { v: 10, a: 3, d: 6, n: 0.6, contempt: 0.8, blush: 0.6 };
 /** How far a head turns and the eyes move in it, radians. */

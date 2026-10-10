@@ -157,6 +157,11 @@ Manner words, in the parentheses, stay English in every language:
 | `interrupts` | appears beside the bubble before it |
 | `thought`, `wait` | reserved |
 
+A bubble of several lines is usually `flow` (owner, 2026-10-09: "always use
+flow for multi lines"): its lines come one after another, and the talk goes on
+once they are read. Leave `flow` off only where the reader should stop and
+think.
+
 Feeling words, in the same parentheses, show on the speaker's face as the line
 is said: subtly, and they fade as any feeling does. `Blue (proud): …`,
 `Red (aside, calm): …`.
@@ -210,7 +215,10 @@ on) or **reader** (it waits for the reader; the wait is never written).
 | `\control{x}` | the reader holds `stake`, `tax`, `sandbox`, or `none` |
 | `\levy{x}` | the lesson's pool: `collect`, `return` |
 | `\match` | the room and its mirror, on the same luck |
-| `\pairs{n}` | n rounds: two from the room, drawn at random, step out, play the coin, and go back |
+| `\pairs{n}` | n rounds: two from the room, drawn at random, step out, play the coin, and go back; after a round told part by part, quicker |
+| `\pairs[part]{1}` | one part of the next round, as it is told: `pick` (two step out), `stake` (the stakes go in), `flip` (the toss, the take, and home) |
+| `\learn{id}{n}` | opens card `id` showing its first n lines: `\learn{rule}{0}` opens it empty, and each line appears once the reader has been told it |
+| `\point{x}` | rings a spot while the line shows, and the two (and the room) look at it: `blue`, `red`, `richest`, `dust`, `diagonal`, `gap`, `pool` |
 | `\image{name}` | posts a picture with the bubble, like a photo in a chat; several make a row (the joke's plates: `introduction`, `darwin`, `chemist`, `silence`, `cow-looks`, `cow-moos`, `scratch`, `physicist`, `spherical`, `vacuum`, `football`) |
 | `\card{id}` | drops `cards/<id>.tex` into the stack; the PDF draws the card where it first drops |
 | `\pin{id}` | pins the concept's picture to the side rail |

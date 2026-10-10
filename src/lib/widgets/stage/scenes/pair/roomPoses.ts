@@ -241,8 +241,9 @@ export function line(amounts: ArrayLike<number>, box: Box, radii?: ArrayLike<num
   const own = (i: number) => (radii ? Math.max(0.6, radii[i]) : 1);
   const diameters = order.reduce((sum, i) => sum + 2 * own(i), 0);
   const biggest = Math.max(...order.map(own));
-  // the largest square that leaves room under it for the row it scales
-  const most = Math.max(40, Math.min(box.w - LEFT - 8, beside ? box.w * 0.55 : Infinity));
+  // the largest square that leaves room under it for the row it scales, and
+  // room past its right edge for the richest, who stands at its very end
+  const most = Math.max(40, Math.min((box.w - LEFT - 8) / 1.15, beside ? box.w * 0.55 : Infinity));
   let side = most;
   let scale = 1;
   for (; side > 40; side -= 2) {
@@ -255,15 +256,12 @@ export function line(amounts: ArrayLike<number>, box: Box, radii?: ArrayLike<num
   const floor = box.y + box.h - 4;
   const tallest = Math.max(...order.map(r));
   const frame = { x: box.x + LEFT, y: floor - 2 * tallest - 10 - BELOW - side, w: side, h: side };
-  const rowWidth = order.reduce((sum, i) => sum + 2 * r(i) + GAP, 0);
+  // each stands under their own stretch of the curve, the k-th poorest at the
+  // middle of the k-th hundredth, overlapping where they must (owner,
+  // 2026-10-09: "located actually to what x shows … the curve develops exactly
+  // as we make the cumsum")
   const spots = new Array<Point>(n);
-  let x = frame.x + Math.max(0, (side - rowWidth) / 2);
-  const squeeze = Math.min(1, side / rowWidth);
-  for (const i of order) {
-    const w = (2 * r(i) + GAP) * squeeze;
-    spots[i] = { x: x + w / 2, y: floor - r(i) };
-    x += w;
-  }
+  order.forEach((i, rank) => (spots[i] = { x: frame.x + ((rank + 0.5) / n) * side, y: floor - r(i) }));
   let total = 0;
   for (let i = 0; i < n; i++) total += amounts[i];
   const curve: Point[] = [{ x: frame.x, y: frame.y + frame.h }];

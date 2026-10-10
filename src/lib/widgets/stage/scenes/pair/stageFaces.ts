@@ -70,6 +70,8 @@ export interface FaceScene {
   readonly facing: boolean;
   /** The decider, in the air. */
   readonly coin: Point | null;
+  /** A spot a line points at (`\\point`): the two look at it, and the room, each in their own time. */
+  readonly look?: Point | null;
   /** Coins on the move: the rain, stakes on their way to the winner. */
   readonly moving: readonly Point[];
   /** The opening's crowd, standing about: neighbours chat. */
@@ -228,7 +230,7 @@ export class StageFaces {
       if (!(b.alpha > 0.3) || !(b.r > 0.5)) continue;
       const who = i === this.blue ? 'blue' : i === this.red ? 'red' : null;
       const moved = this.moved(i, b, dt);
-      const coin = scene.coin ?? nearest(b);
+      const coin = scene.coin ?? scene.look ?? nearest(b);
       const held = who ? scene.held : null;
       const partner = who ? scene.people[this.slotOf(who === 'blue' ? 'red' : 'blue')] : null;
       if (held?.aside && held.who === who) {
@@ -270,6 +272,8 @@ export class StageFaces {
         if (scene.coin && noise(f.seed[i], 82) > -0.85) at(i, b, scene.coin.x, scene.coin.y);
         // one in twenty follows the reader's pointer while it moves
         else if (pointer && noise(f.seed[i], 81) > 0.9) at(i, b, pointer.x, pointer.y);
+        // where a line points, the room looks too, each in their own time
+        else if (scene.look && line && this.attends(i, line.since, now)) at(i, b, scene.look.x, scene.look.y);
         else if (line && said && this.attends(i, line.since, now)) at(i, b, said.x, said.y);
         else f.glance(i);
       }

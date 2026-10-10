@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { validateSteps } from '../../steps';
 import { ROUNDS, UNITS } from './game';
 import { BETS, PREDICTIONS } from '../../../shared/runLog.svelte';
-import { CARDS, EXPECT_PROBLEMS, MATCHED_VALUES, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin, spoken } from './script';
+import { CARDS, EXPECT_PROBLEMS, JOKE_SKIP, MATCHED_VALUES, NUDGE_MS, PAIR_STEPS, REACTIONS, REEL, REEL_ANSWER, ROLE_PROBLEMS, actEnd, indexOf, labelStep, levyLesson, panelStart, pauseOf, readFor, reelSpin, spoken } from './script';
 import { compile } from '../../../../script/compile';
 import { parseScript } from '../../../../script/parse';
 import { lint } from '../../../../script/lint';
 import { readingMs } from '../../steps';
-import { ROUND_SECONDS } from './roomRounds';
+import { MORE_SPEED, windowSeconds } from './roomRounds';
 import { PICTURES } from '../cast/pictures';
 import { STORY } from '../../../../content/story.gen';
 import { CAPTION_BEATS, sideTrip } from '../../../../content/story';
@@ -160,11 +160,39 @@ describe('the room’s demonstration rounds', () => {
     });
     expect(lint(script).filter((p) => p.level === 'error')).toEqual([]);
     expect(compile(script).story.steps[0].cues).toEqual([{ name: 'pairs', args: ['2'] }]);
-    // the adapter: on the stage's own steps, any step that plays pairs waits for every round
+    // the adapter: on the stage's own steps, any step that plays pairs waits for all it plays
     for (const step of PAIR_STEPS.filter((s) => s.action === 'pairs')) {
-      expect(step.rounds).toBeGreaterThan(0);
-      expect(step.actionMs).toBe(Math.round(step.rounds! * ROUND_SECONDS * 1000));
+      expect(step.rounds!.count).toBeGreaterThan(0);
+      expect(step.actionMs).toBe(Math.round(windowSeconds(step.rounds!) * 1000));
     }
+  });
+
+  it('tells the first round part by part, then plays whole rounds on from where it stopped, quicker', () => {
+    const script = parseScript({
+      lang: 'en',
+      decl: { file: 'decl.tex', text: readFileSync('src/lib/script/fixtures/decl.tex', 'utf8') },
+      files: [{ file: 'x.tex', text: '\\subsection{A}\\label{a}\n\nRed (flow): Two at random.\n\\pairs[pick]{1}\n' }],
+    });
+    expect(lint(script).filter((p) => p.level === 'error')).toEqual([]);
+    expect(compile(script).story.steps[0].cues).toEqual([{ name: 'pairs', opt: 'pick', args: ['1'] }]);
+    const told = PAIR_STEPS.filter((s) => s.rounds);
+    const parts = told.filter((s) => s.rounds!.count === 1 && s.rounds!.first === 0);
+    expect(parts.map((s) => [s.rounds!.from, s.rounds!.to])).toEqual([
+      ['start', 'stake'],
+      ['stake', 'flip'],
+      ['flip', 'end'],
+    ]);
+    const more = told.find((s) => s.rounds!.first > 0)!;
+    expect(more.rounds).toMatchObject({ first: 1, from: 'start', to: 'end', speed: MORE_SPEED });
+  });
+
+  it('opens a card empty and fills it a line at a time, never past its last line', () => {
+    const learning = PAIR_STEPS.filter((s) => s.pose.learned.rule !== undefined);
+    const counts = learning.map((s) => s.pose.learned.rule);
+    expect(counts[0]).toBe(0);
+    expect(counts.at(-1)).toBe(CARDS.rule.blocks.length);
+    for (let k = 1; k < counts.length; k++) expect(counts[k]).toBeGreaterThanOrEqual(counts[k - 1]);
+    expect(learning[0].pose.cardOpen).toBe('rule');
   });
 });
 
@@ -204,20 +232,24 @@ describe('the title’s reel', () => {
 });
 
 describe('what the scene promises, whatever the words', () => {
-  it('holds only where the scene knows how to let go: meeting both, 8 and 8, the joke offered, a guess, a bet', () => {
-    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake']);
+  it('never moves on by itself from a step that offers a choice: the reader would lose it (owner, 2026-10-09)', () => {
+    for (const [i, s] of STORY.steps.entries()) if (s.choices.length > 0) expect(['reader', 'action'], PAIR_STEPS[i].id).toContain(PAIR_STEPS[i].wait.kind);
   });
 
-  it('tells the joke in the talk, every picture a real one, and offers the spherical human at its end', () => {
+  it('holds only where the scene knows how to let go: meeting both, 8 and 8, the joke offered, a guess, a bet, the four done', () => {
+    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try']);
+  });
+
+  it('tells the joke in the talk, one real picture to a bubble, and "Not now" goes past all of it', () => {
     const offer = indexOf('more.joke');
-    const end = indexOf('joke.human');
+    const past = indexOf(JOKE_SKIP);
     expect(offer).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(offer);
-    const posted = PAIR_STEPS.slice(offer + 1, end).flatMap((s) => s.pictures ?? []);
-    expect(posted.length).toBeGreaterThan(0);
+    expect(past).toBeGreaterThan(offer + 1);
+    const told = PAIR_STEPS.slice(offer + 1, past);
+    expect(told.flatMap((s) => s.pictures ?? []).length).toBeGreaterThan(0);
+    for (const s of told) expect((s.pictures ?? []).length, s.id).toBeLessThanOrEqual(1);
     for (const name of PAIR_STEPS.flatMap((s) => s.pictures ?? [])) expect(Object.keys(PICTURES), name).toContain(name);
     expect(REACTIONS.joke).toHaveLength(2);
-    expect(REACTIONS.human).toHaveLength(2);
   });
 
   it('offers both calls at once, and has an introduction for each click', () => {
@@ -266,6 +298,17 @@ describe('what the scene promises, whatever the words', () => {
 
   it('only arranges a room that is there', () => {
     for (const s of PAIR_STEPS) expect(s.pose.place === 'room' || s.pose.roomMode === 'free', s.id).toBe(true);
+  });
+
+  it('clears the talk at every scene, and counts parts by the act', () => {
+    const story = STORY.steps;
+    for (const [i, s] of PAIR_STEPS.entries()) {
+      if (i === 0) continue;
+      expect(!!s.panel, s.id).toBe(story[i].scene !== story[i - 1].scene);
+      expect(!!s.act, s.id).toBe(story[i].act);
+    }
+    expect(PAIR_STEPS[indexOf(labelStep('why'))].act).toBeUndefined();
+    expect(actEnd('run')).toBeGreaterThanOrEqual(indexOf(labelStep('why')));
   });
 
   it('lets every step belong to a panel that starts with a clear', () => {

@@ -14,6 +14,55 @@ import { CROSSING, arrival, hopsBy, type Hop } from './hops';
 
 /** Seconds a round takes, out and back: room enough for a big room's long jumps home (4K). The step lasts its rounds (script.ts). */
 export const ROUND_SECONDS = 6.4;
+/** Seconds into a round when both stand at the front and the stakes go in: every hop out has landed by then. */
+export const OUT_SECONDS = 1.8;
+/** Seconds from the stakes going in to the toss. */
+export const STAKE_SECONDS = 0.55;
+/** How much quicker the rounds after the first play: the rule is known by then (owner, 2026-10-09: "we keep doing a few more rounds, and then move"). */
+export const MORE_SPEED = 1.5;
+
+/**
+ * A part of a round, as the script names it (`\\pairs[pick]{1}`), so the first
+ * round can be played as Red tells it (owner, 2026-10-09: "dialogs and actions
+ * are synced for the first trial"): the two picked step out; the stakes go
+ * in; the toss, the winner taking both, and home.
+ */
+export type RoundPhase = 'pick' | 'stake' | 'flip';
+export const ROUND_PHASES: readonly RoundPhase[] = ['pick', 'stake', 'flip'];
+
+/** A moment of a round, from its start to its end. */
+export type RoundMoment = 'start' | 'stake' | 'flip' | 'end';
+
+/** The stretch of the room's demonstration a step plays: from a moment of round `first` to a moment of round `first + count - 1`. */
+export interface RoundWindow {
+  readonly first: number;
+  readonly count: number;
+  readonly from: RoundMoment;
+  readonly to: RoundMoment;
+  /** How much faster than told it plays. */
+  readonly speed: number;
+}
+
+/** Where each part starts and ends. */
+export const PHASE_SPAN: Readonly<Record<RoundPhase, readonly [RoundMoment, RoundMoment]>> = {
+  pick: ['start', 'stake'],
+  stake: ['stake', 'flip'],
+  flip: ['flip', 'end'],
+};
+
+/** A moment of a round, seconds into it: the same on every stage, so a step knows how long it waits. */
+const MOMENT: Readonly<Record<RoundMoment, number>> = { start: 0, stake: OUT_SECONDS, flip: OUT_SECONDS + STAKE_SECONDS, end: ROUND_SECONDS };
+
+/** When a window starts and ends, seconds on the demonstration's own clock (round k starts at k × ROUND_SECONDS). */
+export function windowTimes(w: RoundWindow): [number, number] {
+  return [w.first * ROUND_SECONDS + MOMENT[w.from], (w.first + w.count - 1) * ROUND_SECONDS + MOMENT[w.to]];
+}
+
+/** How long a window takes to play, seconds. */
+export function windowSeconds(w: RoundWindow): number {
+  const [from, to] = windowTimes(w);
+  return (to - from) / w.speed;
+}
 /** How much bigger the two are while they play at the front: enough to see the stakes change them. */
 export const OUT_SCALE = 2.2;
 /** The room's stake: a tenth of the poorer one's fortune (recording.ts DEFAULT_RUN). */
@@ -81,10 +130,11 @@ export function planRounds(s: RoundSetup, rounds: number): RoundPlan[] {
     const [a, b] = [draw(), draw()].sort((p, q) => s.positions[p].x - s.positions[q].x);
     const winner = random.next() < 0.5 ? a : b;
     const hop = (from: Point, to: Point, depart: number, by: number) => hopsBy(from, to, depart, s.radius, s.unit, s.g, by, CROSSING);
-    const outA = hop(s.positions[a], spotA, start + 0.1, start + 1.5);
-    const outB = hop(s.positions[b], spotB, start + 0.25, start + 1.5);
-    const stake = Math.max(arrival(outA, start + 0.1), arrival(outB, start + 0.25));
-    const flip = stake + 0.55;
+    const outA = hop(s.positions[a], spotA, start + 0.05, start + OUT_SECONDS);
+    const outB = hop(s.positions[b], spotB, start + 0.15, start + OUT_SECONDS);
+    // the stakes go in at the same moment on every stage, so the script's parts of a round have fixed lengths
+    const stake = start + Math.max(OUT_SECONDS, arrival(outA, start + 0.05) - start, arrival(outB, start + 0.15) - start);
+    const flip = stake + STAKE_SECONDS;
     const landed = flip + 1.6;
     const back = landed + 0.6;
     const backA = hop(spotA, s.positions[a], back, start + ROUND_SECONDS - 0.15);
@@ -93,4 +143,17 @@ export function planRounds(s: RoundSetup, rounds: number): RoundPlan[] {
     out.push({ a, b, winner, spotA, spotB, coin: middle, outA, outB, backA, backB, start, stake, flip, landed, back, end });
   }
   return out;
+}
+
+/** When a round's result is felt: the two have the stakes, a moment after the decider lands. */
+export const resultAt = (r: RoundPlan): number => r.landed + 0.45;
+
+/**
+ * The rounds whose result a window plays (review 2026-10-10): a step told over
+ * the pick or the stakes feels nothing yet; only the step that tosses the coin
+ * feels who won.
+ */
+export function feltIn(plan: readonly RoundPlan[], w: RoundWindow): number[] {
+  const [from, to] = windowTimes(w);
+  return plan.flatMap((r, k) => (resultAt(r) >= from && resultAt(r) <= to ? [k] : []));
 }

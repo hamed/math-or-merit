@@ -199,8 +199,10 @@ export function stackChat(items: readonly ChatItem[], column: Column, keep = Inf
         const cx = side ? a.x - d : a.x + d;
         const x45 = side ? cx - item.w : cx;
         const y45 = a.y - d - item.h;
-        if (x45 >= column.left && x45 + item.w <= column.right && y45 >= column.top - 1) {
-          const box: Box = { x: x45, y: y45, w: item.w, h: item.h };
+        const at45: Box = { x: x45, y: y45, w: item.w, h: item.h };
+        // only where it covers nothing still showing: else it stacks above him, clear of the talk
+        if (x45 >= column.left && x45 + item.w <= column.right && y45 >= column.top - 1 && (gone || !taken.some((t) => overlaps(at45, t)))) {
+          const box = at45;
           if (!gone) taken.push(box);
           placed[i] = { x: box.x, y: box.y, gone, tail: tailAtCorner(box, a, side) };
           return;
@@ -375,6 +377,15 @@ export function bubbleLines(text: string): string[] {
 /** Words in a bubble, for reading time — markup excluded. */
 export function bubbleWords(text: string): number {
   return text.replace(/\*\*/g, '').split(/[\s/]+/).filter(Boolean).length;
+}
+
+/**
+ * Whether a pointer event over a bubble is the reader resting on it: a mouse or
+ * pen that MOVED there. A finger has no hover, and a pointer standing still
+ * under a bubble that just appeared is not reading it.
+ */
+export function restsOn(e: { pointerType: string; movementX: number; movementY: number }): boolean {
+  return e.pointerType !== 'touch' && (e.movementX !== 0 || e.movementY !== 0);
 }
 
 function clamp(v: number, lo: number, hi: number): number {

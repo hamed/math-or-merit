@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gravity } from './hops';
 import { pairLayout } from './layout';
-import { ROUND_SECONDS, planRounds } from './roomRounds';
+import { MORE_SPEED, OUT_SECONDS, ROUND_SECONDS, STAKE_SECONDS, feltIn, planRounds, windowSeconds, windowTimes } from './roomRounds';
 
 for (const [w, h] of [[1280, 800], [390, 844], [3840, 2160]]) {
   describe(`the room's demonstration rounds on a ${w}×${h} stage`, () => {
@@ -28,8 +28,43 @@ for (const [w, h] of [[1280, 800], [390, 844], [3840, 2160]]) {
       });
     });
 
-    it('plays the same rounds every time', () => {
+    it('feels a round\'s result only in the window that tosses its coin', () => {
+      const four = planRounds(setup, 4);
+      const part = (from: 'start' | 'stake' | 'flip', to: 'stake' | 'flip' | 'end') => feltIn(four, { first: 0, count: 1, from, to, speed: 1 });
+      expect(part('start', 'stake')).toEqual([]);
+      expect(part('stake', 'flip')).toEqual([]);
+      expect(part('flip', 'end')).toEqual([0]);
+      expect(feltIn(four, { first: 1, count: 3, from: 'start', to: 'end', speed: 1.5 })).toEqual([1, 2, 3]);
+    });
+
+    it('plays the same rounds every time, and a longer plan begins with the same rounds', () => {
       expect(planRounds(setup, 2)).toEqual(plan);
+      expect(planRounds(setup, 4).slice(0, 2)).toEqual(plan);
+    });
+
+    it('puts the stakes in and tosses at the same moments on every stage, so a step told over a part knows its length', () => {
+      plan.forEach((r) => {
+        expect(r.stake).toBeCloseTo(r.start + OUT_SECONDS, 9);
+        expect(r.flip).toBeCloseTo(r.start + OUT_SECONDS + STAKE_SECONDS, 9);
+      });
     });
   });
 }
+
+describe('the parts of the demonstration a step plays', () => {
+  it('tells the first round in three parts that meet end to end', () => {
+    const pick = windowTimes({ first: 0, count: 1, from: 'start', to: 'stake', speed: 1 });
+    const stake = windowTimes({ first: 0, count: 1, from: 'stake', to: 'flip', speed: 1 });
+    const flip = windowTimes({ first: 0, count: 1, from: 'flip', to: 'end', speed: 1 });
+    expect(pick[0]).toBe(0);
+    expect(stake[0]).toBe(pick[1]);
+    expect(flip[0]).toBe(stake[1]);
+    expect(flip[1]).toBe(ROUND_SECONDS);
+  });
+
+  it('plays the rounds after it whole, and quicker', () => {
+    const more = { first: 1, count: 3, from: 'start', to: 'end', speed: MORE_SPEED } as const;
+    expect(windowTimes(more)).toEqual([ROUND_SECONDS, 4 * ROUND_SECONDS]);
+    expect(windowSeconds(more)).toBeCloseTo((3 * ROUND_SECONDS) / MORE_SPEED, 9);
+  });
+});

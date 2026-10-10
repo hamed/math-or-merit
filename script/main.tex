@@ -133,7 +133,9 @@
 \newcommand\control[1]{\act{control}{#1}}
 \newcommand\levy[1]{\act{levy}{#1}}
 \newcommand\match{\act{match}{}}
-\newcommand\pairs[1]{\act{pairs}{#1 rounds played by hand}}
+\NewDocumentCommand\pairs{om}{\act{pairs}{\IfNoValueTF{#1}{#2 rounds played by hand}{the #1 part of a round}}}
+\newcommand\learn[2]{\act{learn}{the {\ttfamily #1} card shows #2 lines}}
+\newcommand\point[1]{\act{points at}{#1}}
 \newcommand\image[1]{\act{posts}{the picture {\ttfamily #1}}}
 \newcommand\toy[1]{\act{toy}{\ttfamily #1\normalfont\itshape\ — opened on request}}
 \newcommand\meet[1]{\reader{meet}{click #1}}

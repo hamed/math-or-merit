@@ -15,7 +15,7 @@
   import type { Snippet } from 'svelte';
   import { fade } from 'svelte/transition';
   import Coin from './scenes/Coin.svelte';
-  import { bubbleLines, comicOutline, shoutSegments, type BubbleChoice, type Tail } from './bubbles';
+  import { bubbleLines, comicOutline, restsOn, shoutSegments, type BubbleChoice, type Tail } from './bubbles';
   import { PROTAGONISTS, SPEAKER_TONES, type AgentStyle } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
   import AgentFace from '../shared/face/AgentFace.svelte';
@@ -120,6 +120,22 @@
   $effect(() => {
     if (w > 0 && !settled) requestAnimationFrame(() => (settled = true));
   });
+
+  /**
+   * The reader rests on a bubble only by moving onto it. A bubble that appears,
+   * or slides, under a pointer standing still is not being read — Chrome fires
+   * `pointerenter` for it all the same, and the talk stopped there for good.
+   */
+  let resting = false;
+  function rest(on: boolean): void {
+    if (resting === on) return;
+    resting = on;
+    onrest?.(on);
+  }
+  // a bubble that goes while it is rested on lets the talk go on
+  $effect(() => () => {
+    if (resting) onrest?.(false);
+  });
 </script>
 
 <!-- the pointer resting on a bubble holds chit-chat (3.2); a click on it still steps -->
@@ -135,8 +151,10 @@
   style={`left:${x}px; top:${y}px; max-inline-size:${maxWidth}px; --ink:${tone.ink}; visibility:${w > 0 && !hidden ? 'visible' : 'hidden'}${align ? `; text-align:${align}` : ''}`}
   bind:clientWidth={w}
   bind:clientHeight={h}
-  onpointerenter={() => onrest?.(true)}
-  onpointerleave={() => onrest?.(false)}
+  onpointermove={(e) => {
+    if (restsOn(e)) rest(true);
+  }}
+  onpointerleave={() => rest(false)}
   role="presentation"
   out:fade|global={{ duration: reduced ? 0 : 260 }}
 >
@@ -153,7 +171,7 @@
     </svg>
   {/if}
   {#if paper}
-    <!-- as the paper prints them: the winner very contemptuous (owner, 2026-10-07), anyone else as their fortune feels (field.ts `photoMood`) -->
+    <!-- as the paper prints them: the winner very contemptuous (owner, 2026-10-07), anyone else as their fortune feels (pair/photoMood.ts) -->
     {@const portrait = faceStyle.look === 'none' ? null : drawStill(faceStyle.look, paper.style.shape, 10, 10, stillOf(paper.mood ?? CONTEMPT))}
     <article class="page" aria-label={`${paper.masthead}: ${paper.text}`}>
       <p class="masthead">{paper.masthead}</p>
@@ -366,7 +384,10 @@
     transition: opacity 260ms ease;
   }
 
-  .line.waiting,
+  .line.waiting {
+    opacity: 0;
+  }
+
   .pictures {
     display: grid;
     gap: 0.35rem;
