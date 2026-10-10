@@ -95,7 +95,8 @@ test('the title fits a phone and the stage owns the viewport', async ({ page }) 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const title = page.locator('.pair-scene h1.title');
-  await expect(title).toBeAttached();
+  // the first test of a run meets a cold dev server, which compiles the stage on demand
+  await expect(title).toBeAttached({ timeout: 30_000 });
   const box = await title.boundingBox();
   expect(box!.x).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(390);
