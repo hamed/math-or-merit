@@ -3836,6 +3836,13 @@ export const STORY: Story = {
           "args": [
             "none"
           ]
+        },
+        {
+          "name": "learn",
+          "args": [
+            "levy",
+            "0"
+          ]
         }
       ],
       "choices": [],
@@ -3843,13 +3850,11 @@ export const STORY: Story = {
     },
     {
       "id": "levy.2",
-      "at": "script.tex:1138",
+      "at": "script.tex:1139",
       "scene": "levy",
       "act": false,
       "who": "red",
-      "manner": [
-        "flow"
-      ],
+      "manner": [],
       "key": "levy_2",
       "cues": [
         {
@@ -3860,47 +3865,121 @@ export const STORY: Story = {
         }
       ],
       "choices": [],
-      "wait": "chat"
+      "wait": "reader"
     },
     {
       "id": "levy.3",
-      "at": "script.tex:1143",
+      "at": "script.tex:1144",
       "scene": "levy",
       "act": false,
       "who": "blue",
       "manner": [
-        "flow",
         "annoyed"
       ],
       "key": "levy_3",
-      "cues": [],
+      "cues": [
+        {
+          "name": "learn",
+          "args": [
+            "levy",
+            "1"
+          ]
+        }
+      ],
       "choices": [],
-      "wait": "chat"
+      "wait": "reader"
     },
     {
       "id": "levy.4",
-      "at": "script.tex:1147",
+      "at": "script.tex:1149",
       "scene": "levy",
       "act": false,
       "who": "red",
-      "manner": [
-        "flow"
-      ],
+      "manner": [],
       "key": "levy_4",
       "cues": [],
       "choices": [],
-      "wait": "chat"
+      "wait": "reader"
     },
     {
       "id": "levy.5",
-      "at": "script.tex:1151",
+      "at": "script.tex:1153",
       "scene": "levy",
       "act": false,
       "who": "red",
-      "manner": [
-        "flow"
-      ],
+      "manner": [],
       "key": "levy_5",
+      "cues": [
+        {
+          "name": "levy",
+          "args": [
+            "pool"
+          ]
+        }
+      ],
+      "choices": [],
+      "wait": "reader"
+    },
+    {
+      "id": "levy.6",
+      "at": "script.tex:1157",
+      "scene": "levy",
+      "act": false,
+      "who": "red",
+      "manner": [],
+      "key": "levy_6",
+      "cues": [
+        {
+          "name": "levy",
+          "args": [
+            "split"
+          ]
+        },
+        {
+          "name": "learn",
+          "args": [
+            "levy",
+            "2"
+          ]
+        }
+      ],
+      "choices": [],
+      "wait": "reader"
+    },
+    {
+      "id": "levy.7",
+      "at": "script.tex:1163",
+      "scene": "levy",
+      "act": false,
+      "who": "red",
+      "manner": [],
+      "key": "levy_7",
+      "cues": [
+        {
+          "name": "levy",
+          "args": [
+            "share"
+          ]
+        },
+        {
+          "name": "learn",
+          "args": [
+            "levy",
+            "3"
+          ]
+        }
+      ],
+      "choices": [],
+      "wait": "reader"
+    },
+    {
+      "id": "levy.8",
+      "at": "script.tex:1168",
+      "scene": "levy",
+      "act": false,
+      "who": "red",
+      "manner": [],
+      "key": "levy_8",
       "cues": [
         {
           "name": "levy",
@@ -3916,51 +3995,56 @@ export const STORY: Story = {
         }
       ],
       "choices": [],
-      "wait": "chat"
+      "wait": "reader"
     },
     {
-      "id": "levy.6",
-      "at": "script.tex:1158",
+      "id": "levy.9",
+      "at": "script.tex:1174",
       "scene": "levy",
       "act": false,
       "who": "red",
-      "manner": [
-        "flow"
+      "manner": [],
+      "key": "levy_9",
+      "cues": [
+        {
+          "name": "learn",
+          "args": [
+            "levy",
+            "4"
+          ]
+        }
       ],
-      "key": "levy_6",
-      "cues": [],
       "choices": [],
-      "wait": "chat"
+      "wait": "reader"
     },
     {
-      "id": "levy.7",
-      "at": "script.tex:1162",
+      "id": "levy.10",
+      "at": "script.tex:1179",
       "scene": "levy",
       "act": false,
       "who": "blue",
       "manner": [
         "aside",
-        "flow",
         "annoyed"
       ],
-      "key": "levy_7",
+      "key": "levy_10",
       "cues": [],
       "choices": [],
-      "wait": "chat"
+      "wait": "reader"
     },
     {
-      "id": "levy.8",
-      "at": "script.tex:1165",
+      "id": "levy.11",
+      "at": "script.tex:1182",
       "scene": "levy",
       "act": false,
       "who": "red",
       "manner": [],
-      "key": "levy_8",
+      "key": "levy_11",
       "cues": [
         {
-          "name": "card",
+          "name": "hide",
           "args": [
-            "levy"
+            "card:levy"
           ]
         }
       ],
@@ -3969,7 +4053,7 @@ export const STORY: Story = {
     },
     {
       "id": "match.1",
-      "at": "script.tex:1180",
+      "at": "script.tex:1197",
       "scene": "match",
       "act": true,
       "who": "red",
@@ -3986,7 +4070,7 @@ export const STORY: Story = {
     },
     {
       "id": "match.2",
-      "at": "script.tex:1185",
+      "at": "script.tex:1202",
       "scene": "match",
       "act": false,
       "who": "red",
@@ -4002,7 +4086,7 @@ export const STORY: Story = {
     },
     {
       "id": "match.3",
-      "at": "script.tex:1189",
+      "at": "script.tex:1206",
       "scene": "match",
       "act": false,
       "who": "blue",
@@ -4017,7 +4101,7 @@ export const STORY: Story = {
     },
     {
       "id": "match.4",
-      "at": "script.tex:1192",
+      "at": "script.tex:1209",
       "scene": "match",
       "act": false,
       "who": "red",
@@ -4029,7 +4113,7 @@ export const STORY: Story = {
     },
     {
       "id": "match.5",
-      "at": "script.tex:1202",
+      "at": "script.tex:1219",
       "scene": "match",
       "act": false,
       "who": "red",
@@ -4048,7 +4132,7 @@ export const STORY: Story = {
     },
     {
       "id": "match.6",
-      "at": "script.tex:1206",
+      "at": "script.tex:1223",
       "scene": "match",
       "act": false,
       "who": "red",
@@ -4071,7 +4155,7 @@ export const STORY: Story = {
     },
     {
       "id": "match.7",
-      "at": "script.tex:1210",
+      "at": "script.tex:1227",
       "scene": "match",
       "act": false,
       "who": "red",
@@ -4094,7 +4178,7 @@ export const STORY: Story = {
     },
     {
       "id": "match.8",
-      "at": "script.tex:1215",
+      "at": "script.tex:1232",
       "scene": "match",
       "act": false,
       "who": "blue",
@@ -4111,7 +4195,7 @@ export const STORY: Story = {
     },
     {
       "id": "match.9",
-      "at": "script.tex:1218",
+      "at": "script.tex:1235",
       "scene": "match",
       "act": false,
       "who": "red",
@@ -4125,7 +4209,7 @@ export const STORY: Story = {
     },
     {
       "id": "dials.1",
-      "at": "script.tex:1232",
+      "at": "script.tex:1249",
       "scene": "dials",
       "act": true,
       "who": "red",
@@ -4152,7 +4236,7 @@ export const STORY: Story = {
     },
     {
       "id": "dials.2",
-      "at": "script.tex:1238",
+      "at": "script.tex:1255",
       "scene": "dials",
       "act": false,
       "who": "red",
@@ -4169,7 +4253,7 @@ export const STORY: Story = {
     },
     {
       "id": "dials.3",
-      "at": "script.tex:1242",
+      "at": "script.tex:1259",
       "scene": "dials",
       "act": false,
       "who": "red",
@@ -4193,7 +4277,7 @@ export const STORY: Story = {
     },
     {
       "id": "dials.4",
-      "at": "script.tex:1247",
+      "at": "script.tex:1264",
       "scene": "dials",
       "act": false,
       "who": "red",
@@ -4217,7 +4301,7 @@ export const STORY: Story = {
     },
     {
       "id": "dials.5",
-      "at": "script.tex:1252",
+      "at": "script.tex:1269",
       "scene": "dials",
       "act": false,
       "who": "red",
@@ -4241,7 +4325,7 @@ export const STORY: Story = {
     },
     {
       "id": "dials.6",
-      "at": "script.tex:1258",
+      "at": "script.tex:1275",
       "scene": "dials",
       "act": false,
       "who": "red",
@@ -4255,7 +4339,7 @@ export const STORY: Story = {
     },
     {
       "id": "dials.7",
-      "at": "script.tex:1261",
+      "at": "script.tex:1278",
       "scene": "dials",
       "act": false,
       "who": "blue",
@@ -4270,7 +4354,7 @@ export const STORY: Story = {
     },
     {
       "id": "map.1",
-      "at": "script.tex:1273",
+      "at": "script.tex:1290",
       "scene": "map",
       "act": true,
       "who": "red",
@@ -4301,7 +4385,7 @@ export const STORY: Story = {
     },
     {
       "id": "map.2",
-      "at": "script.tex:1280",
+      "at": "script.tex:1297",
       "scene": "map",
       "act": false,
       "who": "red",
@@ -4320,7 +4404,7 @@ export const STORY: Story = {
     },
     {
       "id": "map.3",
-      "at": "script.tex:1289",
+      "at": "script.tex:1306",
       "scene": "map",
       "act": false,
       "who": "red",
@@ -4332,7 +4416,7 @@ export const STORY: Story = {
     },
     {
       "id": "map.4",
-      "at": "script.tex:1293",
+      "at": "script.tex:1310",
       "scene": "map",
       "act": false,
       "who": "blue",
@@ -4346,7 +4430,7 @@ export const STORY: Story = {
     },
     {
       "id": "map.5",
-      "at": "script.tex:1298",
+      "at": "script.tex:1315",
       "scene": "map",
       "act": false,
       "who": "red",
@@ -4360,7 +4444,7 @@ export const STORY: Story = {
     },
     {
       "id": "verdict.1",
-      "at": "script.tex:1311",
+      "at": "script.tex:1328",
       "scene": "verdict",
       "act": true,
       "who": "red",
@@ -4385,7 +4469,7 @@ export const STORY: Story = {
     },
     {
       "id": "verdict.2",
-      "at": "script.tex:1316",
+      "at": "script.tex:1333",
       "scene": "verdict",
       "act": false,
       "who": "blue",
@@ -4399,7 +4483,7 @@ export const STORY: Story = {
     },
     {
       "id": "verdict.3",
-      "at": "script.tex:1319",
+      "at": "script.tex:1336",
       "scene": "verdict",
       "act": false,
       "who": "red",
@@ -4411,7 +4495,7 @@ export const STORY: Story = {
     },
     {
       "id": "verdict.4",
-      "at": "script.tex:1322",
+      "at": "script.tex:1339",
       "scene": "verdict",
       "act": false,
       "who": "red",
@@ -4423,7 +4507,7 @@ export const STORY: Story = {
     },
     {
       "id": "verdict.5",
-      "at": "script.tex:1325",
+      "at": "script.tex:1342",
       "scene": "verdict",
       "act": false,
       "who": "blue",
@@ -4438,7 +4522,7 @@ export const STORY: Story = {
     },
     {
       "id": "verdict.6",
-      "at": "script.tex:1328",
+      "at": "script.tex:1345",
       "scene": "verdict",
       "act": false,
       "who": "red",
@@ -4452,7 +4536,7 @@ export const STORY: Story = {
     },
     {
       "id": "verdict.7",
-      "at": "script.tex:1331",
+      "at": "script.tex:1348",
       "scene": "verdict",
       "act": false,
       "who": "blue",
@@ -4466,7 +4550,7 @@ export const STORY: Story = {
     },
     {
       "id": "verdict.8",
-      "at": "script.tex:1334",
+      "at": "script.tex:1351",
       "scene": "verdict",
       "act": false,
       "who": "red",
@@ -4480,7 +4564,7 @@ export const STORY: Story = {
     },
     {
       "id": "sandbox.1",
-      "at": "script.tex:1354",
+      "at": "script.tex:1371",
       "scene": "sandbox",
       "act": true,
       "who": "red",
@@ -4507,7 +4591,7 @@ export const STORY: Story = {
     },
     {
       "id": "sandbox.2",
-      "at": "script.tex:1359",
+      "at": "script.tex:1376",
       "scene": "sandbox",
       "act": false,
       "who": "blue",
@@ -4668,6 +4752,10 @@ export const STORY: Story = {
         {
           "kind": "line",
           "key": "card_levy_3"
+        },
+        {
+          "kind": "line",
+          "key": "card_levy_4"
         }
       ]
     },

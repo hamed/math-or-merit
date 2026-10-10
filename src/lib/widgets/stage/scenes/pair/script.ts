@@ -278,9 +278,16 @@ const NOTHING: Coins = { blue: 0, red: 0 };
 export const LEVY_COINS: readonly number[] = [16, 4, 8, 4];
 export const LEVY_RATE = 0.25;
 
-export type LevyMoment = 0 | 1 | 2 | 3 | 4;
-/** The moment a lesson's coins move from: the collection from before it, the return from the collection. */
-export const LEVY_FROM: Readonly<Record<LevyMoment, LevyMoment>> = { 0: 0, 1: 0, 2: 1, 3: 0, 4: 3 };
+/**
+ * The levy lesson's moments. On four people (`levy4`): before · all paid a
+ * quarter · shared back. On the room, step by step (owner, 2026-10-10: "pause
+ * and describe each step"): 1 a coin appears on everyone, sized to their
+ * quarter, and they shrink · 2 the coins in the pool, one coin · 3 it divides
+ * in place, one part for each · 4 a part on each · 5 taken in, they grow.
+ */
+export type LevyMoment = 0 | 1 | 2 | 3 | 4 | 5;
+/** The moment a four-person lesson's coins move from. */
+export const LEVY_FROM: Readonly<Record<LevyMoment, LevyMoment>> = { 0: 0, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4 };
 
 /**
  * The four's coins and the pool at each moment of the lesson: before ·
@@ -292,11 +299,6 @@ export function levyLesson(stage: LevyMoment): { coins: number[]; pool: number }
   const taken = LEVY_COINS.map((c) => c * LEVY_RATE);
   const pool = taken.reduce((sum, c) => sum + c, 0);
   if (stage === 0) return { coins: [...LEVY_COINS], pool: 0 };
-  if (stage === 3 || stage === 4) {
-    const tapped = LEVY_COINS[0] * LEVY_RATE;
-    const coins = LEVY_COINS.map((c, k) => (k === 0 ? c - tapped : c));
-    return stage === 3 ? { coins, pool: tapped } : { coins: coins.map((c) => c + tapped / coins.length), pool: 0 };
-  }
   if (stage === 1) return { coins: LEVY_COINS.map((c, k) => c - taken[k]), pool };
   return { coins: LEVY_COINS.map((c, k) => c - taken[k] + pool / LEVY_COINS.length), pool: 0 };
 }
@@ -571,14 +573,17 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         // on the room itself (owner, 2026-10-10: no four-person demo): the run's own room pays
         [p, action] = [{ ...p, levy: 1, ...(p.roomMode === 'free' ? { source: 'run' as const, control: null } : {}) }, 'coins'];
         break;
-      case 'levy:tap':
+      case 'levy:pool':
+        [p, action] = [{ ...p, levy: 2 }, 'coins'];
+        break;
+      case 'levy:split':
         [p, action] = [{ ...p, levy: 3 }, 'coins'];
         break;
-      case 'levy:back':
+      case 'levy:share':
         [p, action] = [{ ...p, levy: 4 }, 'coins'];
         break;
       case 'levy:return':
-        [p, action] = [{ ...p, levy: 2 }, 'coins'];
+        [p, action] = [{ ...p, levy: p.roomMode === 'levy4' ? 2 : 5 }, 'coins'];
         break;
       case 'match:':
         [p, action] = [{ ...p, roomMode: 'matched', source: 'pair', levy: 0, compare: [] }, 'match'];

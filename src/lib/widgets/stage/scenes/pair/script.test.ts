@@ -316,9 +316,6 @@ describe('what the scene promises, whatever the words', () => {
   });
 
   it('keeps every coin in the levy lesson, and nets out the way Red says', () => {
-    // the tax game's tap, shown first: a quarter of the biggest pile only, then shared back
-    expect(levyLesson(3)).toEqual({ coins: [12, 4, 8, 4], pool: 4 });
-    expect(levyLesson(4)).toEqual({ coins: [13, 5, 9, 5], pool: 0 });
     const [before, collected, returned] = ([0, 1, 2] as const).map(levyLesson);
     expect(before).toEqual({ coins: [16, 4, 8, 4], pool: 0 });
     expect(collected).toEqual({ coins: [12, 3, 6, 3], pool: 8 });

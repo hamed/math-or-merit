@@ -554,6 +554,22 @@ test('both dials: Red sets a pair, and the reader holds the stake and the levy',
   await expect(page.locator('.charts .stake-dial')).toHaveCount(2);
 });
 
+test('the levy is taught on the room a moment a step, its card filling the column, then put away', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const [split, after] = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const steps = PAIR_STEPS as { id: string; pose: { levy: number; roomMode: string; cardOpen: string | null } }[];
+    const at = steps.findIndex((s) => s.pose.roomMode === 'free' && s.pose.levy === 3);
+    const put = steps.findIndex((s, i) => i > at && s.pose.cardOpen === null);
+    return [steps[at].id, steps[put].id];
+  });
+  await openAt(page, split);
+  await expect(page.locator('.charts .teach li')).toHaveCount(2);
+  await openAt(page, after);
+  await expect(page.locator('.charts .teach')).toHaveCount(0);
+});
+
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'gini.value');

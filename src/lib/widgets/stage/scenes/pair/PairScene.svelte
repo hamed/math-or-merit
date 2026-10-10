@@ -68,6 +68,7 @@
   import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
   import { GATHER_SECONDS, noise, planArrival, planRain } from './rain';
   import { SCALING_REFERENCE, scalingCurves, type ScalingCurve } from './scaling';
+  import { coinHeap } from './coinHeap';
   import { OUT_SCALE, ROUND_STAKE, feltIn, planRounds, resultAt, windowTimes } from './roomRounds';
   import { CROSSING, FALL, RISE, arrival, fallTime, gravity, hopsBy, squashed, type Hop } from './hops';
   import { titleFeet } from './titleFeet';
@@ -392,6 +393,7 @@
     view.fly = [];
     for (const token of taxFx) gsap.killTweensOf(token);
     taxFx = [];
+    owedTo = null;
     gsap.killTweensOf(roomPool);
     for (const token of view.payout) token.on = 0;
     dragging = null;
@@ -412,7 +414,8 @@
   /** Draw a pose at once. */
   function draw(pose: Pose): void {
     view.lorenzDraw = pose.roomMode === 'line' && pose.curve ? 1 : 0;
-    roomPool.r = pose.place === 'room' && pose.roomMode === 'free' && pose.levy === 1 ? poolR() : 0;
+    roomPool.r = pose.place === 'room' && pose.roomMode === 'free' && pose.levy === 2 ? poolR() : 0;
+    levyMoving = false;
     const t = target(pose);
     view.type = t.type;
     view.meritOn = t.meritOn;
@@ -908,12 +911,9 @@
       if (!game.playing) return;
       game.taps++;
       const share = gameRun.wealth()[i] * GAME.rate;
-      // the coin shows first, inside them; then they pay it, and shrink, as it leaves
-      if (stage?.reduced) gameRun.take(i, GAME.rate);
-      else {
-        taxCoins(i, share);
-        window.setTimeout(() => gameRun.isLive() && gameRun.take(i, GAME.rate), 280);
-      }
+      gameRun.take(i, GAME.rate);
+      // they pay at once and shrink; everyone else grows only as their part reaches them
+      if (!stage?.reduced) taxCoins(i, share);
       // the first round is that one tap: seen, and the story goes on
       if (gameStep?.kind === 'tap') {
         game.playing = false;
@@ -930,35 +930,53 @@
   }
 
   /**
-   * A tap shown (owner, 2026-10-10: "one coin appears inside the biggest
-   * person. then goes out. the big person shrinks accordingly, the coin
-   * divides to 100, keeping the area conserved. then each person gets one
-   * and absorbs it"): a coin's area is its money, on the room's own scale.
+   * A tap shown (owner, 2026-10-10: "the coin does not move. just appears.
+   * then in place divides. then moves to each shape, then absorbed. always
+   * sizes follow what happened"): the coin of what was taken appears inside
+   * them as they shrink; it divides where it is into a part for each, the same
+   * money, packed round; a part travels to each, and each grows as theirs
+   * arrives. A coin's area is its money, on the room's own scale.
    */
   let taxFx = $state<Token[]>([]);
+  /** Money a tap has taken that has not yet reached each person: their size waits for their part. */
+  let owedTo = $state<Float64Array | null>(null);
   function taxCoins(i: number, share: number): void {
-    const v = agentView(i);
-    const box = L.room.box;
-    const mid = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
     const n = L.room.positions.length;
+    const at = pt(agentView(i));
     const R = Math.max(2, L.room.radius * Math.sqrt(share * n));
-    taxFx = [...taxFx, { x: v.x, y: v.y, on: 1, face: 'front', r: 0 }];
-    const coin = taxFx[taxFx.length - 1];
+    const heap = coinHeap(n, R, at);
+    const owed = owedTo ? Float64Array.from(owedTo) : new Float64Array(n);
+    for (let j = 0; j < n; j++) owed[j] += share / n;
+    owedTo = owed;
+    const start = taxFx.length;
+    taxFx = [...taxFx, { ...at, on: 1, face: 'front', r: 0 }, ...heap.spots.map((p, k): Token => ({ ...at, on: 0, face: k % 2 ? 'back' : 'front', r: heap.r }))];
+    const coin = taxFx[start];
+    const parts = taxFx.slice(start + 1);
     const tl = gsap.timeline();
-    tl.to(coin, { r: R, duration: 0.25, ease: 'back.out(2)' });
-    tl.to(coin, { x: mid.x, y: mid.y, duration: 0.45, ease: 'power2.inOut' });
-    tl.call(() => {
-      coin.on = 0;
-      const start = taxFx.length;
-      taxFx = [...taxFx, ...Array.from({ length: n }, (_, k): Token => ({ x: mid.x, y: mid.y, on: 1, face: k % 2 ? 'back' : 'front', r: R / Math.sqrt(n) }))];
-      for (let j = 0; j < n; j++) {
-        const piece = taxFx[start + j];
-        const to = agentView(j);
-        gsap.to(piece, { x: to.x, y: to.y, duration: 0.55, delay: 0.1 + (j % 25) * 0.008, ease: 'power2.in', onComplete: () => (piece.on = 0) });
-      }
-      // once every piece is in, the room forgets them
-      window.setTimeout(() => (taxFx = taxFx.filter((t) => t.on > 0)), 900);
+    // it appears, in place
+    tl.to(coin, { r: R, duration: 0.55, ease: 'back.out(1.6)' }, 0);
+    // a moment, then it divides where it is
+    tl.set(parts, { on: 1 }, 1.0);
+    tl.set(coin, { on: 0 }, 1.0);
+    parts.forEach((p, k) => tl.to(p, { x: heap.spots[k].x, y: heap.spots[k].y, duration: 0.5, ease: 'power2.out' }, 1.0));
+    // a moment, then a part to each, taken in as it arrives
+    parts.forEach((p, j) => {
+      const go = 2.0 + (j % 25) * 0.02;
+      tl.to(p, { x: () => agentView(j).x, y: () => agentView(j).y, duration: 1.0, ease: 'power2.inOut' }, go);
+      tl.call(
+        () => {
+          p.on = 0;
+          if (owedTo) {
+            const next = Float64Array.from(owedTo);
+            next[j] = Math.max(0, next[j] - share / n);
+            owedTo = next;
+          }
+        },
+        [],
+        go + 1.0,
+      );
     });
+    tl.call(() => (taxFx = taxFx.filter((t) => t.on > 0)), [], 3.6);
   }
 
   /** The fortune under a finger: the circle it lands in, or the nearest within a few pixels. */
@@ -1258,73 +1276,128 @@
     const r = RUNS[source];
     void r.state.revision;
     const pose = PAIR_STEPS[current].pose;
-    const w = Math.max(0, r.wealth()[i]);
+    // the tax game's taps: a part still on its way has not grown them yet
+    const w = Math.max(0, r.wealth()[i] - (source === 'game' && owedTo ? owedTo[i] : 0));
     const share = pose.roomMode === 'free' && pose.levy > 0 && source === pose.source ? leviedShare(w, pose.levy) : w;
     return Math.max(0.8, L.room.radius * Math.sqrt(share * 100));
   }
 
-  /** A share after the levy shown on the room: a quarter paid in by everyone (1), and the pool shared back equally (2). */
+  /** A share after the levy shown on the room: a quarter paid in by everyone (1–4), and their part taken back in (5). */
   function leviedShare(w: number, levy: number): number {
     const kept = w * (1 - LEVY_RATE);
-    return levy === 1 ? kept : kept + LEVY_RATE / L.room.positions.length;
+    return levy >= 5 ? kept + LEVY_RATE / L.room.positions.length : kept;
   }
 
   /** The levy's pool on the room, while it holds everyone's quarter: one coin, its area all of their quarters together. */
   const roomPool = $state({ r: 0 });
   const poolR = () => L.room.radius * Math.sqrt(LEVY_RATE * L.room.positions.length);
+  /** The pool divided, in place: a part for each, packed round, a little wider than the coin was. */
+  const poolHeap = () => coinHeap(L.room.positions.length, poolR(), poolSpot());
 
   /**
-   * The levy shown on the room, once, slowly (owner, 2026-10-10): a coin
-   * appears inside everyone, its area their quarter — big coins from big
-   * shapes; they shrink as it leaves; the coins merge in the pool into one;
-   * then it splits into a hundred equal coins, one for each, and as they take
-   * theirs in they grow. A coin's area is its money, on the room's scale.
+   * The levy lesson's coins as each moment leaves them (`\\levy`), drawn while
+   * nothing moves: on everyone (1), one in the pool (2), divided in place (3),
+   * a part on each (4). Between moments, the coins travel (`roomLevy`).
+   */
+  let levyMoving = $state(false);
+  const levyStill = $derived.by((): Token[] => {
+    const pose = PAIR_STEPS[current].pose;
+    if (levyMoving || pose.place !== 'room' || pose.roomMode !== 'free' || !runShown) return [];
+    const n = L.room.positions.length;
+    const w = shown.wealth();
+    if (pose.levy === 1) return Array.from({ length: n }, (_, i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r: coinOf(w[i]) }));
+    if (pose.levy === 3) {
+      const heap = poolHeap();
+      return heap.spots.map((p, k) => ({ ...p, on: 1, face: k % 2 ? 'back' : 'front', r: heap.r }));
+    }
+    if (pose.levy === 4) {
+      const r = poolHeap().r;
+      return Array.from({ length: n }, (_, i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r }));
+    }
+    return [];
+  });
+  const pt = (p: { x: number; y: number }) => ({ x: p.x, y: p.y });
+  /** A share's quarter as a coin, on the room's scale. */
+  const coinOf = (share: number) => L.room.radius * Math.sqrt(Math.max(0, share) * L.room.positions.length * LEVY_RATE);
+
+  /**
+   * The levy taught on the room, a moment a step (owner, 2026-10-10): the coins
+   * appear on everyone and they shrink · they go to the pool and merge into one
+   * · it divides in place, a part for each · a part goes to each · taken in,
+   * they grow. Sizes always follow what has happened.
    */
   function roomLevy(pose: Pose, tl: Timeline): void {
     const n = L.room.positions.length;
     const R = L.room.radius;
     const w = shown.wealth();
     const mid = poolSpot();
+    const from = PAIR_STEPS[current - 1]?.pose.levy ?? 0;
+    const heap = poolHeap();
+    levyMoving = true;
     arranging = true;
+    const done = (at: number) =>
+      tl.call(
+        () => {
+          taxFx = [];
+          levyMoving = false;
+          arranging = false;
+        },
+        [],
+        at,
+      );
+    const tokens = (make: (i: number) => Token) => {
+      taxFx = Array.from({ length: n }, (_, i) => make(i));
+      return taxFx;
+    };
     if (pose.levy === 1) {
+      // a coin appears on each, its area their quarter: big coins from big shapes; they shrink as it does
       roomPool.r = 0;
-      const start = taxFx.length;
-      taxFx = [...taxFx, ...Array.from({ length: n }, (_, i): Token => ({ x: agentView(i).x, y: agentView(i).y, on: 1, face: i % 2 ? 'back' : 'front', r: 0 }))];
+      const coins = tokens((i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r: 0 }));
       for (let i = 0; i < n; i++) {
-        const coin = taxFx[start + i];
-        const at = 0.4 + (i % 20) * 0.02;
-        tl.to(coin, { r: R * Math.sqrt(w[i] * n * LEVY_RATE), duration: 0.35, ease: 'back.out(2)' }, 0.1 + (i % 20) * 0.01);
-        tl.to(coin, { x: mid.x, y: mid.y, duration: 0.7, ease: 'power2.inOut' }, at);
-        tl.to(agentView(i), { r: Math.max(0.8, R * Math.sqrt(w[i] * n * (1 - LEVY_RATE))), duration: 0.5, ease: 'power2.out' }, at);
+        tl.to(coins[i], { r: coinOf(w[i]), duration: 0.6, ease: 'back.out(1.6)' }, 0.2);
+        tl.to(agentView(i), { r: Math.max(0.8, R * Math.sqrt(w[i] * n * (1 - LEVY_RATE))), duration: 0.6, ease: 'power2.out' }, 0.2);
       }
-      tl.call(() => {
-        for (let i = 0; i < n; i++) taxFx[start + i].on = 0;
-      }, [], 1.6);
-      tl.to(roomPool, { r: poolR(), duration: 0.35, ease: 'back.out(2)' }, 1.45);
-      tl.call(() => {
-        taxFx = taxFx.filter((t) => t.on > 0);
-        arranging = false;
-      }, [], 2.0);
+      done(1.0);
       return;
     }
-    // back: the pool splits into a hundred equal coins, one for each
-    roomPool.r = poolR();
-    const start = taxFx.length;
-    taxFx = [...taxFx, ...Array.from({ length: n }, (_, k): Token => ({ x: mid.x, y: mid.y, on: 0, face: k % 2 ? 'back' : 'front', r: poolR() / Math.sqrt(n) }))];
-    tl.to(roomPool, { r: 0, duration: 0.25 }, 0.3);
-    for (let i = 0; i < n; i++) {
-      const piece = taxFx[start + i];
-      const to = agentView(i);
-      const at = 0.4 + (i % 25) * 0.012;
-      tl.set(piece, { on: 1 }, 0.3);
-      tl.to(piece, { x: to.x, y: to.y, duration: 0.7, ease: 'power2.in' }, at);
-      tl.set(piece, { on: 0 }, at + 0.7);
-      tl.to(to, { r: Math.max(0.8, R * Math.sqrt(leviedShare(w[i], 2) * n)), duration: 0.35, ease: 'back.out(2)' }, at + 0.7);
+    if (pose.levy === 2 && from === 1) {
+      // into the pool, where they become one coin: all the quarters together
+      const coins = tokens((i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r: coinOf(w[i]) }));
+      for (let i = 0; i < n; i++) tl.to(coins[i], { x: mid.x, y: mid.y, r: coinOf(w[i]) * 0.6, duration: 1.1, ease: 'power2.inOut' }, 0.1 + (i % 20) * 0.02);
+      tl.set(coins, { on: 0 }, 1.6);
+      tl.fromTo(roomPool, { r: 0 }, { r: poolR(), duration: 0.45, ease: 'back.out(2)' }, 1.4);
+      done(1.95);
+      return;
     }
-    tl.call(() => {
-      taxFx = taxFx.filter((t) => t.on > 0);
-      arranging = false;
-    }, [], 1.9);
+    if (pose.levy === 3) {
+      // the coin divides where it is, into a part for each: the same money, packed round
+      const parts = tokens((k) => ({ ...heap.spots[k], x: mid.x, y: mid.y, on: 1, face: k % 2 ? 'back' : 'front', r: heap.r }));
+      tl.to(roomPool, { r: 0, duration: 0.4 }, 0.15);
+      for (let k = 0; k < n; k++) tl.to(parts[k], { x: heap.spots[k].x, y: heap.spots[k].y, duration: 0.7, ease: 'power2.out' }, 0.15);
+      done(0.95);
+      return;
+    }
+    if (pose.levy === 4) {
+      // a part to each
+      const parts = tokens((k) => ({ ...heap.spots[k], on: 1, face: k % 2 ? 'back' : 'front', r: heap.r }));
+      for (let i = 0; i < n; i++) {
+        const to = agentView(i);
+        tl.to(parts[i], { x: to.x, y: to.y, duration: 1.1, ease: 'power2.inOut' }, 0.1 + (i % 25) * 0.02);
+      }
+      done(1.8);
+      return;
+    }
+    if (pose.levy === 5) {
+      // taken in: each grows by an equal part
+      const parts = tokens((i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r: heap.r }));
+      for (let i = 0; i < n; i++) {
+        tl.to(parts[i], { r: 0, duration: 0.45, ease: 'power2.in' }, 0.15);
+        tl.to(agentView(i), { r: Math.max(0.8, R * Math.sqrt(leviedShare(w[i], 5) * n)), duration: 0.5, ease: 'back.out(2)' }, 0.5);
+      }
+      done(1.1);
+      return;
+    }
+    done(0);
   }
 
   /** Whether the room's sizes come from a run (from the run on) rather than from the pose. */
@@ -4566,6 +4639,9 @@
         {@const pool = poolSpot()}
         <Coin cx={pool.x} cy={pool.y} r={roomPool.r} face="front" />
       {/if}
+      {#each levyStill as token, k (k)}
+        <Coin cx={token.x} cy={token.y} r={token.r ?? 1} face={token.face} />
+      {/each}
       {#each taxFx as token, k (k)}
         {#if token.on > 0 && (token.r ?? 0) > 0.2}<Coin cx={token.x} cy={token.y} r={token.r ?? 1} face={token.face} />{/if}
       {/each}
@@ -4613,7 +4689,7 @@
       <div class="dial phone deck-phone">{@render sandboxDeck(true)}</div>
     {:else if !L.column && !inPicture && PAIR_STEPS[current].pose.place === 'room' && (dialHere || (runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run')))}
       <div class="dial phone">
-        {#if runShown && shown.state.done && shown.state.frames > 1}{@render player([shown])}{/if}
+        {#if runShown}<div class="dial" class:waiting={!(shown.state.done && shown.state.frames > 1)}>{@render player([shown])}</div>{/if}
         {#if dialHere}{@render stakeDial()}{#if PAIR_STEPS[current].pose.control === 'rules'}{@render levyDial()}{/if}{/if}
       </div>
     {/if}
@@ -4802,7 +4878,15 @@
     {#if L.column && PAIR_STEPS[current].pose.place === 'room'}
       {@const col = L.column}
       {@const pose = PAIR_STEPS[current].pose}
+      {@const teaching = pose.cardOpen && pose.cardOpen !== 'rule' && pose.learned[pose.cardOpen] !== undefined ? cardFor(pose.cardOpen) : null}
       <aside class="charts" style={`left:${col.x}px; top:${col.y}px; width:${col.w}px; max-height:${col.h}px`}>
+        {#if teaching}
+          <!-- a card being taught takes the column: its lines arrive as they are told; the dials and charts wait (owner, 2026-10-10) -->
+          <section class="chart rule teach glow">
+            <h3>{teaching.title}</h3>
+            <ol>{#each teaching.lines as line, k (k)}<li>{line}</li>{/each}</ol>
+          </section>
+        {:else}
         {#if pose.control === 'tax' && game.playing && gameStep?.kind !== 'tap'}
           <section class="chart hud-chart">{@render gameHud()}</section>
         {/if}
@@ -4826,18 +4910,15 @@
             {@render sandboxDeck(false)}
           </section>
         {:else if runShown && pose.roomMode === 'matched'}
-          {#if leftRun.state.done && leftRun.state.frames > 1}
-            <section class="chart live"><div class="dial">{@render player([leftRun, rightRun])}</div></section>
-          {/if}
+          <section class="chart live"><div class="dial" class:waiting={!(leftRun.state.done && leftRun.state.frames > 1)}>{@render player([leftRun, rightRun])}</div></section>
           {#if pose.compare.length > 0}
             {@render compared(pose.compare, (L.column.w - 24) / 2)}
           {/if}
         {:else if runShown && !APART.includes(pose.roomMode)}
           <section class="chart live">
             {@render richest(shown.state)}
-            {#if shown.state.done && shown.state.frames > 1}
-              <div class="dial">{@render player([shown])}</div>
-            {/if}
+            <!-- always in its place, so nothing below it jumps while a room plays (owner, 2026-10-10) -->
+            <div class="dial" class:waiting={!(shown.state.done && shown.state.frames > 1)}>{@render player([shown])}</div>
             {#if pose.roomMode === 'line' && pose.lorenz >= 1}{@render walkSlider()}{/if}
             {#if dialHere}{@render stakeDial()}{#if PAIR_STEPS[current].pose.control === 'rules'}{@render levyDial()}{/if}{/if}
           </section>
@@ -4868,6 +4949,7 @@
               </section>
             {/each}
           </div>
+        {/if}
         {/if}
       </aside>
     {/if}
@@ -5322,6 +5404,11 @@
     block-size: 100%;
     border-radius: 2px;
     background: currentColor;
+  }
+
+  /* the time player keeps its place while a room plays: there, but not yet to be used */
+  .dial.waiting {
+    visibility: hidden;
   }
 
   .walk-slider {
