@@ -852,7 +852,8 @@
     game.playing = false;
     game.result = { won: true, count: Math.round(count) };
     const id = PAIR_STEPS[current].id;
-    roundTimer = window.setTimeout(() => current === indexOf(id) && goOn(id), stage?.reduced ? 0 : 2400);
+    // the last tap's coins land first
+    roundTimer = window.setTimeout(() => current === indexOf(id) && goOn(id), stage?.reduced ? 0 : TAX_COINS_MS + 800);
   }
 
   /** The trading round, after its count of three (or at once, played again). */
@@ -912,13 +913,21 @@
       game.taps++;
       const share = gameRun.wealth()[i] * GAME.rate;
       gameRun.take(i, GAME.rate);
-      // they pay at once and shrink; everyone else grows only as their part reaches them
-      if (!stage?.reduced) taxCoins(i, share);
-      // the first round is that one tap: seen, and the story goes on
+      // they pay at once and shrink; everyone else grows only as their part reaches them. The trading
+      // room shows only what was taken: coins there would clutter it (owner, 2026-10-10)
+      if (!stage?.reduced) {
+        if (gameStep?.kind === 'live') {
+          const v = agentView(i);
+          const id = ++rippleId;
+          taken = [...taken, { id, x: v.x, y: v.y - Math.max(v.r, 6) - 6 }];
+          window.setTimeout(() => (taken = taken.filter((q) => q.id !== id)), 1400);
+        } else taxCoins(i, share);
+      }
+      // the first round is that one tap: seen to the end, a moment to look, and the story goes on
       if (gameStep?.kind === 'tap') {
         game.playing = false;
         const id = PAIR_STEPS[current].id;
-        roundTimer = window.setTimeout(() => current === indexOf(id) && goOn(id), stage?.reduced ? 0 : 2200);
+        roundTimer = window.setTimeout(() => current === indexOf(id) && goOn(id), stage?.reduced ? 0 : TAX_COINS_MS + 1200);
       }
       return;
     }
@@ -938,6 +947,10 @@
    * arrives. A coin's area is its money, on the room's own scale.
    */
   let taxFx = $state<Token[]>([]);
+  /** How long a tap's coins take, ms: appear, divide, travel, taken in. */
+  const TAX_COINS_MS = 3600;
+  /** The trading round's taps: what a tap took, rising off the fortune. */
+  let taken = $state<{ id: number; x: number; y: number }[]>([]);
   /** Money a tap has taken that has not yet reached each person: their size waits for their part. */
   let owedTo = $state<Float64Array | null>(null);
   function taxCoins(i: number, share: number): void {
@@ -976,7 +989,7 @@
         go + 1.0,
       );
     });
-    tl.call(() => (taxFx = taxFx.filter((t) => t.on > 0)), [], 3.6);
+    tl.call(() => (taxFx = taxFx.filter((t) => t.on > 0)), [], TAX_COINS_MS / 1000);
   }
 
   /** The fortune under a finger: the circle it lands in, or the nearest within a few pixels. */
@@ -4616,6 +4629,9 @@
           {@const box = L.room.box}
           <rect class="edge" class:danger={gameState.danger} x={box.x + 2} y={box.y + 2} width={box.w - 4} height={box.h - 4} rx="18" />
         {/if}
+        {#each taken as t (t.id)}
+          <text class="taken" x={t.x} y={t.y} text-anchor="middle">{formatNumber(-GAME.rate, { style: 'percent' })}</text>
+        {/each}
         {#if game.playing && game.elapsed < 4500 && topFive.length}
           {@const v = agentView(topFive[0])}
           <circle class="pulse" cx={v.x} cy={v.y} r={Math.max(v.r, 10) + 6} />
@@ -5404,6 +5420,26 @@
     block-size: 100%;
     border-radius: 2px;
     background: currentColor;
+  }
+
+  /* what a tap takes in the trading room, rising off the fortune */
+  .taken {
+    fill: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 800;
+    animation: taken 1300ms ease-out both;
+  }
+
+  @keyframes taken {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-26px);
+    }
   }
 
   /* the time player keeps its place while a room plays: there, but not yet to be used */
