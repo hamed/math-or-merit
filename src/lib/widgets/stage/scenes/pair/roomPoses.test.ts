@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { giniCoefficient } from '$lib/research';
-import { line, piles, roundRuler, roundStep, ruler } from './roomPoses';
+import { TOTAL_R, line, piles, roundRuler, roundStep, ruler } from './roomPoses';
 
 /** A room after a run: one giant, a few middling, the rest near nothing. */
 function room(): number[] {
@@ -140,14 +140,32 @@ describe("Scene 17's imagined rooms", async () => {
   });
 });
 
+describe('the Gini line holds still through time: the same plot and the same whole circle, whatever the room', () => {
+  const box = { x: 40, y: 100, w: 840, h: 640 };
+  const equal = line(Array.from({ length: 100 }, () => 100), box, true);
+  const unequal = line(room(), box, true);
+
+  it('keeps the plot where it is, at its size', () => expect(unequal.frame).toEqual(equal.frame));
+
+  it('ends the walk on one circle of the same size, everyone\'s money together', () => {
+    expect(unequal.eaten[100]).toBeCloseTo(equal.eaten[100], 9);
+    expect(equal.eaten[100]).toBeCloseTo(TOTAL_R * equal.frame.w, 9);
+  });
+
+  it('draws the equal room\'s curve on the diagonal', () => {
+    const f = equal.frame;
+    for (const p of equal.curve) expect(f.y + f.h - p.y).toBeCloseTo(((p.x - f.x) / f.w) * f.h, 6);
+  });
+});
+
 describe('the line keeps everyone\'s size, under a square plot', () => {
   const amounts = room();
-  const radii = amounts.map((a) => 12 * Math.sqrt(a / 100));
+  const radii = amounts.map((a) => Math.sqrt(a));
   for (const [name, box, beside] of [
     ['wide', { x: 40, y: 100, w: 840, h: 640 }, true],
     ['phone', PHONE, false],
   ] as const) {
-    const pose = line(amounts, box, radii, beside);
+    const pose = line(amounts, box, beside);
 
     it(`draws the Lorenz plot square, inside the room, on a ${name} stage`, () => {
       const f = pose.frame;
@@ -161,10 +179,11 @@ describe('the line keeps everyone\'s size, under a square plot', () => {
 
     it(`stands everyone on the floor under the plot, at their own sizes scaled together, on a ${name} stage`, () => {
       const floor = box.y + box.h - 4;
-      const k = pose.radii[0] / Math.max(0.6, radii[0]);
+      const k = pose.radii[42] / radii[42];
       for (let i = 0; i < 100; i++) {
         expect(pose.spots[i].y + pose.radii[i]).toBeCloseTo(floor, 6);
-        expect(pose.radii[i] / Math.max(0.6, radii[i])).toBeCloseTo(k, 6);
+        // area is wealth, on one scale (the tiniest are kept just visible)
+        if (pose.radii[i] > 0.6) expect(pose.radii[i] / radii[i]).toBeCloseTo(k, 6);
         expect(pose.spots[i].y - pose.radii[i]).toBeGreaterThan(pose.labelY);
       }
       // each under their own stretch of the curve: the curve rises over a person
@@ -182,8 +201,7 @@ describe('the line keeps everyone\'s size, under a square plot', () => {
       // overlapping, the richest still stands inside the room
       expect(pose.spots[42].x + pose.radii[42]).toBeLessThanOrEqual(box.x + box.w);
       // the walk's circle ends as one circle holding everyone's area
-      const area = pose.radii.reduce((sum, r) => sum + r * r, 0);
-      expect(pose.eaten[100] ** 2).toBeCloseTo(area, 6);
+      expect(pose.eaten[100]).toBeCloseTo(TOTAL_R * pose.frame.w, 9);
       expect(pose.rank[42]).toBe(99);
     });
   }

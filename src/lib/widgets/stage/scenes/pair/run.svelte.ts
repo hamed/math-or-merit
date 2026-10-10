@@ -139,6 +139,16 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
     }
   });
 
+  /** Moving through the run to another moment (`travel`): from where, to where, how long, how far along. */
+  let trip = { from: 0, to: 0, ms: 0, at: 0 };
+  const traveller = createTicker((dt) => {
+    if (!recording) return;
+    trip.at += dt;
+    const p = Math.min(1, trip.at / Math.max(1, trip.ms));
+    show(Math.round(trip.from + (trip.to - trip.from) * easeInOutCubic(p)));
+    if (p >= 1) traveller.stop();
+  });
+
   function remember(): void {
     if (!recording || !options.remember) return;
     try {
@@ -246,6 +256,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
   function stopAll(): void {
     ticker.stop();
     replayer.stop();
+    traveller.stop();
     liveTicker.stop();
     live = null;
     before = null;
@@ -357,9 +368,30 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
       }
     },
     /** The time player: show the run as it stood at frame `frame`. */
+    /**
+     * The finished room moves through its own run to `frame` over `ms`, as a
+     * film rewound or wound on (owner, 2026-10-10: "red goes back in time …
+     * and show where we started"): every frame between is shown, so faces
+     * feel the way back as they felt the way there.
+     */
+    travel(frame: number, ms: number): void {
+      if (!recording || state.running || live) return;
+      replayer.stop();
+      traveller.stop();
+      state.playing = false;
+      const to = Math.max(0, Math.min(recording.frames.length - 1, Math.round(frame)));
+      if (ms <= 0 || to === state.frame) {
+        if (to !== state.frame) state.seeks++;
+        show(to);
+        return;
+      }
+      trip = { from: state.frame, to, ms, at: 0 };
+      traveller.start();
+    },
     scrub(frame: number): void {
       if (before) endLive();
       if (!recording || state.running || live) return;
+      traveller.stop();
       replayer.stop();
       state.playing = false;
       state.seeks++;

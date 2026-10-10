@@ -31,6 +31,8 @@
     NUDGE_MS,
     PAIR_STEPS,
     PRESENT_MS,
+    TIME_SECONDS,
+    WALK_SECONDS,
     REACTIONS,
     REEL,
     REEL_ANSWER,
@@ -52,7 +54,7 @@
   import { MAP_LEVIES, MAP_PARTICIPANTS, MAP_STAKES } from './outcomeMap';
   import { GAME, nextClosureDuration, type GameResult } from './taxGame';
   import { GINI_RAMP } from '../../../shared/presets';
-  import { effectiveCount, imaginedShares, line, piles, ruler, type ImaginedRoom, type Tick } from './roomPoses';
+  import { decadeBins, effectiveCount, histogramMarker, imaginedShares, line, piles, ruler, type ImaginedRoom, type Tick } from './roomPoses';
   import { toDollars } from '../../../distribution/binning';
   import Histogram from '../../../sandbox/Histogram.svelte';
   import LorenzPlot from '../../../sandbox/LorenzPlot.svelte';
@@ -92,7 +94,7 @@
     type BetId,
     type PredictionId,
   } from '../../../shared/runLog.svelte';
-  import { START_DOLLARS } from '../../../shared/presets';
+  import { DUST_DOLLARS, START_DOLLARS } from '../../../shared/presets';
   import { loadTuning, runSettings, tuning } from './tuning.svelte';
   import DebugPanel from './DebugPanel.svelte';
   import { collectStats, frontPageFor } from '../../../sandbox/newsroom';
@@ -399,7 +401,7 @@
 
   /** Draw a pose at once. */
   function draw(pose: Pose): void {
-    view.lorenzDraw = pose.roomMode === 'line' && pose.lorenz >= 1 ? 1 : 0;
+    view.lorenzDraw = pose.roomMode === 'line' && pose.curve ? 1 : 0;
     const t = target(pose);
     view.type = t.type;
     view.meritOn = t.meritOn;
@@ -429,7 +431,7 @@
     people(pose).forEach((p, i) => Object.assign(view.people[i], p));
     roomPeople(pose).forEach((p, i) => Object.assign(view.room[i], p));
     view.ticks = Object.fromEntries(ticksFor(pose.roomMode).map((t) => [t.key, { x: t.x, alpha: t.shown ? 1 : 0 }]));
-    view.lorenzDraw = pose.roomMode === 'line' && pose.lorenz >= 1 ? 1 : 0;
+    view.lorenzDraw = pose.roomMode === 'line' && pose.curve ? 1 : 0;
     view.turnDraw = pose.roomMode === 'turnover' ? 1 : 0;
     view.mirrorOn = pose.roomMode === 'matched' ? 1 : 0;
     view.mirrorShift = 1;
@@ -610,6 +612,13 @@
     if (entering !== 'run') {
       if (pose.ran) run.ended();
       else run.clear();
+    }
+    // the room at the moment of its run the step stands at (`\\time`): set on a jump, or where the
+    // script moves it; a reader's own scrubbing within a stretch is left alone. A step that moves it
+    // starts from where the step before stood.
+    if (pose.ran && entering !== 'run' && run.state.done && (!animate || PAIR_STEPS[index - 1]?.pose.time !== pose.time)) {
+      const at = entering === 'time' ? (PAIR_STEPS[index - 1]?.pose.time ?? 'end') : pose.time;
+      run.travel(frameOf(at), 0);
     }
     // the game ends when the reader leaves its step: nothing is locked behind winning
     if (step.id !== 'stop.how') stopCountdown();
@@ -895,6 +904,26 @@
     }
   });
 
+  /**
+   * What a line points at, lit by its own natural mark (owner, 2026-10-10: "use
+   * its natural thing, for example lines surrounding a bin, the shade or the
+   * line surrounding the gini area"): a bin's outline, the diagonal, the gap,
+   * the pool. A person outside the histograms has no such mark: a ring.
+   */
+  const lit = $derived.by(() => {
+    const pose = PAIR_STEPS[current].pose;
+    const p = pose.point;
+    if (!p || arranging || hushed) return null;
+    const hist = pose.roomMode === 'piles' ? pilesPose : pose.roomMode === 'ruler' ? rulerPose : null;
+    if (hist) {
+      const who = p === 'blue' ? L.room.blue : p === 'red' ? L.room.red : p === 'richest' ? (topFive[0] ?? -1) : -1;
+      if (p === 'dust' && pose.roomMode === 'ruler') return { bin: 0 };
+      if (who >= 0) return { bin: hist.pileOf[who] };
+    }
+    if (p === 'diagonal' || p === 'gap' || p === 'pool') return { mark: p };
+    return { ring: true };
+  });
+
   /** Where a tap lands: the game, or the reader's machine. */
   const tapping = $derived((game.playing && current === indexOf('stop.how')) || PAIR_STEPS[current].pose.control === 'sandbox');
 
@@ -1108,9 +1137,28 @@
     void shown.state.revision;
     return toDollars(shown.wealth(), START_DOLLARS);
   });
-  const pilesPose = $derived(piles(amounts, L.room.box));
-  const rulerPose = $derived(ruler(amounts, L.room.box));
-  const linePose = $derived(line(amounts, L.room.box, amounts.map((_, i) => roomR(i)), L.column !== null));
+  /**
+   * The histograms hold still while the room moves through time (owner,
+   * 2026-10-10: "when going back in time, don't change x of histogram"): each
+   * ruler ends where the whole run needs it to, and everyone keeps one marker
+   * size on both rulers.
+   */
+  const histFix = $derived.by(() => {
+    void shown.state.frames;
+    const rec = shown.recording();
+    const n = L.room.positions.length;
+    let most = 1 / n;
+    if (rec && (shown.state.running || shown.state.done)) for (const f of rec.frames) for (let i = 0; i < f.length; i++) most = Math.max(most, f[i]);
+    const linear = most * n * START_DOLLARS;
+    const logTop = 10 ** Math.ceil(Math.log10(Math.max(n * START_DOLLARS, DUST_DOLLARS * 10) / DUST_DOLLARS) - 1e-9) * DUST_DOLLARS;
+    return { linear, logTop, marker: histogramMarker(n, L.room.box, logTop) };
+  });
+  const pilesPose = $derived(piles(amounts, L.room.box, { top: histFix.linear, marker: histFix.marker }));
+  /** A room's histogram, binned as the room's multiplying ruler bins it: the plot beside the room shows the same bars. */
+  const binsOf = (w: ArrayLike<number>) => decadeBins(toDollars(w, START_DOLLARS), histFix.logTop);
+  const rulerPose = $derived(ruler(amounts, L.room.box, { top: histFix.logTop, marker: histFix.marker }));
+  // on a phone the Gini scene's two sliders sit at the foot: the line stands above them
+  const linePose = $derived(line(amounts, L.column ? L.room.box : { ...L.room.box, h: L.room.box.h - 96 }, L.column !== null));
   const metrics = $derived.by(() => {
     void shown.state.revision;
     return measureWealth(shown.wealth());
@@ -1279,7 +1327,8 @@
         return at(rulerPose.spots[i].x, rulerPose.spots[i].y, rulerPose.marker);
       case 'line':
         // the walk's circle eats everyone it has added up (owner review 2026-09-26)
-        return at(linePose.spots[i].x, linePose.spots[i].y, linePose.radii[i], linePose.rank[i] < walker.k ? 0 : 1);
+        // added up, they stay, pale, at their own size: the walk does not take them away (owner, 2026-10-10)
+        return at(linePose.spots[i].x, linePose.spots[i].y, linePose.radii[i], linePose.rank[i] < walker.k ? 0.2 : 1);
       case 'equal':
       case 'zero':
       case 'half':
@@ -1421,7 +1470,30 @@
 
   /** Scene 16: walking along the line, the money is added up, poorest first, and each point plotted. */
   function walk(tl: Timeline): void {
-    tl.fromTo(view, { lorenzDraw: 0 }, { lorenzDraw: 1, duration: 4.2, ease: 'none' });
+    tl.fromTo(view, { lorenzDraw: 0 }, { lorenzDraw: 1, duration: WALK_SECONDS, ease: 'none' });
+  }
+
+  /** Frames by the moment the script names (`\\time`): the first frame at or past a Gini, found once per run. */
+  const giniFrames = new Map<string, number>();
+  function frameOf(time: string): number {
+    const rec = run.recording();
+    if (!rec) return 0;
+    const last = rec.frames.length - 1;
+    if (time === 'start') return 0;
+    if (time === 'end') return last;
+    const want = Number(time.split('=')[1]);
+    const key = `${rec.seed}:${rec.frames.length}:${want}`;
+    let found = giniFrames.get(key);
+    if (found === undefined) {
+      found = last;
+      for (let f = 0; f <= last; f++)
+        if (measureWealth(rec.frames[f]).gini >= want) {
+          found = f;
+          break;
+        }
+      giniFrames.set(key, found);
+    }
+    return found;
   }
 
   /** How far along the line the walk has come: the running total, and its point. */
@@ -2433,6 +2505,14 @@
         return;
       case 'walk':
         walk(tl);
+        return;
+      case 'unwalk':
+        // exactly the walk, in reverse
+        tl.to(view, { lorenzDraw: 0, duration: WALK_SECONDS, ease: 'none' });
+        return;
+      case 'time':
+        tweenTo(pose, tl, 0, 0.6);
+        tl.call(() => run.travel(frameOf(pose.time), TIME_SECONDS * 1000), [], 0.1);
         return;
       case 'dial':
         // everyone equal again, then a fresh room at the dial's stake
@@ -3578,7 +3658,7 @@
 
 {#snippet histogramPicture()}
   <div class="card-plot">
-    <Histogram wealth={shown.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={shown.state.revision} startDollars={START_DOLLARS} />
+    <Histogram wealth={shown.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={shown.state.revision} startDollars={START_DOLLARS} bins={binsOf(shown.wealth())} />
   </div>
 {/snippet}
 
@@ -3600,6 +3680,24 @@
       yLabel={say('turn_axis_short')}
     />
   </div>
+{/snippet}
+
+{#snippet walkSlider()}
+  <!-- the walk, as far as the reader wants it: the second of the Gini scene's two motions (owner, 2026-10-10) -->
+  <label class="walk-slider">
+    <span>{say('gini_walk')}</span>
+    <input
+      type="range"
+      min="0"
+      max="1"
+      step="0.01"
+      value={view.lorenzDraw}
+      oninput={(e) => {
+        gsap.killTweensOf(view, 'lorenzDraw');
+        view.lorenzDraw = Number((e.currentTarget as HTMLInputElement).value);
+      }}
+    />
+  </label>
 {/snippet}
 
 {#snippet player(runs: Run[])}
@@ -3636,7 +3734,7 @@
           {#each [leftRun, rightRun] as r, side (side)}
             <div class="plot">
               {#if measure === 'histogram'}
-                <Histogram wealth={r.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={r.state.revision} startDollars={START_DOLLARS} />
+                <Histogram wealth={r.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={r.state.revision} startDollars={START_DOLLARS} bins={binsOf(r.wealth())} />
               {:else if measure === 'gini'}
                 <LorenzPlot wealth={r.wealth()} gini={matchMetrics[side].gini} revision={r.state.revision} />
               {:else if measure === 'participants'}
@@ -4004,6 +4102,17 @@
             {/each}
           </g>
         {/if}
+        {#if (pose.roomMode === 'piles' || pose.roomMode === 'ruler') && !arranging}
+          {@const hist = pose.roomMode === 'piles' ? pilesPose : rulerPose}
+          <!-- every bin in a faint dashed line; the one a line is about, stronger -->
+          <g class="bins">
+            {#each hist.piles as pile, b (b)}
+              {#if pile.count > 0}
+                <rect class="bin" class:lit={lit && 'bin' in lit && lit.bin === b} x={pile.x0 + 3} y={pile.top + 2} width={pile.x1 - pile.x0 - 6} height={hist.axisY - pile.top - 2} rx="6" />
+              {/if}
+            {/each}
+          </g>
+        {/if}
         {#if pose.roomMode === 'piles' && !arranging}
           <g class="counts">
             {#each pilesPose.piles as pile, b (b)}
@@ -4015,7 +4124,6 @@
         {/if}
         {#if pose.roomMode === 'ruler' && !arranging && rulerPose.dust.count > 0}
           <g class="dust">
-            <rect x={rulerPose.dust.x} y={rulerPose.dust.y} width={rulerPose.dust.w} height={rulerPose.dust.h} rx="5" />
             <text x={rulerPose.dust.x + rulerPose.dust.w / 2} y={rulerPose.dust.y - 6} text-anchor="middle">
               {`< ${formatNumber(0.01, { style: 'currency', currency: 'USD' })}: ${formatNumber(rulerPose.dust.count)}`}
             </text>
@@ -4033,7 +4141,7 @@
             />
           </g>
         {/if}
-        {#if pose.roomMode === 'line' && view.lorenzDraw > 0}
+        {#if pose.roomMode === 'line' && (view.lorenzDraw > 0 || pose.lorenz >= 2)}
           <!-- drawn exactly as far as the walk has added up: its tip is the running total (owner, 2026-10-09) -->
           {@const drawn = view.lorenzDraw >= 1 ? linePose.curve : linePose.curve.slice(0, walker.k + 1)}
           {@const curve = drawn.map((p, k) => `${k ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')}
@@ -4042,6 +4150,7 @@
               {@const [d0, d1] = linePose.diagonal}
               <path
                 class="gap"
+                class:lit={lit && 'mark' in lit && lit.mark === 'gap'}
                 d={`M${d0.x} ${d0.y} L${d1.x} ${d1.y} ${linePose.curve
                   .slice()
                   .reverse()
@@ -4050,9 +4159,9 @@
               />
             {/if}
             {#if pose.lorenz >= 2}
-              <line class="diagonal" x1={linePose.diagonal[0].x} y1={linePose.diagonal[0].y} x2={linePose.diagonal[1].x} y2={linePose.diagonal[1].y} />
+              <line class="diagonal" class:lit={lit && 'mark' in lit && lit.mark === 'diagonal'} x1={linePose.diagonal[0].x} y1={linePose.diagonal[0].y} x2={linePose.diagonal[1].x} y2={linePose.diagonal[1].y} />
             {/if}
-            <path class="curve" d={curve} />
+            {#if view.lorenzDraw > 0}<path class="curve" d={curve} />{/if}
             {#if pose.lorenz >= 3}
               <text class="gini" x={linePose.frame.x + linePose.frame.w * 0.06} y={linePose.frame.y + linePose.frame.h * 0.12}>
                 {`Gini ${formatNumber(metrics.gini, { maximumFractionDigits: 2 })}`}
@@ -4093,7 +4202,7 @@
         {/if}
         {#if mode === 'levy4' && !arranging}
           {@const pool = poolSpot()}
-          <g class="pool" transform={`translate(${pool.x.toFixed(1)} ${pool.y.toFixed(1)})`}>
+          <g class="pool" class:lit={lit && 'mark' in lit && lit.mark === 'pool'} transform={`translate(${pool.x.toFixed(1)} ${pool.y.toFixed(1)})`}>
             <circle r={L.radius(8) + 4} />
             {#each pile(levyView.pool, L.coinRadius, L.radius(8)) as c, j (j)}
               <Coin cx={c.x} cy={c.y} r={L.coinRadius} face={j % 2 ? 'back' : 'front'} />
@@ -4129,7 +4238,7 @@
         {/if}
       {/if}
 
-      {#if pointed}
+      {#if pointed && lit && 'ring' in lit}
         <ellipse class="point-ring" cx={pointed.x} cy={pointed.y} rx={pointed.r} ry={pointed.ry ?? pointed.r} />
       {/if}
 
@@ -4220,6 +4329,14 @@
     {#if !L.column && PAIR_STEPS[current].pose.control === 'tax' && game.playing}
       <!-- on a phone, a bar across the foot of the stage: out of the room's top, never clipped -->
       <div class="hud-bar" style={`left:12px; top:${height - 74}px; width:${width - 24}px`}>{@render gameHud()}</div>
+    {/if}
+
+    {#if !L.column && PAIR_STEPS[current].pose.roomMode === 'line' && PAIR_STEPS[current].pose.lorenz >= 1 && runShown && shown.state.done}
+      <!-- on a phone, the Gini scene's two motions at the foot: the room's time, and the walk -->
+      <div class="hud-bar gini-rail" style={`left:12px; top:${height - 92}px; width:${width - 24}px`} data-control>
+        {@render player([shown])}
+        {@render walkSlider()}
+      </div>
     {/if}
 
     {#if game.counting > 0 && current === indexOf('stop.how')}
@@ -4430,6 +4547,7 @@
             {#if shown.state.done && shown.state.frames > 1}
               <div class="dial">{@render player([shown])}</div>
             {/if}
+            {#if pose.roomMode === 'line' && pose.lorenz >= 1}{@render walkSlider()}{/if}
             {#if dialHere}{@render stakeDial()}{/if}
           </section>
         {/if}
@@ -4439,7 +4557,7 @@
             {#each pose.thumbs as thumb (thumb)}
               <section class="plot" aria-label={say(`card_${thumb}_title`)}>
                 {#if thumb === 'histogram'}
-                  <Histogram wealth={shown.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={shown.state.revision} startDollars={START_DOLLARS} />
+                  <Histogram wealth={shown.wealth()} totalDollars={ROOM_TOTAL_DOLLARS} n={100} revision={shown.state.revision} startDollars={START_DOLLARS} bins={binsOf(shown.wealth())} />
                 {:else if thumb === 'gini'}
                   <LorenzPlot wealth={shown.wealth()} gini={metrics.gini} revision={shown.state.revision} />
                 {:else if thumb === 'participants'}
@@ -4603,10 +4721,37 @@
     font-weight: 700;
   }
 
-  .dust rect {
+  /* a bin: a faint dashed line, drawn by hand like the bubbles; lit when a line is about it */
+  .bin {
     fill: none;
-    stroke: var(--line);
-    stroke-dasharray: 3 3;
+    stroke: var(--ink-soft);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+    opacity: 0.45;
+    transition: opacity 300ms ease, stroke-width 300ms ease;
+  }
+
+  .bin.lit {
+    stroke: var(--accent);
+    stroke-width: 2.2;
+    opacity: 1;
+  }
+
+  .lorenz .diagonal.lit {
+    stroke: var(--accent);
+    stroke-width: 2.4;
+  }
+
+  .lorenz .gap.lit {
+    fill: rgb(139 63 43 / 24%);
+    stroke: var(--accent);
+    stroke-width: 1.6;
+    stroke-dasharray: 5 4;
+  }
+
+  .pool.lit circle {
+    stroke: var(--accent);
+    stroke-width: 2.4;
   }
 
   .lorenz .curve {
@@ -4852,6 +4997,26 @@
     block-size: 100%;
     border-radius: 2px;
     background: currentColor;
+  }
+
+  .walk-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-block-start: 0.4rem;
+    color: var(--ink-mid);
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+  }
+
+  .walk-slider input {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+
+  .gini-rail {
+    display: grid;
+    gap: 0.2rem;
   }
 
   .hud-bar {

@@ -58,6 +58,12 @@ export interface RulerPose {
   readonly marker: number;
   readonly ticks: readonly Tick[];
   readonly axisY: number;
+  /** Its bins, the dust box first, then one a decade: the same bins the charts column draws. */
+  readonly piles: readonly Pile[];
+  readonly pileOf: readonly number[];
+  /** The bins' edges in dollars: the dust bin from a tenth of a cent, then decade by decade to `top`. */
+  readonly edges: readonly number[];
+  readonly top: number;
   readonly dust: { readonly x: number; readonly y: number; readonly w: number; readonly h: number; readonly count: number };
 }
 
@@ -134,39 +140,65 @@ function fitMarker(counts: readonly number[], width: number, height: number, mos
   return { r, perRow: Math.max(1, Math.floor((width - 6) / (2 * r + MARKER_GAP))) };
 }
 
-export function piles(amounts: ArrayLike<number>, box: Box, bins = 8, most = 12): PilesPose {
-  const n = amounts.length;
-  let max = 0;
-  for (let i = 0; i < n; i++) max = Math.max(max, amounts[i]);
-  const { top, step } = roundRuler(max);
-  const width = top / bins;
+/** What fixes a histogram while the room moves through time: its ruler's end, and everyone's one marker size. */
+export interface HistogramFix {
+  readonly top?: number;
+  readonly marker?: number;
+}
+
+/** The ordinary ruler's bins. */
+export const LINEAR_BINS = 8;
+
+/**
+ * The one marker both rulers use, whatever the moment (owner, 2026-10-10:
+ * "when moving from linear to log scale, the size of shapes changes. that is
+ * wrong"): big enough to see, small enough that all `n` fit in one bin of
+ * either ruler — as they do at the start, everyone equal.
+ */
+export function histogramMarker(n: number, box: Box, logTop: number, most = 12): number {
   const axisY = box.y + box.h - 22;
-  const colW = box.w / bins;
-  const pileOf = Array.from({ length: n }, (_, i) => Math.min(bins - 1, Math.floor(amounts[i] / width)));
-  const counts = new Array<number>(bins).fill(0);
-  for (const b of pileOf) counts[b]++;
-  const { r, perRow } = fitMarker(counts, colW, (axisY - box.y) * 0.82, most);
+  const logBins = Math.max(1, Math.round(Math.log10(logTop / DUST_DOLLARS))) + 1;
+  const narrowest = Math.min(box.w / LINEAR_BINS, (box.w - DUST_GAP) / logBins);
+  return fitMarker([n], narrowest, (axisY - box.y) * 0.82, most).r;
+}
+
+/** Everyone into their bin, poorest first, rows filling up from the ruler: where each stands, and each bin's top. */
+function stackBins(amounts: ArrayLike<number>, binOf: readonly number[], x0s: readonly number[], x1s: readonly number[], r: number, axisY: number): { spots: Point[]; piles: Pile[] } {
+  const n = amounts.length;
   const cell = 2 * r + MARKER_GAP;
+  const bins = x0s.length;
+  const counts = new Array<number>(bins).fill(0);
+  for (const b of binOf) counts[b]++;
+  const perRow = x0s.map((x0, b) => Math.max(1, Math.floor((x1s[b] - x0 - 6) / cell)));
   const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => amounts[a] - amounts[b] || a - b);
   const seen = new Array<number>(bins).fill(0);
   const spots = new Array<Point>(n);
   for (const i of order) {
-    const b = pileOf[i];
+    const b = binOf[i];
     const slot = seen[b]++;
-    const row = Math.floor(slot / perRow);
-    const inRow = Math.min(perRow, counts[b] - row * perRow);
-    const col = slot % perRow;
-    spots[i] = {
-      x: box.x + b * colW + colW / 2 + (col - (inRow - 1) / 2) * cell,
-      y: axisY - r - 2 - row * cell,
-    };
+    const row = Math.floor(slot / perRow[b]);
+    const inRow = Math.min(perRow[b], counts[b] - row * perRow[b]);
+    const col = slot % perRow[b];
+    spots[i] = { x: (x0s[b] + x1s[b]) / 2 + (col - (inRow - 1) / 2) * cell, y: axisY - r - 2 - row * cell };
   }
-  const piles = counts.map((count, b) => ({
-    x0: box.x + b * colW,
-    x1: box.x + (b + 1) * colW,
-    count,
-    top: axisY - 2 - Math.ceil(count / perRow) * cell - 8,
-  }));
+  const piles = counts.map((count, b) => ({ x0: x0s[b], x1: x1s[b], count, top: axisY - 2 - Math.ceil(count / perRow[b]) * cell - 8 }));
+  return { spots, piles };
+}
+
+export function piles(amounts: ArrayLike<number>, box: Box, fix: HistogramFix = {}, bins = LINEAR_BINS, most = 12): PilesPose {
+  const n = amounts.length;
+  let max = 0;
+  for (let i = 0; i < n; i++) max = Math.max(max, amounts[i]);
+  const { top, step } = roundRuler(fix.top ?? max);
+  const width = top / bins;
+  const axisY = box.y + box.h - 22;
+  const colW = box.w / bins;
+  const pileOf = Array.from({ length: n }, (_, i) => Math.max(0, Math.min(bins - 1, Math.floor(amounts[i] / width))));
+  const counts = new Array<number>(bins).fill(0);
+  for (const b of pileOf) counts[b]++;
+  const r = fix.marker ?? fitMarker(counts, colW, (axisY - box.y) * 0.82, most).r;
+  const x0s = counts.map((_, b) => box.x + b * colW);
+  const { spots, piles } = stackBins(amounts, pileOf, x0s, x0s.map((x) => x + colW), r, axisY);
   const xOf = (value: number) => (value <= top * 1.0001 ? box.x + (value / top) * box.w : null);
   const fixed: RulerLabel[] = [];
   for (let k = 0, v = 0; v <= top + 1e-9; k++, v = k * step) {
@@ -175,105 +207,103 @@ export function piles(amounts: ArrayLike<number>, box: Box, bins = 8, most = 12)
   return { spots, marker: r, piles, ticks: decadeTicks(top, xOf, fixed), axisY, top, pileOf };
 }
 
-export function ruler(amounts: ArrayLike<number>, box: Box, most = 7): RulerPose {
+/**
+ * The multiplying ruler's bins, wherever they are drawn (the room's stacks and
+ * every histogram beside it count alike): everything under a cent in the
+ * dust bin, then one bin a decade up to `top`.
+ */
+export function decadeBins(amounts: ArrayLike<number>, top: number): { edges: number[]; counts: number[]; binOf: number[] } {
+  const decades = Math.max(1, Math.round(Math.log10(top / DUST_DOLLARS)));
+  const binOf = Array.from({ length: amounts.length }, (_, i) =>
+    amounts[i] < DUST_DOLLARS ? 0 : 1 + Math.max(0, Math.min(decades - 1, Math.floor(Math.log10(amounts[i] / DUST_DOLLARS) + 1e-9))),
+  );
+  const counts = new Array<number>(decades + 1).fill(0);
+  for (const b of binOf) counts[b]++;
+  return { edges: [DUST_DOLLARS / 10, ...Array.from({ length: decades + 1 }, (_, k) => DUST_DOLLARS * 10 ** k)], counts, binOf };
+}
+
+/** Between the dust box and the multiplying ruler. */
+const DUST_GAP = 14;
+
+/**
+ * The multiplying ruler, binned like the ordinary one (owner, 2026-10-10: "the
+ * bins in log scale has problem"): under a cent in the dust box, then one bin a
+ * decade, all as wide as each other, everyone stacked in their own. With `fix`,
+ * the ruler's end and the marker hold still while the room moves in time.
+ */
+export function ruler(amounts: ArrayLike<number>, box: Box, fix: HistogramFix = {}, most = 7): RulerPose {
   const n = amounts.length;
   let max = DUST_DOLLARS * 10;
   for (let i = 0; i < n; i++) max = Math.max(max, amounts[i]);
-  const top = 10 ** Math.ceil(Math.log10(max / DUST_DOLLARS) - 1e-9) * DUST_DOLLARS;
+  const top = fix.top ?? 10 ** Math.ceil(Math.log10(max / DUST_DOLLARS) - 1e-9) * DUST_DOLLARS;
+  const decades = Math.max(1, Math.round(Math.log10(top / DUST_DOLLARS)));
   const axisY = box.y + box.h - 22;
-  const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => amounts[a] - amounts[b] || a - b);
-  const dustCount = order.filter((i) => amounts[i] < DUST_DOLLARS).length;
-
-  for (let r = most; r > 1.2; r -= 0.25) {
-    const cell = 2 * r + MARKER_GAP;
-    const dustCols = 5;
-    const dustW = dustCols * cell + 10;
-    const x0 = box.x + dustW + 18;
-    const w = box.w - (x0 - box.x) - 10;
-    const xOf = (value: number) =>
-      value < DUST_DOLLARS ? null : x0 + (Math.log10(value / DUST_DOLLARS) / Math.log10(top / DUST_DOLLARS)) * w;
-    const stacks = new Map<number, number>();
-    const spots = new Array<Point>(n);
-    let dustSeen = 0;
-    let tallest = 0;
-    for (const i of order) {
-      const x = xOf(amounts[i]);
-      if (x === null) {
-        const slot = dustSeen++;
-        spots[i] = { x: box.x + 5 + r + (slot % dustCols) * cell, y: axisY - r - 2 - Math.floor(slot / dustCols) * cell };
-        tallest = Math.max(tallest, Math.floor(slot / dustCols) + 1);
-        continue;
-      }
-      const column = Math.round(x / cell);
-      const level = stacks.get(column) ?? 0;
-      stacks.set(column, level + 1);
-      tallest = Math.max(tallest, level + 1);
-      spots[i] = { x: column * cell, y: axisY - r - 2 - level * cell };
-    }
-    if (tallest * cell > (axisY - box.y) * 0.82 && r > 1.5) continue;
-    const dustRows = Math.ceil(dustCount / dustCols);
-    return {
-      spots,
-      marker: r,
-      ticks: decadeTicks(top, xOf, []),
-      axisY,
-      dust: { x: box.x, y: axisY - dustRows * cell - 8, w: dustW, h: dustRows * cell + 8, count: dustCount },
-    };
-  }
-  throw new Error('unreachable: the smallest marker always fits');
+  const colW = (box.w - DUST_GAP) / (decades + 1);
+  const start = box.x + colW + DUST_GAP;
+  const xOf = (value: number) => (value < DUST_DOLLARS ? null : start + (Math.log10(value / DUST_DOLLARS) / decades) * (box.x + box.w - start));
+  const { edges, counts, binOf } = decadeBins(amounts, top);
+  const x0s = [box.x, ...Array.from({ length: decades }, (_, k) => start + k * colW)];
+  const x1s = x0s.map((x) => x + colW);
+  const r = fix.marker ?? fitMarker(counts, colW, (axisY - box.y) * 0.82, most).r;
+  const { spots, piles } = stackBins(amounts, binOf, x0s, x1s, r, axisY);
+  const dust = piles[0];
+  return {
+    spots,
+    marker: r,
+    ticks: decadeTicks(top, xOf, []),
+    axisY,
+    dust: { x: dust.x0, y: dust.top, w: dust.x1 - dust.x0, h: axisY - dust.top, count: dust.count },
+    piles,
+    pileOf: binOf,
+    edges,
+    top,
+  };
 }
+
+/** The walk's whole circle, as a share of the plot's side: everyone's money in one, whatever the moment. */
+export const TOTAL_R = 0.11;
 
 /**
  * Everyone in a line, poorest first, under a square Lorenz plot (owner review
- * 2026-09-26: "the gini plot should be square, with proper axes"; the running
- * total must not eat the line). With `radii`, everyone keeps their own size —
- * all scaled by one factor, so area is still wealth — side by side on the
- * floor, as wide as the plot. With `beside`, the plot leaves the far side of
- * the box free (the talk goes there); without, it takes the width it can.
+ * 2026-09-26: "the gini plot should be square, with proper axes"). Everyone
+ * keeps their own size — area is wealth, on one scale fixed by the plot, so
+ * all the money together is always a circle of `TOTAL_R` of its side (owner,
+ * 2026-10-10: "the big cumsum circle always must have the same size"). The
+ * plot's place and size depend on the box alone, never on the room, so it
+ * holds still while the room moves through time: only the curve changes. Each
+ * stands under their own stretch of the curve, the k-th poorest at the middle
+ * of the k-th hundredth, overlapping where they must. With `beside`, the plot
+ * leaves the far side of the box free (the talk goes there).
  */
-export function line(amounts: ArrayLike<number>, box: Box, radii?: ArrayLike<number>, beside = false): LinePose {
+export function line(amounts: ArrayLike<number>, box: Box, beside = false): LinePose {
   const n = amounts.length;
   const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => amounts[a] - amounts[b] || a - b);
-  const GAP = 0.8;
   /** Room for the plot's own labels: the money axis on the left, the ticks and the population label below. */
   const LEFT = 56;
   const BELOW = 44;
-  const own = (i: number) => (radii ? Math.max(0.6, radii[i]) : 1);
-  const diameters = order.reduce((sum, i) => sum + 2 * own(i), 0);
-  const biggest = Math.max(...order.map(own));
-  // the largest square that leaves room under it for the row it scales, and
-  // room past its right edge for the richest, who stands at its very end
-  const most = Math.max(40, Math.min((box.w - LEFT - 8) / 1.15, beside ? box.w * 0.55 : Infinity));
+  // the largest square that leaves room under it for a row as tall as everyone
+  // together, and room past its right edge for the richest, who stands at its end
+  const most = Math.max(40, Math.min((box.w - LEFT - 8) / (1 + TOTAL_R), beside ? box.w * 0.55 : Infinity));
   let side = most;
-  let scale = 1;
-  for (; side > 40; side -= 2) {
-    scale = Math.min(Math.max(0.05, side - n * GAP) / diameters, (side * 0.28) / (2 * biggest));
-    if (!radii) scale = Math.min(6, side / n / 2 - GAP / 2);
-    const row = radii ? 2 * biggest * scale : 2 * scale;
-    if (side + BELOW + 10 + row + 4 <= box.h) break;
-  }
-  const r = (i: number) => (radii ? own(i) * scale : scale);
+  for (; side > 40; side -= 2) if (side + BELOW + 10 + 2 * TOTAL_R * side + 4 <= box.h) break;
+  const R = TOTAL_R * side;
+  let total = 0;
+  for (let i = 0; i < n; i++) total += Math.max(0, amounts[i]);
+  const r = (i: number) => Math.max(0.6, R * Math.sqrt(total > 0 ? Math.max(0, amounts[i]) / total : 1 / n));
   const floor = box.y + box.h - 4;
-  const tallest = Math.max(...order.map(r));
-  const frame = { x: box.x + LEFT, y: floor - 2 * tallest - 10 - BELOW - side, w: side, h: side };
-  // each stands under their own stretch of the curve, the k-th poorest at the
-  // middle of the k-th hundredth, overlapping where they must (owner,
-  // 2026-10-09: "located actually to what x shows … the curve develops exactly
-  // as we make the cumsum")
+  const frame = { x: box.x + LEFT, y: floor - 2 * R - 10 - BELOW - side, w: side, h: side };
   const spots = new Array<Point>(n);
   order.forEach((i, rank) => (spots[i] = { x: frame.x + ((rank + 0.5) / n) * side, y: floor - r(i) }));
-  let total = 0;
-  for (let i = 0; i < n; i++) total += amounts[i];
   const curve: Point[] = [{ x: frame.x, y: frame.y + frame.h }];
   let running = 0;
   order.forEach((i, rank) => {
-    running += amounts[i];
+    running += Math.max(0, amounts[i]);
     curve.push({ x: frame.x + ((rank + 1) / n) * frame.w, y: frame.y + frame.h - (total > 0 ? running / total : 0) * frame.h });
   });
   return {
     spots,
     radii: Array.from({ length: n }, (_, i) => r(i)),
-    marker: scale,
+    marker: R / Math.sqrt(n),
     frame,
     curve,
     diagonal: [
@@ -282,10 +312,14 @@ export function line(amounts: ArrayLike<number>, box: Box, radii?: ArrayLike<num
     ],
     order,
     rank: order.reduce((out, i, k) => ((out[i] = k), out), new Array<number>(n)),
-    eaten: order.reduce((out, i) => (out.push(Math.sqrt(out[out.length - 1] ** 2 + r(i) ** 2)), out), [0]),
+    // the running total as a circle: its area is everyone's so far, and all of it is R
+    eaten: [0, ...order.map((_, k) => R * Math.sqrt(curveShare(curve, k + 1, frame)))],
     labelY: frame.y + frame.h + BELOW - 8,
   };
 }
+
+/** The running total's share after the first k, read off the curve. */
+const curveShare = (curve: readonly Point[], k: number, frame: Box) => (frame.y + frame.h - curve[k].y) / frame.h;
 
 /** 1 / Σ s², for shares of any total: how many equal fortunes would be as concentrated. */
 export function effectiveCount(shares: ArrayLike<number>): number {

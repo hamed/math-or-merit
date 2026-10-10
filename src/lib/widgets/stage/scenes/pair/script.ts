@@ -80,6 +80,14 @@ export interface Pose {
   readonly roomMode: RoomMode;
   /** How much of the Lorenz picture is drawn: 0 none · 1 the curve · 2 and the diagonal · 3 and the gap. */
   readonly lorenz: 0 | 1 | 2 | 3;
+  /** The running total's curve is drawn (walked); undone, the diagonal and the plot stay. */
+  readonly curve: boolean;
+  /**
+   * Where in its run the room stands (`\\time`, owner 2026-10-10): `start`,
+   * `end`, or `gini=0.5` (the first moment its Gini reaches 0.5). The
+   * histograms and the Gini plot hold still; only the room moves.
+   */
+  readonly time: string;
   /** Small pictures of concepts already built, in the side rail (brief 5.3). */
   readonly thumbs: readonly string[];
   /**
@@ -148,6 +156,8 @@ export type Action =
   | 'run'
   | 'arrange'
   | 'walk'
+  | 'unwalk'
+  | 'time'
   | 'dial'
   | 'game'
   | 'coins'
@@ -231,6 +241,8 @@ export const START: Pose = {
   ran: false,
   roomMode: 'free',
   lorenz: 0,
+  curve: false,
+  time: 'end',
   thumbs: [],
   compare: [],
   source: 'run',
@@ -263,6 +275,10 @@ export function levyLesson(stage: 0 | 1 | 2): { coins: number[]; pool: number } 
 export const RAIN_WAIT_MS = Math.round(RAIN_SECONDS * 1000);
 /** The decider's first showing: plain, then in its colours, turning slowly so both faces are seen, at rest on Marx (PairScene `present`). */
 export const PRESENT_MS = 3600;
+/** The walk along the line, adding up as it goes, and its undoing, seconds. */
+export const WALK_SECONDS = 4.2;
+/** The room moving through its run to another moment (`\\time`), seconds. */
+export const TIME_SECONDS = 3.2;
 
 /** How long the run takes on screen, ms: slow enough to see it happen (brief Scene 13). */
 export const RUN_MS = 16_000;
@@ -392,6 +408,11 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
       return 3600;
     case 'present':
       return PRESENT_MS;
+    case 'walk':
+    case 'unwalk':
+      return Math.round(WALK_SECONDS * 1000) + 200;
+    case 'time':
+      return Math.round(TIME_SECONDS * 1000) + 200;
     case 'arrange':
       return pose.roomMode === 'piles' ? 4800 : pose.roomMode === 'ruler' ? 3400 : prev.roomMode === 'turnover' ? 1800 : 2000;
     default:
@@ -449,7 +470,11 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         p = { ...p, flip: 'shown', presented: true };
         break;
       case 'reveal:curve':
-        [p, action] = [{ ...p, lorenz: 1 }, 'walk'];
+        [p, action] = [{ ...p, lorenz: Math.max(1, p.lorenz) as Pose['lorenz'], curve: true }, 'walk'];
+        break;
+      case 'hide:curve':
+        // the walk undone, exactly in reverse
+        [p, action] = [{ ...p, curve: false }, 'unwalk'];
         break;
       case 'reveal:diagonal':
         p = { ...p, lorenz: 2 };
@@ -473,7 +498,7 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         p = { ...p, flip: 'hidden' };
         break;
       case 'hide:lorenz':
-        p = { ...p, lorenz: 0 };
+        p = { ...p, lorenz: 0, curve: false };
         break;
       case 'meet:red':
       case 'meet:blue':
@@ -532,6 +557,9 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
             p = { ...p, played: p.played + count };
           }
           action = 'pairs';
+        } else if (c.name === 'time') {
+          if (!/^(start|end|gini=0?\.\d+)$/.test(arg)) EXPECT_PROBLEMS.push(`${s.at}: \\time{${arg}} — start, end or gini=0.5`);
+          [p, action] = [{ ...p, time: arg }, 'time'];
         } else if (c.name === 'point') {
           if (!(POINTS as readonly string[]).includes(arg)) EXPECT_PROBLEMS.push(`${s.at}: \\point{${arg}} — the stage can point at ${POINTS.join(', ')}`);
           else p = { ...p, point: arg as PointAt };

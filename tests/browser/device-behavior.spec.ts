@@ -389,12 +389,47 @@ test('stepping back and forth through the told round leaves no timelines behind'
   expect(Math.max(...counts.slice(-3))).toBeLessThanOrEqual(counts[1] + 2);
 });
 
-test('a line about a spot rings it, and only while the line shows', async ({ page }) => {
+test('a line about a bin lights its outline, and only while the line shows', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const ids = await openAt(page, 'sort.there');
-  await expect(page.locator('.point-ring')).toHaveCount(1);
+  await expect(page.locator('.bins .bin.lit')).toHaveCount(1);
   await openAt(page, ids[ids.indexOf('sort.there') + 1]);
-  await expect(page.locator('.point-ring')).toHaveCount(0);
+  await expect(page.locator('.bins .bin.lit')).toHaveCount(0);
+});
+
+test('the room goes back to its start and the rulers hold still; the plot beside counts the same bins', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const ids = await openAt(page, 'sort.there');
+  const [start, ruled] = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    type S = { id: string; pose: { time: string; roomMode: string; thumbs: string[] } };
+    const steps = PAIR_STEPS as S[];
+    return [
+      steps.find((s) => s.pose.roomMode === 'piles' && s.pose.time === 'start')!.id,
+      steps.find((s) => s.pose.roomMode === 'ruler' && s.pose.thumbs.includes('histogram'))!.id,
+    ];
+  });
+  const ticks = () => page.locator('.ruler text').allTextContents();
+  const now = await ticks();
+  // back to the start: everyone in one pile, on the same ruler
+  await openAt(page, start);
+  await expect(page.locator('.counts text')).toHaveText(['100']);
+  expect(await ticks()).toEqual(now);
+  void ids;
+  // on the multiplying ruler, the plot beside the room draws the room's own bins
+  await openAt(page, ruled);
+  const roomBins = await page.locator('.bins .bin').count();
+  await expect(page.locator('.charts .plot .bar')).toHaveCount(roomBins);
+});
+
+test('the Gini plot holds still while the room moves through time', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const ids = await openAt(page, 'gini.value');
+  const diagonal = () => page.locator('.lorenz .diagonal').evaluate((el) => ['x1', 'y1', 'x2', 'y2'].map((k) => el.getAttribute(k)));
+  const end = await diagonal();
+  // a moment of the run the scene stands at on the way: the plot is where it was
+  await openAt(page, ids[ids.indexOf('gini.value') - 4]);
+  expect(await diagonal()).toEqual(end);
 });
 
 test('any card in the deck can be picked, not only the top one', async ({ page }) => {

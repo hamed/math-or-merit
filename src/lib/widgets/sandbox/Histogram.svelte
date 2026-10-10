@@ -11,9 +11,15 @@
     revision?: number;
     /** Dollars per head at the start — pins the initial axis range. */
     startDollars: number;
+    /**
+     * Someone else's bins, drawn as they are: the stage passes its room's own
+     * (owner, 2026-10-10: the histogram beside the room must match the one the
+     * room makes). Log x across `edges`, people counted plainly; no toggles.
+     */
+    bins?: { readonly edges: readonly number[]; readonly counts: readonly number[] };
   }
 
-  let { wealth, totalDollars, n, revision = 0, startDollars }: Props = $props();
+  let { wealth, totalDollars, n, revision = 0, startDollars, bins: given }: Props = $props();
 
   // canonical form first (owner review 2026-07-14): log-log
   let xLog = $state(true);
@@ -48,6 +54,11 @@
     const sorted = Float64Array.from(amounts).sort();
     const median = sorted[Math.floor(n / 2)];
     const mean = sum / n;
+    if (given) {
+      const lo = given.edges[0];
+      const hi = given.edges[given.edges.length - 1];
+      return { bins: { edges: given.edges, counts: given.counts, underCount: 0 }, lo, hi, binCount: given.counts.length, median, mean };
+    }
     const now = performance.now();
     if (xLog) {
       const binCount = LOG_BIN_CYCLE[logBinIdx];
@@ -61,7 +72,14 @@
     return { bins: rangedLinearBins(amounts, hi, binCount), lo: 0, hi, binCount, median, mean };
   });
 
-  const xAxis: AxisSpec = $derived({
+  const xAxis: AxisSpec = $derived(given ? {
+    type: 'log',
+    lo: view.lo,
+    hi: view.hi,
+    ticks: spacedTicks((most) => given.edges.slice(1).filter((_, k, all) => k % Math.ceil(all.length / most) === 0), 5),
+    format: compactNumber,
+    label: 'wealth $',
+  } : {
     type: xLog ? 'log' : 'linear',
     lo: view.lo,
     hi: view.hi,
@@ -71,7 +89,14 @@
     onToggle: gatedClick(() => (xLog = !xLog)),
   });
 
-  const yAxis: AxisSpec = $derived({
+  const yAxis: AxisSpec = $derived(given ? {
+    type: 'linear',
+    lo: 0,
+    hi: Math.max(5, ...given.counts),
+    ticks: niceLinearTicks(0, Math.max(5, ...given.counts)),
+    format: compactNumber,
+    label: 'people',
+  } : {
     type: yLog ? 'log' : 'linear',
     // log floor sits below 1 so a single-agent bin still has height
     lo: yLog ? 0.7 : 0,
@@ -107,7 +132,7 @@
   y={yAxis}
   title="how many hold how much"
   description="The wealth distribution: each bar counts the people whose holdings fall in that range. Hover for median and mean."
-  onBody={cycleBins}
+  onBody={given ? undefined : cycleBins}
   bodyTooltip={`${view.binCount} bins — click for the next count`}
   onHoverChange={(inside) => (hovered = inside)}
   ariaLabel={`Wealth histogram, ${view.binCount} ${xLog ? 'log' : 'linear'} bins, ${yLog ? 'log' : 'linear'} people axis. Click an axis to toggle its scale; click the bars to change the bin count.`}
