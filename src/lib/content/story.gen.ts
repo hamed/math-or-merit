@@ -244,18 +244,34 @@ export const STORY: Story = {
       "sideTrip": false
     },
     {
-      "label": "verdict",
-      "title": "The verdict",
-      "act": "The verdict",
+      "label": "bet",
+      "title": "The bet",
+      "act": "Before you know",
       "number": "31",
-      "step": "verdict.1",
+      "step": "bet.1",
+      "sideTrip": false
+    },
+    {
+      "label": "limits",
+      "title": "Two ends",
+      "act": "Before you know",
+      "number": "32",
+      "step": "limits.1",
+      "sideTrip": false
+    },
+    {
+      "label": "veil",
+      "title": "Before you know",
+      "act": "Before you know",
+      "number": "33",
+      "step": "veil.1",
       "sideTrip": false
     },
     {
       "label": "sandbox",
       "title": "The machine is yours",
       "act": "The machine is yours",
-      "number": "32",
+      "number": "34",
       "step": "sandbox.1",
       "sideTrip": false
     },
@@ -4443,24 +4459,20 @@ export const STORY: Story = {
       "wait": "reader"
     },
     {
-      "id": "verdict.1",
-      "at": "script.tex:1328",
-      "scene": "verdict",
+      "id": "bet.1",
+      "at": "script.tex:1332",
+      "scene": "bet",
       "act": true,
       "who": "red",
-      "manner": [],
-      "key": "verdict_1",
+      "manner": [
+        "smug"
+      ],
+      "key": "bet_1",
       "cues": [
         {
-          "name": "crowd",
+          "name": "arrange",
           "args": [
-            "empty"
-          ]
-        },
-        {
-          "name": "expect",
-          "args": [
-            "blue=8, red=8"
+            "veil"
           ]
         }
       ],
@@ -4468,103 +4480,360 @@ export const STORY: Story = {
       "wait": "reader"
     },
     {
-      "id": "verdict.2",
-      "at": "script.tex:1333",
-      "scene": "verdict",
+      "id": "bet.2",
+      "at": "script.tex:1336",
+      "scene": "bet",
+      "act": false,
+      "who": "blue",
+      "manner": [
+        "flow",
+        "sure"
+      ],
+      "key": "bet_2",
+      "cues": [],
+      "choices": [],
+      "wait": "chat"
+    },
+    {
+      "id": "bet.3",
+      "at": "script.tex:1340",
+      "scene": "bet",
+      "act": false,
+      "who": "red",
+      "manner": [
+        "sure"
+      ],
+      "key": "bet_3",
+      "cues": [],
+      "choices": [],
+      "wait": "reader"
+    },
+    {
+      "id": "bet.4",
+      "at": "script.tex:1343",
+      "scene": "bet",
+      "act": false,
+      "who": "blue",
+      "manner": [
+        "flow",
+        "smug"
+      ],
+      "key": "bet_4",
+      "cues": [],
+      "choices": [],
+      "wait": "chat"
+    },
+    {
+      "id": "bet.5",
+      "at": "script.tex:1347",
+      "scene": "bet",
+      "act": false,
+      "who": "red",
+      "manner": [
+        "aside",
+        "tired"
+      ],
+      "key": "bet_5",
+      "cues": [],
+      "choices": [],
+      "wait": "reader"
+    },
+    {
+      "id": "bet.w1",
+      "at": "script.tex:1355",
+      "scene": "bet",
+      "act": false,
+      "who": null,
+      "manner": [],
+      "cues": [],
+      "choices": [],
+      "wait": "when",
+      "groups": [
+        {
+          "cond": {
+            "kind": "when",
+            "name": "prediction",
+            "value": "giant"
+          },
+          "bubbles": [
+            {
+              "who": "red",
+              "manner": [
+                "aside",
+                "flow",
+                "glad"
+              ],
+              "key": "bet_6"
+            }
+          ]
+        },
+        {
+          "cond": {
+            "kind": "when",
+            "name": "prediction",
+            "value": "equal"
+          },
+          "bubbles": [
+            {
+              "who": "red",
+              "manner": [
+                "aside",
+                "flow"
+              ],
+              "key": "bet_7"
+            }
+          ]
+        },
+        {
+          "cond": {
+            "kind": "when",
+            "name": "prediction",
+            "value": "spread"
+          },
+          "bubbles": [
+            {
+              "who": "red",
+              "manner": [
+                "aside",
+                "flow"
+              ],
+              "key": "bet_8"
+            }
+          ]
+        },
+        {
+          "cond": {
+            "kind": "when",
+            "name": "prediction",
+            "value": "split"
+          },
+          "bubbles": [
+            {
+              "who": "red",
+              "manner": [
+                "aside",
+                "flow"
+              ],
+              "key": "bet_9"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bet.10",
+      "at": "script.tex:1375",
+      "scene": "bet",
       "act": false,
       "who": "blue",
       "manner": [
         "curious"
       ],
-      "key": "verdict_2",
+      "key": "bet_10",
       "cues": [],
       "choices": [],
       "wait": "reader"
     },
     {
-      "id": "verdict.3",
-      "at": "script.tex:1336",
-      "scene": "verdict",
+      "id": "bet.11",
+      "at": "script.tex:1378",
+      "scene": "bet",
       "act": false,
       "who": "red",
-      "manner": [],
-      "key": "verdict_3",
+      "manner": [
+        "calm"
+      ],
+      "key": "bet_11",
       "cues": [],
       "choices": [],
       "wait": "reader"
     },
     {
-      "id": "verdict.4",
-      "at": "script.tex:1339",
-      "scene": "verdict",
+      "id": "bet.12",
+      "at": "script.tex:1381",
+      "scene": "bet",
       "act": false,
       "who": "red",
-      "manner": [],
-      "key": "verdict_4",
+      "manner": [
+        "flow"
+      ],
+      "key": "bet_12",
       "cues": [],
       "choices": [],
-      "wait": "reader"
+      "wait": "chat"
     },
     {
-      "id": "verdict.5",
-      "at": "script.tex:1342",
-      "scene": "verdict",
+      "id": "bet.13",
+      "at": "script.tex:1386",
+      "scene": "bet",
       "act": false,
       "who": "blue",
       "manner": [
         "flow",
         "annoyed"
       ],
-      "key": "verdict_5",
+      "key": "bet_13",
       "cues": [],
       "choices": [],
       "wait": "chat"
     },
     {
-      "id": "verdict.6",
-      "at": "script.tex:1345",
-      "scene": "verdict",
+      "id": "bet.14",
+      "at": "script.tex:1389",
+      "scene": "bet",
       "act": false,
       "who": "red",
-      "manner": [
-        "worried"
-      ],
-      "key": "verdict_6",
+      "manner": [],
+      "key": "bet_14",
       "cues": [],
       "choices": [],
       "wait": "reader"
     },
     {
-      "id": "verdict.7",
-      "at": "script.tex:1348",
-      "scene": "verdict",
+      "id": "limits.1",
+      "at": "script.tex:1403",
+      "scene": "limits",
       "act": false,
       "who": "blue",
       "manner": [
         "sure"
       ],
-      "key": "verdict_7",
-      "cues": [],
+      "key": "limits_1",
+      "cues": [
+        {
+          "name": "reveal",
+          "args": [
+            "keepers"
+          ]
+        }
+      ],
       "choices": [],
       "wait": "reader"
     },
     {
-      "id": "verdict.8",
-      "at": "script.tex:1351",
-      "scene": "verdict",
+      "id": "limits.2",
+      "at": "script.tex:1407",
+      "scene": "limits",
       "act": false,
       "who": "red",
       "manner": [
         "calm"
       ],
-      "key": "verdict_8",
+      "key": "limits_2",
+      "cues": [
+        {
+          "name": "reveal",
+          "args": [
+            "sharers"
+          ]
+        }
+      ],
+      "choices": [],
+      "wait": "reader"
+    },
+    {
+      "id": "limits.3",
+      "at": "script.tex:1411",
+      "scene": "limits",
+      "act": false,
+      "who": "blue",
+      "manner": [
+        "flow",
+        "curious"
+      ],
+      "key": "limits_3",
+      "cues": [],
+      "choices": [],
+      "wait": "chat"
+    },
+    {
+      "id": "limits.4",
+      "at": "script.tex:1414",
+      "scene": "limits",
+      "act": false,
+      "who": "red",
+      "manner": [
+        "flow"
+      ],
+      "key": "limits_4",
+      "cues": [],
+      "choices": [],
+      "wait": "chat"
+    },
+    {
+      "id": "veil.1",
+      "at": "script.tex:1432",
+      "scene": "veil",
+      "act": false,
+      "who": "red",
+      "manner": [
+        "aside"
+      ],
+      "key": "veil_1",
+      "cues": [],
+      "choices": [],
+      "wait": "reader"
+    },
+    {
+      "id": "veil.2",
+      "at": "script.tex:1435",
+      "scene": "veil",
+      "act": false,
+      "who": "blue",
+      "manner": [
+        "aside"
+      ],
+      "key": "veil_2",
+      "cues": [
+        {
+          "name": "reveal",
+          "args": [
+            "world"
+          ]
+        }
+      ],
+      "choices": [],
+      "wait": "reader"
+    },
+    {
+      "id": "veil.3",
+      "at": "script.tex:1439",
+      "scene": "veil",
+      "act": false,
+      "who": "red",
+      "manner": [
+        "aside",
+        "flow"
+      ],
+      "key": "veil_3",
+      "cues": [
+        {
+          "name": "control",
+          "args": [
+            "veil"
+          ]
+        }
+      ],
+      "choices": [],
+      "wait": "chat"
+    },
+    {
+      "id": "veil.4",
+      "at": "script.tex:1443",
+      "scene": "veil",
+      "act": false,
+      "who": "blue",
+      "manner": [
+        "aside"
+      ],
+      "key": "veil_4",
       "cues": [],
       "choices": [],
       "wait": "reader"
     },
     {
       "id": "sandbox.1",
-      "at": "script.tex:1371",
+      "at": "script.tex:1461",
       "scene": "sandbox",
       "act": true,
       "who": "red",
@@ -4574,9 +4843,9 @@ export const STORY: Story = {
       "key": "sandbox_1",
       "cues": [
         {
-          "name": "crowd",
+          "name": "arrange",
           "args": [
-            "room"
+            "free"
           ]
         },
         {
@@ -4591,7 +4860,7 @@ export const STORY: Story = {
     },
     {
       "id": "sandbox.2",
-      "at": "script.tex:1376",
+      "at": "script.tex:1466",
       "scene": "sandbox",
       "act": false,
       "who": "blue",
@@ -4691,8 +4960,10 @@ export const STORY: Story = {
     "dials": "dials.1",
     "act:map": "map.1",
     "map": "map.1",
-    "act:verdict": "verdict.1",
-    "verdict": "verdict.1",
+    "act:veil": "bet.1",
+    "bet": "bet.1",
+    "limits": "limits.1",
+    "veil": "veil.1",
     "act:sandbox": "sandbox.1",
     "sandbox": "sandbox.1",
     "act:human": "human.1",

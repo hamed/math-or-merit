@@ -54,6 +54,7 @@
   } from './script';
   import { DEFAULT_RUN, type RunSettings } from './recording';
   import { MAP_LEVIES, MAP_PARTICIPANTS, MAP_STAKES } from './outcomeMap';
+  import { KEEPERS, SHARERS, VEIL_N, VEIL_STOPS, outcome, scatter, shadeColour, worldColour, worldLink } from './world';
   import { GAME, nextClosureDuration, type GameResult } from './taxGame';
   import { GINI_RAMP } from '../../../shared/presets';
   import { decadeBins, effectiveCount, histogramMarker, imaginedShares, line, piles, ruler, type ImaginedRoom, type Tick } from './roomPoses';
@@ -599,6 +600,8 @@
     if (concept) return readOf(concept) + pause;
     const bet = step.id === 'guess.react' && session.bet ? REACTIONS.betLines[session.bet] : null;
     if (bet) return readOf({ text: say(bet.message), ...withPause(bet) }) + pause;
+    const settled = step.id === 'veil.guess' && session.prediction ? REACTIONS.guessSettled[session.prediction] : null;
+    if (settled) return readOf({ text: say(settled.message), ...withPause(settled) }) + pause;
     if (step.id === 'why.after') {
       const line = run.state.finished > 1 ? REACTIONS.whyAgain : REACTIONS.whyAfter;
       return readOf({ text: say(line.message), ...withPause(line) }) + pause;
@@ -1281,6 +1284,34 @@
     if (wasPlaying) sandboxRun.live(sb.speed * PER_SPEED, () => {});
   }
 
+  const fillOf = (i: number) => roomStyles[i].fill;
+  const strokeOf = (i: number) => roomStyles[i].stroke;
+  /** "Who will I be?": one of the middle box's people, at random; none until asked. */
+  let born = $state<number | null>(null);
+  function beBorn(): void {
+    const others = Array.from({ length: VEIL_N }, (_, i) => i).filter((i) => i !== born);
+    born = others[Math.floor(Math.random() * others.length)];
+  }
+  let copied = $state(false);
+  let copiedTimer: number | undefined;
+  async function shareWorld(): Promise<void> {
+    const url = worldLink(location.href, sb.levy);
+    const text = say('veil_message', { levy: levyWords(sb.levy) });
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({ title: say('open_title'), text, url });
+        return;
+      }
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      copied = true;
+      window.clearTimeout(copiedTimer);
+      copiedTimer = window.setTimeout(() => (copied = false), 2400);
+    } catch {
+      // the reader closed the share sheet, or the clipboard is not ours: nothing to do
+    }
+  }
+  const levyWords = (levy: number) => formatNumber(levy, { style: 'percent', maximumFractionDigits: 2 });
+
   /** The papers the reader has had printed, in the talk. */
   let sandboxPapers = $state<Said[]>([]);
   /** A phone's deck, folded to one row until the reader opens the dials. */
@@ -1612,6 +1643,79 @@
     return { x, y: m.y + m.side - r, r, alpha: 1, empty: false };
   }
 
+  /**
+   * The ending (owner, 2026-10-10): three boxes in a row, the same size, each
+   * the same 25 people — one owner and crumbs under "Finders keepers", the
+   * dial's finished room in the middle, everyone equal under "Sharing is
+   * caring". The dial and what goes with it stand under the middle box; Blue
+   * and Red watch from either side of it, below, and the talk runs between
+   * them. The whole stage, with a margin at the sides.
+   */
+  const veilBox = $derived.by(() => {
+    const narrow = width < 700;
+    const pad = narrow ? 20 : Math.max(32, width * 0.06);
+    const gap = narrow ? 10 : Math.max(24, width * 0.025);
+    const top = narrow ? 64 : 76;
+    const fit = (width - 2 * pad - 2 * gap) / 3;
+    // as large as one line of the longest saying allows; on a phone, two lines
+    const longest = Math.max(...['veil_keepers', 'veil_middle', 'veil_sharers'].map((k) => say(k).length));
+    const font = Math.max(15, Math.min(44, narrow ? fit / ((longest / 2 + 1) * 0.56) : fit / (longest * 0.56)));
+    const labelH = font * (narrow ? 2.25 : 1.3);
+    const deckH = narrow ? 128 : 116;
+    const talk = narrow ? 200 : 180;
+    const s = Math.max(70, Math.min(fit, narrow ? fit : 340, height - top - labelH - 18 - deckH - talk));
+    const x0 = (width - (3 * s + 2 * gap)) / 2;
+    const [first, mid, last] = [x0, x0 + s + gap, x0 + 2 * (s + gap)];
+    // MERIT's side comes first in reading order: in Farsi Blue's box is on the right
+    const keep = rtl ? last : first;
+    const share = rtl ? first : last;
+    const boxTop = top + labelH + 8;
+    const below = boxTop + s;
+    // the dial's panel under the middle box: on a phone the stage's width
+    const deckW = narrow ? width - 2 * pad : Math.max(s, 300);
+    const deckX = narrow ? pad : mid + s / 2 - deckW / 2;
+    return { narrow, pad, s, gap, font, top, labelH, boxTop, keep, mid, share, below, deckX, deckW, deckTop: below + 12, deckBottom: below + 12 + deckH };
+  });
+
+  /** One person's radius in a box: area is wealth, one scale for all three boxes. */
+  const veilEqual = $derived(veilBox.s * 0.064);
+  const veilR = (share: number) => Math.max(0.8, veilEqual * Math.sqrt(Math.max(0, share) * VEIL_N));
+  /** A box's people where they stand (scattered, hardly touching), relative to its corner. */
+  const placeBox = (shares: ArrayLike<number>) => {
+    const radii = Array.from(shares, veilR);
+    // a little air inside the frame
+    const inset = veilBox.s * 0.04;
+    return scatter(radii, veilBox.s - 2 * inset).map((p, i) => ({ x: p.x + inset, y: p.y + inset, r: radii[i], share: shares[i] }));
+  };
+  const keepersBox = $derived(placeBox(KEEPERS));
+  const sharersBox = $derived(placeBox(SHARERS));
+  /** The middle box: the dial's finished room; each person glides to the next stop's place and size (CSS, half a second). */
+  const middleBox = $derived(placeBox(outcome(sb.levy)));
+  /** Largest first, so the small ones show over the big. */
+  const byShare = (box: readonly { share: number }[]) => box.map((_, i) => i).sort((a, b) => box[b].share - box[a].share);
+
+  /** A face for one of the boxes' people, still: content with the most, glum with crumbs (photoMood). */
+  const veilStills = new Map<string, ReturnType<typeof drawStill>>();
+  function veilFace(share: number, richest: boolean, r: number) {
+    if (faceLook === 'none') return null;
+    const mood = photoMood(share, VEIL_N, richest);
+    // a face grows with its body, but far less: a giant's face is not a giant's size (face.ts)
+    const body = Math.round(r * 2) / 2;
+    const key = `${faceLook}:${mood.v.toFixed(2)}:${mood.a.toFixed(2)}:${mood.d.toFixed(2)}:${richest}:${body}`;
+    if (!veilStills.has(key)) veilStills.set(key, drawStill(faceLook, 'circle', body, faceRadius(body, veilEqual), stillOf(mood)));
+    return veilStills.get(key) ?? null;
+  }
+
+  /** Blue and Red watching, either side of the middle box, a little under it; on a phone at the edges, so the talk has room. */
+  function veilSpeaker(who: 0 | 1): Target {
+    const v = veilBox;
+    const r = Math.max(10, Math.min(L.room.radius * 2.2, v.narrow ? 22 : 30));
+    const first = rtl ? 1 - who : who;
+    const x = v.narrow ? (first === 0 ? v.pad + r : width - v.pad - r) : first === 0 ? v.mid - 24 - r : v.mid + v.s + 24 + r;
+    // just under the dial's panel: the talk and the asides stay clear of the boxes
+    return { x, y: v.deckBottom + 10 + r, r, alpha: 1, empty: false };
+  }
+
   /** Every square of the map at once, and the curve fitted through where half still count. */
   const MAP_FIT = fitSquareRelationship(MAP_PARTICIPANTS, MAP_STAKES, MAP_LEVIES, 50, 'increases');
   /** The order the squares fill in: scattered, the same every time. */
@@ -1702,6 +1806,12 @@
         if (i === L.room.blue) return mapSpeaker(0, real);
         if (i === L.room.red) return mapSpeaker(1, real);
         return at(free.x, free.y, real, 0.08);
+      }
+      case 'veil': {
+        // the hundred step away: the ending's boxes hold their own 25; Blue and Red stay, watching
+        if (i === L.room.blue) return veilSpeaker(0);
+        if (i === L.room.red) return veilSpeaker(1);
+        return at(free.x, free.y, real, 0);
       }
       default: {
         // a fortune that has grown past the room's edge is drawn a little further in
@@ -2312,6 +2422,11 @@
         if (bet) out.push({ id: `${step.id}:${session.bet}`, who: bet.who, at: bet.who, text: say(bet.message), aside: true, ...withPause(bet) });
         continue;
       }
+      if (step.id === 'veil.guess') {
+        const said = session.prediction ? REACTIONS.guessSettled[session.prediction] : null;
+        if (said) out.push({ id: `${step.id}:${session.prediction}`, who: said.who, at: said.who, text: say(said.message), aside: true, ...withPause(said) });
+        continue;
+      }
       if (step.id === 'end.longer' && line?.who) {
         out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message), aside: step.aside, feel: step.feel });
         // what the room did, each time it was played on
@@ -2693,21 +2808,29 @@
     // on a narrow stage an open card sits over the talk's space: start below it
     const card = cardOpen && width < 760 && cardHeight > 0 ? 12.8 + 44 + 8 + cardHeight + 10 : 0;
     const start = Math.max(top, card);
+    // the ending: the talk runs under the boxes, between the two watching
+    if (pose.place === 'room' && pose.roomMode === 'veil') return { top: pose.control === 'veil' ? veilBox.deckBottom + 8 : veilBox.below + 14, bottom: height - 12, left: 16, right: width - 16 };
     // on a narrow stage an open toy takes the lower two thirds: talk above it
     const bottom = Math.max(start + 90, Math.min(...tops) - 6);
     return { top: start, bottom, left: 16, right: width - 16 };
   });
 
   /** Poses where Blue and Red are markers inside a picture, not people to talk beside. */
-  const PICTURES = ['piles', 'ruler', 'line', 'four', 'turnover', 'scaling', 'levy4', 'matched', 'map'];
+  const PICTURES = ['piles', 'ruler', 'line', 'four', 'turnover', 'scaling', 'levy4', 'matched', 'map', 'veil'];
   /** Pictures that are not the room on screen: its charts step aside. */
-  const APART: readonly RoomMode[] = ['levy4', 'matched', 'map'];
+  const APART: readonly RoomMode[] = ['levy4', 'matched', 'map', 'veil'];
   const inPicture = $derived(PAIR_STEPS[current].pose.place === 'room' && PICTURES.includes(PAIR_STEPS[current].pose.roomMode));
 
   const column = $derived.by(() => {
     // the charts' column is only kept clear while there are charts: in the room
     const right = L.column && PAIR_STEPS[current].pose.place === 'room' ? L.column.x - 8 : width;
     const c = chatColumn(PAIR.map((who) => anchorOf(who)), right, region.top, region.bottom);
+    if (PAIR_STEPS[current].pose.roomMode === 'veil' && PAIR_STEPS[current].pose.place === 'room') {
+      // what they say to each other runs between them; what they say to the reader, outside them
+      const [a, b] = [veilSpeaker(0), veilSpeaker(1)].sort((p, q) => p.x - q.x);
+      if (veilBox.narrow) return { ...c, left: a.x + a.r + 10, right: b.x - b.r - 10, mid: (a.x + b.x) / 2 };
+      return { ...c, left: veilBox.pad, right: width - veilBox.pad, mid: (a.x + b.x) / 2 };
+    }
     if (!inPicture) return c;
     const box = L.room.box;
     // on a wide stage the Lorenz plot is square and the talk has the room beside it
@@ -2722,7 +2845,8 @@
   const pictureWidth = $derived(width >= 700 ? width / 3 : column.right - column.left - 52);
 
   /** Asides beside their speaker need room on both sides; a phone keeps one column, and so does the room. */
-  const beside = $derived(!inPicture && width >= 700 && PAIR_STEPS[current].pose.place !== 'room');
+  const veilTalk = $derived(PAIR_STEPS[current].pose.roomMode === 'veil' && PAIR_STEPS[current].pose.place === 'room');
+  const beside = $derived(width >= 700 && (veilTalk || (!inPicture && PAIR_STEPS[current].pose.place !== 'room')));
   /** Where the talk runs when it sits beside the two: from one centre to the other. */
   const span = $derived(beside ? talkSpan(PAIR.map((who) => ({ w: 0, h: 0, anchor: anchorOf(who) })), column) : null);
 
@@ -2919,6 +3043,10 @@
       case 'map':
         arrange(pose, tl);
         tl.fromTo(view, { mapOn: 0 }, { mapOn: 1, duration: 2.4, ease: 'power1.inOut' }, 0.5);
+        return;
+      case 'veil':
+        // Blue and Red step outside, under their limits; the living room forms between them
+        arrange(pose, tl);
         return;
       case 'empty':
         emptyRoom(pose, tl);
@@ -3669,7 +3797,7 @@
   }
 
   /** The room's colours, as each face is drawn in them. */
-  const roomColours = $derived(roomStyles.map((st): FaceColours => ({ stroke: st.stroke, fill: st.fill, fillOpacity: 0.75 })));
+  const roomColours = $derived(roomStyles.map((_, i): FaceColours => ({ stroke: strokeOf(i), fill: fillOf(i), fillOpacity: 0.75 })));
   const twinColours = (['blue', 'red'] as const).map((who): FaceColours => ({ stroke: PROTAGONISTS[who].stroke, fill: PROTAGONISTS[who].fill, fillOpacity: 0.75 }));
 
   /** Every face on show, drawn as it stands now, in one pass; only what changed reaches the page. */
@@ -4195,6 +4323,25 @@
   </div>
 {/snippet}
 
+{#snippet veilDial()}
+  <!-- the ending: three sayings over three boxes; under the middle one the dial, who you'd be, and the link (owner, 2026-10-10) -->
+  {@const v = veilBox}
+  {@const shown3 = PAIR_STEPS[current].pose.veil}
+  {#each [['veil_keepers', v.keep, shown3 >= 1], ['veil_middle', v.mid, shown3 >= 3], ['veil_sharers', v.share, shown3 >= 2]] as [key, left, on] (key)}
+    <p class="saying" class:narrow={v.narrow} style={`left:${left}px; top:${v.top}px; width:${v.s}px; height:${v.labelH}px; font-size:${v.font}px; opacity:${on ? 1 : 0}`}>{say(String(key))}</p>
+  {/each}
+  {#if PAIR_STEPS[current].pose.control === 'veil'}
+    <div class="veil-dial" style={`left:${v.deckX}px; top:${v.deckTop}px; width:${v.deckW}px`}>
+      <StopSlider label={say('veil_levy')} bind:value={sb.levy} stops={VEIL_STOPS} format={levyWords} />
+      <div class="deck-buttons">
+        <button type="button" onclick={beBorn}>{say(born === null ? 'veil_born' : 'veil_again')}</button>
+        <button type="button" class="primary" onclick={shareWorld}>{say(copied ? 'veil_copied' : 'veil_share')}</button>
+      </div>
+      {#if born !== null}<p class="sure">{say('veil_sure')}</p>{/if}
+    </div>
+  {/if}
+{/snippet}
+
 {#snippet levyDial()}
   <!-- Scene 24's second dial: the levy, once a round, shared back equally -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -4296,8 +4443,8 @@
               <path
                 d={svgShapePath(roomStyles[i].shape, Math.max(0.6, spot.r))}
                 transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.q)}`}
-                fill={spot.empty > 0.5 ? 'none' : roomStyles[i].fill}
-                stroke={roomStyles[i].stroke}
+                fill={spot.empty > 0.5 ? 'none' : fillOf(i)}
+                stroke={strokeOf(i)}
                 stroke-dasharray={spot.empty > 0.5 ? '2.5 2.5' : undefined}
                 fill-opacity="0.75"
                 stroke-width="1.3"
@@ -4413,6 +4560,39 @@
               >{say('map_half')}</text
             >
           {/if}
+        </g>
+      {/if}
+
+      {#if PAIR_STEPS[current].pose.roomMode === 'veil'}
+        {@const v = veilBox}
+        {@const shown3 = PAIR_STEPS[current].pose.veil}
+        {@const boxes = [
+          { key: 'keep', left: v.keep, people: keepersBox, tone: shadeColour(0), on: shown3 >= 1 },
+          { key: 'mid', left: v.mid, people: middleBox, tone: worldColour(sb.levy), on: shown3 >= 3 },
+          { key: 'share', left: v.share, people: sharersBox, tone: shadeColour(1), on: shown3 >= 2 },
+        ]}
+        <g class="veil">
+          {#each boxes as box (box.key)}
+            {@const top = byShare(box.people)[0]}
+            <g class="limit" data-box={box.key} style:opacity={box.on ? 1 : 0}>
+              <rect class="veil-frame" x={box.left} y={v.boxTop} width={v.s} height={v.s} rx="10" />
+              {#each byShare(box.people) as i (i)}
+                {@const p = box.people[i]}
+                {@const face = p.r >= 7 ? veilFace(p.share, i === top && box.key !== 'share', p.r) : null}
+                <g class="person" style:transform={`translate(${(box.left + p.x).toFixed(1)}px, ${(v.boxTop + p.y).toFixed(1)}px)`}>
+                  <circle style:r={`${p.r.toFixed(2)}px`} fill={box.tone.fill} stroke={box.tone.stroke} fill-opacity="0.75" stroke-width="1.2" />
+                  {#if face}<AgentFace drawing={face} fill={box.tone.fill} stroke={box.tone.stroke} uid={`veil-${box.key}-${i}`} />{/if}
+                </g>
+              {/each}
+              {#if box.key === 'mid' && born !== null && box.people[born]}
+                {@const p = box.people[born]}
+                <g class="born person" style:transform={`translate(${(box.left + p.x).toFixed(1)}px, ${(v.boxTop + p.y).toFixed(1)}px)`}>
+                  <circle style:r={`${(p.r + 5).toFixed(2)}px`} />
+                  <text y={-p.r - 10} text-anchor="middle">{say('veil_you')}</text>
+                </g>
+              {/if}
+            </g>
+          {/each}
         </g>
       {/if}
 
@@ -4743,8 +4923,11 @@
       </div>
     {/if}
 
+    {#if PAIR_STEPS[current].pose.roomMode === 'veil' && PAIR_STEPS[current].pose.place === 'room'}{@render veilDial()}{/if}
+
     {#if !L.column && PAIR_STEPS[current].pose.control === 'sandbox'}
       <div class="dial phone deck-phone">{@render sandboxDeck(true)}</div>
+
     {:else if !L.column && !inPicture && PAIR_STEPS[current].pose.place === 'room' && (dialHere || (runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run')))}
       <div class="dial phone">
         {#if runShown}<div class="dial" class:waiting={!(shown.state.done && shown.state.frames > 1)}>{@render player([shown])}</div>{/if}
@@ -5383,6 +5566,91 @@
   .deck-phone {
     max-block-size: 46%;
     overflow-y: auto;
+  }
+
+  /* the ending: two sayings and one dial over three boxes */
+  .saying {
+    position: absolute;
+    z-index: 4;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    margin: 0;
+    font-family: var(--font-serif);
+    font-weight: 750;
+    line-height: 1.05;
+    text-align: center;
+    color: var(--ink-strong);
+    transition: opacity 0.9s ease;
+    pointer-events: none;
+  }
+
+  .veil-dial {
+    position: absolute;
+    z-index: 5;
+    display: grid;
+    gap: 0.45rem;
+    justify-items: center;
+  }
+
+  .veil-dial :global(.stop-slider),
+  .veil-dial > :global(:first-child) {
+    inline-size: 100%;
+  }
+
+  .veil-dial .sure {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: var(--ink-mid);
+  }
+
+  .born circle {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.6;
+    stroke-dasharray: 3 3;
+  }
+
+  .born text {
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 700;
+    fill: var(--ink);
+  }
+
+  .saying:not(.narrow) {
+    white-space: nowrap;
+  }
+
+  .veil-dial :global(.dial) {
+    font-size: 1rem;
+  }
+
+  .veil .limit {
+    transition: opacity 0.9s ease;
+  }
+
+  /* the dial's next room: everyone glides to their new place and size */
+  .veil .person,
+  .veil .person > circle {
+    transition:
+      transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1),
+      r 0.5s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .veil .person,
+    .veil .person > circle {
+      transition: none;
+    }
+  }
+
+  .veil-frame {
+    fill: none;
+    stroke: var(--ink-soft);
+    stroke-width: 1.2;
+    stroke-dasharray: 5 4;
   }
 
   /* Scene 21: the game's meter and clock, and the room under the reader's finger */

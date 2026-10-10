@@ -206,13 +206,13 @@ on) or **reader** (it waits for the reader; the wait is never written).
 
 | Action | Does |
 |---|---|
-| `\reveal{x}` / `\hide{x}` | shows or takes away a thing: `headline`, `merit`, `or`, `math`, `mark`, `coins`, `coin`, `words`, `card:<id>`, `curve`, `diagonal`, `gap`, `lorenz`, `map`, `fit`, `toy:<id>`; `\hide{curve}` undoes the walk, in reverse |
+| `\reveal{x}` / `\hide{x}` | shows or takes away a thing: `headline`, `merit`, `or`, `math`, `mark`, `coins`, `coin`, `words`, `card:<id>`, `curve`, `diagonal`, `gap`, `lorenz`, `map`, `fit`, `toy:<id>`, and the ending's `keepers` (one owner), `sharers` (everyone equal) and `world` (the room the dial makes, between them); `\hide{curve}` undoes the walk, in reverse |
 | `\crowd{x}` | the crowd: `idle`, `payout`, `two`, `room`, `empty` |
 | `\stake{n}` | each puts n coins on the table |
 | `\flip{side}` | the coin lands on `blue` or `red`; the result is logged |
 | `\run` / `\run[longer]` / `\run[game]` | the room plays; played on; the tax game |
-| `\arrange{x}` | the room stands as `piles`, `ruler`, `line`, `equal`, `zero`, `double`, `half`, `one`, `four`, `turnover`, `levy4`, `free` |
-| `\control{x}` | the reader holds `stake`, `tax`, `sandbox`, or `none` |
+| `\arrange{x}` | the room stands as `piles`, `ruler`, `line`, `equal`, `zero`, `double`, `half`, `one`, `four`, `turnover`, `levy4`, `veil` (the ending: the two limits, Blue and Red outside the room), `free` |
+| `\control{x}` | the reader holds `stake`, `tax`, `rules` (both dials), `veil` (the ending's levy dial), `sandbox`, or `none` |
 | `\levy{x}` | the lesson's pool: `collect`, `return` |
 | `\match` | the room and its mirror, on the same luck |
 | `\pairs{n}` | n rounds: two from the room, drawn at random, step out, play the coin, and go back; after a round told part by part, quicker |
