@@ -105,7 +105,8 @@ export interface Pose {
   /** A control the reader holds in this step: the stake dial, the tax game, the whole machine. */
   readonly control: 'stake' | 'tax' | 'sandbox' | null;
   /** Scene 22's lesson: 0 before · 1 a quarter of every pile in the pool · 2 the pool shared back. */
-  readonly levy: 0 | 1 | 2;
+  /** The four's coins: before · all paid a quarter · shared back · one tapped (the tax game's tap) · its quarter shared back. */
+  readonly levy: LevyMoment;
   /** Scene 24: 0 no map · 1 every square filled in · 2 and the fitted curve. */
   readonly map: 0 | 1 | 2;
 }
@@ -190,6 +191,8 @@ export interface PairStep extends StepSpec {
   readonly actionMs?: number;
   /** `\\pairs`: the stretch of the room's demonstration rounds this step plays (roomRounds.ts). */
   readonly rounds?: RoundWindow;
+  /** `\\taxgame`: a round of the tax game, the room standing still or trading, and the players to keep above. */
+  readonly taxgame?: { readonly still: boolean; readonly target: number };
   /** `\\solve{2, 1, 2.9}`: the numbers the reader makes in turn, moving the four's coins (Scene 17). */
   readonly solve?: readonly number[];
   /** The pictures posted with its line (`\\image{name}`), by name. */
@@ -262,11 +265,25 @@ const NOTHING: Coins = { blue: 0, red: 0 };
 export const LEVY_COINS: readonly number[] = [16, 4, 8, 4];
 export const LEVY_RATE = 0.25;
 
-/** The four's coins and the pool at each moment of the lesson: before · collected · shared back. */
-export function levyLesson(stage: 0 | 1 | 2): { coins: number[]; pool: number } {
+export type LevyMoment = 0 | 1 | 2 | 3 | 4;
+/** The moment a lesson's coins move from: the collection from before it, the return from the collection. */
+export const LEVY_FROM: Readonly<Record<LevyMoment, LevyMoment>> = { 0: 0, 1: 0, 2: 1, 3: 0, 4: 3 };
+
+/**
+ * The four's coins and the pool at each moment of the lesson: before ·
+ * collected from all · shared back · and the tax game's tap shown first
+ * (owner, 2026-10-10: "before that put what the tax is"): a quarter of the
+ * biggest pile only, then that quarter shared back.
+ */
+export function levyLesson(stage: LevyMoment): { coins: number[]; pool: number } {
   const taken = LEVY_COINS.map((c) => c * LEVY_RATE);
   const pool = taken.reduce((sum, c) => sum + c, 0);
   if (stage === 0) return { coins: [...LEVY_COINS], pool: 0 };
+  if (stage === 3 || stage === 4) {
+    const tapped = LEVY_COINS[0] * LEVY_RATE;
+    const coins = LEVY_COINS.map((c, k) => (k === 0 ? c - tapped : c));
+    return stage === 3 ? { coins, pool: tapped } : { coins: coins.map((c) => c + tapped / coins.length), pool: 0 };
+  }
   if (stage === 1) return { coins: LEVY_COINS.map((c, k) => c - taken[k]), pool };
   return { coins: LEVY_COINS.map((c, k) => c - taken[k] + pool / LEVY_COINS.length), pool: 0 };
 }
@@ -327,7 +344,9 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'turn.now': (s) => needs(s, 'late'),
   'end.longer': (s) => targets(s, '\\run[longer]'),
   'dial.said': (s) => when(s, 'stake'),
-  'stop.how': (s) => targets(s, '\\run[game]'),
+  // the tax game's two rounds (owner, 2026-10-10): a room standing still, then one that trades
+  'stop.still': (s) => s.cues.some((c) => c.name === 'taxgame' && c.opt === 'still'),
+  'stop.how': (s) => s.cues.some((c) => c.name === 'taxgame' && c.opt !== 'still'),
   'match.result': (s) => needs(s, 'a'),
   'map.all': (s) => cue(s, 'reveal', 'map'),
   'sandbox.2': (s) => targets(s, 'workshop'),
@@ -525,6 +544,12 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
       case 'levy:collect':
         [p, action] = [{ ...p, levy: 1 }, 'coins'];
         break;
+      case 'levy:tap':
+        [p, action] = [{ ...p, levy: 3 }, 'coins'];
+        break;
+      case 'levy:back':
+        [p, action] = [{ ...p, levy: 4 }, 'coins'];
+        break;
       case 'levy:return':
         [p, action] = [{ ...p, levy: 2 }, 'coins'];
         break;
@@ -572,7 +597,7 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
           p = { ...p, learned: { ...p.learned, [id]: count }, cards: p.cards.includes(id) ? p.cards : [...p.cards, id], cardOpen: id };
         } else if (c.name === 'arrange') {
           // the matched pair's mirror goes once the room is arranged again
-          p = { ...p, roomMode: arg as RoomMode, ...(p.source === 'pair' ? { source: 'run' as const } : {}) };
+          p = { ...p, roomMode: arg as RoomMode, ...(p.source === 'pair' ? { source: 'run' as const } : {}), ...(arg === 'levy4' ? { levy: 0 as const } : {}) };
           action = 'arrange';
         } else if (c.name === 'card') p = { ...p, cards: [...p.cards, arg] };
         else if (c.name === 'pin') p = p.roomMode === 'matched' ? { ...p, compare: [...p.compare, arg] } : { ...p, thumbs: [...p.thumbs, arg] };
@@ -624,6 +649,8 @@ function build(): { steps: PairStep[]; problems: string[] } {
     const feel = s.manner.filter((m) => FEELINGS.has(m));
     const pictures = picturesOf(s.cues);
     const solve = s.cues.find((c) => c.name === 'solve')?.args[0]?.split(',').map((x) => Number(x.trim()));
+    const tax = s.cues.find((c) => c.name === 'taxgame');
+    const taxgame = tax ? { still: tax.opt === 'still', target: Number(tax.args[0]) } : undefined;
     return {
       id,
       wait,
@@ -641,6 +668,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
       ...(rounds ? { rounds } : {}),
       ...(speaks && pictures.length ? { pictures } : {}),
       ...(solve?.length ? { solve } : {}),
+      ...(taxgame ? { taxgame } : {}),
     };
   });
   return { steps, problems };
@@ -768,6 +796,7 @@ export const REACTIONS = {
   },
   /** Scene 21: after the game, won or lost. */
   stopWon: firstOf('stop.how', 'reactions', 'game-won'),
+  stillWon: firstOf('stop.still', 'reactions', 'game-won'),
   stopLost: firstOf('stop.how', 'reactions', 'game-lost'),
   /** Scene 23: the two rooms' counts. */
   matchResult: lineOf('match.result'),
@@ -785,6 +814,7 @@ export const REACTIONS = {
   /** Scene 26: the whole old machine, as a side trip. */
   workshop: choices('sandbox.2')[0],
   stopStart: choices('stop.how')[0],
+  stillStart: choices('stop.still')[0],
   giniToy: choices('gini.toy'),
   /** Scene 14: Red's answer to the paper — after one run, or after several. */
   whyAfter: firstOf('why.after', 'groups', 'one'),

@@ -311,10 +311,10 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
      * A fresh room, equal, trading live at `perSecond` trades a second until
      * the settings' stop rule (Scene 21); `tick` runs every frame after the trades.
      */
-    live(perSecond: number, tick: (dt: number) => void, seed = freshSeed()): void {
+    live(perSecond: number, tick: (dt: number) => void, seed = freshSeed(), start?: ArrayLike<number>): void {
       stopAll();
       onDone = null;
-      live = recorder(settings(), seed);
+      live = recorder(settings(), seed, start);
       adopt(live.recording());
       owed = 0;
       livePerSecond = perSecond;

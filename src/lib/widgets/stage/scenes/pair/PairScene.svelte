@@ -27,6 +27,7 @@
     CARDS,
     HEADLINE,
     JOKE_SKIP,
+    LEVY_FROM,
     MAP_LABEL,
     NUDGE_MS,
     PAIR_STEPS,
@@ -621,8 +622,8 @@
       run.travel(frameOf(at), 0);
     }
     // the game ends when the reader leaves its step: nothing is locked behind winning
-    if (step.id !== 'stop.how') stopCountdown();
-    if (game.playing && step.id !== 'stop.how') endGame(null);
+    if (!step.taxgame) stopCountdown();
+    if (game.playing && !step.taxgame) endGame(null);
     if (pose.source === 'dial') {
       if (entering === 'dial') dialRun.clear();
       else dialRun.ended();
@@ -631,6 +632,7 @@
       gameRun.clear();
       game.result = null;
     }
+    if (step.taxgame) setupRound(index);
     if (pose.source === 'sandbox' && entering === 'room') {
       sandboxRun.clear();
       sandboxPapers = [];
@@ -783,17 +785,59 @@
     }, 750);
   }
 
+  /** The round of the tax game on screen, if any (`\\taxgame`): the room standing still or trading, and its line. */
+  const gameStep = $derived(PAIR_STEPS[current]?.taxgame ?? null);
+
+  /** The still round's room: the run's own end, as unequal as it came out; a halving room if there is no run. */
+  function unequalStart(): Float64Array {
+    const rec = run.recording();
+    if (rec) return Float64Array.from(rec.frames[rec.frames.length - 1]);
+    return imagined('halves');
+  }
+
+  /**
+   * A round begins fresh on arriving at its step (owner, 2026-10-10: "step
+   * one. no dynamic, an unequal room. tax them … next round, now dynamic,
+   * they trade"): the still one shows its unequal room at once, waiting for
+   * Start; the trading one, everyone equal.
+   */
+  function setupRound(index: number): void {
+    const round = PAIR_STEPS[index].taxgame;
+    if (!round) return;
+    stopCountdown();
+    if (game.playing) endGame(null);
+    game.result = null;
+    gameRun.clear();
+    if (round.still) gameRun.live(0, () => {}, undefined, unequalStart());
+  }
+
   function beginGame(): void {
+    const round = gameStep;
+    if (!round) return;
     game.playing = true;
     game.elapsed = 0;
     game.below = 0;
     game.taps = 0;
     game.result = null;
     game.round++;
+    if (round.still) {
+      // nobody trades: only the reader's hand moves money, until more than the line count
+      gameRun.live(
+        0,
+        (dt) => {
+          game.elapsed += dt;
+          const count = measureWealth(gameRun.wealth()).effectiveParticipants;
+          if (count > round.target) endGame({ won: true, count: Math.round(count) });
+        },
+        undefined,
+        unequalStart(),
+      );
+      return;
+    }
     gameRun.live(GAME.perSecond, (dt) => {
       game.elapsed += dt;
       const count = measureWealth(gameRun.wealth()).effectiveParticipants;
-      game.below = nextClosureDuration(game.below, count, dt, GAME.target);
+      game.below = nextClosureDuration(game.below, count, dt, round.target);
       if (game.below >= GAME.closeAfterMs) endGame({ won: false, seconds: Math.round(game.elapsed / 1000), taps: game.taps });
       else if (game.elapsed >= GAME.seconds * 1000) endGame({ won: true, count: Math.round(count) });
     });
@@ -854,13 +898,16 @@
   }
 
   /** The game is over and its card is up: only its buttons move on (owner, 2026-10-09: "I was in the mode of clicking and then missed the next few bubbles"). */
-  const gameOver = $derived(!game.playing && game.result !== null && current === indexOf('stop.how'));
+  const gameOver = $derived(!game.playing && game.result !== null && gameStep !== null);
   /** How the room stands in the game, for its readout: how many count, against the line, and how close it is to closing. */
   const gameState = $derived.by(() => {
     const count = metrics.effectiveParticipants;
     const left = Math.max(0, Math.ceil(GAME.seconds - game.elapsed / 1000));
     const closing = game.below > 0 ? Math.max(0, Math.ceil((GAME.closeAfterMs - game.below) / 1000)) : null;
-    return { count, left, closing, warn: count < GAME.target * 1.25, danger: count < GAME.target };
+    const line = gameStep?.target ?? GAME.target;
+    // the still round has no danger: under the line is where it starts
+    const trading = !gameStep?.still;
+    return { count, left, closing, warn: trading && count < line * 1.25, danger: trading && count < line };
   });
 
   /**
@@ -925,7 +972,7 @@
   });
 
   /** Where a tap lands: the game, or the reader's machine. */
-  const tapping = $derived((game.playing && current === indexOf('stop.how')) || PAIR_STEPS[current].pose.control === 'sandbox');
+  const tapping = $derived((game.playing && gameStep !== null) || PAIR_STEPS[current].pose.control === 'sandbox');
 
   /** The five largest fortunes, as buttons for the keyboard. */
   const topFive = $derived.by(() => {
@@ -938,11 +985,11 @@
 
   /** Scene 22: a quarter of every pile flies to the pool, or the pool flies back, a coin at a time. */
   function levyCoins(pose: Pose, tl: Timeline): void {
-    const before = levyLesson(pose.levy === 2 ? 1 : 0);
+    const before = levyLesson(LEVY_FROM[pose.levy]);
     const after = levyLesson(pose.levy);
     levyView = { coins: [...before.coins], pool: before.pool };
     const pool = poolSpot();
-    const out = pose.levy === 1;
+    const out = pose.levy === 1 || pose.levy === 3;
     // one token per coin that moves, handed to the view first: the view draws its own copies
     const flights: { k: number; c: number }[] = [];
     cast.four.forEach((_, k) => {
@@ -1328,7 +1375,7 @@
       case 'line':
         // the walk's circle eats everyone it has added up (owner review 2026-09-26)
         // added up, they stay, pale, at their own size: the walk does not take them away (owner, 2026-10-10)
-        return at(linePose.spots[i].x, linePose.spots[i].y, linePose.radii[i], linePose.rank[i] < walker.k ? 0.2 : 1);
+        return at(linePose.spots[i].x, linePose.spots[i].y, linePose.radii[i], linePose.rank[i] < walker.k && view.lorenzDraw < 1 ? 0.2 : 1);
       case 'equal':
       case 'zero':
       case 'half':
@@ -1508,12 +1555,11 @@
   /** The walk's circle: everyone added up so far, rolling along the floor after the last one it ate. */
   const eater = $derived.by(() => {
     const k = walker.k;
-    if (k === 0) return null;
-    const r = linePose.eaten[k];
+    // only while the walk is on its way: walked to the end, it goes, and everyone stands again (owner, 2026-10-10)
+    if (k === 0 || view.lorenzDraw >= 1) return null;
+    // centred on the one it has just added, outside the plot if it must be
     const last = linePose.spots[linePose.order[k - 1]];
-    const f = linePose.frame;
-    const x = Math.max(f.x + r, Math.min(last.x, f.x + f.w - r));
-    return { x, y: last.y + linePose.radii[linePose.order[k - 1]] - r, r };
+    return { x: last.x, y: last.y, r: linePose.eaten[k] };
   });
 
   /** A share as a percent, for the plots' axes and readings. */
@@ -1721,6 +1767,7 @@
   const valuesOf = (step: (typeof PAIR_STEPS)[number]) => ({
     ...valuesFor(step),
     ...(step.pose.ran ? { headline } : {}),
+    ...(step.taxgame ? { target: step.taxgame.target } : {}),
     ...(step.pose.roomMode === 'matched' ? matchedValues : {}),
   });
 
@@ -1958,11 +2005,11 @@
         }
         continue;
       }
-      if (step.id === 'stop.how' && line?.who) {
+      if (step.taxgame && line?.who) {
         out.push({ id: step.id, who: line.who, at: line.who, text: say(line.message, valuesOf(step)), feel: step.feel });
         const result = game.result;
         if (result) {
-          const said = result.won ? REACTIONS.stopWon : REACTIONS.stopLost;
+          const said = step.taxgame.still ? REACTIONS.stillWon : result.won ? REACTIONS.stopWon : REACTIONS.stopLost;
           const values: Record<string, number> = result.won ? { count: result.count } : { seconds: result.seconds, taps: result.taps };
           out.push({ id: `stop.result:${game.round}`, who: said.who, at: said.who, text: say(said.message, values), ...withPause(said) });
         }
@@ -2169,7 +2216,8 @@
         { label: say(no), act: () => stage?.advance() },
       ];
     }
-    if (id === 'stop.how') return game.playing || game.counting > 0 || game.result ? null : [{ label: say(REACTIONS.stopStart), act: startGame }];
+    const round = PAIR_STEPS[index].taxgame;
+    if (round) return game.playing || game.counting > 0 || game.result ? null : [{ label: say(round.still ? REACTIONS.stillStart : REACTIONS.stopStart), act: startGame }];
     if (id === 'sandbox.2') return [{ label: say(REACTIONS.workshop), act: () => openBranch('workshop') }];
     if (id === 'run.again') {
       return [
@@ -3643,8 +3691,14 @@
   {@const [before, after = ''] = say('stop_meter', { count: '\u0000' }).split('\u0000')}
   <div class="hud" class:warn={gameState.warn} class:danger={gameState.danger} aria-live="off">
     <span class="count">{before}<strong>{formatNumber(gameState.count, { maximumFractionDigits: 0 })}</strong>{after}</span>
-    <span class="goal">{say('stop_goal', { target: formatNumber(GAME.target) })}</span>
-    <span class="time">{gameState.closing !== null ? say('stop_closing', { seconds: formatNumber(gameState.closing) }) : say('stop_left', { seconds: formatNumber(gameState.left) })}</span>
+    <span class="goal">{say('stop_goal', { target: formatNumber(gameStep?.target ?? GAME.target) })}</span>
+    <span class="time">
+      {gameStep?.still
+        ? say('stop_taps', { taps: formatNumber(game.taps) })
+        : gameState.closing !== null
+          ? say('stop_closing', { seconds: formatNumber(gameState.closing) })
+          : say('stop_left', { seconds: formatNumber(gameState.left) })}
+    </span>
     <span class="clock" aria-hidden="true"><span style={`inline-size:${Math.max(0, 1 - game.elapsed / (GAME.seconds * 1000)) * 100}%`}></span></span>
   </div>
 {/snippet}
@@ -4339,14 +4393,14 @@
       </div>
     {/if}
 
-    {#if game.counting > 0 && current === indexOf('stop.how')}
+    {#if game.counting > 0 && gameStep}
       {@const box = L.room.box}
       {#key game.counting}
         <p class="countdown" style={`left:${box.x + box.w / 2}px; top:${box.y + box.h / 2}px`} aria-live="assertive">{formatNumber(game.counting)}</p>
       {/key}
     {/if}
 
-    {#if game.playing && gameState.left <= 5 && gameState.left > 0 && current === indexOf('stop.how')}
+    {#if game.playing && gameStep && !gameStep.still && gameState.left <= 5 && gameState.left > 0}
       {@const box = L.room.box}
       {#key gameState.left}
         <p class="countdown last" style={`left:${box.x + box.w / 2}px; top:${box.y + box.h / 2}px`} aria-hidden="true">{formatNumber(gameState.left)}</p>
@@ -4358,15 +4412,21 @@
       {@const result = game.result}
       <!-- the end of the game: the score, and the only two ways on -->
       <section class="game-over" class:won={result.won} style={`left:${box.x + box.w / 2}px; top:${box.y + box.h * 0.62}px`} aria-live="polite">
-        <p>{result.won ? say('stop_over_won', { count: formatNumber(result.count) }) : say('stop_over_lost', { seconds: formatNumber(result.seconds) })}</p>
+        <p>
+          {gameStep?.still && result.won
+            ? say('stop_over_still', { count: formatNumber(result.count), taps: formatNumber(game.taps) })
+            : result.won
+              ? say('stop_over_won', { count: formatNumber(result.count) })
+              : say('stop_over_lost', { seconds: formatNumber(result.seconds) })}
+        </p>
         <div class="buttons">
           <button type="button" class="again" onclick={startGame}>{say('stop_again')}</button>
-          <button type="button" class="on" onclick={() => stage?.advance()}>{say('stop_on')}</button>
+          <button type="button" class="on" onclick={() => goOn(PAIR_STEPS[current].id)}>{say('stop_on')}</button>
         </div>
       </section>
     {/if}
 
-    {#if PAIR_STEPS[current].id === 'stop.how' && !game.playing && game.counting === 0 && !game.result}
+    {#if gameStep && !game.playing && game.counting === 0 && !game.result}
       {@const box = L.room.box}
       <!-- the game's start, as big as the room's middle: the bubble's link alone was easy to miss -->
       <button type="button" class="start-game" style={`left:${box.x + box.w / 2}px; top:${box.y + box.h / 2}px`} onclick={startGame}>

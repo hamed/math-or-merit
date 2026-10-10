@@ -236,8 +236,8 @@ describe('what the scene promises, whatever the words', () => {
     for (const [i, s] of STORY.steps.entries()) if (s.choices.length > 0) expect(['reader', 'action'], PAIR_STEPS[i].id).toContain(PAIR_STEPS[i].wait.kind);
   });
 
-  it('holds only where the scene knows how to let go: meeting both, 8 and 8, the joke offered, a guess, a bet, the four done', () => {
-    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try']);
+  it('holds only where the scene knows how to let go: meeting both, 8 and 8, the joke offered, a guess, a bet, the four done, both rounds of the tax game played', () => {
+    expect(PAIR_STEPS.filter((s) => s.wait.kind === 'action').map((s) => s.id)).toEqual(['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try', 'stop.still', 'stop.how']);
   });
 
   it('tells the joke in the talk, one real picture to a bubble, and "Not now" goes past all of it', () => {
@@ -316,6 +316,9 @@ describe('what the scene promises, whatever the words', () => {
   });
 
   it('keeps every coin in the levy lesson, and nets out the way Red says', () => {
+    // the tax game's tap, shown first: a quarter of the biggest pile only, then shared back
+    expect(levyLesson(3)).toEqual({ coins: [12, 4, 8, 4], pool: 4 });
+    expect(levyLesson(4)).toEqual({ coins: [13, 5, 9, 5], pool: 0 });
     const [before, collected, returned] = ([0, 1, 2] as const).map(levyLesson);
     expect(before).toEqual({ coins: [16, 4, 8, 4], pool: 0 });
     expect(collected).toEqual({ coins: [12, 3, 6, 3], pool: 8 });

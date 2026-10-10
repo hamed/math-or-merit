@@ -12,7 +12,7 @@ import { loadDeferred } from './helpers';
 
 const STAGE_KEY = 'merit-or-math:stage:pair:v1';
 /** The stage's holds, released so a test can land anywhere past them. */
-const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try'];
+const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try', 'stop.still', 'stop.how'];
 
 const stage = (page: Page) => page.locator('.step-stage');
 const stepNow = async (page: Page) => Number(await stage(page).getAttribute('data-step'));
@@ -397,29 +397,28 @@ test('a line about a bin lights its outline, and only while the line shows', asy
   await expect(page.locator('.bins .bin.lit')).toHaveCount(0);
 });
 
-test('the room goes back to its start and the rulers hold still; the plot beside counts the same bins', async ({ page }) => {
+test('on the multiplying ruler the room goes back to its start and the ruler holds still; the plot beside counts the same bins', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  const ids = await openAt(page, 'sort.there');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   const [start, ruled] = await page.evaluate(async () => {
     const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
     type S = { id: string; pose: { time: string; roomMode: string; thumbs: string[] } };
     const steps = PAIR_STEPS as S[];
     return [
-      steps.find((s) => s.pose.roomMode === 'piles' && s.pose.time === 'start')!.id,
+      steps.find((s) => s.pose.roomMode === 'ruler' && s.pose.time === 'start')!.id,
       steps.find((s) => s.pose.roomMode === 'ruler' && s.pose.thumbs.includes('histogram'))!.id,
     ];
   });
-  const ticks = () => page.locator('.ruler text').allTextContents();
-  const now = await ticks();
-  // back to the start: everyone in one pile, on the same ruler
-  await openAt(page, start);
-  await expect(page.locator('.counts text')).toHaveText(['100']);
-  expect(await ticks()).toEqual(now);
-  void ids;
   // on the multiplying ruler, the plot beside the room draws the room's own bins
   await openAt(page, ruled);
+  const ticks = () => page.locator('.ruler text').allTextContents();
+  const now = await ticks();
   const roomBins = await page.locator('.bins .bin').count();
   await expect(page.locator('.charts .plot .bar')).toHaveCount(roomBins);
+  // back to the start: everyone in one bin, on the same ruler
+  await openAt(page, start);
+  await expect(page.locator('.bins .bin')).toHaveCount(1);
+  expect(await ticks()).toEqual(now);
 });
 
 test('the Gini plot holds still while the room moves through time', async ({ page }) => {
@@ -482,6 +481,23 @@ test('the tax game starts from the room itself, and shows what a tap takes', asy
   await page.locator('.start-game').click();
   await expect(page.locator('.hud')).toBeVisible();
   await expect(page.locator('.start-game')).toHaveCount(0);
+});
+
+test('the still round must be played: taxing the biggest until more than the line count, then Go on', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const ids = await openAt(page, 'stop.still', ['stop.still']);
+  const at = ids.indexOf('stop.still');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
+  await page.locator('.start-game').click();
+  await expect(page.locator('.hud')).toBeVisible();
+  const over = page.locator('.game-over');
+  for (let k = 0; k < 60 && !(await over.isVisible()); k++) await page.locator('.hit.tap').first().click({ force: true });
+  await expect(over).toBeVisible();
+  await over.getByRole('button').last().click();
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
 });
 
 test('the tax game ends on a card: a stray click stays, Play again plays, Go on moves on', async ({ page }) => {
