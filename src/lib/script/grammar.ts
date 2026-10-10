@@ -48,6 +48,8 @@ const STORY: Record<string, ActionSpec> = {
   pairs: { kind: 'authored', args: 1, optional: true },
   /** A spot on the stage the line is about, by name: ringed, and looked at, while the line shows. */
   point: { kind: 'authored', args: 1 },
+  /** Both dials set for the reader to see: `\\rules{stake, levy}`, and the room plays them. */
+  rules: { kind: 'authored', args: 1 },
   /** The room moves through its own run to another moment: `start`, `end`, `gini=0.5`. */
   time: { kind: 'authored', args: 1 },
   /** A card's first n lines, as the reader learns them: `\\learn{rule}{0}` opens it empty. */

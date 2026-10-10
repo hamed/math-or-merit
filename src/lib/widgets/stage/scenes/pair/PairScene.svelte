@@ -67,6 +67,7 @@
   import { createRun } from './run.svelte';
   import { BIG, BLUE_CATCHES, COINS, CROWD, RAINED, RED_CATCHES, SMALL, START as CROWD_START } from './crowd';
   import { GATHER_SECONDS, noise, planArrival, planRain } from './rain';
+  import { SCALING_REFERENCE, scalingCurves, type ScalingCurve } from './scaling';
   import { OUT_SCALE, ROUND_STAKE, feltIn, planRounds, resultAt, windowTimes } from './roomRounds';
   import { CROSSING, FALL, RISE, arrival, fallTime, gravity, hopsBy, squashed, type Hop } from './hops';
   import { titleFeet } from './titleFeet';
@@ -248,6 +249,8 @@
     room: Array.from({ length: 100 }, () => ({ x: 0, y: 0, r: 0, alpha: 0, q: 0, empty: 0 })),
     /** How much of the turnover chart is drawn, 0–1 (Scene 18). */
     turnDraw: 0,
+    /** The stake's chart, from plain trades (0) to trades in stake squared (1). */
+    scaleT: 0,
     /** How much of the Lorenz curve is drawn, 0–1 (Scene 16's walk). */
     lorenzDraw: 0,
     /** Scene 23's mirror room, 0–1, and how far its copy has slid out of the room, 0–1. */
@@ -325,7 +328,9 @@
           if (!who) return { ...L.crowdExits[i], r: L.radius(RAINED[i]), empty: 0, ...still, alpha: 0 };
           const spot = pairSpot(pose, who);
           // in the line, the two are eaten by the walk's circle like everyone else
-          const alpha = pose.place === 'room' && pose.roomMode === 'line' ? (spot as { alpha?: number }).alpha ?? 1 : 1;
+          // and behind a chart drawn over the room, they step back with everyone
+          const behind = pose.place === 'room' && (pose.roomMode === 'turnover' || pose.roomMode === 'scaling');
+          const alpha = pose.place === 'room' && pose.roomMode === 'line' ? (spot as { alpha?: number }).alpha ?? 1 : behind ? 0.16 : 1;
           return { x: spot.x, y: spot.y, r: pairRadius(pose, who), empty: 0, ...still, alpha };
         }
       }
@@ -439,6 +444,7 @@
     view.ticks = Object.fromEntries(ticksFor(pose.roomMode).map((t) => [t.key, { x: t.x, alpha: t.shown ? 1 : 0 }]));
     view.lorenzDraw = pose.roomMode === 'line' && pose.curve ? 1 : 0;
     view.turnDraw = pose.roomMode === 'turnover' ? 1 : 0;
+    view.scaleT = pose.scaled ? 1 : 0;
     view.mirrorOn = pose.roomMode === 'matched' ? 1 : 0;
     view.mirrorShift = 1;
     view.mapOn = pose.map > 0 ? 1 : 0;
@@ -475,6 +481,8 @@
   }
 
   function play(index: number, from: number): void {
+    // Red's lines over the dials keep what they said: the room they spoke of is about to change
+    for (let i = 0; i < index; i++) if (PAIR_STEPS[i].pose.control === 'rules' && saidCounts[PAIR_STEPS[i].id] === undefined) saidCounts[PAIR_STEPS[i].id] = dialCount;
     current = index;
     stopMotion();
     stopCalls();
@@ -630,8 +638,16 @@
     if (!step.taxgame) stopCountdown();
     if (game.playing && !step.taxgame) endGame(null);
     if (pose.source === 'dial') {
-      if (entering === 'dial') dialRun.clear();
-      else dialRun.ended();
+      if (entering === 'dial' || entering === 'rules') dialRun.clear();
+      else if (pose.control === 'rules' && !animate && pose.rules) {
+        // a jump to Red's pair: that room, finished
+        dialLevy = pose.rules.levy;
+        levyThumb = pose.rules.levy;
+        dialStake = pose.rules.stake;
+        dialThumb = pose.rules.stake;
+        dialRun.start(undefined, undefined, DIAL_MS);
+        dialRun.finish();
+      } else dialRun.ended();
     }
     // the game opens on the room the run left, unequal, already in the reader's hand's reach
     if (step.action === 'game') {
@@ -1138,7 +1154,29 @@
   let dialStake = $state(DEFAULT_RUN.beta);
   /** Where the dial's thumb is while it is being dragged. */
   let dialThumb = $state(DEFAULT_RUN.beta);
-  const dialRun = createRun(() => fixed(dialStake, DIAL_TRADES), () => DIAL_MS, OWN);
+  /** The levy on the dials' room: none for the stake alone (Scene 20); the reader's second dial in Scene 24. */
+  let dialLevy = $state(0);
+  let levyThumb = $state(0);
+  const dialRun = createRun(() => fixed(dialStake, DIAL_TRADES, dialLevy), () => DIAL_MS, OWN);
+  /** The levy dial's stops: from none, through the room's 0.3%, to a tenth of everything each round. */
+  const LEVY_STOPS: readonly number[] = [0, 0.00075, 0.0015, 0.003, 0.006, 0.012, 0.025, 0.05, 0.1];
+
+  /**
+   * Both dials set at once (`\\rules`, owner 2026-10-10): Red shows a few pairs,
+   * then the reader tries their own; every change plays a fresh room.
+   */
+  function setRules(stake: number, levy: number): void {
+    dialLevy = levy;
+    levyThumb = levy;
+    turnDial(stake);
+  }
+
+  let levyTimer: number | undefined;
+  function nudgeLevy(levy: number): void {
+    levyThumb = levy;
+    window.clearTimeout(levyTimer);
+    levyTimer = window.setTimeout(() => setRules(dialStake, levy), 250);
+  }
 
   /** Scene 21: the room trades live; the game's own clock ends it. */
   const gameRun = createRun(() => fixed(GAME.beta, 10_000_000), () => 0, OWN);
@@ -1528,6 +1566,7 @@
         return fourCoins[k] > 0 ? at(spot.x, spot.y, L.radius(fourCoins[k])) : at(spot.x, spot.y, L.presence * 1.6, 1, true);
       }
       case 'turnover':
+      case 'scaling':
         return at(free.x, free.y, real, 0.16);
       case 'levy4': {
         const k = cast.four.indexOf(i);
@@ -1590,7 +1629,7 @@
     arranging = true;
     const mode = pose.roomMode;
     const n = L.room.positions.length;
-    const still = ['equal', 'zero', 'half', 'one', 'halves', 'turnover'];
+    const still = ['equal', 'zero', 'half', 'one', 'halves', 'turnover', 'scaling'];
     const inPlace = still.includes(mode) && (still.includes(PAIR_STEPS[current - 1]?.pose.roomMode ?? '') || PAIR_STEPS[current - 1]?.pose.roomMode === 'free');
     const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => modeTarget(mode, a).x - modeTarget(mode, b).x);
     const slow = mode === 'ruler' ? 1.5 : 1;
@@ -1655,6 +1694,15 @@
   function walk(tl: Timeline): void {
     tl.fromTo(view, { lorenzDraw: 0 }, { lorenzDraw: 1, duration: WALK_SECONDS, ease: 'none' });
   }
+
+  /** Scene 20's lesson: three stakes' rooms, counted two ways (scaling.ts); made once, when first shown. */
+  const SCALING_SPAN = 120_000;
+  let scalingMade: ScalingCurve[] | null = null;
+  const scalingData = $derived.by(() => {
+    if (PAIR_STEPS[current].pose.roomMode !== 'scaling') return [];
+    scalingMade ??= scalingCurves(SCALING_SPAN, 1_500);
+    return scalingMade;
+  });
 
   /** Frames by the moment the script names (`\\time`): the first frame at or past a Gini, found once per run. */
   const giniFrames = new Map<string, number>();
@@ -1898,12 +1946,20 @@
     };
   });
   /** A step's live values: the pair's coins, and while the matched rooms stand, the review's measures. */
+  /** Each of Red's lines over the dials keeps the number it said, once the talk has moved past it. */
+  const saidCounts = $state<Record<string, number>>({});
+  /** How many still count in the dials' room, rounded: what Red reads out in Scene 24. */
+  const dialCount = $derived.by(() => {
+    void dialRun.state.revision;
+    return Math.round(measureWealth(dialRun.wealth()).effectiveParticipants);
+  });
   /** The morning paper's headline on the run's winner: what Blue repeats as the reason (`\\val{headline}`). */
   const headline = $derived(run.state.done && run.state.winner >= 0 ? (frontPage()?.text ?? '') : '');
   const valuesOf = (step: (typeof PAIR_STEPS)[number]) => ({
     ...valuesFor(step),
     ...(step.pose.ran ? { headline } : {}),
     ...(step.taxgame ? { target: step.taxgame.target } : {}),
+    ...(step.pose.control === 'rules' ? { count: saidCounts[step.id] ?? dialCount } : {}),
     ...(step.pose.roomMode === 'matched' ? matchedValues : {}),
   });
 
@@ -2519,7 +2575,7 @@
   });
 
   /** Poses where Blue and Red are markers inside a picture, not people to talk beside. */
-  const PICTURES = ['piles', 'ruler', 'line', 'four', 'turnover', 'levy4', 'matched', 'map'];
+  const PICTURES = ['piles', 'ruler', 'line', 'four', 'turnover', 'scaling', 'levy4', 'matched', 'map'];
   /** Pictures that are not the room on screen: its charts step aside. */
   const APART: readonly RoomMode[] = ['levy4', 'matched', 'map'];
   const inPicture = $derived(PAIR_STEPS[current].pose.place === 'room' && PICTURES.includes(PAIR_STEPS[current].pose.roomMode));
@@ -2685,6 +2741,10 @@
       case 'walk':
         walk(tl);
         return;
+      case 'rescale':
+        // time counted in stake squared: the three curves slide onto one
+        tl.fromTo(view, { scaleT: 0 }, { scaleT: 1, duration: 2.2, ease: 'power2.inOut' }, 0.2);
+        return;
       case 'unwalk':
         // exactly the walk, in reverse
         tl.to(view, { lorenzDraw: 0, duration: WALK_SECONDS, ease: 'none' });
@@ -2693,8 +2753,17 @@
         tweenTo(pose, tl, 0, 0.6);
         tl.call(() => run.travel(frameOf(pose.time), TIME_SECONDS * 1000), [], 0.1);
         return;
+      case 'rules': {
+        // the dials Red sets: everyone equal, then a fresh room playing them
+        const r = pose.rules ?? { stake: dialStake, levy: dialLevy };
+        arrange(pose, tl);
+        if (stage?.reduced) setRules(r.stake, r.levy);
+        else tl.call(() => setRules(r.stake, r.levy), [], 1.2);
+        return;
+      }
       case 'dial':
         // everyone equal again, then a fresh room at the dial's stake
+        dialLevy = 0;
         arrange(pose, tl);
         if (stage?.reduced) turnDial(dialStake);
         else
@@ -3999,6 +4068,14 @@
   </div>
 {/snippet}
 
+{#snippet levyDial()}
+  <!-- Scene 24's second dial: the levy, once a round, shared back equally -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="stake-dial" onpointerdown={() => (dialHeld = true)}>
+    <StopSlider label={say('dial_levy')} value={levyThumb} stops={LEVY_STOPS} format={(v) => (v === 0 ? '0%' : stakeLabel(v))} onChange={nudgeLevy} />
+  </div>
+{/snippet}
+
 {#snippet stakeDial()}
   <!-- the sandbox's own slider and stops: 0.1% to 99.99% (owner review 2026-09-26); a hand on it holds it in place -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -4409,6 +4486,27 @@
             </g>
           {/each}
         {/if}
+        {#if mode === 'scaling' && !arranging}
+          {@const chart = { x: box.x + 64, y: box.y + box.h * 0.1, w: box.w - 110, h: box.h * 0.72 }}
+          {@const t = view.scaleT}
+          <!-- three rooms by their stake: in plain trades the smaller falls slower; in stake squared, one curve -->
+          <g class="scaling">
+            <StageAxes
+              frame={chart}
+              x={{ lo: 0, hi: SCALING_SPAN, ticks: niceLinearTicks(0, SCALING_SPAN, 4), format: compactNumber, label: say(t > 0.5 ? 'scaling_axis_scaled' : 'scaling_axis_trades') }}
+              y={{ lo: 0, hi: 100, ticks: [0, 25, 50, 75, 100], format: (v) => formatNumber(v), label: say('scaling_axis_players') }}
+            />
+            {#each scalingData as c, k (c.stake)}
+              {@const pts = c.trades.flatMap((tr, j) => {
+                const x = tr * ((c.stake / SCALING_REFERENCE) ** 2) ** t;
+                return x <= SCALING_SPAN ? [`${(chart.x + (x / SCALING_SPAN) * chart.w).toFixed(1)},${(chart.y + chart.h - (c.players[j] / 100) * chart.h).toFixed(1)}`] : [];
+              })}
+              <polyline class={`stake-${k}`} points={pts.join(' ')} />
+              {@const last = pts.at(-1)?.split(',').map(Number)}
+              {#if last}<text class={`stake-${k}`} x={last[0] + 6} y={last[1] + 4}>{formatNumber(c.stake, { style: 'percent' })}</text>{/if}
+            {/each}
+          </g>
+        {/if}
         {#if view.turnDraw > 0.001 && turnover.rounds.length > 1}
           {@const chart = { x: box.x + 64, y: box.y + box.h * 0.1, w: box.w - 84, h: box.h * 0.72 }}
           {@const n = turnover.rounds.length}
@@ -4516,7 +4614,7 @@
     {:else if !L.column && !inPicture && PAIR_STEPS[current].pose.place === 'room' && (dialHere || (runShown && shown.state.done && shown.state.frames > 1 && current > indexOf('run')))}
       <div class="dial phone">
         {#if runShown && shown.state.done && shown.state.frames > 1}{@render player([shown])}{/if}
-        {#if dialHere}{@render stakeDial()}{/if}
+        {#if dialHere}{@render stakeDial()}{#if PAIR_STEPS[current].pose.control === 'rules'}{@render levyDial()}{/if}{/if}
       </div>
     {/if}
 
@@ -4741,7 +4839,7 @@
               <div class="dial">{@render player([shown])}</div>
             {/if}
             {#if pose.roomMode === 'line' && pose.lorenz >= 1}{@render walkSlider()}{/if}
-            {#if dialHere}{@render stakeDial()}{/if}
+            {#if dialHere}{@render stakeDial()}{#if PAIR_STEPS[current].pose.control === 'rules'}{@render levyDial()}{/if}{/if}
           </section>
         {/if}
         {#if !APART.includes(pose.roomMode) && pose.thumbs.length > 0}
@@ -5040,6 +5138,40 @@
     stroke: var(--accent);
     stroke-width: 2.4;
     stroke-linejoin: round;
+  }
+
+  /* the stake's three rooms: the biggest stake darkest */
+  .scaling polyline {
+    fill: none;
+    stroke-width: 2.4;
+    stroke-linejoin: round;
+  }
+
+  .scaling text {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .scaling .stake-0 {
+    stroke: var(--accent-deep);
+    fill: var(--accent-deep);
+  }
+
+  .scaling .stake-1 {
+    stroke: var(--accent);
+    fill: var(--accent);
+  }
+
+  .scaling .stake-2 {
+    stroke: #c99a6b;
+    fill: #c99a6b;
+  }
+
+  .scaling polyline.stake-0,
+  .scaling polyline.stake-1,
+  .scaling polyline.stake-2 {
+    fill: none;
   }
 
   /* Scene 20: the stake dial, inside Red's bubble */

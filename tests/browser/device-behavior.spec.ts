@@ -281,7 +281,13 @@ test('a link to a scene opens the stage there, and the address follows the scene
   await expect(stage(page)).toBeInViewport({ ratio: 0.9 });
   // moving on, the address names the scene the reader is in
   await openAt(page, 'count.2');
-  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#count');
+  // the page's own scroll restore can land after the stage was entered: enter it again while waiting
+  await expect
+    .poll(async () => {
+      await enterStage(page);
+      return page.evaluate(() => location.hash);
+    })
+    .toBe('#count');
 });
 
 test('a stray click or scroll during a run does not skip it; Skip does', async ({ page }) => {
@@ -520,6 +526,32 @@ test('the trading room ends on a card: a stray click stays, Go on moves on', asy
   expect(await stepNow(page)).toBe(at);
   await over.getByRole('button').last().click();
   await expect.poll(() => stepNow(page)).toBe(at + 1);
+});
+
+test('the stake scales time: three rooms, then one curve once time is counted in stake squared', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const [plain, scaled] = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const steps = PAIR_STEPS as { id: string; pose: { roomMode: string; scaled: boolean } }[];
+    return [steps.find((s) => s.pose.roomMode === 'scaling' && !s.pose.scaled)!.id, steps.find((s) => s.pose.roomMode === 'scaling' && s.pose.scaled)!.id];
+  });
+  await openAt(page, plain);
+  await expect(page.locator('.scaling polyline')).toHaveCount(3);
+  await expect(page.locator('.scaling')).toContainText('trades');
+  await openAt(page, scaled);
+  await expect(page.locator('.scaling')).toContainText('stake');
+});
+
+test('both dials: Red sets a pair, and the reader holds the stake and the levy', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const first = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    return (PAIR_STEPS as { id: string; pose: { control: string | null } }[]).find((s) => s.pose.control === 'rules')!.id;
+  });
+  await openAt(page, first);
+  await expect(page.locator('.charts .stake-dial')).toHaveCount(2);
 });
 
 test('a reload returns the reader to the step they were reading', async ({ page }) => {

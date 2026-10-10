@@ -82,6 +82,8 @@ export interface Pose {
   readonly lorenz: 0 | 1 | 2 | 3;
   /** The running total's curve is drawn (walked); undone, the diagonal and the plot stay. */
   readonly curve: boolean;
+  /** The stake's chart counts time in stake squared (`\\reveal{scaled}`): the three rooms on one curve. */
+  readonly scaled: boolean;
   /**
    * Where in its run the room stands (`\\time`, owner 2026-10-10): `start`,
    * `end`, or `gini=0.5` (the first moment its Gini reaches 0.5). The
@@ -103,7 +105,9 @@ export interface Pose {
    */
   readonly source: RoomSource;
   /** A control the reader holds in this step: the stake dial, the tax game, the whole machine. */
-  readonly control: 'stake' | 'tax' | 'sandbox' | null;
+  readonly control: 'stake' | 'tax' | 'sandbox' | 'rules' | null;
+  /** The two dials of Scene 24 (`\\rules{stake, levy}`): the pair Red sets for the reader to see. */
+  readonly rules: { readonly stake: number; readonly levy: number } | null;
   /** Scene 22's lesson: 0 before · 1 a quarter of every pile in the pool · 2 the pool shared back. */
   /** The four's coins: before · all paid a quarter · shared back · one tapped (the tax game's tap) · its quarter shared back. */
   readonly levy: LevyMoment;
@@ -134,6 +138,7 @@ export type RoomMode =
   | 'one'
   | 'four'
   | 'turnover'
+  | 'scaling'
   | 'levy4'
   | 'matched'
   | 'map';
@@ -158,6 +163,8 @@ export type Action =
   | 'arrange'
   | 'walk'
   | 'unwalk'
+  | 'rescale'
+  | 'rules'
   | 'time'
   | 'dial'
   | 'game'
@@ -249,6 +256,8 @@ export const START: Pose = {
   roomMode: 'free',
   lorenz: 0,
   curve: false,
+  scaled: false,
+  rules: null,
   time: 'end',
   thumbs: [],
   compare: [],
@@ -333,7 +342,7 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'run.banter': (s) => when(s, 'winner'),
   'run.again': (s) => targets(s, '\\run'),
   'why.after': (s) => when(s, 'runs'),
-  'sort.there': (s) => needs(s, 'count') && s.cues.every((c) => c.name === 'point') && s.choices.length === 0,
+  'sort.there': (s) => needs(s, 'count') && cue(s, 'point', 'blue') && s.choices.length === 0,
   'gini.value': (s) => needs(s, 'gini'),
   'gini.toy': (s) => targets(s, '\\reveal{toy:gini}'),
   'eff.brutal': (s) => cue(s, 'arrange', 'zero'),
@@ -437,6 +446,10 @@ function durationOf(action: Action | undefined, pose: Pose, prev: Pose): number 
       return Math.round(WALK_SECONDS * 1000) + 200;
     case 'time':
       return Math.round(TIME_SECONDS * 1000) + 200;
+    case 'rescale':
+      return 2600;
+    case 'rules':
+      return 6800;
     case 'arrange':
       return pose.roomMode === 'piles' ? 4800 : pose.roomMode === 'ruler' ? 3400 : prev.roomMode === 'turnover' ? 1800 : 2000;
     default:
@@ -493,6 +506,9 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         if (!p.presented) action = 'present';
         p = { ...p, flip: 'shown', presented: true };
         break;
+      case 'reveal:scaled':
+        [p, action] = [{ ...p, scaled: true }, 'rescale'];
+        break;
       case 'reveal:curve':
         [p, action] = [{ ...p, lorenz: Math.max(1, p.lorenz) as Pose['lorenz'], curve: true }, 'walk'];
         break;
@@ -540,12 +556,16 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
       case 'control:tax':
         [p, action] = [{ ...p, control: 'tax', source: 'game' }, 'game'];
         break;
+      case 'control:rules':
+        // both dials in the reader's hand: one room, the stake and the levy
+        [p, action] = [{ ...p, control: 'rules', source: 'dial', roomMode: 'free' }, 'rules'];
+        break;
       case 'control:sandbox':
         p = { ...p, control: 'sandbox', source: 'sandbox' };
         break;
       case 'control:none':
         // the reader's hand leaves the tax game: the room shown is the run's again
-        p = { ...p, control: null, ...(p.control === 'tax' ? { source: 'run' as const } : {}) };
+        p = { ...p, control: null, ...(p.control === 'tax' || p.control === 'rules' ? { source: 'run' as const } : {}) };
         break;
       case 'levy:collect':
         // on the room itself (owner, 2026-10-10: no four-person demo): the run's own room pays
@@ -589,6 +609,10 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
             p = { ...p, played: p.played + count };
           }
           action = 'pairs';
+        } else if (c.name === 'rules') {
+          const [stake, levy] = arg.split(',').map((x) => Number(x.trim()));
+          if (!(stake > 0 && stake <= 1 && levy >= 0 && levy <= 1)) EXPECT_PROBLEMS.push(`${s.at}: \\rules{${arg}} — a stake in (0, 1], a levy in [0, 1]`);
+          [p, action] = [{ ...p, rules: { stake, levy } }, 'rules'];
         } else if (c.name === 'time') {
           if (!/^(start|end|gini=0?\.\d+)$/.test(arg)) EXPECT_PROBLEMS.push(`${s.at}: \\time{${arg}} — start, end or gini=0.5`);
           [p, action] = [{ ...p, time: arg }, 'time'];
@@ -604,7 +628,13 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
           p = { ...p, learned: { ...p.learned, [id]: count }, cards: p.cards.includes(id) ? p.cards : [...p.cards, id], cardOpen: id };
         } else if (c.name === 'arrange') {
           // the matched pair's mirror goes once the room is arranged again
-          p = { ...p, roomMode: arg as RoomMode, ...(p.source === 'pair' ? { source: 'run' as const } : {}), ...(arg === 'levy4' ? { levy: 0 as const } : {}) };
+          p = {
+            ...p,
+            roomMode: arg as RoomMode,
+            ...(p.source === 'pair' ? { source: 'run' as const } : {}),
+            ...(arg === 'levy4' ? { levy: 0 as const } : {}),
+            ...(arg === 'scaling' ? { scaled: false } : {}),
+          };
           action = 'arrange';
         } else if (c.name === 'card') p = { ...p, cards: [...p.cards, arg] };
         else if (c.name === 'pin') p = p.roomMode === 'matched' ? { ...p, compare: [...p.compare, arg] } : { ...p, thumbs: [...p.thumbs, arg] };
