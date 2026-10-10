@@ -133,9 +133,11 @@
   title="how many hold how much"
   description="The wealth distribution: each bar counts the people whose holdings fall in that range. Hover for median and mean."
   onBody={given ? undefined : cycleBins}
-  bodyTooltip={`${view.binCount} bins — click for the next count`}
+  bodyTooltip={given ? undefined : `${view.binCount} bins — click for the next count`}
   onHoverChange={(inside) => (hovered = inside)}
-  ariaLabel={`Wealth histogram, ${view.binCount} ${xLog ? 'log' : 'linear'} bins, ${yLog ? 'log' : 'linear'} people axis. Click an axis to toggle its scale; click the bars to change the bin count.`}
+  ariaLabel={given
+    ? `Wealth histogram, people counted plainly in fixed bins${given.dust ? ': everyone below one cent first, then' : ':'} one bin for each tenfold step of wealth.`
+    : `Wealth histogram, ${view.binCount} ${xLog ? 'log' : 'linear'} bins, ${yLog ? 'log' : 'linear'} people axis. Click an axis to toggle its scale; click the bars to change the bin count.`}
 >
   {#snippet children({ xOf, yOf, frame })}
     {@const baseline = frame.y + frame.h}

@@ -299,13 +299,13 @@
   }
 
   function pairSpot(pose: Pose, who: Speaker) {
-    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red, pose.source);
+    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red, pose.source, pose);
     if (pose.place === 'seats') return who === 'blue' ? L.seatBlue : L.seatRed;
     return who === 'blue' ? L.markBlue : L.markRed;
   }
 
   function pairRadius(pose: Pose, who: Speaker): number {
-    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red, pose.source).r;
+    if (pose.place === 'room') return modeTarget(pose.roomMode, who === 'blue' ? L.room.blue : L.room.red, pose.source, pose).r;
     return Math.max(L.minRadius, L.radius(pose.holdings[who]));
   }
 
@@ -647,6 +647,7 @@
     if (game.playing && !step.taxgame) endGame(null);
     // the stake alone has no levy, however the reader came back to it (review 2026-10-10)
     const levied = pose.source === 'dial' && pose.control !== 'rules' && (dialLevy !== 0 || (dialRun.recording()?.settings.levy ?? 0) > 0);
+    if (pose.control !== 'rules') window.clearTimeout(levyTimer);
     if (levied) {
       dialLevy = 0;
       levyThumb = 0;
@@ -1226,7 +1227,8 @@
   function nudgeLevy(levy: number): void {
     levyThumb = levy;
     window.clearTimeout(levyTimer);
-    levyTimer = window.setTimeout(() => setRules(dialStake, levy), 250);
+    // only while both dials are still in the reader's hand: a chapter left behind keeps no levy (recheck 2026-10-10)
+    levyTimer = window.setTimeout(() => PAIR_STEPS[current].pose.control === 'rules' && setRules(dialStake, levy), 250);
   }
 
   /** Scene 21: the room trades live; the game's own clock ends it. */
@@ -1398,13 +1400,17 @@
       const coins = tokens((i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r: coinOf(w[i]) }));
       // each keeps its size on the way (its area is its money), and is gone into the pool as it arrives,
       // the pool growing as they come (review 2026-10-10)
-      for (let i = 0; i < n; i++) {
-        const at = 0.1 + (i % 20) * 0.02;
-        tl.to(coins[i], { x: mid.x, y: mid.y, duration: 1.1, ease: 'power2.inOut' }, at);
-        tl.set(coins[i], { on: 0 }, at + 1.1);
+      // the pool's area is exactly the money that has arrived (recheck 2026-10-10)
+      tl.set(roomPool, { r: 0 }, 0);
+      const arrivals = Array.from({ length: n }, (_, i) => ({ i, at: 0.1 + (i % 20) * 0.02 + 1.1 })).sort((a, b) => a.at - b.at);
+      let area = 0;
+      for (const { i, at } of arrivals) {
+        tl.to(coins[i], { x: mid.x, y: mid.y, duration: 1.1, ease: 'power2.inOut' }, at - 1.1);
+        tl.set(coins[i], { on: 0 }, at);
+        area += coinOf(w[i]) ** 2;
+        tl.set(roomPool, { r: Math.sqrt(area) }, at);
       }
-      tl.fromTo(roomPool, { r: 0 }, { r: poolR(), duration: 0.4, ease: 'none' }, 1.2);
-      done(1.7);
+      done(arrivals.at(-1)!.at + 0.3);
       return;
     }
     if (pose.levy === 3) {
