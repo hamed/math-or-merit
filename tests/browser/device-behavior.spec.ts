@@ -596,9 +596,8 @@ test('back from both dials, the stake-only room has no levy left in it', async (
   expect(Number(levy ?? 0)).toBe(0);
 });
 
-test('the ending: the levy rules the living room, Be born rings one, Share carries the world, and the machine keeps the room', async ({ page }) => {
+test('the ending: three boxes, one dial; the middle room follows it, and the machine keeps the room', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const [veil, machine] = await page.evaluate(async () => {
     const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
@@ -606,29 +605,30 @@ test('the ending: the levy rules the living room, Be born rings one, Share carri
     return [steps.find((s) => s.pose.control === 'veil')!.id, steps.find((s) => s.pose.control === 'sandbox')!.id];
   });
   await openAt(page, veil);
-  await expect(page.locator('.veil .limit-label')).toHaveCount(2);
-  const count = page.locator('.veil-count');
-  await expect(count).toBeVisible();
-  // the middle stop: the room opens up over time, never reset
-  await page.locator('.veil-deck input[type=range]').evaluate((el: HTMLInputElement) => {
-    el.value = '4';
+  await expect(page.locator('.saying')).toHaveCount(2);
+  await expect(page.locator('.veil .veil-frame')).toHaveCount(3);
+  // the dial and nothing else: no buttons in the ending
+  await expect(page.locator('.veil-dial input[type=range]')).toHaveCount(1);
+  await expect(page.locator('.veil-dial button')).toHaveCount(0);
+  // all the way: the room turns from Blue's colour to Red's as everyone comes to count
+  const redness = () =>
+    page.locator('.veil .limit').nth(2).locator('circle').first().evaluate((el) => {
+      const hex = el.getAttribute('fill') ?? '#000000';
+      return parseInt(hex.slice(1, 3), 16) - parseInt(hex.slice(5, 7), 16);
+    });
+  const before = await redness();
+  await page.locator('.veil-dial input[type=range]').evaluate((el: HTMLInputElement) => {
+    el.value = String(Number(el.max));
     el.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  await expect.poll(async () => Number((await count.textContent())?.match(/\d+/)?.[0]), { timeout: 20_000 }).toBeGreaterThan(30);
-  await page.locator('.veil-deck button', { hasText: 'Be born' }).click();
-  await expect(page.locator('.born')).toHaveCount(1);
-  await page.evaluate(() => Object.defineProperty(navigator, 'share', { value: undefined }));
-  await page.locator('.veil-deck button', { hasText: 'Share' }).click();
-  await expect(page.locator('.veil-deck button', { hasText: 'copied' })).toBeVisible();
-  const shared = await page.evaluate(() => navigator.clipboard.readText());
-  expect(shared).toContain('world=0.01');
+  await expect.poll(redness, { timeout: 20_000 }).toBeGreaterThan(before + 40);
   // the machine opens on the same room, at the reader's levy
   await page.evaluate(async (id) => {
     const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
     const to = (PAIR_STEPS as { id: string }[]).findIndex((s) => s.id === id);
     await (await import('/src/lib/widgets/stage/branch.ts')).goToIndex('pair', to);
   }, machine);
-  await expect(page.locator('.deck')).toContainText('1%');
+  await expect(page.locator('.deck')).toContainText('100%');
 });
 
 test('a shared world greets its reader in the friend’s colour, and closes', async ({ page }) => {

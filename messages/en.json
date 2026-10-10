@@ -400,14 +400,6 @@
   "veil_keepers": "Finders keepers",
   "veil_sharers": "Sharing is caring",
   "veil_levy": "levy, every round",
-  "veil_count": "{count} players still count",
-  "veil_born": "Be born",
-  "veil_again": "Be born again",
-  "veil_you": "you",
-  "veil_share": "Share your world",
-  "veil_copied": "Link copied",
-  "veil_message": "I chose a {levy} levy. What would you call fair, before you knew where you'd end up?",
-  "veil_friend": "A friend chose {levy}",
   "veil_strip": "Someone chose this world for you: a {levy} levy. Read on, and choose yours.",
   "veil_close": "Close"
 }
