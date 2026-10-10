@@ -718,6 +718,7 @@ That's just real life.
 Red (calm): And nobody had an edge.
 \todo{draft}
 
+
 Blue (flow, curious): Where am I?
 \todo{draft}
 
@@ -760,6 +761,10 @@ Red (aside): That's a \gls{histogram}.
 \pin{histogram}
 \todo{draft}
 
+Red (flow): And where they started, on this ruler.
+\moment{start}
+\todo{draft}
+
 \section{Measure the room}\label{act:gini}
 
 \subsection{Measure the room}\label{gini}
@@ -769,33 +774,62 @@ money is added up as it goes: the running total climbs as a curve above
 them. Equal shares would climb the straight diagonal. The gap between the
 two is the Gini.
 
-Blue (curious): Economists love a single number.
+Blue (flow, curious): Economists love a single number.
 What's ours?
 \todo{draft}
 
-Red: Line everyone up, poorest first.
+Red (flow): Let's start where they started,
+everyone equal.
+\todo{draft}
+
+Red (flow): Line everyone up, poorest first.
 \arrange{line}
 \todo{draft}
 
-Red: Now walk along the line
+Red (flow): Now walk along the line
 and add up their money as you go.
 \reveal{curve}
 \todo{draft}
 
-Red: If everyone had the same,
-the total would climb this straight line.
+Red (flow): Everyone the same:
+the total climbs a straight line.
 \reveal{diagonal}
 \point{diagonal}
 \todo{draft}
 
-Red: The gap between them is the \gls{gini}{Gini}.
+Red (flow): Now back, the same way.
+\hide{curve}
+\todo{draft}
+
+Red (flow): Let the room play a while.
+\moment{gini=0.5}
+\todo{draft}
+
+Red (flow): And walk again.
+\reveal{curve}
+\todo{draft}
+
+Red (flow): The gap between them is the \gls{gini}{Gini}.
 Zero: all the same. One: a single owner.
 \reveal{gap}
 \point{gap}
 \todo{draft}
 
+Red (flow): Here, about a half.
+\todo{draft}
+
+Red (flow): And on, to where the room is now.
+\moment{end}
+\todo{draft}
+
 Red: This room: \val{gini}.
 \todo{draft}
+
+% Owner, 2026-10-10: the Gini taught from the start (everyone equal, the curve
+% on the diagonal), undone exactly in reverse, done again at about 0.5, then
+% the room runs on to its end and the reader watches the Gini grow. The plot
+% holds still; the reader can move the room's time and the walk with the two
+% sliders.
 
 Red (aside): Want to see the equal case
 and play with it?
@@ -812,59 +846,76 @@ and play with it?
 
 \subsection{How many still count?}\label{count}
 
-The room itself tries the cases: everyone the same; one person emptied; that
-person's money given to one other; half the room owning it all; one owner;
-and back to how it really is. Each time Red says the number. Then four
-people step out of the crowd, four coins each, and the reader moves the
-coins.
+The room itself tries the cases: one person emptied; half the room owning
+it all; one owner; each holding half of what the one before holds; and back
+to how it really is. Each time Red says the number. Then four people step
+out of the crowd, two coins each, and the reader solves a puzzle: move the
+coins until the four make the number Red asks for.
 
-% Owner, 2026-09-26.
+% Owner, 2026-09-26; reordered 2026-10-10: the section opens on "This game
+% is brutal"; the case of the emptied one's money given to one other is cut.
 
-Blue (sure): A hundred players.
+Red (flow, sad): This game is brutal.
+\todo{draft}
+
+Blue (flow, sure): A hundred players.
 That's a lot of competition.
 \todo{draft}
 
-Red: If all hundred had the same,
+Red (flow): If all hundred had the same,
 all hundred would count.
 \arrange{equal}
 \todo{draft}
 
-Red (flow, sad): This game is brutal.
-No money,
-and you don't count at all. \val{count} left.
+Red (flow, sad): Take one person's money away.
+No money, and you don't count. \val{count} left.
 \arrange{zero}
 \todo{draft}
 
-Red: Now give his money to one other person.
-\val{count}. A bit less.
-\arrange{double}
-\todo{draft}
-
-Red: Half of them own it all, equally?
+Red (flow): Half of them own it all, equally?
 \val{count}.
 \arrange{half}
 \todo{draft}
 
-Red: One owns everything?
+Red (flow): One owns everything?
 \val{count}.
 \arrange{one}
 \todo{draft}
 
-Red: This room?
+Red (flow): Each one has half of what the one before has?
+About \val{count}.
+\arrange{halves}
+\todo{draft}
+\marginpar{Shares 1, ½, ¼, ⅛, … of one another, scaled to the room's whole wealth: 1 / Σsᵢ² comes to 3.}
+
+Red (flow): This room?
 About \val{count}.
 \arrange{free}
 \todo{draft}
 
 % {count} is 1 / Σsᵢ² of the room on screen, to one decimal.
 
-Red (aside): Your turn: four people, four coins each.
+Red: Your turn: four people, eight coins.
 Drag a coin from one to another.
 \arrange{four}
-\choice{Done}{tried=yes}
+\solve{2, 1, 2.9}
 \todo{draft}
 
 Red (aside, interrupts): Four people. \val{count} of them count.
 \todo{draft}
+
+% The puzzle: Red asks for each number in turn; solving one brings the
+% next, and solving the last lets the story go on (owner, 2026-10-10). A
+% reader who struggles gets the round's hint, and then may skip. Draft words.
+
+\begin{description}
+  \item[four.goal] Can you make it \val{target}?
+  \item[four.solved] That's it: \val{count}.
+  \item[four.hint.1] Hint: give two of them everything.
+  \item[four.hint.2] Hint: one holds all eight.
+  \item[four.hint.3] Hint: one, one, two, four.
+  \item[four.skip] Skip the puzzle
+\end{description}
 
 % Red, beside the four, reading the number out as the reader moves coins.
 
@@ -986,24 +1037,68 @@ The stake changes the journey, not the end.
 \todo{draft}
 \marginpar{The qualitative split only — every fixed stake in (0, 1) has the same limit (C4); the rate is what these runs did, not a law. Exactly zero switches the game off.}
 
+Red (flow): How much longer does a smaller stake take?
+Three rooms: 20\%, 10\%, 5\%.
+\arrange{scaling}
+\todo{draft}
+
+Red (flow): The smaller the stake,
+the slower they stop counting.
+\todo{draft}
+
+Red (flow): Now count the time in stake squared.
+\reveal{scaled}
+\todo{draft}
+
+Red (flow): Nearly one curve.
+Half the stake, about four times the trades.
+\todo{draft}
+\marginpar{Measured in this room: 100 people, three seeds each; counted in trades × (stake ÷ 10\%)², no curve strays more than about an eighth from the three curves' mean. Speed goes as the stake squared, so the same progress takes about four times the trades at half the stake; an approximation for small stakes, not an identity (review 2026-10-10; Boghosian 2014). The end is the same.}
+
 \section{Now you try to stop it}\label{act:stop}
 
 \subsection{Now you try to stop it}\label{stop}
 
-The room trades live. Tapping a fortune takes a quarter of it into a pool
-and shares it back equally — a manual WEALTH levy. Keep at least twenty
-effective participants for thirty seconds.
+The room as the run left it, unequal, and the reader's hand in it at once:
+no Start. A tap takes a quarter of one fortune: a coin appears inside them,
+comes out as they shrink, splits into a hundred equal coins, and everyone
+takes one in. First one tap on the biggest; then make the room more equal, past 25 players; then
+it trades again, and the reader keeps it from getting unequal (owner,
+2026-10-10). Each must be played to go on.
 
 % C13. The pace is tuned so a diligent hand genuinely can.
 
-Red (aside): Enough watching.
-Keep at least twenty players in the game.
+Red (aside, flow): Enough watching.
+Now you tax them.
+\arrange{free}
 \control{tax}
 \todo{draft}
 
-Red: Tap a big fortune: a quarter goes into a pool
-and comes back to everyone, equally.
-\choice{Start}{\run[game]}
+Red (aside): Tap the biggest one.
+\taxgame[tap]{1}
+\todo{draft}
+
+Red (flow): A quarter of it came out,
+and everyone got an equal part.
+\todo{draft}
+
+\subsection{More equal}\label{stop-still}
+
+Red (aside): Now make the room more equal:
+more than \val{target} players.
+\taxgame[still]{25}
+\todo{draft}
+
+Red (glad): \val{count} players count now.
+Your hand did that.
+\on{game-won}
+\todo{draft}
+
+\subsection{Keep it open}\label{stop-live}
+
+Red (aside): Now they trade again.
+Keep more than \val{target} players, as long as you can.
+\taxgame{20}
 \todo{draft}
 
 Red (glad): Thirty seconds, and still \val{count} players.
@@ -1029,44 +1124,63 @@ Nobody gets picked.
 
 \subsection{Put the levy in the rules}\label{levy}
 
-Trading frozen; four step out with coins — Blue 16, two others 8 and 4, Red
-4 (the average is 8). A quarter of every pile goes to one pool; the pool
-comes back in equal parts: Blue 14, 8, 5, Red 5.
+The room as the run left it, trading stopped. The rule shown on it, once,
+slowly: a coin appears inside everyone, its area a quarter of what they
+hold, big coins from big shapes; they shrink as it leaves; the coins merge
+in the pool into one. Then it splits into a hundred equal coins, one for
+each, and as everyone takes theirs in, they grow (owner, 2026-10-10).
 
 Red (aside, calm): Your hand gets tired.
 A rule doesn't.
-\arrange{levy4}
+\control{none}
+\learn{levy}{0}
 \todo{draft}
 
-Red: Once a round, the same share from everyone:
-a quarter.
+Red: Once a round, everyone pays the same share:
+a quarter of what they hold.
 \levy{collect}
 \todo{draft}
 
-Blue (flow, annoyed): Everyone lost a quarter.
+Blue (annoyed): Everyone lost a quarter.
 Nothing changed.
+\learn{levy}{1}
 \todo{draft}
 
 Red: Right. Everyone shrank the same.
 The shares didn't move.
 \todo{draft}
 
-Red: Now the pool goes back,
-in equal parts.
+Red: It all goes into one pool.
+\levy{pool}
+\todo{draft}
+
+Red: The pool is divided into equal parts,
+one for each.
+\levy{split}
+\learn{levy}{2}
+\todo{draft}
+
+Red: Everyone gets one.
+\levy{share}
+\learn{levy}{3}
+\todo{draft}
+
+Red: And takes it in.
 \levy{return}
 \point{pool}
 \todo{draft}
-\marginpar{The return is literal coins here; outside the room it could be a dividend or a shared service — the model chooses no budget, it only tests the shared return.}
+\marginpar{The return is literal coins here; outside the room it could be a dividend or a shared service — the model chooses no budget, it only tests the shared return. A quarter is to be seen; the room's real levy is far smaller.}
 
 Red: The average broke even.
 Below it, more came back. Above it, less.
+\learn{levy}{4}
 \todo{draft}
 
-Blue (aside, flow, annoyed): I paid in.
+Blue (aside, annoyed): I paid in.
 \todo{draft}
 
 Red: And the room kept every coin.
-\card{levy}
+\hide{card:levy}
 \todo{draft}
 
 \section{Trade and return together}\label{act:match}
@@ -1121,7 +1235,49 @@ Blue (surprised): All that from \val{levy}?
 Red (calm): A small levy, every round.
 Small enough to miss, big enough to keep the game open.
 \todo{draft}
-\marginpar{Measured on 40 matched seeds (375,000 trades at a tenth, a 0.3\% levy once a round): with the levy, in every seed, the Gini fell (about 0.95 to about 0.55), the players who count rose (about 4.5 to about 38), the fortunes under a tenth of an equal share fell from over 80 to under 8, and turnover rose about tenfold. Turnover counts trades only; the levy never pads it.}
+\marginpar{Measured on 40 matched seeds (0–39; 375,000 trades at a tenth, a 0.3\% levy once a round; reproduced in review, reviews/2026-10-10-pr23): the Gini fell in every seed, and on average from 0.96 to 0.55; the players who count rose from about 4 to about 41; the fortunes under a tenth of an equal share fell from about 87 to about 4; and turnover over the last 375 rounds rose about thirteenfold. Turnover counts trades only; the levy never pads it.}
+
+\section{Both dials}\label{act:dials}
+
+\subsection{Both dials}\label{dials}
+
+One room, both dials in the reader's hand: the stake and the levy. Red sets a
+few pairs first; every change plays a fresh room of the same length (owner,
+2026-10-10: "both stake and levy slider so the user try them out … then the
+question of too many pairs comes out naturally").
+
+Red (aside): Now both dials are yours:
+the stake, and the levy.
+\control{rules}
+\rules{0.1, 0}
+\todo{draft}
+
+Red (flow): No levy, the stake you know:
+about \val{count} players.
+\todo{draft}
+
+Red (flow): The same stake, a 0.3\% levy:
+about \val{count} players.
+\rules{0.1, 0.003}
+\todo{draft}
+
+Red (flow): Double the stake, the same levy:
+about \val{count}.
+\rules{0.2, 0.003}
+\todo{draft}
+
+Red (flow): Double the stake, four times the levy:
+about \val{count} again.
+\rules{0.2, 0.012}
+\todo{draft}
+\marginpar{Measured at these dials (250,000 trades, levy once a round, ten seeds): about 6, 42, 20 and 44 players. Twice the stake needs about four times the levy, as the map will show.}
+
+Red (aside): Try your own.
+\todo{draft}
+
+Blue (flow, curious): And every other pair?
+Too many to try, one by one.
+\todo{draft}
 
 \section{The outcome map}\label{act:map}
 
@@ -1131,12 +1287,9 @@ The map of stake against levy, each square a finished room, coloured by how
 many still count. The dashed fit is drawn only over the range it was
 measured on; neither it nor the contour is a phase boundary.
 
-Blue (curious): One pair is confusing.
-Which settings keep the room open?
+Red: So try them all: stake across, levy up.
+\control{none}
 \arrange{free}
-\todo{draft}
-
-Red: Try them all: stake across, levy up.
 Each square, how many still count.
 \reveal{map}
 \todo{draft}

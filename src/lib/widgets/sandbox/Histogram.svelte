@@ -11,9 +11,15 @@
     revision?: number;
     /** Dollars per head at the start — pins the initial axis range. */
     startDollars: number;
+    /**
+     * Someone else's bins, drawn as they are: the stage passes its room's own
+     * (owner, 2026-10-10: the histogram beside the room must match the one the
+     * room makes). Log x across `edges`, people counted plainly; no toggles.
+     */
+    bins?: { readonly edges: readonly number[]; readonly counts: readonly number[]; readonly dust?: boolean };
   }
 
-  let { wealth, totalDollars, n, revision = 0, startDollars }: Props = $props();
+  let { wealth, totalDollars, n, revision = 0, startDollars, bins: given }: Props = $props();
 
   // canonical form first (owner review 2026-07-14): log-log
   let xLog = $state(true);
@@ -48,6 +54,11 @@
     const sorted = Float64Array.from(amounts).sort();
     const median = sorted[Math.floor(n / 2)];
     const mean = sum / n;
+    if (given) {
+      const lo = given.edges[0];
+      const hi = given.edges[given.edges.length - 1];
+      return { bins: { edges: given.edges, counts: given.counts, underCount: 0 }, lo, hi, binCount: given.counts.length, median, mean };
+    }
     const now = performance.now();
     if (xLog) {
       const binCount = LOG_BIN_CYCLE[logBinIdx];
@@ -61,7 +72,14 @@
     return { bins: rangedLinearBins(amounts, hi, binCount), lo: 0, hi, binCount, median, mean };
   });
 
-  const xAxis: AxisSpec = $derived({
+  const xAxis: AxisSpec = $derived(given ? {
+    type: 'log',
+    lo: view.lo,
+    hi: view.hi,
+    ticks: spacedTicks((most) => given.edges.slice(1).filter((_, k, all) => k % Math.ceil(all.length / most) === 0), 5),
+    format: compactNumber,
+    label: 'wealth $',
+  } : {
     type: xLog ? 'log' : 'linear',
     lo: view.lo,
     hi: view.hi,
@@ -71,7 +89,14 @@
     onToggle: gatedClick(() => (xLog = !xLog)),
   });
 
-  const yAxis: AxisSpec = $derived({
+  const yAxis: AxisSpec = $derived(given ? {
+    type: 'linear',
+    lo: 0,
+    hi: Math.max(5, ...given.counts),
+    ticks: niceLinearTicks(0, Math.max(5, ...given.counts)),
+    format: compactNumber,
+    label: 'people',
+  } : {
     type: yLog ? 'log' : 'linear',
     // log floor sits below 1 so a single-agent bin still has height
     lo: yLog ? 0.7 : 0,
@@ -107,10 +132,12 @@
   y={yAxis}
   title="how many hold how much"
   description="The wealth distribution: each bar counts the people whose holdings fall in that range. Hover for median and mean."
-  onBody={cycleBins}
-  bodyTooltip={`${view.binCount} bins — click for the next count`}
+  onBody={given ? undefined : cycleBins}
+  bodyTooltip={given ? undefined : `${view.binCount} bins — click for the next count`}
   onHoverChange={(inside) => (hovered = inside)}
-  ariaLabel={`Wealth histogram, ${view.binCount} ${xLog ? 'log' : 'linear'} bins, ${yLog ? 'log' : 'linear'} people axis. Click an axis to toggle its scale; click the bars to change the bin count.`}
+  ariaLabel={given
+    ? `Wealth histogram, people counted plainly in fixed bins${given.dust ? ': everyone below one cent first, then' : ':'} one bin for each tenfold step of wealth.`
+    : `Wealth histogram, ${view.binCount} ${xLog ? 'log' : 'linear'} bins, ${yLog ? 'log' : 'linear'} people axis. Click an axis to toggle its scale; click the bars to change the bin count.`}
 >
   {#snippet children({ xOf, yOf, frame })}
     {@const baseline = frame.y + frame.h}
@@ -118,7 +145,11 @@
       {#if count > 0}
         {@const x0 = xOf(view.bins.edges[k])}
         {@const x1 = xOf(view.bins.edges[k + 1])}
-        <rect class="bar" x={x0 + 0.5} y={yOf(count)} width={Math.max(1, x1 - x0 - 1)} height={Math.max(1.2, baseline - yOf(count))} />
+        <!-- with `dust`, the first bar is not an interval: it holds everything under a cent, zero included (review 2026-10-10) -->
+        <rect class="bar" class:dust={given?.dust && k === 0} x={x0 + 0.5} y={yOf(count)} width={Math.max(1, x1 - x0 - 1)} height={Math.max(1.2, baseline - yOf(count))} />
+        {#if given?.dust && k === 0}
+          <text class="dust-label" x={(x0 + x1) / 2} y={Math.max(frame.y + 8, yOf(count) - 3)} text-anchor="middle">&lt; 1¢</text>
+        {/if}
       {/if}
     {/each}
     {#if view.bins.underCount > 0}
@@ -146,6 +177,19 @@
 <style>
   .bar {
     fill: rgb(189 98 69 / 55%);
+  }
+
+  .bar.dust {
+    fill: rgb(189 98 69 / 22%);
+    stroke: rgb(189 98 69 / 60%);
+    stroke-width: 0.8;
+    stroke-dasharray: 2 2;
+  }
+
+  .dust-label {
+    fill: var(--ink-soft);
+    font-size: 7.5px;
+    font-weight: 600;
   }
 
   .note {

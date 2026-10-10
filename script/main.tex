@@ -136,10 +136,14 @@
 \NewDocumentCommand\pairs{om}{\act{pairs}{\IfNoValueTF{#1}{#2 rounds played by hand}{the #1 part of a round}}}
 \newcommand\learn[2]{\act{learn}{the {\ttfamily #1} card shows #2 lines}}
 \newcommand\point[1]{\act{points at}{#1}}
+\newcommand\moment[1]{\act{moment}{the room moves to #1}}
+\newcommand\rules[1]{\act{rules}{stake and levy set to #1}}
 \newcommand\image[1]{\act{posts}{the picture {\ttfamily #1}}}
 \newcommand\toy[1]{\act{toy}{\ttfamily #1\normalfont\itshape\ — opened on request}}
 \newcommand\meet[1]{\reader{meet}{click #1}}
 \newcommand\equalize{\reader{equalize}{until 8 and 8}}
+\newcommand\solve[1]{\reader{solve}{make #1, in turn}}
+\NewDocumentCommand\taxgame{om}{\reader{tax game}{\IfNoValueTF{#1}{the room trades: keep more than #2 players}{#1: more than #2}}}
 
 % --- cards: \card{id} drops cards/<id>.tex, drawn as a card after the paragraph that drops it
 \def\pendingcards{}

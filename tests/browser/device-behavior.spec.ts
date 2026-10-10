@@ -12,7 +12,7 @@ import { loadDeferred } from './helpers';
 
 const STAGE_KEY = 'merit-or-math:stage:pair:v1';
 /** The stage's holds, released so a test can land anywhere past them. */
-const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try'];
+const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try', 'stop.tap', 'stop.still', 'stop.how'];
 
 const stage = (page: Page) => page.locator('.step-stage');
 const stepNow = async (page: Page) => Number(await stage(page).getAttribute('data-step'));
@@ -281,7 +281,13 @@ test('a link to a scene opens the stage there, and the address follows the scene
   await expect(stage(page)).toBeInViewport({ ratio: 0.9 });
   // moving on, the address names the scene the reader is in
   await openAt(page, 'count.2');
-  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#count');
+  // the page's own scroll restore can land after the stage was entered: enter it again while waiting
+  await expect
+    .poll(async () => {
+      await enterStage(page);
+      return page.evaluate(() => location.hash);
+    })
+    .toBe('#count');
 });
 
 test('a stray click or scroll during a run does not skip it; Skip does', async ({ page }) => {
@@ -324,17 +330,15 @@ test('the rule card opens empty and fills as Red tells the rule', async ({ page 
   await expect(rule).toHaveCount(2);
 });
 
-test('the four keep the reader on their step: a missed tap or a scroll stays, a coin can be dragged across, and Done goes on', async ({ page }) => {
+test('the four are a puzzle: a scroll or a missed tap stays, and making each number in turn goes on', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openAt(page, 'eff.try', ['eff.try']);
   const at = await stepNow(page);
-  await page.keyboard.press('ArrowDown');
-  await page.waitForTimeout(400);
-  expect(await stepNow(page)).toBe(at);
   const four = page.locator('.pair-scene .hit.four');
   await expect(four).toHaveCount(4);
-  await page.waitForTimeout(600);
-  // a tap beside them
+  const coins = async () => Promise.all([0, 1, 2, 3].map(async (k) => (await four.nth(k).getAttribute('aria-label'))!.replace(/[^\d]/g, '')));
+  await expect.poll(coins).toEqual(['2', '2', '2', '2']);
+  await page.keyboard.press('ArrowDown');
   await page.mouse.click(60, 400);
   await page.waitForTimeout(400);
   expect(await stepNow(page)).toBe(at);
@@ -346,18 +350,28 @@ test('the four keep the reader on their step: a missed tap or a scroll stays, a 
   await page.mouse.move(a.x + a.width / 2 + 20, a.y + a.height / 2, { steps: 4 });
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 });
   await page.mouse.up();
-  await expect.poll(async () => [await four.nth(0).getAttribute('aria-label'), await four.nth(1).getAttribute('aria-label')].map((l) => l!.trim())).toEqual(['3', '5']);
+  await expect.poll(coins).toEqual(['1', '3', '2', '2']);
+  // a coin by taps: one, then the other
+  const give = async (from: number, to: number, times = 1) => {
+    for (let t = 0; t < times; t++) {
+      await four.nth(from).click();
+      await four.nth(to).click();
+    }
+  };
+  // make it 2: four and four
+  await give(2, 0, 2);
+  await give(3, 0);
+  await give(3, 1);
+  await expect.poll(coins).toEqual(['4', '4', '0', '0']);
   expect(await stepNow(page)).toBe(at);
-  await page.locator('.bubble .choice').first().click();
-  await expect.poll(() => stepNow(page)).toBe(at + 1);
-  // back to them, and Done goes on again (review 2026-10-10: it did nothing on a revisit)
-  await page.keyboard.press('ArrowUp');
-  await expect.poll(() => stepNow(page)).toBe(at);
-  await page.locator('.bubble .choice').first().click();
-  await expect.poll(() => stepNow(page)).toBe(at + 1);
-  // and after a jump straight to them, with their hold long released
-  await openAt(page, 'eff.try');
-  await page.locator('.bubble .choice').first().click();
+  // make it 1: one holds all eight
+  await expect(page.locator('.bubble').filter({ hasText: /make it 1\b/ })).toBeVisible();
+  await give(1, 0, 4);
+  // about 2.9: four, one, one, two
+  await expect(page.locator('.bubble').filter({ hasText: /2\.9/ })).toBeVisible();
+  await give(0, 1);
+  await give(0, 2);
+  await give(0, 3, 2);
   await expect.poll(() => stepNow(page)).toBe(at + 1);
 });
 
@@ -381,12 +395,46 @@ test('stepping back and forth through the told round leaves no timelines behind'
   expect(Math.max(...counts.slice(-3))).toBeLessThanOrEqual(counts[1] + 2);
 });
 
-test('a line about a spot rings it, and only while the line shows', async ({ page }) => {
+test('a line about a bin lights its outline, and only while the line shows', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const ids = await openAt(page, 'sort.there');
-  await expect(page.locator('.point-ring')).toHaveCount(1);
+  await expect(page.locator('.bins .bin.lit')).toHaveCount(1);
   await openAt(page, ids[ids.indexOf('sort.there') + 1]);
-  await expect(page.locator('.point-ring')).toHaveCount(0);
+  await expect(page.locator('.bins .bin.lit')).toHaveCount(0);
+});
+
+test('on the multiplying ruler the room goes back to its start and the ruler holds still; the plot beside counts the same bins', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const [start, ruled] = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    type S = { id: string; pose: { time: string; roomMode: string; thumbs: string[] } };
+    const steps = PAIR_STEPS as S[];
+    return [
+      steps.find((s) => s.pose.roomMode === 'ruler' && s.pose.time === 'start')!.id,
+      steps.find((s) => s.pose.roomMode === 'ruler' && s.pose.thumbs.includes('histogram'))!.id,
+    ];
+  });
+  // on the multiplying ruler, the plot beside the room draws the room's own bins
+  await openAt(page, ruled);
+  const ticks = () => page.locator('.ruler text').allTextContents();
+  const now = await ticks();
+  const roomBins = await page.locator('.bins .bin').count();
+  await expect(page.locator('.charts .plot .bar')).toHaveCount(roomBins);
+  // back to the start: everyone in one bin, on the same ruler
+  await openAt(page, start);
+  await expect(page.locator('.bins .bin')).toHaveCount(1);
+  expect(await ticks()).toEqual(now);
+});
+
+test('the Gini plot holds still while the room moves through time', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const ids = await openAt(page, 'gini.value');
+  const diagonal = () => page.locator('.lorenz .diagonal').evaluate((el) => ['x1', 'y1', 'x2', 'y2'].map((k) => el.getAttribute(k)));
+  const end = await diagonal();
+  // a moment of the run the scene stands at on the way: the plot is where it was
+  await openAt(page, ids[ids.indexOf('gini.value') - 4]);
+  expect(await diagonal()).toEqual(end);
 });
 
 test('any card in the deck can be picked, not only the top one', async ({ page }) => {
@@ -433,27 +481,118 @@ test('the levy is reviewed for both rooms, side by side', async ({ page }) => {
   expect(ids.indexOf(last.id)).toBeGreaterThan(ids.indexOf('match.result'));
 });
 
-test('the tax game starts from the room itself, and shows what a tap takes', async ({ page }) => {
+test('the tax game opens on the room itself: no Start, one tap on the biggest shows what a tap does, and the story goes on', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openAt(page, 'stop.how');
-  await page.locator('.start-game').click();
-  await expect(page.locator('.hud')).toBeVisible();
+  const ids = await openAt(page, 'stop.tap', ['stop.tap']);
+  const at = ids.indexOf('stop.tap');
   await expect(page.locator('.start-game')).toHaveCount(0);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
+  await page.locator('.hit.tap').first().click({ force: true });
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
 });
 
-test('the tax game ends on a card: a stray click stays, Play again plays, Go on moves on', async ({ page }) => {
+test('the still room must be made equal: taxing the biggest until more than the line count, and the story goes on', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const ids = await openAt(page, 'stop.still', ['stop.still']);
+  const at = ids.indexOf('stop.still');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
+  await expect(page.locator('.hud')).toBeVisible();
+  for (let k = 0; k < 60 && (await stepNow(page)) === at; k++) await page.locator('.hit.tap').first().click({ force: true });
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
+});
+
+test('the trading room ends on a card: a stray click stays, Go on moves on', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'stop.how');
-  await page.locator('.start-game').click();
+  const ids = await openAt(page, 'stop.how', ['stop.how']);
+  const at = ids.indexOf('stop.how');
+  await expect(page.locator('.hud')).toBeVisible();
+  // a click in the room is a tap, never a step
+  const taps = page.locator('.taps');
+  const box = (await taps.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
   // left alone, the room closes
   const over = page.locator('.game-over');
   await expect(over).toBeVisible({ timeout: 60_000 });
   await page.mouse.click(40, 450);
   await page.waitForTimeout(400);
-  expect(await stepNow(page)).toBe(ids.indexOf('stop.how'));
+  expect(await stepNow(page)).toBe(at);
   await over.getByRole('button').last().click();
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
+});
+
+test('the stake scales time: three rooms, then one curve once time is counted in stake squared', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const [plain, scaled] = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const steps = PAIR_STEPS as { id: string; pose: { roomMode: string; scaled: boolean } }[];
+    return [steps.find((s) => s.pose.roomMode === 'scaling' && !s.pose.scaled)!.id, steps.find((s) => s.pose.roomMode === 'scaling' && s.pose.scaled)!.id];
+  });
+  await openAt(page, plain);
+  await expect(page.locator('.scaling polyline')).toHaveCount(3);
+  await expect(page.locator('.scaling')).toContainText('trades');
+  await openAt(page, scaled);
+  await expect(page.locator('.scaling')).toContainText('stake');
+});
+
+test('both dials: Red sets a pair, and the reader holds the stake and the levy', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const first = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    return (PAIR_STEPS as { id: string; pose: { control: string | null } }[]).find((s) => s.pose.control === 'rules')!.id;
+  });
+  await openAt(page, first);
+  await expect(page.locator('.charts .stake-dial')).toHaveCount(2);
+});
+
+test('the levy is taught on the room a moment a step, its card filling the column, then put away', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const [split, after] = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const steps = PAIR_STEPS as { id: string; pose: { levy: number; roomMode: string; cardOpen: string | null } }[];
+    const at = steps.findIndex((s) => s.pose.roomMode === 'free' && s.pose.levy === 3);
+    const put = steps.findIndex((s, i) => i > at && s.pose.cardOpen === null);
+    return [steps[at].id, steps[put].id];
+  });
+  await openAt(page, split);
+  await expect(page.locator('.charts .teach li')).toHaveCount(2);
+  await openAt(page, after);
+  await expect(page.locator('.charts .teach')).toHaveCount(0);
+});
+
+test('the tax rounds keep their instructions on screen while the reader taps', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'stop.tap', ['stop.tap']);
+  await expect(page.locator('.pair-scene .bubbles')).not.toHaveClass(/through/);
+  await expect(page.locator('.pair-scene .bubble').last()).toBeVisible();
+  expect(Number(await page.locator('.pair-scene .bubbles').evaluate((el) => getComputedStyle(el).opacity))).toBeGreaterThan(0.9);
+});
+
+test('back from both dials, the stake-only room has no levy left in it', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const [dials, stakeOnly] = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const steps = PAIR_STEPS as { id: string; pose: { control: string | null; rules: { levy: number } | null; source: string } }[];
+    return [steps.findIndex((s) => s.pose.control === 'rules' && (s.pose.rules?.levy ?? 0) > 0.01), steps.findIndex((s) => s.pose.control === 'stake')];
+  });
+  const ids = await stepIds(page);
+  await openAt(page, ids[dials]);
+  await page.evaluate(async (to) => (await import('/src/lib/widgets/stage/branch.ts')).goToIndex('pair', to), stakeOnly);
+  await expect.poll(() => stepNow(page)).toBe(stakeOnly);
+  // the room that stands there was played without the levy
+  const levy = await page.evaluate(() => (document.querySelector('.pair-scene') as HTMLElement).dataset.levy);
+  expect(Number(levy ?? 0)).toBe(0);
 });
 
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
@@ -474,23 +613,6 @@ test('past its last step the stage lets the page go on', async ({ page }) => {
   const before = await page.evaluate(() => scrollY);
   await page.keyboard.press('PageDown');
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before);
-});
-
-test('in the live tax game a click is a tap on the room, never a step', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'stop.how');
-  await page.locator('.bubble .choice').first().click();
-  await expect(page.locator('.hud')).toBeVisible();
-  const taps = page.locator('.taps');
-  await expect(taps).toBeVisible();
-  const box = (await taps.boundingBox())!;
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await page.waitForTimeout(500);
-  expect(await stepNow(page)).toBe(ids.indexOf('stop.how'));
-  // the reading keys still move on, and leaving ends the game
-  await page.keyboard.press('ArrowDown');
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
-  await expect(page.locator('.hud')).toBeHidden();
 });
 
 test('the machine is the reader’s: Play trades, a tap photographs, and every dial is one link away', async ({ page }) => {

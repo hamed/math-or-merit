@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { giniCoefficient } from '$lib/research';
-import { line, piles, roundRuler, roundStep, ruler } from './roomPoses';
+import { TOTAL_R, decadeBins, line, piles, roundRuler, roundStep, ruler } from './roomPoses';
 
 /** A room after a run: one giant, a few middling, the rest near nothing. */
 function room(): number[] {
@@ -120,11 +120,17 @@ for (const [name, box] of [['wide', BOX], ['phone', PHONE]] as const) {
 describe("Scene 17's imagined rooms", async () => {
   const { effectiveCount, imaginedShares } = await import('./roomPoses');
   const who = { emptied: 3, given: 7, owner: 9, half: (i: number) => i < 50 };
-  const count = (mode: 'equal' | 'zero' | 'double' | 'half' | 'one') => effectiveCount(imaginedShares(mode, 100, who));
+  const count = (mode: 'equal' | 'zero' | 'half' | 'one' | 'halves') => effectiveCount(imaginedShares(mode, 100, who));
 
   it('counts all hundred when everyone is equal', () => expect(count('equal')).toBeCloseTo(100, 9));
   it("drops to 99 when one has nothing — no money, you don't count", () => expect(count('zero')).toBeCloseTo(99, 9));
-  it('drops a bit more when that money goes to one other', () => expect(count('double')).toBeCloseTo(98.039, 2));
+  it('is about 3 when each holds half of the one before', () => {
+    expect(count('halves')).toBeCloseTo(3, 6);
+    const shares = imaginedShares('halves', 100, who);
+    expect(shares.reduce((s, x) => s + x, 0)).toBeCloseTo(1, 12);
+    expect(shares[who.owner]).toBeCloseTo(0.5, 9);
+    expect(new Set(Array.from(shares)).size).toBe(100);
+  });
   it('is 50 when half own it all equally', () => expect(count('half')).toBeCloseTo(50, 9));
   it('is 1 when one owns everything', () => expect(count('one')).toBeCloseTo(1, 9));
   it('matches the four-coin case exactly: four equal is 4, all to one is 1', () => {
@@ -134,14 +140,32 @@ describe("Scene 17's imagined rooms", async () => {
   });
 });
 
+describe('the Gini line holds still through time: the same plot and the same whole circle, whatever the room', () => {
+  const box = { x: 40, y: 100, w: 840, h: 640 };
+  const equal = line(Array.from({ length: 100 }, () => 100), box, true);
+  const unequal = line(room(), box, true);
+
+  it('keeps the plot where it is, at its size', () => expect(unequal.frame).toEqual(equal.frame));
+
+  it('ends the walk on one circle of the same size, everyone\'s money together', () => {
+    expect(unequal.eaten[100]).toBeCloseTo(equal.eaten[100], 9);
+    expect(equal.eaten[100]).toBeCloseTo(TOTAL_R * equal.frame.w, 9);
+  });
+
+  it('draws the equal room\'s curve on the diagonal', () => {
+    const f = equal.frame;
+    for (const p of equal.curve) expect(f.y + f.h - p.y).toBeCloseTo(((p.x - f.x) / f.w) * f.h, 6);
+  });
+});
+
 describe('the line keeps everyone\'s size, under a square plot', () => {
   const amounts = room();
-  const radii = amounts.map((a) => 12 * Math.sqrt(a / 100));
+  const radii = amounts.map((a) => Math.sqrt(a));
   for (const [name, box, beside] of [
     ['wide', { x: 40, y: 100, w: 840, h: 640 }, true],
     ['phone', PHONE, false],
   ] as const) {
-    const pose = line(amounts, box, radii, beside);
+    const pose = line(amounts, box, beside);
 
     it(`draws the Lorenz plot square, inside the room, on a ${name} stage`, () => {
       const f = pose.frame;
@@ -155,10 +179,11 @@ describe('the line keeps everyone\'s size, under a square plot', () => {
 
     it(`stands everyone on the floor under the plot, at their own sizes scaled together, on a ${name} stage`, () => {
       const floor = box.y + box.h - 4;
-      const k = pose.radii[0] / Math.max(0.6, radii[0]);
+      const k = pose.radii[42] / radii[42];
       for (let i = 0; i < 100; i++) {
         expect(pose.spots[i].y + pose.radii[i]).toBeCloseTo(floor, 6);
-        expect(pose.radii[i] / Math.max(0.6, radii[i])).toBeCloseTo(k, 6);
+        // area is wealth, on one scale (the tiniest are kept just visible)
+        if (pose.radii[i] > 0.6) expect(pose.radii[i] / radii[i]).toBeCloseTo(k, 6);
         expect(pose.spots[i].y - pose.radii[i]).toBeGreaterThan(pose.labelY);
       }
       // each under their own stretch of the curve: the curve rises over a person
@@ -176,9 +201,17 @@ describe('the line keeps everyone\'s size, under a square plot', () => {
       // overlapping, the richest still stands inside the room
       expect(pose.spots[42].x + pose.radii[42]).toBeLessThanOrEqual(box.x + box.w);
       // the walk's circle ends as one circle holding everyone's area
-      const area = pose.radii.reduce((sum, r) => sum + r * r, 0);
-      expect(pose.eaten[100] ** 2).toBeCloseTo(area, 6);
+      expect(pose.eaten[100]).toBeCloseTo(TOTAL_R * pose.frame.w, 9);
       expect(pose.rank[42]).toBe(99);
     });
   }
+});
+
+describe('the multiplying ruler\'s dust bin', () => {
+  it('holds everything under a cent, zero and the tiniest included, apart from the decades', () => {
+    const { counts, edges } = decadeBins([0, 1e-8, 0.0005, 0.005, 0.01, 0.5, 50], 10_000);
+    expect(counts[0]).toBe(4);
+    expect(counts.slice(1).reduce((s, c) => s + c, 0)).toBe(3);
+    expect(edges[1]).toBeCloseTo(0.01, 12);
+  });
 });

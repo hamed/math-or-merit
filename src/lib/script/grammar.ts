@@ -48,6 +48,10 @@ const STORY: Record<string, ActionSpec> = {
   pairs: { kind: 'authored', args: 1, optional: true },
   /** A spot on the stage the line is about, by name: ringed, and looked at, while the line shows. */
   point: { kind: 'authored', args: 1 },
+  /** Both dials set for the reader to see: `\\rules{stake, levy}`, and the room plays them. */
+  rules: { kind: 'authored', args: 1 },
+  /** The room moves through its own run to another moment: `start`, `end`, `gini=0.5`. */
+  moment: { kind: 'authored', args: 1 },
   /** A card's first n lines, as the reader learns them: `\\learn{rule}{0}` opens it empty. */
   learn: { kind: 'authored', args: 2 },
   /** A picture posted with the bubble, by name (the stage's pictures): the joke's plates. `\image`, since LaTeX's own `\picture` is taken. */
@@ -56,6 +60,10 @@ const STORY: Record<string, ActionSpec> = {
   /** A widget inside a unit — a card's toy — opened on request. */
   toy: { kind: 'authored', args: 1 },
   meet: { kind: 'reader', args: 1 },
+  /** *reader*: a round of the tax game — `[tap]`: one tap, to see it; `[still]`: a room that doesn't trade, taxed past n players; else it trades, kept above n as long as the reader can. */
+  taxgame: { kind: 'reader', args: 1, optional: true },
+  /** *reader*: the four's puzzle — make each number in turn by moving coins (Scene 17). */
+  solve: { kind: 'reader', args: 1 },
   equalize: { kind: 'reader', args: 0 },
 };
 
