@@ -142,7 +142,7 @@
 \newcommand\meet[1]{\reader{meet}{click #1}}
 \newcommand\equalize{\reader{equalize}{until 8 and 8}}
 \newcommand\solve[1]{\reader{solve}{make #1, in turn}}
-\NewDocumentCommand\taxgame{om}{\reader{tax game}{\IfNoValueTF{#1}{the room trades: keep more than #2 players}{the room stands still: more than #2 players}}}
+\NewDocumentCommand\taxgame{om}{\reader{tax game}{\IfNoValueTF{#1}{the room trades: keep more than #2 players}{#1: more than #2}}}
 
 % --- cards: \card{id} drops cards/<id>.tex, drawn as a card after the paragraph that drops it
 \def\pendingcards{}

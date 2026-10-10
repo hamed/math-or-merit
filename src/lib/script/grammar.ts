@@ -58,7 +58,7 @@ const STORY: Record<string, ActionSpec> = {
   /** A widget inside a unit — a card's toy — opened on request. */
   toy: { kind: 'authored', args: 1 },
   meet: { kind: 'reader', args: 1 },
-  /** *reader*: a round of the tax game — `[still]`: a room that doesn't trade, taxed past n players; else it trades, kept above n as long as the reader can. */
+  /** *reader*: a round of the tax game — `[tap]`: one tap, to see it; `[still]`: a room that doesn't trade, taxed past n players; else it trades, kept above n as long as the reader can. */
   taxgame: { kind: 'reader', args: 1, optional: true },
   /** *reader*: the four's puzzle — make each number in turn by moving coins (Scene 17). */
   solve: { kind: 'reader', args: 1 },

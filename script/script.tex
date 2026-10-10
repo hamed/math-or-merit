@@ -1041,48 +1041,34 @@ The stake changes the journey, not the end.
 
 \subsection{Now you try to stop it}\label{stop}
 
-First what the tax is, on four people: tapping one takes a quarter of their
-coins into a pool, and the pool comes back to all four equally. Then the
-reader taxes two rooms. One stands still, as unequal as the run left it:
-tax it until more than 25 players count. Then one that trades all the time:
-keep more than 20 players in the game as long as you can. Each round must be
-played to go on (owner, 2026-10-10).
+The room as the run left it, unequal, and the reader's hand in it at once:
+no Start. A tap takes a quarter of one fortune: a coin appears inside them,
+comes out as they shrink, splits into a hundred equal coins, and everyone
+takes one in. First one tap on the biggest; then make the room equal; then
+it trades again, and the reader keeps it from getting unequal (owner,
+2026-10-10). Each must be played to go on.
 
 % C13. The pace is tuned so a diligent hand genuinely can.
 
 Red (aside, flow): Enough watching.
 Now you tax them.
-\todo{draft}
-
-Red (flow): Four of them first, to see how.
-\arrange{levy4}
-\todo{draft}
-
-Red (flow): Tap one, and a quarter of what they hold
-goes into the pool.
-\levy{tap}
-\todo{draft}
-
-Red (flow): Then the pool goes back to everyone,
-in equal parts.
-\levy{back}
-\point{pool}
-\todo{draft}
-
-Blue (flow, annoyed): I paid all of it.
-\todo{draft}
-
-Red (flow): And everyone else is a little bigger.
-\todo{draft}
-
-\subsection{A room that stands still}\label{stop-still}
-
-Red (aside): First, a room that doesn't trade.
-Tax it until more than \val{target} players count.
 \arrange{free}
 \control{tax}
+\todo{draft}
+
+Red (aside): Tap the biggest one.
+\taxgame[tap]{1}
+\todo{draft}
+
+Red (flow): A quarter of it came out,
+and everyone got an equal part.
+\todo{draft}
+
+\subsection{Make it equal}\label{stop-still}
+
+Red (aside): Now make the room equal:
+more than \val{target} players.
 \taxgame[still]{25}
-\choice{Start}{\run[game]}
 \todo{draft}
 
 Red (glad): \val{count} players count now.
@@ -1090,12 +1076,11 @@ Your hand did that.
 \on{game-won}
 \todo{draft}
 
-\subsection{A room that trades}\label{stop-live}
+\subsection{Keep it equal}\label{stop-live}
 
-Red (aside): Now they trade, all the time.
+Red (aside): Now they trade again.
 Keep more than \val{target} players, as long as you can.
 \taxgame{20}
-\choice{Start}{\run[game]}
 \todo{draft}
 
 Red (glad): Thirty seconds, and still \val{count} players.
@@ -1121,16 +1106,18 @@ Nobody gets picked.
 
 \subsection{Put the levy in the rules}\label{levy}
 
-Trading frozen; four step out with coins — Blue 16, two others 8 and 4, Red
-4 (the average is 8). A quarter of every pile goes to one pool; the pool
-comes back in equal parts: Blue 14, 8, 5, Red 5.
+The room as the run left it, trading stopped. The rule shown on it, once,
+slowly: a coin appears inside everyone, its area a quarter of what they
+hold, big coins from big shapes; they shrink as it leaves; the coins merge
+in the pool into one. Then it splits into a hundred equal coins, one for
+each, and as everyone takes theirs in, they grow (owner, 2026-10-10).
 
 Red (aside, calm): Your hand gets tired.
 A rule doesn't.
-\arrange{levy4}
+\control{none}
 \todo{draft}
 
-Red: Once a round, the same share from everyone:
+Red (flow): Once a round, the same share from everyone:
 a quarter.
 \levy{collect}
 \todo{draft}
@@ -1139,18 +1126,18 @@ Blue (flow, annoyed): Everyone lost a quarter.
 Nothing changed.
 \todo{draft}
 
-Red: Right. Everyone shrank the same.
+Red (flow): Right. Everyone shrank the same.
 The shares didn't move.
 \todo{draft}
 
-Red: Now the pool goes back,
+Red (flow): Now the pool goes back,
 in equal parts.
 \levy{return}
 \point{pool}
 \todo{draft}
-\marginpar{The return is literal coins here; outside the room it could be a dividend or a shared service — the model chooses no budget, it only tests the shared return.}
+\marginpar{The return is literal coins here; outside the room it could be a dividend or a shared service — the model chooses no budget, it only tests the shared return. A quarter is to be seen; the room's real levy is far smaller.}
 
-Red: The average broke even.
+Red (flow): The average broke even.
 Below it, more came back. Above it, less.
 \todo{draft}
 

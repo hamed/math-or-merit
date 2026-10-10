@@ -28,6 +28,7 @@
     HEADLINE,
     JOKE_SKIP,
     LEVY_FROM,
+    LEVY_RATE,
     MAP_LABEL,
     NUDGE_MS,
     PAIR_STEPS,
@@ -384,6 +385,9 @@
     rounds = null;
     for (const token of view.fly) gsap.killTweensOf(token);
     view.fly = [];
+    for (const token of taxFx) gsap.killTweensOf(token);
+    taxFx = [];
+    gsap.killTweensOf(roomPool);
     for (const token of view.payout) token.on = 0;
     dragging = null;
     // a step cut short still lands its results on the faces
@@ -403,6 +407,7 @@
   /** Draw a pose at once. */
   function draw(pose: Pose): void {
     view.lorenzDraw = pose.roomMode === 'line' && pose.curve ? 1 : 0;
+    roomPool.r = pose.place === 'room' && pose.roomMode === 'free' && pose.levy === 1 ? poolR() : 0;
     const t = target(pose);
     view.type = t.type;
     view.meritOn = t.meritOn;
@@ -628,11 +633,13 @@
       if (entering === 'dial') dialRun.clear();
       else dialRun.ended();
     }
-    if (pose.source === 'game' && entering === 'game') {
-      gameRun.clear();
+    // the game opens on the room the run left, unequal, already in the reader's hand's reach
+    if (step.action === 'game') {
       game.result = null;
+      gameRun.clear();
+      gameRun.live(0, () => {}, undefined, unequalStart());
     }
-    if (step.taxgame) setupRound(index);
+    if (step.taxgame) setupRound(index, !animate || !gameRun.isLive());
     if (pose.source === 'sandbox' && entering === 'room') {
       sandboxRun.clear();
       sandboxPapers = [];
@@ -738,10 +745,10 @@
     }
   }
 
-  /** Scene 23's mirror room at the moment on screen. */
+  /** Scene 23's mirror room at the moment on screen: the copy is the room without the levy; Blue and Red live in the one with it. */
   const mirror = $derived.by(() => {
-    void rightRun.state.revision;
-    return { wealth: rightRun.wealth(), sized: rightRun.state.running || rightRun.state.done };
+    void leftRun.state.revision;
+    return { wealth: leftRun.wealth(), sized: leftRun.state.running || leftRun.state.done };
   });
 
   /** Scene 23: how many still count in each room, at the moment on screen. */
@@ -758,17 +765,78 @@
   const game = $state({ playing: false, counting: 0, elapsed: 0, below: 0, taps: 0, round: 0, result: null as GameResult | null });
 
   /**
-   * The game starts on a count of three, big over the room (owner, 2026-10-09:
-   * "something more exciting for the game time"), and ends on a card with its
-   * score, Play again and Go on.
+   * The tax game (owner, 2026-10-10): no Start. The reader's hand is in the
+   * room as the round arrives — one tap on the biggest, to see what it does;
+   * then making the still room equal; then the room trades again, after a
+   * count of three, from the room as the reader left it, and they keep it
+   * from getting unequal until it ends on a card with Play again and Go on.
    */
   let countTimer: number | undefined;
+  let roundTimer: number | undefined;
   function stopCountdown(): void {
     window.clearInterval(countTimer);
     countTimer = undefined;
     game.counting = 0;
   }
 
+  /** The round of the tax game on screen, if any (`\\taxgame`). */
+  const gameStep = $derived(PAIR_STEPS[current]?.taxgame ?? null);
+
+  /** The still rounds' room: the run's own end, as unequal as it came out; a halving room if there is no run. */
+  function unequalStart(): Float64Array {
+    const rec = run.recording();
+    if (rec) return Float64Array.from(rec.frames[rec.frames.length - 1]);
+    return imagined('halves');
+  }
+
+  /** The trading round's room as it began: Play again starts there. */
+  let liveStart: Float64Array | null = null;
+
+  /**
+   * A round begins on arriving at its step: `fresh` (a jump, or the first
+   * round) on the run's unequal room; else it carries on from the room the
+   * reader left.
+   */
+  function setupRound(index: number, fresh: boolean): void {
+    const round = PAIR_STEPS[index].taxgame;
+    if (!round) return;
+    stopCountdown();
+    window.clearTimeout(roundTimer);
+    game.result = null;
+    game.elapsed = 0;
+    game.below = 0;
+    game.round++;
+    if (round.kind !== 'live') {
+      game.taps = 0;
+      if (fresh || !gameRun.isLive()) {
+        gameRun.clear();
+        gameRun.live(0, stillTick, undefined, unequalStart());
+      } else gameRun.relive(0, stillTick);
+      game.playing = true;
+      return;
+    }
+    // trading again: from the room the reader made, after a count of three
+    game.playing = false;
+    liveStart = gameRun.isLive() && !fresh ? Float64Array.from(gameRun.wealth()) : null;
+    if (fresh) gameRun.clear();
+    startGame();
+  }
+
+  /** The still room: nobody trades; made equal past the line, the round is won and the story goes on. */
+  function stillTick(dt: number): void {
+    const round = gameStep;
+    if (!round || !game.playing) return;
+    game.elapsed += dt;
+    if (round.kind !== 'still') return;
+    const count = measureWealth(gameRun.wealth()).effectiveParticipants;
+    if (count <= round.target) return;
+    game.playing = false;
+    game.result = { won: true, count: Math.round(count) };
+    const id = PAIR_STEPS[current].id;
+    roundTimer = window.setTimeout(() => current === indexOf(id) && goOn(id), stage?.reduced ? 0 : 2400);
+  }
+
+  /** The trading round, after its count of three (or at once, played again). */
   function startGame(): void {
     stopCountdown();
     game.result = null;
@@ -785,62 +853,24 @@
     }, 750);
   }
 
-  /** The round of the tax game on screen, if any (`\\taxgame`): the room standing still or trading, and its line. */
-  const gameStep = $derived(PAIR_STEPS[current]?.taxgame ?? null);
-
-  /** The still round's room: the run's own end, as unequal as it came out; a halving room if there is no run. */
-  function unequalStart(): Float64Array {
-    const rec = run.recording();
-    if (rec) return Float64Array.from(rec.frames[rec.frames.length - 1]);
-    return imagined('halves');
-  }
-
-  /**
-   * A round begins fresh on arriving at its step (owner, 2026-10-10: "step
-   * one. no dynamic, an unequal room. tax them … next round, now dynamic,
-   * they trade"): the still one shows its unequal room at once, waiting for
-   * Start; the trading one, everyone equal.
-   */
-  function setupRound(index: number): void {
-    const round = PAIR_STEPS[index].taxgame;
-    if (!round) return;
-    stopCountdown();
-    if (game.playing) endGame(null);
-    game.result = null;
-    gameRun.clear();
-    if (round.still) gameRun.live(0, () => {}, undefined, unequalStart());
-  }
-
   function beginGame(): void {
     const round = gameStep;
-    if (!round) return;
+    if (!round || round.kind !== 'live') return;
     game.playing = true;
     game.elapsed = 0;
     game.below = 0;
     game.taps = 0;
     game.result = null;
-    game.round++;
-    if (round.still) {
-      // nobody trades: only the reader's hand moves money, until more than the line count
-      gameRun.live(
-        0,
-        (dt) => {
-          game.elapsed += dt;
-          const count = measureWealth(gameRun.wealth()).effectiveParticipants;
-          if (count > round.target) endGame({ won: true, count: Math.round(count) });
-        },
-        undefined,
-        unequalStart(),
-      );
-      return;
-    }
-    gameRun.live(GAME.perSecond, (dt) => {
+    const tick = (dt: number) => {
       game.elapsed += dt;
       const count = measureWealth(gameRun.wealth()).effectiveParticipants;
       game.below = nextClosureDuration(game.below, count, dt, round.target);
       if (game.below >= GAME.closeAfterMs) endGame({ won: false, seconds: Math.round(game.elapsed / 1000), taps: game.taps });
       else if (game.elapsed >= GAME.seconds * 1000) endGame({ won: true, count: Math.round(count) });
-    });
+    };
+    // on from the still room as the reader left it; played again, from where the round began
+    if (gameRun.isLive()) gameRun.relive(GAME.perSecond, tick);
+    else gameRun.live(GAME.perSecond, tick, undefined, liveStart ?? undefined);
   }
 
   function endGame(result: GameResult | null): void {
@@ -860,25 +890,59 @@
       sandboxRun.take(i, sb.take);
     } else {
       if (!game.playing) return;
-      gameRun.take(i, GAME.rate);
       game.taps++;
+      const share = gameRun.wealth()[i] * GAME.rate;
+      // the coin shows first, inside them; then they pay it, and shrink, as it leaves
+      if (stage?.reduced) gameRun.take(i, GAME.rate);
+      else {
+        taxCoins(i, share);
+        window.setTimeout(() => gameRun.isLive() && gameRun.take(i, GAME.rate), 280);
+      }
+      // the first round is that one tap: seen, and the story goes on
+      if (gameStep?.kind === 'tap') {
+        game.playing = false;
+        const id = PAIR_STEPS[current].id;
+        roundTimer = window.setTimeout(() => current === indexOf(id) && goOn(id), stage?.reduced ? 0 : 2200);
+      }
+      return;
     }
     if (stage?.reduced) return;
     const v = agentView(i);
     const id = ++rippleId;
     ripples = [...ripples, { id, x: v.x, y: v.y, r: Math.max(v.r, 6), ink: styleOfRoom(i).stroke }];
     window.setTimeout(() => (ripples = ripples.filter((q) => q.id !== id)), 1500);
-    // the tax game shows what a tap does (owner, 2026-10-09: "the tax, easy to miss"): a quarter
-    // leaves the fortune, and the pool goes back to everyone — a ring across the whole room
-    if (PAIR_STEPS[current].pose.control === 'tax') {
-      const box = L.room.box;
-      taken = [...taken, { id, x: v.x, y: v.y - Math.max(v.r, 6) - 6 }];
-      returns = [...returns, { id, x: box.x + box.w / 2, y: box.y + box.h / 2, r: Math.hypot(box.w, box.h) / 2 }];
-      window.setTimeout(() => {
-        taken = taken.filter((q) => q.id !== id);
-        returns = returns.filter((q) => q.id !== id);
-      }, 1400);
-    }
+  }
+
+  /**
+   * A tap shown (owner, 2026-10-10: "one coin appears inside the biggest
+   * person. then goes out. the big person shrinks accordingly, the coin
+   * divides to 100, keeping the area conserved. then each person gets one
+   * and absorbs it"): a coin's area is its money, on the room's own scale.
+   */
+  let taxFx = $state<Token[]>([]);
+  function taxCoins(i: number, share: number): void {
+    const v = agentView(i);
+    const box = L.room.box;
+    const mid = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+    const n = L.room.positions.length;
+    const R = Math.max(2, L.room.radius * Math.sqrt(share * n));
+    taxFx = [...taxFx, { x: v.x, y: v.y, on: 1, face: 'front', r: 0 }];
+    const coin = taxFx[taxFx.length - 1];
+    const tl = gsap.timeline();
+    tl.to(coin, { r: R, duration: 0.25, ease: 'back.out(2)' });
+    tl.to(coin, { x: mid.x, y: mid.y, duration: 0.45, ease: 'power2.inOut' });
+    tl.call(() => {
+      coin.on = 0;
+      const start = taxFx.length;
+      taxFx = [...taxFx, ...Array.from({ length: n }, (_, k): Token => ({ x: mid.x, y: mid.y, on: 1, face: k % 2 ? 'back' : 'front', r: R / Math.sqrt(n) }))];
+      for (let j = 0; j < n; j++) {
+        const piece = taxFx[start + j];
+        const to = agentView(j);
+        gsap.to(piece, { x: to.x, y: to.y, duration: 0.55, delay: 0.1 + (j % 25) * 0.008, ease: 'power2.in', onComplete: () => (piece.on = 0) });
+      }
+      // once every piece is in, the room forgets them
+      window.setTimeout(() => (taxFx = taxFx.filter((t) => t.on > 0)), 900);
+    });
   }
 
   /** The fortune under a finger: the circle it lands in, or the nearest within a few pixels. */
@@ -898,7 +962,7 @@
   }
 
   /** The game is over and its card is up: only its buttons move on (owner, 2026-10-09: "I was in the mode of clicking and then missed the next few bubbles"). */
-  const gameOver = $derived(!game.playing && game.result !== null && gameStep !== null);
+  const gameOver = $derived(!game.playing && game.result !== null && gameStep?.kind === 'live');
   /** How the room stands in the game, for its readout: how many count, against the line, and how close it is to closing. */
   const gameState = $derived.by(() => {
     const count = metrics.effectiveParticipants;
@@ -985,6 +1049,10 @@
 
   /** Scene 22: a quarter of every pile flies to the pool, or the pool flies back, a coin at a time. */
   function levyCoins(pose: Pose, tl: Timeline): void {
+    if (pose.roomMode !== 'levy4') {
+      roomLevy(pose, tl);
+      return;
+    }
     const before = levyLesson(LEVY_FROM[pose.levy]);
     const after = levyLesson(pose.levy);
     levyView = { coins: [...before.coins], pool: before.pool };
@@ -1137,7 +1205,7 @@
     paperTimer = window.setTimeout(shrinkPaper, 3200);
   }
 
-  const RUNS: Record<RoomSource, Run> = { run, dial: dialRun, game: gameRun, pair: leftRun, sandbox: sandboxRun };
+  const RUNS: Record<RoomSource, Run> = { run, dial: dialRun, game: gameRun, pair: rightRun, sandbox: sandboxRun };
   /** The room on screen now. */
   const shown = $derived(RUNS[PAIR_STEPS[current].pose.source]);
 
@@ -1151,7 +1219,74 @@
   function roomR(i: number, source: RoomSource = PAIR_STEPS[current].pose.source): number {
     const r = RUNS[source];
     void r.state.revision;
-    return Math.max(0.8, L.room.radius * Math.sqrt(Math.max(0, r.wealth()[i]) * 100));
+    const pose = PAIR_STEPS[current].pose;
+    const w = Math.max(0, r.wealth()[i]);
+    const share = pose.roomMode === 'free' && pose.levy > 0 && source === pose.source ? leviedShare(w, pose.levy) : w;
+    return Math.max(0.8, L.room.radius * Math.sqrt(share * 100));
+  }
+
+  /** A share after the levy shown on the room: a quarter paid in by everyone (1), and the pool shared back equally (2). */
+  function leviedShare(w: number, levy: number): number {
+    const kept = w * (1 - LEVY_RATE);
+    return levy === 1 ? kept : kept + LEVY_RATE / L.room.positions.length;
+  }
+
+  /** The levy's pool on the room, while it holds everyone's quarter: one coin, its area all of their quarters together. */
+  const roomPool = $state({ r: 0 });
+  const poolR = () => L.room.radius * Math.sqrt(LEVY_RATE * L.room.positions.length);
+
+  /**
+   * The levy shown on the room, once, slowly (owner, 2026-10-10): a coin
+   * appears inside everyone, its area their quarter — big coins from big
+   * shapes; they shrink as it leaves; the coins merge in the pool into one;
+   * then it splits into a hundred equal coins, one for each, and as they take
+   * theirs in they grow. A coin's area is its money, on the room's scale.
+   */
+  function roomLevy(pose: Pose, tl: Timeline): void {
+    const n = L.room.positions.length;
+    const R = L.room.radius;
+    const w = shown.wealth();
+    const mid = poolSpot();
+    arranging = true;
+    if (pose.levy === 1) {
+      roomPool.r = 0;
+      const start = taxFx.length;
+      taxFx = [...taxFx, ...Array.from({ length: n }, (_, i): Token => ({ x: agentView(i).x, y: agentView(i).y, on: 1, face: i % 2 ? 'back' : 'front', r: 0 }))];
+      for (let i = 0; i < n; i++) {
+        const coin = taxFx[start + i];
+        const at = 0.4 + (i % 20) * 0.02;
+        tl.to(coin, { r: R * Math.sqrt(w[i] * n * LEVY_RATE), duration: 0.35, ease: 'back.out(2)' }, 0.1 + (i % 20) * 0.01);
+        tl.to(coin, { x: mid.x, y: mid.y, duration: 0.7, ease: 'power2.inOut' }, at);
+        tl.to(agentView(i), { r: Math.max(0.8, R * Math.sqrt(w[i] * n * (1 - LEVY_RATE))), duration: 0.5, ease: 'power2.out' }, at);
+      }
+      tl.call(() => {
+        for (let i = 0; i < n; i++) taxFx[start + i].on = 0;
+      }, [], 1.6);
+      tl.to(roomPool, { r: poolR(), duration: 0.35, ease: 'back.out(2)' }, 1.45);
+      tl.call(() => {
+        taxFx = taxFx.filter((t) => t.on > 0);
+        arranging = false;
+      }, [], 2.0);
+      return;
+    }
+    // back: the pool splits into a hundred equal coins, one for each
+    roomPool.r = poolR();
+    const start = taxFx.length;
+    taxFx = [...taxFx, ...Array.from({ length: n }, (_, k): Token => ({ x: mid.x, y: mid.y, on: 0, face: k % 2 ? 'back' : 'front', r: poolR() / Math.sqrt(n) }))];
+    tl.to(roomPool, { r: 0, duration: 0.25 }, 0.3);
+    for (let i = 0; i < n; i++) {
+      const piece = taxFx[start + i];
+      const to = agentView(i);
+      const at = 0.4 + (i % 25) * 0.012;
+      tl.set(piece, { on: 1 }, 0.3);
+      tl.to(piece, { x: to.x, y: to.y, duration: 0.7, ease: 'power2.in' }, at);
+      tl.set(piece, { on: 0 }, at + 0.7);
+      tl.to(to, { r: Math.max(0.8, R * Math.sqrt(leviedShare(w[i], 2) * n)), duration: 0.35, ease: 'back.out(2)' }, at + 0.7);
+    }
+    tl.call(() => {
+      taxFx = taxFx.filter((t) => t.on > 0);
+      arranging = false;
+    }, [], 1.9);
   }
 
   /** Whether the room's sizes come from a run (from the run on) rather than from the pose. */
@@ -1401,7 +1536,8 @@
         return at(spot.x, spot.y, L.radius(levyView.coins[k]));
       }
       case 'matched': {
-        const spot = matchedAt(0, free);
+        // Blue and Red's own bodies stand in the room with the levy, where their sizes show (owner, 2026-10-10)
+        const spot = matchedAt(1, free);
         return at(spot.x, spot.y, real * matchBox.scale);
       }
       case 'map': {
@@ -2216,8 +2352,6 @@
         { label: say(no), act: () => stage?.advance() },
       ];
     }
-    const round = PAIR_STEPS[index].taxgame;
-    if (round) return game.playing || game.counting > 0 || game.result ? null : [{ label: say(round.still ? REACTIONS.stillStart : REACTIONS.stopStart), act: startGame }];
     if (id === 'sandbox.2') return [{ label: say(REACTIONS.workshop), act: () => openBranch('workshop') }];
     if (id === 'run.again') {
       return [
@@ -2338,9 +2472,6 @@
    * hundred he is a dot (owner review 2026-09-26: "here he is").
    */
   let ripples = $state<{ id: number; x: number; y: number; r: number; ink: string }[]>([]);
-  /** The tax game's taps, as the reader sees them: the quarter taken, and the pool coming back to everyone. */
-  let taken = $state<{ id: number; x: number; y: number }[]>([]);
-  let returns = $state<{ id: number; x: number; y: number; r: number }[]>([]);
   let rippleId = 0;
   let lastSpoken = '';
   $effect(() => {
@@ -3311,7 +3442,7 @@
   function mirrorBodies(): [Body, Body] | null {
     if (view.mirrorOn <= 0.01 || PAIR_STEPS[current].pose.roomMode !== 'matched') return null;
     const body = (i: number): Body => {
-      const at = matchedAt(1, L.room.positions[i]);
+      const at = matchedAt(0, L.room.positions[i]);
       const r = (mirror.sized ? L.room.radius * Math.sqrt(Math.max(0, mirror.wealth[i]) * 100) : L.room.radius) * matchBox.scale;
       return { x: at.x, y: at.y, r: Math.max(0.5, r), alpha: view.mirrorOn };
     };
@@ -3376,6 +3507,7 @@
   let runSeen: Float64Array | null = null;
   let runFrame = -1;
   let runSeeks = 0;
+  let runRevision = 0;
   let runOf: Run | null = null;
   /** Where the matched room's copies last stood in the right room's recording (−1: not yet seen), and its seeks then. */
   let mirrorFrame = -1;
@@ -3399,7 +3531,13 @@
     }
     const st = shown.state;
     const w = shown.wealth();
-    if (runSeen && runOf === shown && runSeen.length === w.length && (st.frame !== runFrame || st.seeks !== runSeeks)) {
+    // a live room (the tax game) changes with every tap and trade, between its frames: everyone feels
+    // what changed since the last look (owner, 2026-10-10: "why they don't show emotion in tax game?")
+    if (runSeen && runOf === shown && runSeen.length === w.length && shown.isLive() && st.revision !== runRevision) {
+      field.reactAll(roomSlots, runSeen, w);
+      runSeen = Float64Array.from(w);
+      runRevision = st.revision;
+    } else if (runSeen && runOf === shown && runSeen.length === w.length && (st.frame !== runFrame || st.seeks !== runSeeks)) {
       const rec = shown.recording();
       if (rec && rec.frames.length > Math.max(st.frame, runFrame)) faces.followFrames(roomSlots, rec.frames, runFrame, st.frame, st.seeks !== runSeeks);
       // a live room ahead of its recording: what changed since the last look
@@ -3409,13 +3547,14 @@
       runSeen = Float64Array.from(w);
       runFrame = st.frame;
       runSeeks = st.seeks;
+      runRevision = st.revision;
       runOf = shown;
     }
     // the richest looks down on everyone: from nothing to all of it as their share reaches the run's 40%
     if (st.winner >= 0) field.contemptTo[slotOfRoom(st.winner)] = Math.min(1, st.share / 0.4);
     // the matched room's copies follow their own room's recording the same way: first seen, or after a seek, as at that moment
-    const right = rightRun.recording();
-    const ms = rightRun.state;
+    const right = leftRun.recording();
+    const ms = leftRun.state;
     if (view.mirrorOn > 0.01 && right && right.frames.length > ms.frame) {
       if (mirrorFrame < 0 || mirrorFrame >= right.frames.length) faces.recallFrames(mirrorSlots, right.frames, ms.frame);
       else if (ms.frame !== mirrorFrame || ms.seeks !== mirrorSeeks) faces.followFrames(mirrorSlots, right.frames, mirrorFrame, ms.frame, ms.seeks !== mirrorSeeks);
@@ -3989,12 +4128,12 @@
       {#if view.mirrorOn > 0.01 && PAIR_STEPS[current].pose.roomMode === 'matched'}
         {@const w = mirror.wealth}
         {@const sized = mirror.sized}
-        {@const slide = (1 - view.mirrorShift) * (matchBox.lefts[0] - matchBox.lefts[1])}
-        <!-- both rooms framed alike; the copy's frame travels with it -->
-        <rect class="room-frame" x={matchBox.lefts[0] - 8} y={matchBox.top - 8} width={matchBox.w + 16} height={matchBox.h + 16} rx="12" opacity={view.mirrorOn} />
+        {@const slide = (1 - view.mirrorShift) * (matchBox.lefts[1] - matchBox.lefts[0])}
+        <!-- both rooms framed alike; the copy's frame travels with it, to the room without the levy -->
+        <rect class="room-frame" x={matchBox.lefts[1] - 8} y={matchBox.top - 8} width={matchBox.w + 16} height={matchBox.h + 16} rx="12" opacity={view.mirrorOn} />
         <rect
           class="room-frame"
-          x={matchBox.lefts[1] - 8 + slide}
+          x={matchBox.lefts[0] - 8 + slide}
           y={matchBox.top - 8}
           width={matchBox.w + 16}
           height={matchBox.h + 16}
@@ -4003,7 +4142,7 @@
         />
         <g class="mirror" opacity={view.mirrorOn} transform={`translate(${slide.toFixed(1)} 0)`}>
           {#each L.room.positions as p, i (i)}
-            {@const at = matchedAt(1, p)}
+            {@const at = matchedAt(0, p)}
             {@const r = Math.max(0.5, (sized ? L.room.radius * Math.sqrt(Math.max(0, w[i]) * 100) : L.room.radius) * matchBox.scale)}
             {@const style = styleOfRoom(i)}
             <path
@@ -4310,12 +4449,6 @@
           {@const v = agentView(topFive[0])}
           <circle class="pulse" cx={v.x} cy={v.y} r={Math.max(v.r, 10) + 6} />
         {/if}
-        {#each returns as ring (ring.id)}
-          <circle class="pool-return" cx={ring.x} cy={ring.y} r={ring.r} />
-        {/each}
-        {#each taken as t (t.id)}
-          <text class="taken" x={t.x} y={t.y} text-anchor="middle">{formatNumber(-GAME.rate, { style: 'percent' })}</text>
-        {/each}
       {/if}
 
       {#each view.payout as token, i (i)}
@@ -4330,6 +4463,13 @@
 
       {#each view.fly as token, k (k)}
         {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={token.r ?? L.coinRadius} face={token.face} />{/if}
+      {/each}
+      {#if roomPool.r > 0.2}
+        {@const pool = poolSpot()}
+        <Coin cx={pool.x} cy={pool.y} r={roomPool.r} face="front" />
+      {/if}
+      {#each taxFx as token, k (k)}
+        {#if token.on > 0 && (token.r ?? 0) > 0.2}<Coin cx={token.x} cy={token.y} r={token.r ?? 1} face={token.face} />{/if}
       {/each}
 
       {#if dragging}
@@ -4380,7 +4520,7 @@
       </div>
     {/if}
 
-    {#if !L.column && PAIR_STEPS[current].pose.control === 'tax' && game.playing}
+    {#if !L.column && PAIR_STEPS[current].pose.control === 'tax' && game.playing && gameStep?.kind !== 'tap'}
       <!-- on a phone, a bar across the foot of the stage: out of the room's top, never clipped -->
       <div class="hud-bar" style={`left:12px; top:${height - 74}px; width:${width - 24}px`}>{@render gameHud()}</div>
     {/if}
@@ -4426,13 +4566,6 @@
       </section>
     {/if}
 
-    {#if gameStep && !game.playing && game.counting === 0 && !game.result}
-      {@const box = L.room.box}
-      <!-- the game's start, as big as the room's middle: the bubble's link alone was easy to miss -->
-      <button type="button" class="start-game" style={`left:${box.x + box.w / 2}px; top:${box.y + box.h / 2}px`} onclick={startGame}>
-        {say(REACTIONS.stopStart)}
-      </button>
-    {/if}
 
     {#if tapping}
       {@const box = L.room.box}
@@ -4572,7 +4705,7 @@
       {@const col = L.column}
       {@const pose = PAIR_STEPS[current].pose}
       <aside class="charts" style={`left:${col.x}px; top:${col.y}px; width:${col.w}px; max-height:${col.h}px`}>
-        {#if pose.control === 'tax' && game.playing}
+        {#if pose.control === 'tax' && game.playing && gameStep?.kind !== 'tap'}
           <section class="chart hud-chart">{@render gameHud()}</section>
         {/if}
         {#if pose.cards.includes('rule') && !pose.ran}
@@ -5203,36 +5336,6 @@
     color: var(--paper-bright);
   }
 
-  /* the tax game's start, over the room's middle */
-  .start-game {
-    position: absolute;
-    z-index: 5;
-    padding: 0.7rem 2rem;
-    border: 0;
-    border-radius: 999px;
-    background: var(--accent);
-    box-shadow: 0 6px 18px rgb(40 37 31 / 25%);
-    color: var(--paper-bright);
-    font-family: var(--font-sans);
-    font-size: 1.25rem;
-    font-weight: 800;
-    cursor: pointer;
-    transform: translate(-50%, -50%);
-    animation: start-game 1.6s ease-in-out infinite;
-  }
-
-  .start-game:hover,
-  .start-game:focus-visible {
-    background: var(--accent-deep);
-    outline: none;
-  }
-
-  @keyframes start-game {
-    50% {
-      box-shadow: 0 6px 26px rgb(189 98 69 / 55%);
-    }
-  }
-
   /* what a line points at (\point): a soft ring that breathes */
   .point-ring {
     fill: none;
@@ -5273,49 +5376,7 @@
     }
   }
 
-  /* what a tap takes, rising off the fortune */
-  .taken {
-    fill: var(--accent-deep);
-    font-family: var(--font-sans);
-    font-size: 15px;
-    font-weight: 800;
-    animation: taken 1300ms ease-out both;
-  }
-
-  @keyframes taken {
-    from {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    to {
-      opacity: 0;
-      transform: translateY(-26px);
-    }
-  }
-
-  /* the pool going back to everyone: a ring that crosses the whole room */
-  .pool-return {
-    fill: none;
-    stroke: var(--accent);
-    stroke-width: 2;
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: pool-return 1300ms ease-out both;
-  }
-
-  @keyframes pool-return {
-    from {
-      opacity: 0.55;
-      transform: scale(0.05);
-    }
-    to {
-      opacity: 0;
-      transform: scale(1);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .start-game,
     .skip.called,
     .edge.danger,
     .countdown,

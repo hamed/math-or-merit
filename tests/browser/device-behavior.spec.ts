@@ -12,7 +12,7 @@ import { loadDeferred } from './helpers';
 
 const STAGE_KEY = 'merit-or-math:stage:pair:v1';
 /** The stage's holds, released so a test can land anywhere past them. */
-const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try', 'stop.still', 'stop.how'];
+const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try', 'stop.tap', 'stop.still', 'stop.how'];
 
 const stage = (page: Page) => page.locator('.step-stage');
 const stepNow = async (page: Page) => Number(await stage(page).getAttribute('data-step'));
@@ -475,15 +475,19 @@ test('the levy is reviewed for both rooms, side by side', async ({ page }) => {
   expect(ids.indexOf(last.id)).toBeGreaterThan(ids.indexOf('match.result'));
 });
 
-test('the tax game starts from the room itself, and shows what a tap takes', async ({ page }) => {
+test('the tax game opens on the room itself: no Start, one tap on the biggest shows what a tap does, and the story goes on', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await openAt(page, 'stop.how');
-  await page.locator('.start-game').click();
-  await expect(page.locator('.hud')).toBeVisible();
+  const ids = await openAt(page, 'stop.tap', ['stop.tap']);
+  const at = ids.indexOf('stop.tap');
   await expect(page.locator('.start-game')).toHaveCount(0);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
+  await page.locator('.hit.tap').first().click({ force: true });
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
 });
 
-test('the still round must be played: taxing the biggest until more than the line count, then Go on', async ({ page }) => {
+test('the still room must be made equal: taxing the biggest until more than the line count, and the story goes on', async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   const ids = await openAt(page, 'stop.still', ['stop.still']);
@@ -491,28 +495,31 @@ test('the still round must be played: taxing the biggest until more than the lin
   await page.keyboard.press('ArrowDown');
   await page.waitForTimeout(400);
   expect(await stepNow(page)).toBe(at);
-  await page.locator('.start-game').click();
   await expect(page.locator('.hud')).toBeVisible();
-  const over = page.locator('.game-over');
-  for (let k = 0; k < 60 && !(await over.isVisible()); k++) await page.locator('.hit.tap').first().click({ force: true });
-  await expect(over).toBeVisible();
-  await over.getByRole('button').last().click();
+  for (let k = 0; k < 60 && (await stepNow(page)) === at; k++) await page.locator('.hit.tap').first().click({ force: true });
   await expect.poll(() => stepNow(page)).toBe(at + 1);
 });
 
-test('the tax game ends on a card: a stray click stays, Play again plays, Go on moves on', async ({ page }) => {
+test('the trading room ends on a card: a stray click stays, Go on moves on', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'stop.how');
-  await page.locator('.start-game').click();
+  const ids = await openAt(page, 'stop.how', ['stop.how']);
+  const at = ids.indexOf('stop.how');
+  await expect(page.locator('.hud')).toBeVisible();
+  // a click in the room is a tap, never a step
+  const taps = page.locator('.taps');
+  const box = (await taps.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForTimeout(400);
+  expect(await stepNow(page)).toBe(at);
   // left alone, the room closes
   const over = page.locator('.game-over');
   await expect(over).toBeVisible({ timeout: 60_000 });
   await page.mouse.click(40, 450);
   await page.waitForTimeout(400);
-  expect(await stepNow(page)).toBe(ids.indexOf('stop.how'));
+  expect(await stepNow(page)).toBe(at);
   await over.getByRole('button').last().click();
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
+  await expect.poll(() => stepNow(page)).toBe(at + 1);
 });
 
 test('a reload returns the reader to the step they were reading', async ({ page }) => {
@@ -533,23 +540,6 @@ test('past its last step the stage lets the page go on', async ({ page }) => {
   const before = await page.evaluate(() => scrollY);
   await page.keyboard.press('PageDown');
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before);
-});
-
-test('in the live tax game a click is a tap on the room, never a step', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  const ids = await openAt(page, 'stop.how');
-  await page.locator('.bubble .choice').first().click();
-  await expect(page.locator('.hud')).toBeVisible();
-  const taps = page.locator('.taps');
-  await expect(taps).toBeVisible();
-  const box = (await taps.boundingBox())!;
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await page.waitForTimeout(500);
-  expect(await stepNow(page)).toBe(ids.indexOf('stop.how'));
-  // the reading keys still move on, and leaving ends the game
-  await page.keyboard.press('ArrowDown');
-  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('stop.how') + 1);
-  await expect(page.locator('.hud')).toBeHidden();
 });
 
 test('the machine is the reader’s: Play trades, a tap photographs, and every dial is one link away', async ({ page }) => {

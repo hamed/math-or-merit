@@ -327,6 +327,15 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
       showLive();
       liveTicker.start();
     },
+    /** The live room goes on as it stands, at a new pace, with a new tick: the tax game's next round. */
+    relive(perSecond: number, tick: (dt: number) => void): void {
+      if (!live) return;
+      owed = 0;
+      livePerSecond = perSecond;
+      liveTick = tick;
+      state.playing = true;
+      liveTicker.start();
+    },
     /** The reader's tap in the live room: `rate` of one fortune, shared back equally. Returns what was taken. */
     take(index: number, rate: number): number {
       if (!live) return 0;

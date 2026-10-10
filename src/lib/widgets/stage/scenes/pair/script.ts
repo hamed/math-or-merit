@@ -191,8 +191,12 @@ export interface PairStep extends StepSpec {
   readonly actionMs?: number;
   /** `\\pairs`: the stretch of the room's demonstration rounds this step plays (roomRounds.ts). */
   readonly rounds?: RoundWindow;
-  /** `\\taxgame`: a round of the tax game, the room standing still or trading, and the players to keep above. */
-  readonly taxgame?: { readonly still: boolean; readonly target: number };
+  /**
+   * `\\taxgame`: a round of the tax game (owner, 2026-10-10): `tap` — one tap on
+   * the biggest, to see what it does; `still` — the room not trading, made
+   * equal past `target` players; `live` — it trades, kept above `target`.
+   */
+  readonly taxgame?: { readonly kind: 'tap' | 'still' | 'live'; readonly still: boolean; readonly target: number };
   /** `\\solve{2, 1, 2.9}`: the numbers the reader makes in turn, moving the four's coins (Scene 17). */
   readonly solve?: readonly number[];
   /** The pictures posted with its line (`\\image{name}`), by name. */
@@ -345,8 +349,9 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'end.longer': (s) => targets(s, '\\run[longer]'),
   'dial.said': (s) => when(s, 'stake'),
   // the tax game's two rounds (owner, 2026-10-10): a room standing still, then one that trades
+  'stop.tap': (s) => s.cues.some((c) => c.name === 'taxgame' && c.opt === 'tap'),
   'stop.still': (s) => s.cues.some((c) => c.name === 'taxgame' && c.opt === 'still'),
-  'stop.how': (s) => s.cues.some((c) => c.name === 'taxgame' && c.opt !== 'still'),
+  'stop.how': (s) => s.cues.some((c) => c.name === 'taxgame' && c.opt === undefined),
   'match.result': (s) => needs(s, 'a'),
   'map.all': (s) => cue(s, 'reveal', 'map'),
   'sandbox.2': (s) => targets(s, 'workshop'),
@@ -539,10 +544,12 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         p = { ...p, control: 'sandbox', source: 'sandbox' };
         break;
       case 'control:none':
-        p = { ...p, control: null };
+        // the reader's hand leaves the tax game: the room shown is the run's again
+        p = { ...p, control: null, ...(p.control === 'tax' ? { source: 'run' as const } : {}) };
         break;
       case 'levy:collect':
-        [p, action] = [{ ...p, levy: 1 }, 'coins'];
+        // on the room itself (owner, 2026-10-10: no four-person demo): the run's own room pays
+        [p, action] = [{ ...p, levy: 1, ...(p.roomMode === 'free' ? { source: 'run' as const, control: null } : {}) }, 'coins'];
         break;
       case 'levy:tap':
         [p, action] = [{ ...p, levy: 3 }, 'coins'];
@@ -650,7 +657,8 @@ function build(): { steps: PairStep[]; problems: string[] } {
     const pictures = picturesOf(s.cues);
     const solve = s.cues.find((c) => c.name === 'solve')?.args[0]?.split(',').map((x) => Number(x.trim()));
     const tax = s.cues.find((c) => c.name === 'taxgame');
-    const taxgame = tax ? { still: tax.opt === 'still', target: Number(tax.args[0]) } : undefined;
+    const kind = tax?.opt === 'tap' ? 'tap' : tax?.opt === 'still' ? 'still' : 'live';
+    const taxgame = tax ? { kind, still: kind !== 'live', target: Number(tax.args[0]) } as const : undefined;
     return {
       id,
       wait,
@@ -813,8 +821,6 @@ export const REACTIONS = {
   ) as Record<string, string>,
   /** Scene 26: the whole old machine, as a side trip. */
   workshop: choices('sandbox.2')[0],
-  stopStart: choices('stop.how')[0],
-  stillStart: choices('stop.still')[0],
   giniToy: choices('gini.toy'),
   /** Scene 14: Red's answer to the paper — after one run, or after several. */
   whyAfter: firstOf('why.after', 'groups', 'one'),
