@@ -12,8 +12,9 @@ the game keeps the last good version and the error shows on the page and in
 the terminal.
 
 **The PDF.** `npm run script:watch` rebuilds `script/out/main.pdf` on every
-save; keep it open in an editor tab and it refreshes. Its side panel lists every
-act, scene and card. `npm run script:pdf` builds English and Farsi once. Lint
+save; keep it open in an editor tab and it refreshes. Its side panel lists
+chapters, index sections, acts, scenes and cards. `npm run script:pdf` builds
+English and Farsi once. Lint
 runs first here too. `npm run script:lint` lists the warnings as well.
 
 ## Files
@@ -65,7 +66,7 @@ A paragraph is the text between blank lines. How it starts says what it is:
 |---|---|
 | `Name:` or `Name (manner, …):` — a declared speaker | a **bubble**; each later line is a line break |
 | `\` and an action | an **action** paragraph, one action per line |
-| `\section` / `\subsection` + `\label{…}` | **structure**: an **act** / a **scene** |
+| `\chapter` / `\section` / `\subsection` / `\subsubsection` + `\label{…}` | **structure**: a **chapter** / an **index section** / an **act** / a **scene** |
 | `\begin{description}` | **UI strings**: `\item[key] words` |
 | `\begin{figure}` | a **figure** (§1.4) |
 | `\[` | a **formula**, closed by `\]` in the same paragraph |
@@ -78,12 +79,21 @@ A paragraph is the text between blank lines. How it starts says what it is:
   screen-reader text and the transcript. Dates, sources and reasons go in `%`
   comments.
 
-### 1.1 Acts and scenes
+### 1.1 Chapters, sections, acts and scenes
 
-`\section{…}\label{act:…}` is an **act**: where the talk clears. Every act is
-made of **scenes**, `\subsection{…}\label{…}`, and every bubble belongs to one.
+The source uses the standard `report` hierarchy: `\chapter` → `\section` →
+`\subsection` → `\subsubsection`.
+
+`\chapter{…}\label{chapter:…}` starts a chapter. Its `\section{…}` entries,
+labelled `index:…`, are the sections shown in the chapter dropdown. The next
+section or chapter closes a section's group of scenes. These markers do not add
+a stage step; their titles are compiled as localized index strings.
+
+`\subsection{…}\label{act:…}` is an act: where the talk clears. Every act is
+made of scenes, `\subsubsection{…}\label{…}`, and every bubble belongs to one.
 The PDF numbers scenes straight through (Scene 1, 2, … 26) and side trips B1,
-B2, B3. A scene's label is what jumps and bubble ids use.
+B2, B3. A scene's label is what jumps and bubble ids use. Chapter and section
+labels also point to the first step that follows them.
 
 ### 1.2 Lines inside a bubble
 

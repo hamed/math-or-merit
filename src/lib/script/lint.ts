@@ -27,10 +27,21 @@ export function lint(script: Script): Problem[] {
 
   // ---- structure: labels, acts made of scenes, units made of a title and content
   for (const f of script.files) {
+    const hasChapterIndex =
+      f.file === 'script.tex' &&
+      f.items.some((item) => item.kind === 'structure' && item.level === 'chapter' && !item.star);
+    const modernHierarchy = f.items.some((item) => item.kind === 'structure' && (item.level === 'chapter' || item.level === 'subsubsection'));
+    const chapterLevel = 'chapter';
+    const indexSectionLevel = 'section';
+    const sceneLevel = modernHierarchy ? 'subsubsection' : 'subsection';
+    const actLevel = modernHierarchy ? 'subsection' : 'section';
     let inAct = false;
     let inScene = false;
     let actReported = false;
     let titled = false;
+    let hasIndexChapter = false;
+    let hasIndexSection = false;
+    let indexSectionHasScene = false;
     for (const item of f.items) {
       if (item.kind === 'comment') continue;
       if (f.mode === 'unit') {
@@ -45,14 +56,32 @@ export function lint(script: Script): Problem[] {
         continue;
       }
       if (item.kind === 'structure') {
-        if (item.level !== 'part' && !item.star && !item.label) at(f.file, item.line, `\\${item.level}{${item.title}} needs a \\label`);
-        if (item.level === 'section') [inAct, inScene, actReported] = [true, false, false];
-        if (item.level === 'subsection') inScene = true;
+        if (!item.star && !item.label) at(f.file, item.line, `\\${item.level}{${item.title}} needs a \\label`);
+        if (hasChapterIndex && item.level === chapterLevel && !item.star) {
+          if (!item.label) at(f.file, item.line, `\\${chapterLevel}{…} needs a chapter label`);
+          if (hasIndexSection && !indexSectionHasScene) at(f.file, item.line, 'an index section needs at least one scene');
+          hasIndexChapter = true;
+          hasIndexSection = false;
+          indexSectionHasScene = false;
+        }
+        if (hasChapterIndex && item.level === indexSectionLevel && !item.star) {
+          if (!hasIndexChapter) at(f.file, item.line, `\\${indexSectionLevel}{…} needs a chapter before it`);
+          if (hasIndexSection && !indexSectionHasScene) at(f.file, item.line, 'an index section needs at least one scene');
+          hasIndexSection = true;
+          indexSectionHasScene = false;
+        }
+        if (hasChapterIndex && hasIndexChapter && item.level === sceneLevel) {
+          if (!hasIndexSection) at(f.file, item.line, `a scene in script.tex needs a \\${indexSectionLevel}{…}`);
+          else indexSectionHasScene = true;
+        }
+        if (item.level === actLevel) [inAct, inScene, actReported] = [true, false, false];
+        if (item.level === sceneLevel) inScene = true;
       } else if (inAct && !inScene && !actReported) {
-        at(f.file, item.line, 'an act holds scenes: start one with \\subsection{…}\\label{…} before this');
+        at(f.file, item.line, `an act holds scenes: start one with \\${sceneLevel}{…}\\label{…} before this`);
         actReported = true;
       }
     }
+    if (hasChapterIndex && hasIndexSection && !indexSectionHasScene) at(f.file, f.items[f.items.length - 1]?.line ?? 1, 'an index section needs at least one scene');
   }
   for (const { file, item } of walk(script, 'timeline')) {
     const label =

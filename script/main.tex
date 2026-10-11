@@ -7,7 +7,7 @@
 % main-fa.tex builds the same file in Farsi.
 \providecommand\lang{en}
 \def\langfa{fa}
-\documentclass[11pt]{article}
+\documentclass[11pt,notitlepage,openany]{report}
 \usepackage{fontspec}
 \usepackage[a4paper, top=22mm, bottom=25mm, left=22mm, textwidth=118mm,
   marginparwidth=48mm, marginparsep=6mm]{geometry}
@@ -22,6 +22,7 @@
   \babelfont[english]{sf}{DejaVu Sans}
   \def\langdir{fa/}
   \def\dirshape{}
+  \renewcommand\chaptername{فصل}
   \def\actname{پرده}
   \def\scenename{صحنه}
   \def\tripname{گریز}
@@ -34,6 +35,7 @@
   \babelfont{sf}[RawFeature={fallback=fa}]{DejaVu Sans}
   \def\langdir{}
   \def\dirshape{\itshape}
+  \renewcommand\chaptername{Chapter}
   \def\actname{Act}
   \def\scenename{Scene}
   \def\tripname{Side trip}
@@ -60,12 +62,22 @@
 \setlength\parskip{0.9ex plus 0.3ex}
 \newlength\namewidth \setlength\namewidth{6.5em}
 
-% --- acts and scenes: an act is where the talk clears, small; scenes count 1, 2, 3… across acts
+% --- the report hierarchy: chapters, index sections, acts and scenes
+\renewcommand\thechapter{\Roman{chapter}}
 \counterwithout{subsection}{section}
-\titleformat{\section}{\normalfont\sffamily\small\color{quiet}}{\actname\ \thesection\enspace·}{0.4em}{}
+\counterwithout{subsubsection}{subsection}
+\setcounter{secnumdepth}{3}
+\renewcommand\thesubsection{\arabic{subsection}}
+\renewcommand\thesubsubsection{\arabic{subsubsection}}
+\titleformat{\chapter}[display]{\normalfont\sffamily\Huge\bfseries}
+  {\chaptername\ \thechapter}{0.5ex}{}
+\titlespacing*{\chapter}{0pt}{0pt}{2ex}
+\titleformat{\section}{\normalfont\sffamily\small\bfseries\color{quiet}}{}{0pt}{}
 \titlespacing*{\section}{0pt}{4ex plus 1ex}{0.2ex}
-\titleformat{\subsection}{\normalfont\Large\bfseries}{\scenename\ \thesubsection\enspace·}{0.4em}{}
-\titlespacing*{\subsection}{0pt}{1.2ex plus 0.5ex}{1ex}
+\titleformat{\subsection}{\normalfont\sffamily\small\color{quiet}}{\actname\ \thesubsection\enspace·}{0.4em}{}
+\titlespacing*{\subsection}{0pt}{2ex plus 0.5ex}{0.2ex}
+\titleformat{\subsubsection}{\normalfont\Large\bfseries}{\scenename\ \thesubsubsection\enspace·}{0.4em}{}
+\titlespacing*{\subsubsection}{0pt}{1.2ex plus 0.5ex}{1ex}
 
 \directlua{render = dofile('render.lua')}
 \newcommand\scriptinput[1]{\directlua{render.on('timeline')}\input{#1}\directlua{render.off()}}
@@ -168,7 +180,7 @@
 
 % --- units at the back: every file of a folder, its \section a heading
 \newcommand\unitinclude[1]{\begingroup\def\section##1{\subsection*{##1}}\scriptunit{\langdir #1}\endgroup}
-\newcommand\unitsheading[1]{\part*{#1}\addcontentsline{toc}{part}{#1}}
+\newcommand\unitsheading[1]{\chapter*{#1}\addcontentsline{toc}{chapter}{#1}}
 \newcommand\includeunits[2]{\directlua{render.includeall('\langdir', '#1', '\luaescapestring{#2}')}}
 
 % --- figures stay where they are written; code draws the picture
@@ -204,17 +216,17 @@
 \begin{document}
 \maketitle
 
-\section*{Cast and settings}\pdfbookmark[0]{Cast and settings}{bm-cast}
+\chapter*{Cast and settings}\pdfbookmark[0]{Cast and settings}{bm-cast}
 \input{\langdir decl}
 
 \scriptinput{\langdir script}
 \IfFileExists{\langdir pool.tex}{%
-  \part*{Material}\pdfbookmark[0]{Material}{bm-material}%
+  \chapter*{Material}\pdfbookmark[0]{Material}{bm-material}%
   \scriptinput{\langdir pool}}{}
 
 % side trips: acts of their own, scenes B1, B2, B3
-\def\actname{\tripname}\setcounter{section}{0}
-\setcounter{subsection}{0}\renewcommand\thesubsection{B\arabic{subsection}}
+\def\actname{\tripname}\setcounter{subsection}{0}
+\setcounter{subsubsection}{0}\renewcommand\thesubsubsection{B\arabic{subsubsection}}
 \IfFileExists{\langdir branches/cow.tex}{\scriptinput{\langdir branches/cow}}{}
 \IfFileExists{\langdir branches/human.tex}{\scriptinput{\langdir branches/human}}{}
 \IfFileExists{\langdir branches/workshop.tex}{\scriptinput{\langdir branches/workshop}}{}

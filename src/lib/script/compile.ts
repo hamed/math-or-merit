@@ -108,9 +108,31 @@ export interface StoryScene {
   readonly sideTrip: boolean;
 }
 
+/** A navigation section groups one or more stage scenes under a chapter. */
+export interface StoryIndexSection {
+  readonly label: string;
+  readonly key: string;
+  readonly scenes: readonly string[];
+  readonly sideTrips: readonly StoryIndexTrip[];
+}
+
+export interface StoryIndexTrip {
+  readonly id: string;
+  readonly key: string;
+}
+
+/** The chapter-first hierarchy shown by the chapter index. */
+export interface StoryIndexChapter {
+  readonly label: string;
+  readonly key: string;
+  readonly sections: readonly StoryIndexSection[];
+}
+
 export interface Story {
   /** Every scene in reading order, with its act. */
   readonly scenes: readonly StoryScene[];
+  /** Chapters and their index sections, authored in script.tex. */
+  readonly index: readonly StoryIndexChapter[];
   /** decl.tex's timing: beat, perword, minread, nudge, in seconds. */
   readonly timing: Readonly<Record<string, number>>;
   /** The stage's timeline: script.tex, in order. */
@@ -170,18 +192,51 @@ export function compile(script: Script): Compiled {
 
   // ---- the scenes, for the index
   const scenes: StoryScene[] = [];
+  const index: {
+    label: string;
+    key: string;
+    sections: {
+      label: string;
+      key: string;
+      scenes: string[];
+      sideTrips: { id: string; key: string }[];
+    }[];
+  }[] = [];
   const titleOf = (t: string) => messageOf(parseInline(t).nodes);
   {
     let n = 0;
     let trips = 0;
     for (const file of script.files.filter((f) => f.mode === 'timeline')) {
       const sideTrip = /(^|\/)branches\//.test(file.file);
+      const modernHierarchy = file.items.some((item) => item.kind === 'structure' && (item.level === 'chapter' || item.level === 'subsubsection'));
+      const actLevel = modernHierarchy ? 'subsection' : 'section';
+      const sceneLevel = modernHierarchy ? 'subsubsection' : 'subsection';
       let act = '';
+      let chapter: (typeof index)[number] | undefined;
+      let indexSection: (typeof index)[number]['sections'][number] | undefined;
       for (const item of file.items) {
         if (item.kind !== 'structure') continue;
-        if (item.level === 'section') act = titleOf(item.title);
-        if (item.level === 'subsection' && item.label) {
+        if (!sideTrip && item.level === 'chapter' && !item.star) {
+          const label = item.label ?? '';
+          const key = `nav_${keyOf(label || `chapter_${index.length + 1}`)}`;
+          say(key, titleOf(item.title));
+          chapter = { label, key, sections: [] };
+          index.push(chapter);
+          indexSection = undefined;
+        }
+        if (!sideTrip && item.level === 'section' && !item.star) {
+          const label = item.label ?? '';
+          const fallback = `section_${index.length}_${(chapter?.sections.length ?? 0) + 1}`;
+          const key = `nav_${keyOf(label || fallback)}`;
+          say(key, titleOf(item.title));
+          indexSection = { label, key, scenes: [], sideTrips: [] };
+          if (chapter) chapter.sections.push(indexSection);
+          else problems.push(`${file.file}:${item.line}: an index section needs a chapter before it`);
+        }
+        if (item.level === actLevel) act = titleOf(item.title);
+        if (item.level === sceneLevel && item.label) {
           scenes.push({ label: item.label, title: titleOf(item.title), act, number: sideTrip ? `B${++trips}` : String(++n), step: '', sideTrip });
+          if (!sideTrip && indexSection) indexSection.scenes.push(item.label);
         }
       }
     }
@@ -189,6 +244,9 @@ export function compile(script: Script): Compiled {
 
   // ---- the timeline: script.tex and the side trips
   for (const file of script.files.filter((f) => f.mode === 'timeline')) {
+    const modernHierarchy = file.items.some((item) => item.kind === 'structure' && (item.level === 'chapter' || item.level === 'subsubsection'));
+    const actLevel = modernHierarchy ? 'subsection' : 'section';
+    const sceneLevel = modernHierarchy ? 'subsubsection' : 'subsection';
     const steps: StoryStep[] = [];
     let scene = '';
     let act = false;
@@ -214,10 +272,10 @@ export function compile(script: Script): Compiled {
     for (const item of file.items) {
       const at = `${file.file}:${item.line}`;
       if (item.kind === 'structure') {
-        if (item.level === 'section') act = true;
-        if (item.level === 'subsection' && item.label) scene = item.label;
+        if (item.level === actLevel) act = true;
+        if (item.level === sceneLevel && item.label) scene = item.label;
         if (item.label) pendingLabels.push(item.label);
-        if (item.level === 'subsection') [actions, runs] = [0, 0];
+        if (item.level === sceneLevel) [actions, runs] = [0, 0];
         run = null;
         continue;
       }
@@ -384,8 +442,34 @@ export function compile(script: Script): Compiled {
   }
 
   const timing = Object.fromEntries(Object.entries(script.decl.timing).map(([k, v]) => [k, parseFloat(v)]));
+  const sectionByScene = new Map<string, (typeof index)[number]['sections'][number]>();
+  for (const chapter of index) {
+    for (const section of chapter.sections) {
+      for (const label of section.scenes) sectionByScene.set(label, section);
+    }
+  }
+  for (const [id, branchSteps] of Object.entries(branches)) {
+    // Keep side trips inside the chapter index: use the scene that offers one,
+    // or its return scene when the offer lives in prose outside the timeline.
+    const authoredOffer = main
+      .flatMap((step) => step.choices.map((choice) => ({ scene: step.scene, choice })))
+      .find(({ choice }) => choice.target === id);
+    const returnChoice = branchSteps
+      .flatMap((step) => step.choices)
+      .find((choice) => sectionByScene.has(choice.target));
+    const section = authoredOffer
+      ? sectionByScene.get(authoredOffer.scene)
+      : returnChoice
+        ? sectionByScene.get(returnChoice.target)
+        : undefined;
+    if (section) {
+      const key = authoredOffer?.choice.key ?? `${keyOf(id)}_offer`;
+      if (!(key in messages)) problems.push(`side trip ${id} has no index message ${key}`);
+      section.sideTrips.push({ id, key });
+    } else problems.push(`side trip ${id} does not resolve to a chapter index section`);
+  }
   const indexed = scenes.map((sc) => ({ ...sc, step: labels[sc.label] ?? '' }));
-  return { story: { scenes: indexed, timing, steps: main, branches, labels, cards }, messages, problems };
+  return { story: { scenes: indexed, index, timing, steps: main, branches, labels, cards }, messages, problems };
 }
 
 function parseTitle(title: string): Inline[] {
