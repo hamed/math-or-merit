@@ -67,6 +67,10 @@ recordings/
 .local/
 notes.local.md
 
+# Local archive
+
+archive/
+
 # The script PDF (built by npm run script:pdf / script:watch; CI builds its own)
 
 script/out/

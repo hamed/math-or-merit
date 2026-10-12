@@ -72,7 +72,7 @@ export interface Figure {
 export type Item =
   | {
       readonly kind: 'structure';
-      readonly level: 'chapter' | 'section' | 'subsection' | 'subsubsection';
+      readonly level: 'chapter' | 'section' | 'subsection' | 'scene';
       readonly star: boolean;
       readonly short?: string;
       readonly title: string;
@@ -81,7 +81,7 @@ export type Item =
     }
   | {
       readonly kind: 'bubble';
-      /** `<scene label>.<n>`, n counting bubbles only. Set by `parseScript`. */
+      /** `<act or scene label>.<n>`, n counting bubbles only. Set by `parseScript`. */
       id: string;
       readonly speaker: string;
       /** The name as written, in this language. */
@@ -251,7 +251,7 @@ function paragraph(para: Raw[], decl: Decl, err: Err, mode: Mode): Item[] {
   const first = para[0].text.trim();
   const line = para[0].line;
 
-  if (/^\\(chapter|section|subsubsection|subsection)\b/.test(first)) return structure(para, err, mode);
+  if (/^\\(chapter|section|subsection|scene)\b/.test(first)) return structure(para, err, mode);
   if (/^\\begin\{description\}/.test(first)) return [strings(para, err)];
   if (/^\\begin\{figure\}/.test(first)) return [figure(para, err)];
   if (first.startsWith('\\[')) return [formula(para, err)];
@@ -347,7 +347,7 @@ function figure(para: Raw[], err: Err): Figure {
 function structure(para: Raw[], err: Err, mode: Mode): Item[] {
   const first = para[0];
   const src = first.text.trim();
-  const m = /^\\(chapter|section|subsubsection|subsection)(\*?)/.exec(src)!;
+  const m = /^\\(chapter|section|subsection|scene)(\*?)/.exec(src)!;
   let i = m[0].length;
   let short: string | undefined;
   if (src[i] === '[') {
@@ -369,7 +369,7 @@ function structure(para: Raw[], err: Err, mode: Mode): Item[] {
   const out: Item[] = [
     {
       kind: 'structure',
-      level: m[1] as 'chapter' | 'section' | 'subsection' | 'subsubsection',
+      level: m[1] as 'chapter' | 'section' | 'subsection' | 'scene',
       star: m[2] === '*',
       ...(short !== undefined ? { short } : {}),
       title,
@@ -524,9 +524,8 @@ export function parseScript(sources: ScriptSources): Script {
   let panel = '';
   let n = 0;
   for (const f of files) {
-    const modernHierarchy = f.items.some((item) => item.kind === 'structure' && (item.level === 'chapter' || item.level === 'subsubsection'));
-    const sceneLevel = modernHierarchy ? 'subsubsection' : 'subsection';
-    const actLevel = modernHierarchy ? 'subsection' : 'section';
+    const sceneLevel = 'scene';
+    const actLevel = 'subsection';
     for (const item of f.items) {
       if (item.kind === 'structure' && item.label && (item.level === actLevel || item.level === sceneLevel)) {
         panel = item.label;

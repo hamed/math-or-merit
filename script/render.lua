@@ -46,9 +46,9 @@ end
 
 local function structure(s)
   local label = s:match('\\label{([^}]*)}')
-  if label and (s:match('^%s*\\subsubsection') or s:match('^%s*\\subsection')) then
+  local scene = s:match('^%s*\\scene')
+  if label and (scene or s:match('^%s*\\subsection')) then
     panel, count = label, 0
-    if s:match('^%s*\\subsubsection') then return s .. '\\panelmark{' .. label .. '}' end
   end
   return s
 end

@@ -22,6 +22,7 @@
   import Reel from './Reel.svelte';
   import Teletype from './Teletype.svelte';
   import { STEP_STAGE_CONTEXT, type Speaker, type StepStageContext } from '../../steps';
+  import { CHAPTER_INTRO_EXIT_EVENT, chapterIntroExitDuration } from '$lib/nav/chapterIntro';
   import {
     CALLS,
     CARDS,
@@ -459,9 +460,30 @@
   // ---- the player's verbs ----------------------------------------------------
 
   let current = $state(0);
+  let chapterIntroExitTimer: number | undefined;
+  let chapterIntroExitPending: number | null = null;
+  let chapterIntroAdvanceReady: number | null = null;
+
+  function resetChapterIntroExit(): void {
+    if (chapterIntroExitTimer !== undefined) window.clearTimeout(chapterIntroExitTimer);
+    chapterIntroExitTimer = undefined;
+    chapterIntroExitPending = null;
+    chapterIntroAdvanceReady = null;
+  }
+
+  function rearmEqualization(): void {
+    if (!stage?.isReleased('equal')) return;
+    reader.held = { blue: 15, red: 1 };
+    reacted = { first: false, eleven: false, over: false };
+    stage.rearm('equal');
+  }
 
   function settle(index: number): void {
+    // Rewinding to the handoff gives the reader another chance to make the
+    // coins equal; completed exchanges in other scenes remain completed.
+    if (current > index && PAIR_STEPS[index]?.id === 'equal') rearmEqualization();
     current = index;
+    resetChapterIntroExit();
     titleCue = null;
     hush = false;
     placeDial(index, false);
@@ -487,9 +509,13 @@
   }
 
   function play(index: number, from: number): void {
+    // Chapter navigation can revisit the handoff by moving forward from its
+    // title, bypassing the ordinary backward step through the action.
+    if (from >= 0 && PAIR_STEPS[index]?.id === 'equal') rearmEqualization();
     // Red's lines over the dials keep what they said: the room they spoke of is about to change
     for (let i = 0; i < index; i++) if (PAIR_STEPS[i].pose.control === 'rules' && saidCounts[PAIR_STEPS[i].id] === undefined) saidCounts[PAIR_STEPS[i].id] = dialCount;
     current = index;
+    resetChapterIntroExit();
     stopMotion();
     stopCalls();
     reaction = null;
@@ -549,6 +575,23 @@
   }
 
   function hurry(index: number): boolean {
+    if (PAIR_STEPS[index].chapterIntro) {
+      if (chapterIntroAdvanceReady === index) {
+        chapterIntroAdvanceReady = null;
+        chapterIntroExitPending = null;
+        return false;
+      }
+      if (chapterIntroExitPending === index) return true;
+      chapterIntroExitPending = index;
+      window.dispatchEvent(new Event(CHAPTER_INTRO_EXIT_EVENT));
+      chapterIntroExitTimer = window.setTimeout(() => {
+        chapterIntroExitTimer = undefined;
+        if (current !== index || chapterIntroExitPending !== index) return;
+        chapterIntroAdvanceReady = index;
+        stage?.advance();
+      }, chapterIntroExitDuration(stage?.reduced ?? false));
+      return true;
+    }
     const id = PAIR_STEPS[index].id;
     if (bigPaper && paperTimer !== undefined) {
       shrinkPaper();
@@ -4132,6 +4175,7 @@
     }, stage?.reduced ?? false);
     return () => {
       observer.disconnect();
+      if (chapterIntroExitTimer !== undefined) window.clearTimeout(chapterIntroExitTimer);
       stopAmbient();
       stopMotion();
       stopCalls();

@@ -10,7 +10,7 @@ import { loadDeferred } from './helpers';
  * trip.
  */
 
-const STAGE_KEY = 'merit-or-math:stage:pair:v1';
+const STAGE_KEY = 'merit-or-math:stage:pair:v2';
 /** The stage's holds, released so a test can land anywhere past them. */
 const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.try', 'stop.tap', 'stop.still', 'stop.how'];
 
@@ -53,6 +53,45 @@ async function openAt(page: Page, at: string, holding: readonly string[] = []): 
   await enterStage(page);
   return ids;
 }
+
+test('a scroll cannot complete Blue’s coin handoff', async ({ page }) => {
+  const ids = await openAt(page, 'equal', ['equal']);
+  const coinLabels = () =>
+    page.locator('.hit.coins').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label')));
+  const counts = await coinLabels();
+  expect(counts).toEqual(
+    expect.arrayContaining([expect.stringContaining('has 15.'), expect.stringContaining('has 1.')]),
+  );
+  await page.mouse.wheel(0, 120);
+  await expect.poll(() => stepNow(page)).toBe(ids.indexOf('equal'));
+  const afterScroll = await coinLabels();
+  expect(afterScroll).toEqual(
+    expect.arrayContaining([expect.stringContaining('has 15.'), expect.stringContaining('has 1.')]),
+  );
+});
+
+test('a chapter title stays until scroll and fades before the first bubble', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const titleStep = await page.evaluate(async () => {
+    const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+    const { STORY } = await import('/src/lib/content/story.gen.ts');
+    const chapterKey = STORY.index.find((chapter) => chapter.label === 'chapter:fair-game')!.key;
+    return PAIR_STEPS.find((step) => step.chapterIntro === chapterKey)!.id;
+  });
+  const ids = await openAt(page, titleStep);
+  const titleIndex = ids.indexOf(titleStep);
+  await expect(page.locator('.chapter-intro')).toBeVisible();
+  await page.waitForTimeout(5500);
+  await expect.poll(() => stepNow(page)).toBe(titleIndex);
+
+  await page.mouse.wheel(0, 120);
+  await expect(page.locator('.chapter-intro')).toHaveClass(/leaving/);
+  await page.waitForTimeout(120);
+  await expect.poll(() => stepNow(page)).toBe(titleIndex);
+  await expect.poll(() => stepNow(page), { timeout: 1000 }).toBe(titleIndex + 1);
+  await expect(page.locator('.chapter-intro')).toHaveCount(0);
+});
 
 /** Rest the page with the stage exactly in view, the way a reader arrives in it. */
 async function enterStage(page: Page): Promise<void> {
@@ -600,11 +639,47 @@ test('the ending: three boxes, one dial; the middle shows its finished room at o
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  const [veil, machine] = await page.evaluate(async () => {
+  const {
+    veil,
+    machine,
+    veilChapterTitle,
+    titleRoomMode,
+    transitionRoomMode,
+    titleBeforeBubble,
+    firstVeilBubble,
+    firstVeilSource,
+  } = await page.evaluate(async () => {
     const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
-    const steps = PAIR_STEPS as { id: string; pose: { control: string | null } }[];
-    return [steps.find((s) => s.pose.control === 'veil')!.id, steps.find((s) => s.pose.control === 'sandbox')!.id];
+    const { STORY } = await import('/src/lib/content/story.gen.ts');
+    const steps = PAIR_STEPS as {
+      id: string;
+      chapterIntro?: string;
+      pose: { control: string | null; source: string; roomMode: string };
+    }[];
+    const chapterKey = STORY.index.find((chapter) => chapter.label === 'chapter:verdict')!.key;
+    const title = steps.find((s) => s.chapterIntro === chapterKey)!;
+    const first = steps.find((s) => s.id === 'bet.1')!;
+    const titleIndex = steps.indexOf(title);
+    return {
+      veil: steps.find((s) => s.pose.control === 'veil')!.id,
+      machine: steps.find((s) => s.pose.control === 'sandbox')!.id,
+      veilChapterTitle: title.id,
+      titleRoomMode: title.pose.roomMode,
+      transitionRoomMode: steps[titleIndex - 1].pose.roomMode,
+      titleBeforeBubble: steps[titleIndex + 1]?.id === first.id,
+      firstVeilBubble: first.id,
+      firstVeilSource: first.pose.source,
+    };
   });
+  expect(titleBeforeBubble).toBe(true);
+  expect(transitionRoomMode).toBe('veil');
+  expect(titleRoomMode).toBe('veil');
+  expect(firstVeilSource).toBe('run');
+  await openAt(page, veilChapterTitle);
+  await expect(page.locator('.chapter-intro')).toBeVisible();
+  await expect(page.locator('.deck')).toHaveCount(0);
+  await openAt(page, firstVeilBubble);
+  await expect(page.locator('.deck')).toHaveCount(0);
   await openAt(page, veil);
   await expect(page.locator('.saying')).toHaveCount(3);
   await expect(page.locator('.veil .veil-frame')).toHaveCount(3);

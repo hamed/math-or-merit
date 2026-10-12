@@ -184,6 +184,8 @@ export type Action =
 
 export interface PairStep extends StepSpec {
   readonly pose: Pose;
+  /** A script-authored chapter heading, shown before the first dialogue line. */
+  readonly chapterIntro?: string;
   readonly action?: Action;
   /** Clears the talk: a new scene (every `\\subsection`), a new conversation (owner, 2026-10-09). */
   readonly panel?: true;
@@ -593,8 +595,8 @@ function apply(s: StoryStep, prev: Pose): { pose: Pose; action?: Action; log?: s
         p = { ...p, control: 'veil' };
         break;
       case 'control:none':
-        // the reader's hand leaves the tax game: the room shown is the run's again
-        p = { ...p, control: null, ...(p.control === 'tax' || p.control === 'rules' ? { source: 'run' as const } : {}) };
+        // Leaving tax, rules, or the sandbox returns the room to the saved run.
+        p = { ...p, control: null, ...(p.control === 'tax' || p.control === 'rules' || p.control === 'sandbox' ? { source: 'run' as const } : {}) };
         break;
       case 'levy:collect':
         // on the room itself (owner, 2026-10-10: no four-person demo): the run's own room pays
@@ -699,20 +701,22 @@ function build(): { steps: PairStep[]; problems: string[] } {
     const id = ids[i];
     const conditioned = s.wait === 'when';
     const wait: Wait =
-      s.wait === 'action'
-        ? HOLD
-        : s.wait === 'chat'
-          ? CHAT
-          : s.wait === 'reader'
-            ? READER
-            : conditioned
-              ? flowing(s.groups, 'flow')
-                ? CHAT
-                : READER
-              : action === 'run'
-                ? CHAT
-                : // a pause on its own is its beats; with an action, the beats come after it
-                  auto(pause && !action ? pause : played + pause);
+      s.chapterIntro
+        ? READER
+        : s.wait === 'action'
+          ? HOLD
+          : s.wait === 'chat'
+            ? CHAT
+            : s.wait === 'reader'
+              ? READER
+              : conditioned
+                ? flowing(s.groups, 'flow')
+                  ? CHAT
+                  : READER
+                : action === 'run'
+                  ? CHAT
+                  : // a pause on its own is its beats; with an action, the beats come after it
+                    auto(pause && !action ? pause : played + pause);
     const message = s.variants?.keys[0] ?? s.key;
     const speaks = s.who && message && id !== 'title.type' && !SPOKEN.has(id);
     const aside = conditioned ? flowing(s.groups, 'aside') : s.manner.includes('aside');
@@ -726,6 +730,7 @@ function build(): { steps: PairStep[]; problems: string[] } {
       id,
       wait,
       pose: next,
+      ...(s.chapterIntro ? { chapterIntro: s.chapterIntro } : {}),
       ...(speaks ? { lines: [{ who: s.who as LineSpec['who'], message: message! }] } : {}),
       ...(action ? { action } : {}),
       ...(i > 0 && s.scene !== STORY.steps[i - 1].scene ? { panel: true as const } : {}),

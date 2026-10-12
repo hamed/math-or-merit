@@ -7,6 +7,15 @@ exact jokes, timings, and final sentences still require authored prototypes.
 Only evidence-cleared model claims may enter published prose. The equal-agent model is
 the experiment, not an apology for missing realism.
 
+## Owner direction (2026-10-10; supersedes older framing)
+
+**Merit or Math? is a game and an educational explanation. It is not political or
+economic commentary, and it does not recommend a real-world policy.** Keep the chosen
+headline. Keep the wealth-levy mechanic as part of the game, described as a rule the
+reader can explore and a result within this model. Do not turn that result into a claim
+about what governments or people should do. Credit the coin seller in the public
+credits.
+
 ## Narrative contract
 
 - Hamed narrates in the first person: playful, concrete, provocative, and never an
@@ -204,6 +213,27 @@ No narrative verdict or AI-generated closing scene. The support footer may conta
 - approved merchandise and unused original art.
 
 Commercial entries render only when a real destination exists.
+
+The owner also wants this end-of-game area to grow into a useful destination, not a
+row of unrelated buttons:
+
+- A references page or stack of reference cards, connected to the concepts they
+  support and styled consistently with the concept cards.
+- Clearer act, chapter, section, and scene structure, with names that help readers
+  understand where they are and share a useful link.
+- A natural support/donation invitation after the game; the existing candidate is
+  “Blue never paid. You can.” Final wording and the payment/tax treatment remain open.
+- Carefully selected book, film, music, and other recommendations where they fit the
+  experience, with affiliate relationships disclosed beside relevant links.
+- Feedback, contact/networking, social links, and a clear “what next” route.
+- A behind-the-scenes gallery of the project's notes, unused art, prototypes, and
+  iterations, with provenance and reuse rights checked before publication.
+- Optional merchandise based on approved original art, starting only when there is a
+  real destination and a sensible fulfillment path.
+
+These additions belong after the game and must not interrupt the experiment. The
+support area is a product direction; it does not make each revenue stream a prerequisite
+for the first public release.
 
 ## Deferred work
 

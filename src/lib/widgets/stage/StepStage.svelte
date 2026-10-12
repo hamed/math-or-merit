@@ -1,8 +1,6 @@
 <script lang="ts" module>
   /** Where a touch or scrollbar scroll that comes to rest near the stage is pulled in. */
   const SETTLE_FRACTION = 0.3;
-  /** Controls inside the stage: a press on one of these never steps. */
-  const CONTROL = 'button, a, input, select, textarea, label, [role="button"], [data-control]';
 </script>
 
 <script lang="ts">
@@ -49,7 +47,9 @@
   let scene: StepScene | null = null;
 
   const live = $state({ index: 0, reduced: false });
-  const storageKey = $derived(`merit-or-math:stage:${id}:v1`);
+  // v2: chapter-intro beats changed the saved step indices. Old snapshots can
+  // land inside the Fair Game with its coin handoff already marked complete.
+  const storageKey = $derived(`merit-or-math:stage:${id}:v2`);
 
   setContext<StepStageContext>(STEP_STAGE_CONTEXT, {
     attach(steps, attachedScene) {
@@ -65,6 +65,10 @@
     },
     isReleased(stepId) {
       return machine?.isReleased(stepId) ?? false;
+    },
+    rearm(stepId) {
+      if (!machine?.rearm(stepId)) return;
+      remember();
     },
     advance() {
       inside = true;
@@ -378,17 +382,6 @@
     });
   }
 
-  // ---- a tap on empty stage ----------------------------------------------
-
-  function onClick(e: MouseEvent): void {
-    if ((e.target as Element | null)?.closest(CONTROL)) return;
-    if (engaged()) {
-      inside = true;
-      step(1);
-    } else if (inside) align();
-    else arrive(top() > 0 ? 1 : -1);
-  }
-
   onMount(() => {
     live.reduced = !motionOk();
     if (!machine || !scene) return;
@@ -444,16 +437,12 @@
   });
 </script>
 
-<!-- a click on empty stage is a mouse/touch convenience; the keyboard path is
-     the reading keys, handled on window -->
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 <section
   bind:this={root}
   class="step-stage"
   aria-label={label}
   aria-roledescription="stage"
   data-step={live.index}
-  onclick={onClick}
   onfocusin={onFocusIn}
 >
   {@render children()}

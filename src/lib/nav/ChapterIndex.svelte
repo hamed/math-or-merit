@@ -6,6 +6,11 @@
   import { goToIndex, openBranch, type BranchId } from '$lib/widgets/stage/branch';
   import { say } from '$lib/i18n';
   import type { StoryIndexSection } from '$lib/script/compile';
+  import {
+    CHAPTER_INTRO_ENTER_MS,
+    CHAPTER_INTRO_EXIT_EVENT,
+    CHAPTER_INTRO_EXIT_MS,
+  } from './chapterIntro';
 
   /** The chapter index is authored by the script: chapters contain index sections, which target scenes. */
 
@@ -19,7 +24,8 @@
   let furthestId = $state<string | null>(null);
   let shown = $state(false);
   let introChapterId = $state<string | null>(null);
-  let lastIntroChapterId: string | null = null;
+  let introLeaving = $state(false);
+  let lastMeasuredStageStep: number | null = null;
   let introTimer: number | undefined;
   /** The stage's step on screen, while the reader is in the stage. */
   let stageStep = $state<number | null>(null);
@@ -67,8 +73,40 @@
     return index.find((chapter) => chapter.sections.includes(indexSection)) ?? null;
   });
   const indexChapterNumber = $derived(indexChapter ? index.indexOf(indexChapter) + 1 : null);
+  const chapterSteps = $derived.by(() =>
+    indexChapter
+      ? STORY.steps.flatMap((step, position) =>
+          chapterForScene(step.scene)?.label === indexChapter.label ? [position] : [],
+        )
+      : [],
+  );
+  const storyProgress = $derived(
+    stageStep !== null && chapterSteps.length > 0
+      ? Math.max(0, Math.min(1, (stageStep - chapterSteps[0] + 1) / chapterSteps.length))
+      : null,
+  );
+  const progressValue = $derived(
+    storyProgress !== null && indexChapterNumber !== null ? indexChapterNumber - 1 + storyProgress : null,
+  );
   const indexChapterSections = $derived(indexChapter?.sections.filter((section) => section.scenes.length > 0) ?? []);
   const indexSectionPosition = $derived(indexSection ? indexChapterSections.indexOf(indexSection) : -1);
+  const progressDescription = $derived(
+    indexChapter && indexSection && indexChapterNumber !== null
+      ? `Chapter ${indexChapterNumber} of ${index.length}: ${say(indexChapter.key)}; section ${indexSectionPosition + 1} of ${indexChapterSections.length}: ${say(indexSection.key)}`
+      : 'Story progress',
+  );
+
+  function leaveIntro(): void {
+    if (!introChapterId || introLeaving) return;
+    introLeaving = true;
+    if (introTimer !== undefined) window.clearTimeout(introTimer);
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    introTimer = window.setTimeout(() => {
+      introChapterId = null;
+      introLeaving = false;
+      introTimer = undefined;
+    }, reduced ? 0 : CHAPTER_INTRO_EXIT_MS);
+  }
   const previousSection = $derived(
     indexSectionPosition > 0 ? indexChapterSections[indexSectionPosition - 1] : null,
   );
@@ -114,20 +152,24 @@
     }
     const stageEl = document.querySelector<HTMLElement>('.step-stage');
     const state = document.documentElement.getAttribute(STAGE_STATE_ATTRIBUTE);
+    const rawStep = stageEl ? Number(stageEl.dataset.step ?? 0) : null;
+    const stageRect = stageEl?.getBoundingClientRect();
     const nextStep = stageEl && state ? Number(stageEl.dataset.step ?? 0) : null;
     stageStep = nextStep;
-    const sceneLabel = nextStep === null ? null : (STORY.steps[nextStep]?.scene ?? null);
+    const sceneLabel = rawStep === null ? null : (STORY.steps[rawStep]?.scene ?? null);
     const chapter = chapterForScene(sceneLabel);
-    const firstScene = chapter?.sections.find((section) => section.scenes.length)?.scenes[0];
-    if (chapter && sceneLabel === firstScene && lastIntroChapterId !== chapter.label) {
-      lastIntroChapterId = chapter.label;
-      introChapterId = chapter.label;
+    const introKey = nextStep === null ? undefined : STORY.steps[nextStep]?.chapterIntro;
+    const intro = introKey ? index.find((entry) => entry.key === introKey) : undefined;
+    if (intro && nextStep !== lastMeasuredStageStep) {
+      introChapterId = intro.label;
+      introLeaving = false;
       if (introTimer !== undefined) window.clearTimeout(introTimer);
-      introTimer = window.setTimeout(() => {
-        introChapterId = null;
-        introTimer = undefined;
-      }, 6000);
-    }
+      introTimer = undefined;
+    } else if (
+      introChapterId &&
+      (!intro || !stageRect || stageRect.bottom <= 0 || stageRect.top >= window.innerHeight)
+    ) leaveIntro();
+    lastMeasuredStageStep = nextStep;
     followScene();
     // the opening owns the first screen alone while it plays; after that the
     // index is always there — it is the way out, and the way to any scene
@@ -160,6 +202,12 @@
   }
 
   function goIndexChapter(chapter: (typeof index)[number] | null): void {
+    const chapterIntroStep = chapter ? STORY.steps.findIndex((step) => step.chapterIntro === chapter.key) : -1;
+    if (chapterIntroStep >= 0) {
+      openMenu = null;
+      goToIndex(STAGE, chapterIntroStep);
+      return;
+    }
     const firstSection = chapter?.sections.find((section) => section.scenes.length > 0);
     if (firstSection) goIndexSection(firstSection);
   }
@@ -169,12 +217,24 @@
     if (sideTrip) goScene(sideTrip);
   }
 
+  function progressFill(chapterPosition: number): number {
+    if (storyProgress === null || indexChapterNumber === null) return 0;
+    if (chapterPosition < indexChapterNumber - 1) return 100;
+    if (chapterPosition === indexChapterNumber - 1) return storyProgress * 100;
+    return 0;
+  }
+
   /** A scene of the stage a link can name: a chapter of the essay with the same name keeps its own. */
   const linkable = (label: string): Scene | null =>
     list.some((c) => c.id === label) ? null : (STORY.scenes.find((sc) => sc.label === label && !sc.sideTrip) ?? null);
 
   /** Go where a link points: a chapter, or a scene of the stage. */
   function goFragment(fragment: string): void {
+    const chapter = index.find((entry) => entry.label === fragment);
+    if (chapter) {
+      goIndexChapter(chapter);
+      return;
+    }
     const sc = linkable(fragment);
     if (sc) goScene(sc);
     else goChapter(fragment);
@@ -186,8 +246,10 @@
   /** The address bar names the scene on the stage, and lets go of it once the reader leaves the stage. */
   function followScene(): void {
     if (!landed) return;
-    const label = stageStep === null ? null : (STORY.steps[stageStep]?.scene ?? null);
-    const want = label && linkable(label) ? `#${label}` : '';
+    const step = stageStep === null ? undefined : STORY.steps[stageStep];
+    const chapter = step?.chapterIntro ? index.find((entry) => entry.key === step.chapterIntro) : undefined;
+    const label = step?.scene ?? null;
+    const want = chapter ? `#${chapter.label}` : label && linkable(label) ? `#${label}` : '';
     if (want === location.hash) return;
     // a chapter's own address stays until the stage takes over again
     if (!want && !linkable(location.hash.slice(1))) return;
@@ -212,6 +274,12 @@
     if (closing !== undefined) window.clearTimeout(closing);
     closing = undefined;
     openMenu = menu;
+  }
+
+  function hideMenu(): void {
+    if (closing !== undefined) window.clearTimeout(closing);
+    closing = undefined;
+    openMenu = null;
   }
 
   function deferMenuClose(): void {
@@ -249,11 +317,13 @@
         closing = undefined;
       }
     };
+    const onIntroExit = () => leaveIntro();
 
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll, { passive: true });
     window.addEventListener('keydown', onKey);
     window.addEventListener('pointerdown', onPointer);
+    window.addEventListener(CHAPTER_INTRO_EXIT_EVENT, onIntroExit);
     // the stage changes state, and step, without the page scrolling
     const watch = new MutationObserver(onScroll);
     watch.observe(document.documentElement, { attributes: true, attributeFilter: [STAGE_STATE_ATTRIBUTE] });
@@ -290,15 +360,25 @@
       window.removeEventListener('resize', onScroll);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('pointerdown', onPointer);
+      window.removeEventListener(CHAPTER_INTRO_EXIT_EVENT, onIntroExit);
       watch.disconnect();
     };
   });
 </script>
 
 {#if introChapter}
-  <div class="chapter-intro" role="status" aria-live="polite">
-    <span class="chapter-intro-number">Chapter {introNumber}</span>
-    <span class="chapter-intro-title">{say(introChapter.key)}</span>
+  <div
+    class="chapter-intro"
+    class:leaving={introLeaving}
+    role="status"
+    aria-live="polite"
+    style={`--chapter-intro-enter-ms:${CHAPTER_INTRO_ENTER_MS}ms;--chapter-intro-exit-ms:${CHAPTER_INTRO_EXIT_MS}ms`}
+  >
+    <div class="chapter-intro-copy">
+      <span class="chapter-intro-number">Chapter {introNumber}</span>
+      <span class="chapter-intro-rule" aria-hidden="true"></span>
+      <span class="chapter-intro-title">{say(introChapter.key)}</span>
+    </div>
   </div>
 {/if}
 
@@ -315,8 +395,6 @@
 >
   <div
     class="nav-group chapter-control"
-    onpointerenter={(e) => e.pointerType === 'mouse' && showMenu('chapters')}
-    onfocusin={() => showMenu('chapters')}
   >
     <div class="nav-row" aria-label="Chapter navigation">
       <button
@@ -324,6 +402,8 @@
         type="button"
         aria-label={previousChapter ? `Previous chapter: ${say(previousChapter.key)}` : 'No previous chapter'}
         title={previousChapter ? `Previous chapter: ${say(previousChapter.key)}` : 'No previous chapter'}
+        onpointerenter={(e) => e.pointerType === 'mouse' && hideMenu()}
+        onfocusin={hideMenu}
         disabled={!previousChapter}
         onclick={() => goIndexChapter(previousChapter)}
       >
@@ -334,6 +414,8 @@
         type="button"
         aria-expanded={openMenu === 'chapters'}
         aria-controls="nav-menu"
+        onpointerenter={(e) => e.pointerType === 'mouse' && showMenu('chapters')}
+        onfocusin={() => showMenu('chapters')}
         onclick={() => showMenu('chapters')}
       >
         {locationName}
@@ -343,6 +425,8 @@
         type="button"
         aria-label={nextChapter ? `Next chapter: ${say(nextChapter.key)}` : 'No next chapter'}
         title={nextChapter ? `Next chapter: ${say(nextChapter.key)}` : 'No next chapter'}
+        onpointerenter={(e) => e.pointerType === 'mouse' && hideMenu()}
+        onfocusin={hideMenu}
         disabled={!nextChapter}
         onclick={() => goIndexChapter(nextChapter)}
       >
@@ -353,8 +437,6 @@
 
   <div
     class="nav-group section-control"
-    onpointerenter={(e) => e.pointerType === 'mouse' && indexChapter && showMenu('sections')}
-    onfocusin={() => indexChapter && showMenu('sections')}
   >
     <div class="nav-row" aria-label="Section navigation">
       <button
@@ -362,6 +444,8 @@
         type="button"
         aria-label={previousSection ? `Previous section: ${say(previousSection.key)}` : 'No previous section'}
         title={previousSection ? `Previous section: ${say(previousSection.key)}` : 'No previous section'}
+        onpointerenter={(e) => e.pointerType === 'mouse' && hideMenu()}
+        onfocusin={hideMenu}
         disabled={!previousSection}
         onclick={() => previousSection && goIndexSection(previousSection)}
       >
@@ -373,6 +457,8 @@
         aria-expanded={openMenu === 'sections'}
         aria-controls="nav-menu"
         disabled={!indexChapter}
+        onpointerenter={(e) => e.pointerType === 'mouse' && indexChapter && showMenu('sections')}
+        onfocusin={() => indexChapter && showMenu('sections')}
         onclick={() => showMenu('sections')}
       >
         {indexSection ? say(indexSection.key) : ''}
@@ -382,6 +468,8 @@
         type="button"
         aria-label={nextSection ? `Next section: ${say(nextSection.key)}` : 'No next section'}
         title={nextSection ? `Next section: ${say(nextSection.key)}` : 'No next section'}
+        onpointerenter={(e) => e.pointerType === 'mouse' && hideMenu()}
+        onfocusin={hideMenu}
         disabled={!nextSection}
         onclick={() => nextSection && goIndexSection(nextSection)}
       >
@@ -389,6 +477,27 @@
       </button>
     </div>
   </div>
+
+  {#if progressValue !== null && indexChapterNumber !== null}
+    <div
+      class="story-progress"
+      role="progressbar"
+      aria-label="Story progress"
+      aria-valuemin={0}
+      aria-valuemax={index.length}
+      aria-valuenow={progressValue}
+      aria-valuetext={progressDescription}
+    >
+      {#each index as chapter, k (chapter.label)}
+        <span
+          class="progress-segment"
+          class:complete={k < indexChapterNumber - 1}
+          class:current={k === indexChapterNumber - 1}
+          style:--fill={`${progressFill(k)}%`}
+        ></span>
+      {/each}
+    </div>
+  {/if}
 
   <div id="nav-menu" class="list menu" hidden={openMenu === null}>
     {#if openMenu === 'chapters'}
@@ -464,16 +573,16 @@
   /* The two centered rows share a fixed width; their menus overlay below them
      so opening a list never changes the navigator's size. */
   .index {
-    --nav-row-height: 2.15rem;
-    --nav-top-inset: 0.3rem;
+    --nav-row-height: 1.62rem;
+    --nav-top-inset: 0.16rem;
     position: fixed;
     z-index: 40;
     inset-block-start: 0;
     inset-inline-end: 0;
     box-sizing: border-box;
-    inline-size: min(20rem, calc(100vw - 1.5rem));
-    padding-block: 0.3rem;
-    padding-inline: 0.5rem;
+    inline-size: min(16rem, calc(100vw - 1rem));
+    padding-block: 0.2rem;
+    padding-inline: 0.4rem;
     font-family: var(--font-sans);
     text-align: end;
     opacity: 0;
@@ -496,14 +605,45 @@
   }
 
   .nav-row {
-    display: grid;
-    grid-template-columns: 2rem minmax(0, 1fr) 2rem;
+    display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 0.2rem;
+    gap: 0.08rem;
     inline-size: 100%;
     block-size: var(--nav-row-height);
     border-radius: 0.4rem;
     transition: background-color 0.16s ease;
+  }
+
+  .story-progress {
+    display: flex;
+    gap: 0.1rem;
+    inline-size: 4rem;
+    block-size: 0.1rem;
+    margin: 0.06rem auto 0;
+  }
+
+  .progress-segment {
+    position: relative;
+    flex: 1;
+    min-inline-size: 0;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgb(86 69 47 / 16%);
+  }
+
+  .progress-segment::after {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: var(--fill);
+    border-radius: inherit;
+    background: var(--ink-soft);
+    content: '';
+  }
+
+  .progress-segment.current::after {
+    background: var(--accent-deep);
   }
 
   .nav-group:hover .nav-row,
@@ -515,8 +655,10 @@
     display: block;
     box-sizing: border-box;
     min-inline-size: 0;
-    inline-size: 100%;
-    block-size: 1.9rem;
+    flex: 0 1 auto;
+    inline-size: max-content;
+    max-inline-size: calc(100% - 2.9rem);
+    block-size: 1.5rem;
     overflow: hidden;
     border: 1px solid transparent;
     border-radius: 0.4rem;
@@ -524,7 +666,7 @@
     background: transparent;
     color: var(--ink-mid);
     font-family: inherit;
-    font-size: 0.92rem;
+    font-size: 0.86rem;
     font-weight: 650;
     line-height: 1.2;
     text-align: center;
@@ -549,8 +691,9 @@
   }
 
   .section-name {
+    font-family: var(--font-sans);
     color: var(--ink-soft);
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 600;
   }
 
@@ -558,15 +701,16 @@
     display: grid;
     place-items: center;
     box-sizing: border-box;
-    inline-size: 2rem;
-    block-size: 1.9rem;
+    flex: 0 0 1.35rem;
+    inline-size: 1.35rem;
+    block-size: 1.45rem;
     border: 1px solid transparent;
     border-radius: 0.4rem;
     padding: 0;
     background: transparent;
     color: var(--ink-mid);
     font-family: inherit;
-    font-size: 1.05rem;
+    font-size: 0.95rem;
     font-weight: 650;
     line-height: 1;
     cursor: pointer;
@@ -586,11 +730,18 @@
   }
 
   .chapter-arrow {
-    font-size: 0.98rem;
+    font-size: 0.9rem;
+  }
+
+  .chapter-name {
+    font-family: var(--font-serif);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
 
   .section-arrow {
-    font-size: 1.3rem;
+    font-size: 1.15rem;
   }
 
   .list {
@@ -598,11 +749,11 @@
     z-index: 45;
     inset-block-start: calc(100% + 0.15rem);
     inset-inline-end: clamp(0.7rem, 2vw, 1.2rem);
-    inline-size: min(16rem, calc(100vw - 1rem));
+    inline-size: min(15rem, calc(100vw - 1rem));
     box-sizing: border-box;
     max-block-size: min(75svh, 36rem);
     margin: 0;
-    padding: 0.3rem;
+    padding: 0.25rem;
     overflow-y: auto;
     border: 1px solid #d8cdb9;
     border-radius: 0.55rem;
@@ -632,13 +783,13 @@
     box-sizing: border-box;
     inline-size: 100%;
     border: none;
-    padding-block: 0.32rem;
-    padding-inline: 0.55rem;
+    padding-block: 0.27rem;
+    padding-inline: 0.5rem;
     border-radius: 0.45rem;
     background: none;
     color: var(--ink-mid);
     font-family: inherit;
-    font-size: 0.92rem;
+    font-size: 0.86rem;
     line-height: 1.2;
     text-align: start;
     text-decoration: none;
@@ -661,46 +812,100 @@
 
   .chapter-intro {
     position: fixed;
-    z-index: 39;
-    inset-block-start: clamp(1rem, 2.5vh, 1.8rem);
-    inset-inline: 4rem;
+    z-index: 60;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-block-start: clamp(4.75rem, 14svh, 10rem);
+    padding-inline: clamp(1rem, 4vw, 3rem);
+    isolation: isolate;
+    pointer-events: auto;
+    text-align: center;
+    touch-action: pan-y;
+    animation: chapter-intro-enter var(--chapter-intro-enter-ms) ease-out both;
+  }
+
+  @keyframes chapter-intro-enter {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes chapter-intro-exit {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  .chapter-intro::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--paper) 94%, transparent) 0%,
+      color-mix(in srgb, var(--paper) 88%, transparent) 38%,
+      color-mix(in srgb, var(--paper) 76%, transparent) 72%,
+      color-mix(in srgb, var(--paper) 64%, transparent) 100%
+    );
+    content: '';
+  }
+
+  .chapter-intro-copy {
+    position: relative;
+    inline-size: min(100%, 52rem);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.08rem;
-    pointer-events: none;
-    text-align: center;
-    animation: chapter-intro-life 6s ease both;
+    gap: clamp(0.75rem, 2vh, 1.25rem);
+    animation: chapter-intro-copy-enter var(--chapter-intro-enter-ms) ease-out both;
+  }
+
+  .chapter-intro.leaving {
+    animation: chapter-intro-exit var(--chapter-intro-exit-ms) ease-in both;
+  }
+
+  .chapter-intro.leaving .chapter-intro-copy {
+    animation: chapter-intro-copy-exit var(--chapter-intro-exit-ms) ease-in both;
+  }
+
+  @keyframes chapter-intro-copy-enter {
+    from { opacity: 0; transform: translateY(0.45rem); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes chapter-intro-copy-exit {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translateY(-0.2rem); }
   }
 
   .chapter-intro-number {
-    color: var(--ink-soft);
-    font-size: clamp(0.8rem, 1.1vw, 1rem);
-    font-weight: 700;
-    letter-spacing: 0.18em;
+    color: var(--accent-deep);
+    font-family: var(--font-sans);
+    font-size: clamp(0.8rem, 1.15vw, 1rem);
+    font-weight: 600;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    text-shadow: 0 0 0.7em var(--paper), 0 0 1.1em var(--paper);
+  }
+
+  .chapter-intro-rule {
+    inline-size: clamp(2.5rem, 6vw, 4rem);
+    block-size: 1px;
+    background: var(--accent);
   }
 
   .chapter-intro-title {
-    color: var(--ink-mid);
-    font-family: var(--font-sans);
-    font-size: clamp(1.55rem, 3vw, 2.45rem);
-    font-weight: 700;
-    line-height: 1.1;
+    color: var(--ink-strong);
+    font-family: var(--font-serif);
+    font-size: clamp(2.7rem, 8.8vw, 7.4rem);
+    font-weight: 600;
+    letter-spacing: -0.055em;
+    line-height: 0.9;
     text-wrap: balance;
-    text-shadow: 0 0 0.7em var(--paper), 0 0 1.1em var(--paper);
-  }
-
-  @keyframes chapter-intro-life {
-    0% { opacity: 0; transform: translateY(-0.55rem); }
-    10%, 84% { opacity: 1; transform: none; }
-    100% { opacity: 0; transform: translateY(-0.2rem); }
   }
 
   .list .section-link {
     padding-inline-start: 0.7rem;
-    font-size: 0.84rem;
+    font-size: 0.78rem;
   }
 
   .section-trips {
@@ -714,7 +919,7 @@
   .list .side-trip-link {
     padding-block: 0.22rem;
     padding-inline-start: 0.55rem;
-    font-size: 0.74rem;
+    font-size: 0.7rem;
     color: var(--ink-soft);
   }
 
@@ -758,7 +963,7 @@
   }
 
   .resume button {
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-style: italic;
     color: var(--ink-soft);
   }
@@ -766,42 +971,47 @@
   /* Keep the same centered rows on a phone, with smaller, stable arrow slots. */
   @media (max-width: 40rem) {
     .index {
-      inline-size: min(20rem, calc(100vw - 1rem));
-      --nav-row-height: 2.05rem;
-      --nav-top-inset: 0.25rem;
-      padding-block: 0.25rem;
-      padding-inline: 0.4rem;
+      inline-size: min(16rem, calc(100vw - 0.75rem));
+      --nav-row-height: 1.58rem;
+      --nav-top-inset: 0.14rem;
+      padding-block: 0.18rem;
+      padding-inline: 0.35rem;
     }
 
     .nav-row {
-      grid-template-columns: 1.9rem minmax(0, 1fr) 1.9rem;
-      gap: 0.15rem;
+      gap: 0.08rem;
       block-size: var(--nav-row-height);
     }
 
+    .nav-label {
+      max-inline-size: calc(100% - 3.2rem);
+      block-size: 1.46rem;
+    }
+
     .nav-arrow {
-      inline-size: 1.9rem;
-      block-size: 1.8rem;
+      flex-basis: 1.5rem;
+      inline-size: 1.5rem;
+      block-size: 1.42rem;
     }
 
     .chapter-arrow {
-      font-size: 0.9rem;
+      font-size: 0.84rem;
     }
 
     .section-arrow {
-      font-size: 1.3rem;
+      font-size: 1.05rem;
     }
 
     .chapter-name {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
     }
 
     .section-name {
-      font-size: 0.72rem;
+      font-size: 0.7rem;
     }
 
     .list {
-      inline-size: min(16rem, calc(100vw - 0.8rem));
+      inline-size: min(15rem, calc(100vw - 0.8rem));
       max-block-size: 70svh;
       inset-inline-end: 0.4rem;
     }
@@ -811,8 +1021,8 @@
     }
 
     .chapter-intro {
-      inset-block-start: 0.8rem;
-      inset-inline: 3.5rem;
+      padding-block-start: clamp(4.75rem, 14svh, 10rem);
+      padding-inline: 1rem;
     }
   }
 
@@ -821,7 +1031,9 @@
       transition: none;
     }
 
-    .chapter-intro {
+    .chapter-intro,
+    .chapter-intro::before,
+    .chapter-intro-copy {
       animation: none;
     }
   }
