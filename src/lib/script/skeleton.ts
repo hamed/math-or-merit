@@ -25,12 +25,12 @@ export function skeleton(script: Script): Bone[] {
   return out;
 }
 
-/** The skeleton, cut into the stretch under each section or scene label. */
+/** The skeleton, cut into the stretch under each section or jump label. */
 function byLabel(bones: readonly Bone[]): Map<string, Bone[]> {
   const out = new Map<string, Bone[]>();
   let current: Bone[] = [];
   for (const b of bones) {
-    const m = /^(?:section|subsection) (.+)$/.exec(b.label);
+    const m = /^(?:chapter|section|subsection|scene) (.+)$/.exec(b.label);
     if (m) {
       current = [];
       out.set(m[1], current);

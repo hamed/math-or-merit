@@ -12,8 +12,9 @@ the game keeps the last good version and the error shows on the page and in
 the terminal.
 
 **The PDF.** `npm run script:watch` rebuilds `script/out/main.pdf` on every
-save; keep it open in an editor tab and it refreshes. Its side panel lists every
-act, scene and card. `npm run script:pdf` builds English and Farsi once. Lint
+save; keep it open in an editor tab and it refreshes. Its side panel lists
+chapters, sections, acts and cards. `npm run script:pdf` builds
+English and Farsi once. Lint
 runs first here too. `npm run script:lint` lists the warnings as well.
 
 ## Files
@@ -29,11 +30,11 @@ runs first here too. `npm run script:lint` lists the warnings as well.
 | `render.lua` | draws the plain paragraphs for the PDF; the app never needs it |
 | `fa/…` | one folder per language, same file names |
 
-**Change freely:** every word; act and scene titles (the PDF shows them, the
-game doesn't); stage directions, comments and notes; the order of lines; adding
-and cutting lines; manners; speaker names in `decl.tex` (`\speaker{blue}{Blue}`:
-the second one); act and scene labels — a choice that points at a renamed label
-is a lint error that names it.
+**Change freely:** every word; act titles (the PDF shows them, the game doesn't);
+scene marker titles (internal only); stage directions, comments and notes; the
+order of lines; adding and cutting lines; manners; speaker names in `decl.tex`
+(`\speaker{blue}{Blue}`: the second one); act and scene labels — a choice that
+points at a renamed label is a lint error that names it.
 
 **Names the code uses — change them with an agent:** the side trips' labels
 (`cow`, `human`, `workshop`), the keys in `\item[…]`, the names in `\val{…}`,
@@ -65,25 +66,40 @@ A paragraph is the text between blank lines. How it starts says what it is:
 |---|---|
 | `Name:` or `Name (manner, …):` — a declared speaker | a **bubble**; each later line is a line break |
 | `\` and an action | an **action** paragraph, one action per line |
-| `\section` / `\subsection` + `\label{…}` | **structure**: an **act** / a **scene** |
+| `\chapter` / `\section` / `\subsection` + `\label{…}` | **headings**: a **chapter** / an **index section** / an internal **act** |
+| `\scene{…}\label{…}` | **stage marker**: an internal jump point, not a heading or index entry |
 | `\begin{description}` | **UI strings**: `\item[key] words` |
 | `\begin{figure}` | a **figure** (§1.4) |
 | `\[` | a **formula**, closed by `\]` in the same paragraph |
 | anything else | in the timeline, a **stage direction**; in a unit, its **words** |
 
 - `%` comments sit on their own lines: notes for agents, and history. Never output.
-- **One paragraph is one step** of the stage, with one exception: a run of
-  conditioned bubbles (§5).
+- **One content paragraph is one step** of the stage, with one exception: a
+  run of conditioned bubbles (§5). Each unstarred chapter marker also inserts
+  a chapter-title beat before the chapter's first act.
 - **Stage directions say what is on screen**, plainly: they become the
   screen-reader text and the transcript. Dates, sources and reasons go in `%`
   comments.
 
-### 1.1 Acts and scenes
+### 1.1 Chapters, sections, acts and scenes
 
-`\section{…}\label{act:…}` is an **act**: where the talk clears. Every act is
-made of **scenes**, `\subsection{…}\label{…}`, and every bubble belongs to one.
-The PDF numbers scenes straight through (Scene 1, 2, … 26) and side trips B1,
-B2, B3. A scene's label is what jumps and bubble ids use.
+The source uses the standard `report` hierarchy: `\chapter` → `\section` →
+`\subsection`. These are the only heading levels. The game index shows chapters
+and index sections; subsections are internal acts where dialogue clears.
+
+`\chapter{…}\label{chapter:…}` starts a chapter. Its title is also a step in
+the reading sequence: the previous conversation clears, the chapter title
+fades in and stays until the reader scrolls on, then the next dialogue begins
+after the title fades out. Its `\section{…}` entries, labelled
+`index:…`, are the sections shown in the chapter dropdown. The next section or
+chapter closes a section's group of scenes. Chapter and section titles are
+compiled as localized index strings; a chapter label jumps to its title beat.
+
+`\subsection{…}\label{act:…}` is an act: where the talk clears. Within an act,
+`\scene{…}\label{…}` marks an internal stage point and jump target. It is a
+custom marker, not a LaTeX heading or index entry, so it adds no hierarchy. The
+PDF does not print scene markers. Chapter and section labels also point to the
+first step that follows them.
 
 ### 1.2 Lines inside a bubble
 

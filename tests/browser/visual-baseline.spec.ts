@@ -34,7 +34,7 @@ test('@visual title at 390 × 844', async ({ page }) => {
     const script = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
     return script.PAIR_STEPS.findIndex((s: { id: string }) => s.id === 'title.math');
   });
-  await page.evaluate((i) => sessionStorage.setItem('merit-or-math:stage:pair:v1', JSON.stringify({ index: i, released: [] })), index);
+  await page.evaluate((i) => sessionStorage.setItem('merit-or-math:stage:pair:v2', JSON.stringify({ index: i, released: [] })), index);
   await page.reload({ waitUntil: 'domcontentloaded' });
   const stage = page.locator('.step-stage');
   await expect(stage).toHaveAttribute('data-step', String(index));

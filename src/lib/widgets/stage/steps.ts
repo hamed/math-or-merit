@@ -89,7 +89,7 @@ export interface StepSnapshot {
 export class StepMachine {
   readonly steps: readonly StepSpec[];
   private current = 0;
-  /** Holds, once released, stay released: stepping back never asks again. */
+  /** Holds stay released when revisited unless their scene explicitly re-arms them. */
   private readonly released = new Set<string>();
 
   constructor(steps: readonly StepSpec[]) {
@@ -121,6 +121,11 @@ export class StepMachine {
 
   isReleased(id: string): boolean {
     return this.released.has(id);
+  }
+
+  /** A scene may make a completed action playable again when the reader rewinds to it. */
+  rearm(id: string): boolean {
+    return this.released.delete(id);
   }
 
   next(): StepResult {
@@ -277,6 +282,8 @@ export interface StepStageContext {
   release(id: string): void;
   /** Whether a hold has already been done — `settle` on a hold still waiting shows the reader's own progress. */
   isReleased(id: string): boolean;
+  /** Let a scene make a completed action playable again when it is revisited. */
+  rearm(id: string): void;
   /** The reader is resting on something (a bubble): chit-chat waits for them. */
   pause(on: boolean): void;
   /** Forward, as if the reader had asked: a "Not now" link inside a bubble. */
