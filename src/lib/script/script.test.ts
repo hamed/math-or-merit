@@ -146,11 +146,15 @@ describe('lint', () => {
 });
 
 describe('acts, scenes and conditions', () => {
-  it('wants every act made of scenes', () => {
-    expect(errors(one('\\section{The run}\\label{act:run}\n\nRed: Go.'))).toEqual([
-      'an act holds scenes: start one with \\subsection{…}\\label{…} before this',
-    ]);
-    expect(errors(one('\\section{The run}\\label{act:run}\n\n\\subsection{The run}\\label{run}\n\nRed: Go.'))).toEqual([]);
+  it('requires an act in each indexed section and accepts scene markers', () => {
+    const indexed = (text: string) =>
+      errors(parseScript({ lang: 'en', decl: read(FIX, 'decl.tex'), files: [{ file: 'script.tex', text }] }));
+    const section = '\\chapter{The game}\\label{chapter:game}\n\n\\section{The rules}\\label{index:rules}';
+
+    expect(indexed(section)).toEqual(['an index section needs at least one act']);
+    expect(
+      indexed(`${section}\n\n\\subsection{The start}\\label{act:start}\n\n\\scene{Coin handoff}\\label{handoff}\n\nRed: Go.`),
+    ).toEqual([]);
   });
 
   it('plays a bubble under one condition at most', () => {

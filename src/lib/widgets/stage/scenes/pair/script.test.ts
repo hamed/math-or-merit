@@ -259,9 +259,12 @@ describe('what the scene promises, whatever the words', () => {
     expect(REACTIONS.introBlue.who).toBe('blue');
   });
 
-  it('never waits on a gesture before both have been met', () => {
+  it('only waits for chapter titles before both have been met', () => {
     const met = indexOf('meet');
-    expect(PAIR_STEPS.slice(0, met).filter((s) => s.wait.kind === 'reader')).toEqual([]);
+    const beforeMeeting = PAIR_STEPS.slice(0, met);
+    const readerWaits = beforeMeeting.filter((s) => s.wait.kind === 'reader');
+    expect(readerWaits.every((s) => s.chapterIntro !== undefined)).toBe(true);
+    expect(readerWaits).toEqual(beforeMeeting.filter((s) => s.chapterIntro));
   });
 
   it('lets the calls go as soon as the talk moves on', () => {
