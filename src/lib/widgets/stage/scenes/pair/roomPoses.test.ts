@@ -48,10 +48,10 @@ for (const [name, box] of [['wide', BOX], ['phone', PHONE]] as const) {
       }
     });
 
-    it('never stacks two people on top of each other', () => {
+    it('leaves room for the widest equal-area shapes between people', () => {
       for (let i = 0; i < 100; i++)
         for (let j = i + 1; j < 100; j++)
-          expect(Math.hypot(pose.spots[i].x - pose.spots[j].x, pose.spots[i].y - pose.spots[j].y)).toBeGreaterThan(pose.marker * 2 - 1e-6);
+          expect(Math.hypot(pose.spots[i].x - pose.spots[j].x, pose.spots[i].y - pose.spots[j].y)).toBeGreaterThan(pose.marker * 3.2 - 1e-6);
     });
 
     it('stands each pile inside its own stretch of the ruler', () => {

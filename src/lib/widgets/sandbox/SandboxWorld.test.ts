@@ -117,6 +117,26 @@ describe('SandboxWorld', () => {
     expect(large.wealthTurnoverSeries.values[0]).toBeCloseTo(small.wealthTurnoverSeries.values[0], 12);
   });
 
+  it('smooths turnover with a four-round half-life before history compacts, and clears it on reset', () => {
+    const world = new SandboxWorld({ n: 10, seed: 8, startDollars: 100 });
+    world.tradesPerRound = 1;
+    world.beta = 0.2;
+    world.step(1); // $20 transferred; initialize the average without a warm-up ramp.
+    expect(world.smoothedTradeVolumeSeries.values[0]).toBeCloseTo(20, 9);
+    world.beta = 0;
+    world.step(4);
+    expect(world.tradeVolumeSeries.values[4]).toBe(0);
+    expect(world.smoothedTradeVolumeSeries.values[4]).toBeCloseTo(10, 9);
+    world.step(1019); // 1024 rounds: adjacent history points now average together.
+    expect(world.smoothedTradeVolumeSeries.stride).toBe(2);
+    expect(world.smoothedTradeVolumeSeries.values[0]).toBeCloseTo((20 + 20 * 2 ** (-1 / 4)) / 2, 9);
+    expect(world.smoothedTradeVolumeSeries.values[2]).toBeCloseTo((10 + 10 * 2 ** (-1 / 4)) / 2, 9);
+    world.reset();
+    expect(world.smoothedTradeVolumeSeries.values).toEqual([]);
+    world.step(1);
+    expect(world.smoothedTradeVolumeSeries.values).toEqual([0]);
+  });
+
   it('records zero ordinary turnover at zero stake', () => {
     const world = new SandboxWorld({ n: 10, seed: 8, startDollars: 100 });
     world.beta = 0;
@@ -180,6 +200,22 @@ describe('SandboxWorld', () => {
     expect(world.dollarsOf(1)).toBeCloseTo(100 + 10, 9);
     expect(total(world.wealth)).toBeCloseTo(1, 12);
     expect(world.leviedDollars).toBeCloseTo(40, 9);
+  });
+
+  it('reverse tax collects from everyone and gives the whole collection to one agent', () => {
+    const world = new SandboxWorld({ n: 4, seed: 1, startDollars: 100 });
+    world.wealth.set([0.1, 0.5, 0.25, 0.15]);
+    world.beta = 0;
+    const moved = world.reverseTaxAgent(0, 0.25);
+    expect(moved).toBeCloseTo(100, 9);
+    [0.325, 0.375, 0.1875, 0.1125].forEach((expected, index) =>
+      expect(world.wealth[index]).toBeCloseTo(expected, 12));
+    expect(total(world.wealth)).toBeCloseTo(1, 12);
+    expect(world.leviedDollars).toBeCloseTo(100, 9);
+    world.step(4);
+    expect(world.levyFlowSeries.values[0]).toBeCloseTo(100, 9);
+    expect(world.tradeVolumeSeries.values[0]).toBe(0);
+    expect(() => world.reverseTaxAgent(4, 0.25)).toThrow(RangeError);
   });
 
   it('expert chaos: a 150% stake conserves the total while it stays finite', () => {
@@ -253,6 +289,7 @@ describe('SandboxWorld', () => {
     expect(world.topShareSeries.values.length).toBe(0);
     expect(world.effectiveParticipantsSeries.values.length).toBe(0);
     expect(world.tradeVolumeSeries.values.length).toBe(0);
+    expect(world.smoothedTradeVolumeSeries.values.length).toBe(0);
     expect(world.wealthTurnoverSeries.values.length).toBe(0);
     expect(world.levyFlowSeries.values.length).toBe(0);
     expect(world.agentSeries.every((series) => series.values.length === 0)).toBe(true);

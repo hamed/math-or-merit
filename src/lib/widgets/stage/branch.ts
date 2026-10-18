@@ -1,12 +1,10 @@
 /**
- * Optional branches (A4): the person who becomes a circle, and the whole old
- * machine ("All the dials", Scene 26). The dialogue opens them by name ("Show
- * me"); a collapsed branch on the page listens for its name. One event, no
- * knowledge of either side.
+ * Optional branches (A4): the person who becomes a circle. The dialogue opens
+ * it by name; a collapsed branch on the page listens for that name.
  */
 export const BRANCH_EVENT = 'merit-or-math:branch';
 
-export type BranchId = 'human' | 'workshop';
+export type BranchId = 'human';
 
 export function openBranch(id: BranchId): void {
   window.dispatchEvent(new CustomEvent<BranchId>(BRANCH_EVENT, { detail: id }));

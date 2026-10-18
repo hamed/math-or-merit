@@ -89,7 +89,7 @@ const pct = (v: number) => `${Number((v * 100).toPrecision(3))}%`;
 const LEDGER_ANTITAX: readonly { text: string; source: string }[] = [
   {
     text: 'Nobody wants to win anymore',
-    source: 'With a $TAX levy every single round, why would they? A cautionary tale',
+    source: 'With a $TAX tax every single round, why would they? A cautionary tale',
   },
   {
     text: 'The commissar’s dial',
@@ -206,7 +206,7 @@ const GAZETTE: Record<GazetteStat, readonly { text: string; source: string }[]> 
     { text: 'Nothing left to trade with', source: 'When one player holds the board, everyone else stops playing. Takings down $DROP' },
   ],
   fairness: [
-    { text: 'An ordinary day, at last', source: 'Families keep roughly what they started with; the levy returns what the coin sweeps away. Gini $GINI' },
+    { text: 'An ordinary day, at last', source: 'Families keep roughly what they started with; the tax returns what the coin sweeps away. Gini $GINI' },
     { text: 'Good news is boring news', source: 'Nobody got rich today. Nobody got ruined either. Gini $GINI and holding' },
   ],
 };

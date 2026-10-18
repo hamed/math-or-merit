@@ -3,7 +3,7 @@
  * scenes, RoomCanvas, and the sandbox all draw through this so the agent
  * look (pastel fill, independent stroke, shape, winner ring) has one home.
  */
-import { CLASSIC_AGENT_FILL, CLASSIC_AGENT_STROKE, type AgentShape, type AgentStyle } from './agentStyle';
+import { CLASSIC_AGENT_FILL, CLASSIC_AGENT_STROKE, STROKES, type AgentShape, type AgentStyle } from './agentStyle';
 import type { Point } from './layout';
 
 /** Regular k-gon: circumradius factor (area = factor·R²) and rotation. */
@@ -73,8 +73,8 @@ export interface DrawAgentsOptions {
   readonly styles?: readonly AgentStyle[] | null;
   readonly winner?: number | null;
   readonly highlight?: ReadonlySet<number>;
-  /** Pulse progress per agent in [0, 1) for the levy flinch. */
-  readonly pulses?: ReadonlyMap<number, number>;
+  /** Every active pulse per agent for manual tax taps. */
+  readonly pulses?: ReadonlyMap<number, readonly AgentPulse[]>;
   /** Fill opacity for styled agents (pastels want ~0.75). */
   readonly fillAlpha?: number;
   /**
@@ -85,6 +85,12 @@ export interface DrawAgentsOptions {
    * Off (0) by default, so no existing room changes.
    */
   readonly presenceRadius?: number;
+}
+
+export type PulseDirection = 'out' | 'in';
+export interface AgentPulse {
+  readonly progress: number;
+  readonly direction: PulseDirection;
 }
 
 export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOptions): void {
@@ -104,18 +110,39 @@ export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOption
   for (const i of order) {
     const p = positions[i];
     let x = p.x;
-    const pulseT = pulses?.get(i) ?? -1;
+    const activePulses = pulses?.get(i) ?? [];
+    const pulseT = activePulses[0]?.progress ?? -1;
     if (pulseT >= 0) {
       x += Math.sin(pulseT * 26) * 2.4 * (1 - pulseT);
     }
     const r = scale * Math.sqrt(Math.max(0, displayed[i]));
+    const style = styles ? styles[i] : null;
+    for (const pulse of activePulses) {
+      // Echo the displayed silhouette, using the saturated hue of its fill.
+      // The outline may deliberately be a different color from the body.
+      const color = style ? STROKES[style.fillName] : CLASSIC_AGENT_STROKE;
+      const motion = Math.min(1, pulse.progress / 0.85);
+      const distance = pulse.direction === 'in' ? 1 - motion : motion;
+      const travel = Math.min(72, Math.max(40, r * 0.85));
+      traceShape(ctx, style ? style.shape : null, x, p.y, r + 4 + distance * travel);
+      ctx.save();
+      // Brightness follows distance during travel. The ring holds at its
+      // endpoint for the last beat and fades there rather than dimming midflight.
+      const edgeFade = Math.max(0, Math.min(1, pulse.progress / 0.06, (1 - pulse.progress) / 0.15));
+      ctx.globalAlpha = (0.08 + 0.7 * distance) * edgeFade;
+      ctx.strokeStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8 + 8 * distance;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
     if (r < presenceRadius) {
-      const presenceStyle = styles ? styles[i] : null;
       ctx.beginPath();
       ctx.arc(x, p.y, presenceRadius, 0, Math.PI * 2);
       ctx.setLineDash([4, 5]);
       ctx.lineWidth = 1.3;
-      ctx.strokeStyle = presenceStyle ? presenceStyle.stroke : PRESENCE_STROKE;
+      ctx.strokeStyle = style ? style.stroke : PRESENCE_STROKE;
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -126,7 +153,6 @@ export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOption
     }
     const isWinner = winner === i;
     const isHot = highlight?.has(i) ?? false;
-    const style = styles ? styles[i] : null;
 
     traceShape(ctx, style ? style.shape : null, x, p.y, r);
     if (style) {
@@ -153,13 +179,6 @@ export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOption
       ctx.strokeStyle = style ? style.stroke : 'rgb(77 39 28 / 65%)';
       ctx.stroke();
       ctx.setLineDash([]);
-    }
-    if (pulseT >= 0) {
-      ctx.beginPath();
-      ctx.arc(x, p.y, r + 4 + pulseT * 20, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgb(139 63 43 / ${(1 - pulseT) * 0.6})`;
-      ctx.lineWidth = 2;
-      ctx.stroke();
     }
   }
 }

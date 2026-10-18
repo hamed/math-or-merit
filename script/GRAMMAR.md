@@ -37,7 +37,7 @@ order of lines; adding and cutting lines; manners; speaker names in `decl.tex`
 points at a renamed label is a lint error that names it.
 
 **Names the code uses — change them with an agent:** the side trips' labels
-(`cow`, `human`, `workshop`), the keys in `\item[…]`, the names in `\val{…}`,
+(`human`), the keys in `\item[…]`, the names in `\val{…}`,
 action words and their arguments, the file names in `cards/` and `widgets/`, and
 speaker ids (`\speaker{blue}{…}`: the first one).
 

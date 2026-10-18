@@ -1,112 +1,116 @@
 <script lang="ts">
   import PlotFrame, { type AxisSpec } from './PlotFrame.svelte';
-  import { metricPointsFor, phaseData, type OutcomeMapMetric } from './phaseGrid.svelte';
-  import { PHASE_RAMPS, rampColor } from '../shared/presets';
+  import type { OutcomeMapMetric } from './phaseGrid.svelte';
+  import { PHASE_RAMP, rampColor } from '../shared/presets';
   import { niceLinearTicks, percentNumber } from './ticks';
   import { percent } from '../shared/format';
-  import { gatedClick } from './gatedClick';
+  import { gatedClick, type ActivationEvent } from './gatedClick';
+  import { say } from '$lib/i18n';
+  import { MAP_GINI, MAP_LEVIES, MAP_PARTICIPANTS, MAP_RUNS, MAP_STAKES } from '$lib/research/sandboxOutcomeMap';
+  import { LEVY_TICKS, LINEAR_LEVY_TICKS, MAX_MAP_LEVY, levyAtFraction, plotLevy, sampledLevyPercent, type LevyScale } from './levyScale';
+  import { SQUARED_STAKE_TICKS, plotStake, stakeAtFraction, type StakeScale } from './stakeScale';
+  import { plottedOutcome, outcomeReading } from './plottedOutcome';
 
   interface Props {
     /** Current dials, both in [0, 1] — the crosshair lives on the map. */
     stake: number;
     taxRate: number;
-    /** Room size: measured points are finite-size, shown per-n only. */
+    /** Current room size, used to normalize its live measurement. */
     n: number;
     /** Which stored outcome colors the map. */
     metric: OutcomeMapMetric;
     /** The live room's matching instantaneous outcome. */
     liveMetric: number;
-    /** Hover probe: fractions over the map, for previewing cross-sections. */
+    taxScale: LevyScale;
+    stakeScale: StakeScale;
+    /** Hover probe: dial values for previewing cross-sections. */
     onProbe?: ((stake: number | null, tax: number | null) => void) | null;
+    /** Choosing a setting moves both sandbox dials. */
+    onSelect?: ((stake: number, tax: number) => void) | null;
+    onTitle?: ((event: ActivationEvent) => void) | null;
+    onTaxScaleToggle?: ((event: ActivationEvent) => void) | null;
+    onStakeScaleToggle?: ((event: ActivationEvent) => void) | null;
   }
 
-  let { stake, taxRate, n, metric, liveMetric, onProbe = null }: Props = $props();
+  let { stake, taxRate, n, metric, liveMetric, taxScale, stakeScale, onProbe = null, onSelect = null, onTitle = null, onTaxScaleToggle = null, onStakeScaleToggle = null }: Props = $props();
 
-  let rampIdx = $state(0);
-  // display styles for the measured points — a body click cycles them so the
-  // owner (and readers) can compare: solid cells / count-sized dots / shade
-  const MODES = ['cells', 'dots', 'shade'] as const;
-  let modeIdx = $state(0);
-  const mode = $derived(MODES[modeIdx]);
-
-  const ramp = $derived(PHASE_RAMPS[rampIdx]);
   const cs = $derived(Math.min(1, Math.max(0, stake)));
   const ct = $derived(Math.min(1, Math.max(0, taxRate)));
 
   let probe = $state<{ s: number; t: number } | null>(null);
+  let pendingSelection: { stake: number; tax: number } | null = null;
 
-  const cycleRamp = gatedClick(() => (rampIdx = (rampIdx + 1) % PHASE_RAMPS.length));
-  const cycleMode = gatedClick(() => (modeIdx = (modeIdx + 1) % MODES.length));
-
-  const points = $derived.by(() => {
-    void phaseData.version;
-    return metricPointsFor(n, metric);
+  const commitSelection = gatedClick(() => {
+    if (pendingSelection) onSelect?.(pendingSelection.stake, pendingSelection.tax);
   });
 
-  const metricName = $derived(metric === 'gini' ? 'Gini' : 'effective participants');
-  const shortMetricName = $derived(metric === 'gini' ? 'Gini' : 'participants');
-  const colorValue = (value: number) => metric === 'gini'
-    ? Math.max(0, Math.min(1, value))
-    : 1 - Math.max(0, Math.min(1, (value - 1) / Math.max(1, n - 1)));
+  // A fixed 100-person reference stays visible for every room size. Its
+  // participation colors are illustrative, not predictions for this room.
+  const referenceGrid = $derived(metric === 'gini' ? MAP_GINI : MAP_PARTICIPANTS);
 
-  // shade mode: nearest measured point colors its neighborhood — regions
-  // grow organically as the reader's data accumulates
-  const FINE = 55;
-  const REACH = 0.13;
-  const shadeUrl = $derived.by(() => {
-    if (mode !== 'shade' || points.length === 0) return '';
-    const canvas = document.createElement('canvas');
-    canvas.width = FINE;
-    canvas.height = FINE;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return '';
-    const img = ctx.createImageData(FINE, FINE);
-    for (let py = 0; py < FINE; py++) {
-      for (let px = 0; px < FINE; px++) {
-        const sx = px / (FINE - 1);
-        const ty = 1 - py / (FINE - 1);
-        let best: { d: number; g: number } | null = null;
-        for (const p of points) {
-          const d = Math.hypot(p.stake - sx, p.tax - ty);
-          if (d <= REACH && (!best || d < best.d)) best = { d, g: p.value };
-        }
-        const at = (py * FINE + px) * 4;
-        if (!best) {
-          img.data[at + 3] = 0;
-          continue;
-        }
-        const hex = rampColor(ramp, colorValue(best.g));
-        img.data[at] = parseInt(hex.slice(1, 3), 16);
-        img.data[at + 1] = parseInt(hex.slice(3, 5), 16);
-        img.data[at + 2] = parseInt(hex.slice(5, 7), 16);
-        img.data[at + 3] = 235;
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-    return canvas.toDataURL();
-  });
+  const metricName = $derived(metric === 'gini' ? 'Gini' : 'participation');
+  const yTax = (rate: number) => plotLevy(rate, taxScale);
+  const xStake = (rate: number) => plotStake(rate, stakeScale);
+  const colorValue = (value: number, size: number) => {
+    const plotted = plottedOutcome(metric, value, size);
+    return metric === 'gini' ? 1 - plotted : plotted;
+  };
+  const pointDetail = (value: number) => {
+    if (metric === 'gini') return '';
+    const count = Number(value.toFixed(2));
+    return ` ${count === 1
+      ? say('sandbox_point_participant_detail')
+      : say('sandbox_point_participants_detail', { count: String(count) })}`;
+  };
+  const edge = (stops: readonly number[], index: number, upper: boolean): number =>
+    upper
+      ? (index === stops.length - 1 ? 1 : (stops[index] + stops[index + 1]) / 2)
+      : (index === 0 ? 0 : (stops[index - 1] + stops[index]) / 2);
 
-  const axisTicks = niceLinearTicks(0, 1);
+  const shownLevies = MAP_LEVIES.filter((levy) => levy <= MAX_MAP_LEVY);
+  const plottedStakes = $derived(MAP_STAKES.map(xStake));
+  const stakeEdge = (col: number, upper: boolean): number => edge(plottedStakes, col, upper);
+  // Midpoints must be taken after transforming levy; raw-levy midpoints make
+  // the colored cells look uneven on the square-root axis.
+  const plottedLevies = $derived(shownLevies.map(yTax));
+  const levyEdge = (row: number, upper: boolean): number =>
+    upper && row === shownLevies.length - 1
+      ? yTax(MAX_MAP_LEVY)
+      : edge(plottedLevies, row, upper);
+
   const xAxis: AxisSpec = $derived({
     type: 'linear',
     lo: 0,
     hi: 1,
-    ticks: axisTicks,
-    format: percentNumber,
-    label: 'stake %',
+    ticks: stakeScale === 'squared' ? SQUARED_STAKE_TICKS : niceLinearTicks(0, 1),
+    format: (position: number) => percentNumber(stakeAtFraction(position, stakeScale)),
+    label: say(stakeScale === 'squared' ? 'sandbox_curve_axis_stake_squared' : 'sandbox_curve_axis_stake'),
+    onToggle: onStakeScaleToggle ?? undefined,
+    toggleLabel: say('sandbox_map_stake_scale_toggle'),
+    toggleTooltip: say('sandbox_map_stake_scale_tooltip'),
   });
   const yAxis: AxisSpec = $derived({
     type: 'linear',
     lo: 0,
-    hi: 1,
-    ticks: axisTicks,
-    format: percentNumber,
-    label: 'tax %',
+    hi: yTax(MAX_MAP_LEVY),
+    ticks: (taxScale === 'sqrt' ? LEVY_TICKS : LINEAR_LEVY_TICKS).map(yTax),
+    format: (position: number) => percentNumber(taxScale === 'sqrt' ? position * position : position),
+    label: say(taxScale === 'sqrt' ? 'sandbox_map_levy_axis' : 'sandbox_map_levy_axis_linear'),
+    onToggle: onTaxScaleToggle ?? undefined,
+    toggleLabel: say('sandbox_map_tax_scale_toggle'),
+    toggleTooltip: say('sandbox_map_tax_scale_tooltip'),
   });
 
   function handleMove(fx: number | null, fy: number | null): void {
-    probe = fx === null || fy === null ? null : { s: fx, t: fy };
-    onProbe?.(fx, fy);
+    const s = fx === null ? null : stakeAtFraction(fx, stakeScale);
+    const t = fy === null ? null : levyAtFraction(fy, taxScale);
+    probe = s === null || t === null ? null : { s, t };
+    onProbe?.(s, t);
+  }
+
+  function choose(fx: number, fy: number, event: MouseEvent | KeyboardEvent): void {
+    pendingSelection = { stake: event instanceof KeyboardEvent ? 0.5 : stakeAtFraction(fx, stakeScale), tax: event instanceof KeyboardEvent ? MAX_MAP_LEVY : levyAtFraction(fy, taxScale) };
+    commitSelection(event);
   }
 </script>
 
@@ -114,82 +118,62 @@
   <PlotFrame
     x={xAxis}
     y={yAxis}
-    title={`measured ${shortMetricName} — ${n}`}
-    description={`Each mark is one finite run under a versioned every-round levy protocol: stake across, levy up, color = measured ${metricName}. Hover to preview cross-sections; click to change the drawing style.`}
+    title={say(metric === 'gini' ? 'sandbox_map_title_gini' : 'sandbox_map_title_participants')}
+    description={say('sandbox_map_reference', { runs: MAP_RUNS })}
+    {onTitle}
+    titleActionLabel={say('sandbox_map_title_toggle')}
     sharedZero
-    onBody={cycleMode}
-    bodyTooltip={`drawn as ${mode} — click for the next style`}
+    onBodyPoint={choose}
+    bodyTooltip={say('sandbox_map_choose')}
     onBodyMove={handleMove}
-    ariaLabel={`Outcome map of ${points.length} measured ${metricName} settings for rooms of ${n}. Your dials sit at ${percent(stake)} stake and ${percent(taxRate)} levy; dashed lines mark the cross-sections.`}
+    ariaLabel={say('sandbox_map_aria_reference', { reference: MAP_STAKES.length * shownLevies.length, metric: metricName, people: n, stake: percent(stake), levy: sampledLevyPercent(taxRate) })}
   >
     {#snippet children({ xOf, yOf, frame })}
-      {#if points.length === 0}
-        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 - 5} text-anchor="middle">nothing is given —</text>
-        <text class="empty" x={frame.x + frame.w / 2} y={frame.y + frame.h / 2 + 6} text-anchor="middle">completed runs paint this map</text>
-      {:else if mode === 'shade' && shadeUrl}
-        <image href={shadeUrl} x={frame.x} y={frame.y} width={frame.w} height={frame.h} preserveAspectRatio="none" />
-      {:else if mode === 'cells'}
-        {#each points as p (p.stake + '|' + p.tax)}
+      {#each shownLevies as levy, row}
+        {#each MAP_STAKES as measuredStake, col}
           <rect
-            class="cell"
-            x={xOf(p.stake) - 5.5}
-            y={yOf(p.tax) - 5.5}
-            width="11"
-            height="11"
-            fill={rampColor(ramp, colorValue(p.value))}
+            class="reference-cell"
+            x={xOf(stakeEdge(col, false))}
+            y={yOf(levyEdge(row, true))}
+            width={xOf(stakeEdge(col, true)) - xOf(stakeEdge(col, false))}
+            height={yOf(levyEdge(row, false)) - yOf(levyEdge(row, true))}
+            fill={rampColor(PHASE_RAMP, colorValue(referenceGrid[row][col], 100))}
           >
-            <title>stake {percent(p.stake)} · tax {percent(p.tax)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
+            <title>{say(measuredStake === 0 || levy === 0 ? 'sandbox_map_exact_point' : 'sandbox_map_reference_point', { stake: percent(measuredStake, 2), levy: sampledLevyPercent(levy), metric: metricName, reading: outcomeReading(metric, referenceGrid[row][col], 100), detail: pointDetail(referenceGrid[row][col]), runs: MAP_RUNS })}</title>
           </rect>
         {/each}
-      {:else}
-        {#each points as p (p.stake + '|' + p.tax)}
-          <circle
-            class="dot"
-            cx={xOf(p.stake)}
-            cy={yOf(p.tax)}
-            r={3 + Math.min(3, Math.log2(p.count + 1))}
-            fill={rampColor(ramp, colorValue(p.value))}
-          >
-            <title>stake {percent(p.stake)} · tax {percent(p.tax)} → {metricName} {p.value.toFixed(metric === 'gini' ? 2 : 1)} ({p.count}×)</title>
-          </circle>
-        {/each}
-      {/if}
+      {/each}
 
       <!-- the dial cross-sections the two Gini plots are cut along -->
-      <line class="section" x1={frame.x} y1={yOf(ct)} x2={frame.x + frame.w} y2={yOf(ct)} />
-      <line class="section" x1={xOf(cs)} y1={frame.y} x2={xOf(cs)} y2={frame.y + frame.h} />
+      <line class="section" x1={frame.x} y1={yOf(yTax(ct))} x2={frame.x + frame.w} y2={yOf(yTax(ct))} />
+      <line class="section" x1={xOf(xStake(cs))} y1={frame.y} x2={xOf(xStake(cs))} y2={frame.y + frame.h} />
 
       <!-- hover probe: a second, lighter cross — previews the cuts -->
       {#if probe}
-        <line class="probe" x1={frame.x} y1={yOf(probe.t)} x2={frame.x + frame.w} y2={yOf(probe.t)} />
-        <line class="probe" x1={xOf(probe.s)} y1={frame.y} x2={xOf(probe.s)} y2={frame.y + frame.h} />
+        <line class="probe" x1={frame.x} y1={yOf(yTax(probe.t))} x2={frame.x + frame.w} y2={yOf(yTax(probe.t))} />
+        <line class="probe" x1={xOf(xStake(probe.s))} y1={frame.y} x2={xOf(xStake(probe.s))} y2={frame.y + frame.h} />
       {/if}
 
       <!-- the live room: an unsolidified, wandering reading at your dials -->
       {#if Number.isFinite(liveMetric)}
-        <circle class="live" cx={xOf(cs)} cy={yOf(ct)} r="4.4" fill={rampColor(ramp, colorValue(liveMetric))} />
+        <circle class="live" cx={xOf(xStake(cs))} cy={yOf(yTax(ct))} r="4.4" fill={rampColor(PHASE_RAMP, colorValue(liveMetric, n))} />
       {/if}
-      <circle class="marker" cx={xOf(cs)} cy={yOf(ct)} r="4.4" />
+      <circle class="marker" cx={xOf(xStake(cs))} cy={yOf(yTax(ct))} r="4.4" />
     {/snippet}
   </PlotFrame>
 
-  <!-- One concentration color language across both metrics; a click cycles the colormap. -->
-  <button
+  <div
     class="colorbar"
-    type="button"
-    onclick={cycleRamp}
-    aria-label={metric === 'gini'
-      ? 'Gini color scale, 0 at the bottom to 1 at the top; activate for the next colormap'
-      : `Effective participants color scale, ${n} at the bottom to 1 at the top; activate for the next colormap`}
-    title="colormap"
+    role="img"
+    aria-label={say(metric === 'gini' ? 'sandbox_map_colorbar_gini' : 'sandbox_map_colorbar_participants')}
   >
-    <span class="bar" style={`background: linear-gradient(to top, ${ramp.join(', ')})`}></span>
+    <span class="bar" style={`background: linear-gradient(to top, ${PHASE_RAMP.join(', ')})`}></span>
     <span class="bar-ticks" aria-hidden="true">
-      <span>1</span>
-      <span>{metric === 'gini' ? '0.5' : Math.round((n + 1) / 2)}</span>
-      <span>{metric === 'gini' ? '0' : n}</span>
+      <span>{metric === 'gini' ? '0' : '100%'}</span>
+      <span>{metric === 'gini' ? '0.5' : '50%'}</span>
+      <span>{metric === 'gini' ? '1' : '0%'}</span>
     </span>
-  </button>
+  </div>
 </div>
 
 <style>
@@ -210,10 +194,9 @@
     block-size: 100%;
   }
 
-  .cell,
-  .dot {
-    stroke: rgb(60 53 43 / 30%);
-    stroke-width: 0.5;
+  .reference-cell {
+    stroke: rgb(60 53 43 / 12%);
+    stroke-width: 0.35;
   }
 
   .section {
@@ -256,12 +239,6 @@
     pointer-events: none;
   }
 
-  .empty {
-    fill: var(--ink-soft);
-    font-size: 8.5px;
-    font-family: var(--font-sans);
-  }
-
   .colorbar {
     position: absolute;
     /* Sits in the plot's own right margin by default. Only where there is room
@@ -279,7 +256,6 @@
     padding: 0;
     border: none;
     background: none;
-    cursor: pointer;
   }
 
   @media (min-width: 60rem) {
@@ -288,16 +264,12 @@
     }
   }
 
-  /* No room for the numbers beside the bar on a phone; the button keeps its
-     aria-label, so the scale is still described. */
+  /* No room for the numbers beside the bar on a phone; the aria-label
+     still describes the scale. */
   @media (max-width: 60rem) {
     .bar-ticks {
       display: none;
     }
-  }
-
-  .colorbar:focus-visible {
-    outline: 2px solid rgb(139 63 43 / 45%);
   }
 
   .bar {

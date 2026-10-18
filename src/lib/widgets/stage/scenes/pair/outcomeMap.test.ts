@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { fitSquareRelationship } from '$lib/research';
-import { MAP_LEVIES, MAP_PARTICIPANTS, MAP_STAKES } from './outcomeMap';
+import { MAP_GINI, MAP_LEVIES, MAP_PARTICIPANTS, MAP_STAKES } from '$lib/research/outcomeMap';
 
 describe('the outcome map (Scene 24)', () => {
   it('has one measured square for every stake and levy, each between one and a hundred', () => {
     expect(MAP_PARTICIPANTS).toHaveLength(MAP_LEVIES.length);
+    expect(MAP_GINI).toHaveLength(MAP_LEVIES.length);
     for (const row of MAP_PARTICIPANTS) {
       expect(row).toHaveLength(MAP_STAKES.length);
       for (const v of row) expect(v >= 1 && v <= 100).toBe(true);
+    }
+    for (const row of MAP_GINI) {
+      expect(row).toHaveLength(MAP_STAKES.length);
+      for (const v of row) expect(v >= 0 && v <= 1).toBe(true);
     }
   });
 

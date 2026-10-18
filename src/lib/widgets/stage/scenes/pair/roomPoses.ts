@@ -107,6 +107,8 @@ export function roundRuler(max: number): { top: number; step: number } {
 }
 
 const MARKER_GAP = 1.6;
+/** Equal-area triangles reach 1.56 times their circle radius. */
+const MARKER_REACH = 1.6;
 const CHAR_W = 6.6;
 
 function decadeTicks(top: number, xOf: (value: number) => number | null, fixed: RulerLabel[]): Tick[] {
@@ -131,13 +133,13 @@ function decadeTicks(top: number, xOf: (value: number) => number | null, fixed: 
 /** The biggest marker, up to `most`, whose piles all fit the box. */
 function fitMarker(counts: readonly number[], width: number, height: number, most: number): { r: number; perRow: number } {
   for (let r = most; r > 1.2; r -= 0.25) {
-    const step = 2 * r + MARKER_GAP;
+    const step = 2 * MARKER_REACH * r + MARKER_GAP;
     const perRow = Math.max(1, Math.floor((width - 6) / step));
     const rows = Math.max(...counts.map((c) => Math.ceil(c / perRow)));
     if (rows * step <= height) return { r, perRow };
   }
   const r = 1.2;
-  return { r, perRow: Math.max(1, Math.floor((width - 6) / (2 * r + MARKER_GAP))) };
+  return { r, perRow: Math.max(1, Math.floor((width - 6) / (2 * MARKER_REACH * r + MARKER_GAP))) };
 }
 
 /** What fixes a histogram while the room moves through time: its ruler's end, and everyone's one marker size. */
@@ -165,7 +167,7 @@ export function histogramMarker(n: number, box: Box, logTop: number, most = 12):
 /** Everyone into their bin, poorest first, rows filling up from the ruler: where each stands, and each bin's top. */
 function stackBins(amounts: ArrayLike<number>, binOf: readonly number[], x0s: readonly number[], x1s: readonly number[], r: number, axisY: number): { spots: Point[]; piles: Pile[] } {
   const n = amounts.length;
-  const cell = 2 * r + MARKER_GAP;
+  const cell = 2 * MARKER_REACH * r + MARKER_GAP;
   const bins = x0s.length;
   const counts = new Array<number>(bins).fill(0);
   for (const b of binOf) counts[b]++;
@@ -179,7 +181,7 @@ function stackBins(amounts: ArrayLike<number>, binOf: readonly number[], x0s: re
     const row = Math.floor(slot / perRow[b]);
     const inRow = Math.min(perRow[b], counts[b] - row * perRow[b]);
     const col = slot % perRow[b];
-    spots[i] = { x: (x0s[b] + x1s[b]) / 2 + (col - (inRow - 1) / 2) * cell, y: axisY - r - 2 - row * cell };
+    spots[i] = { x: (x0s[b] + x1s[b]) / 2 + (col - (inRow - 1) / 2) * cell, y: axisY - MARKER_REACH * r - 2 - row * cell };
   }
   const piles = counts.map((count, b) => ({ x0: x0s[b], x1: x1s[b], count, top: axisY - 2 - Math.ceil(count / perRow[b]) * cell - 8 }));
   return { spots, piles };

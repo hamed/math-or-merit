@@ -13,6 +13,8 @@
     label: string;
     /** Site convention: clicking an axis toggles its scale. */
     onToggle?: (event: ActivationEvent) => void;
+    toggleLabel?: string;
+    toggleTooltip?: string;
   }
 
   /** Shared geometry — every sandbox plot is this exact frame. */
@@ -28,10 +30,15 @@
     title: string;
     /** One-line explanation, shown when the reader hovers the title. */
     description?: string;
+    /** Optional action attached to the chart title. */
+    onTitle?: ((event: ActivationEvent) => void) | null;
+    titleActionLabel?: string;
     /** %×% plots: one shared "0" in the corner instead of two colliding. */
     sharedZero?: boolean;
-    /** Body click (cycle bins / next view). Tooltip says only what applies. */
+    /** Optional body click action; titles own view changes. */
     onBody?: ((event: ActivationEvent) => void) | null;
+    /** Activate a position in the plot body, in fractions of its full axes. */
+    onBodyPoint?: ((fx: number, fy: number, event: ActivationEvent) => void) | null;
     bodyTooltip?: string;
     onHoverChange?: ((inside: boolean) => void) | null;
     /** Pointer position over the body in plot fractions [0,1]; null on leave. */
@@ -45,8 +52,11 @@
     y,
     title,
     description = '',
+    onTitle = null,
+    titleActionLabel = '',
     sharedZero = false,
     onBody = null,
+    onBodyPoint = null,
     bodyTooltip = '',
     onHoverChange = null,
     onBodyMove = null,
@@ -89,20 +99,39 @@
   const baseline = FRAME.y + FRAME.h;
   const zeroShared = $derived(sharedZero && x.ticks[0] === 0 && y.ticks[0] === 0);
 
-  // pointer → plot fractions; the svg letterboxes with `meet`, so map through
-  // the square the viewBox actually occupies
-  function moveHandler(e: PointerEvent): void {
-    if (!onBodyMove) return;
+  // Pointer → plot fractions. The SVG letterboxes with `meet`, so map through
+  // the square the viewBox actually occupies.
+  function pointAt(e: MouseEvent | PointerEvent): { fx: number; fy: number } | null {
     const svg = (e.currentTarget as SVGRectElement).ownerSVGElement;
-    if (!svg) return;
+    if (!svg) return null;
     const r = svg.getBoundingClientRect();
     const side = Math.min(r.width, r.height);
-    if (side <= 0) return;
+    if (side <= 0) return null;
     const ox = r.left + (r.width - side) / 2;
     const oy = r.top + (r.height - side) / 2;
     const fx = (((e.clientX - ox) / side) * FRAME.W - FRAME.x) / FRAME.w;
     const fy = 1 - (((e.clientY - oy) / side) * FRAME.H - FRAME.y) / FRAME.h;
-    onBodyMove(Math.max(0, Math.min(1, fx)), Math.max(0, Math.min(1, fy)));
+    return { fx: Math.max(0, Math.min(1, fx)), fy: Math.max(0, Math.min(1, fy)) };
+  }
+
+  function moveHandler(e: PointerEvent): void {
+    if (!onBodyMove) return;
+    const point = pointAt(e);
+    if (point) onBodyMove(point.fx, point.fy);
+  }
+
+  function bodyClick(e: MouseEvent): void {
+    const point = pointAt(e);
+    if (point) onBodyPoint?.(point.fx, point.fy, e);
+    onBody?.(e);
+  }
+
+  function bodyKey(e: KeyboardEvent): void {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (onBodyPoint) onBodyPoint(0.5, 0.5, e);
+    else onBody?.(e);
   }
 
   // edge labels anchor inward so nothing clips at the frame border
@@ -158,10 +187,27 @@
   {/if}
 
   <!-- title + axis labels; the unit rides the label, scale rides the suffix -->
-  <text class="title" x={FRAME.x} y={FRAME.y - 7} text-anchor="start">
-    {title}
-    {#if description}<title>{description}</title>{/if}
-  </text>
+  {#if onTitle}
+    <text
+      class="title clickable"
+      x={FRAME.x}
+      y={FRAME.y - 7}
+      text-anchor="start"
+      role="button"
+      tabindex="0"
+      aria-label={`${title}. ${titleActionLabel}`}
+      onclick={onTitle}
+      onkeydown={(event) => activate(event, onTitle)}
+    >
+      {title}
+      <title>{description} {titleActionLabel}</title>
+    </text>
+  {:else}
+    <text class="title" x={FRAME.x} y={FRAME.y - 7} text-anchor="start">
+      {title}
+      {#if description}<title>{description}</title>{/if}
+    </text>
+  {/if}
   <text class="axis-label" x={FRAME.x + FRAME.w} y={FRAME.H - 4} text-anchor="end">
     {x.label}{x.type === 'log' ? ' (log)' : ''}
   </text>
@@ -171,24 +217,24 @@
 
   <!-- interaction zones; each tooltip names only its own action -->
   {#if y.onToggle}
-    <rect class="hit" x="0" y={FRAME.y - 4} width={FRAME.x} height={FRAME.h + 8} onclick={y.onToggle} onkeydown={(event) => activate(event, y.onToggle)} role="button" tabindex="0" aria-label={`Toggle the ${y.label} axis between log and linear`}>
-      <title>log ↔ linear</title>
+    <rect class="hit" x="0" y={FRAME.y - 4} width={FRAME.x} height={FRAME.h + 8} onclick={y.onToggle} onkeydown={(event) => activate(event, y.onToggle)} role="button" tabindex="0" aria-label={y.toggleLabel ?? `Toggle the ${y.label} axis between log and linear`}>
+      <title>{y.toggleTooltip ?? 'log ↔ linear'}</title>
     </rect>
   {/if}
   {#if x.onToggle}
-    <rect class="hit" x={FRAME.x} y={baseline} width={FRAME.w} height={FRAME.H - baseline} onclick={x.onToggle} onkeydown={(event) => activate(event, x.onToggle)} role="button" tabindex="0" aria-label={`Toggle the ${x.label} axis between log and linear`}>
-      <title>log ↔ linear</title>
+    <rect class="hit" x={FRAME.x} y={baseline} width={FRAME.w} height={FRAME.H - baseline} onclick={x.onToggle} onkeydown={(event) => activate(event, x.onToggle)} role="button" tabindex="0" aria-label={x.toggleLabel ?? `Toggle the ${x.label} axis between log and linear`}>
+      <title>{x.toggleTooltip ?? 'log ↔ linear'}</title>
     </rect>
   {/if}
-  {#if onBody}
+  {#if onBody || onBodyPoint}
     <rect
       class="hit"
       x={FRAME.x}
       y={FRAME.y}
       width={FRAME.w}
       height={FRAME.h}
-      onclick={onBody}
-      onkeydown={(event) => activate(event, onBody)}
+      onclick={bodyClick}
+      onkeydown={bodyKey}
       onpointerenter={() => onHoverChange?.(true)}
       onpointerleave={() => {
         onHoverChange?.(false);
@@ -248,6 +294,19 @@
     font-size: 9.5px;
     font-weight: 650;
     letter-spacing: 0.03em;
+  }
+
+  .title.clickable {
+    cursor: pointer;
+  }
+
+  .title.clickable:focus {
+    outline: none;
+  }
+
+  .title.clickable:focus-visible {
+    fill: var(--accent-deep);
+    text-decoration: underline;
   }
 
   .axis-label {
