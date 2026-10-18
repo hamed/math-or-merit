@@ -1,0 +1,69 @@
+/* the about page: the stage's paper and ink, its two faces (OFL, stage/fonts) */
+@font-face {
+  font-family: 'Gelasio';
+  src: url('./stage/fonts/Gelasio.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Orbitron';
+  src: url('./stage/fonts/Orbitron.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+}
+
+:root {
+  --paper: #f4efe4;
+  --ink: #28251f;
+  --muted: #7a7262;
+  --amp: #958c7b;
+  color-scheme: light;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 18px/1.5 'Gelasio', Georgia, serif;
+}
+
+main {
+  max-inline-size: 36rem;
+  margin-inline: auto;
+  padding: 12vh 16px 64px;
+}
+
+.mark {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.4rem;
+}
+
+.amp {
+  color: var(--amp);
+}
+
+/* Orbitron's Q at Gelasio's cap height, in the weight whose upright matches its stem (measured: stage/view/logo.ts wordmark) */
+.q {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 0.962em;
+  line-height: 0;
+}
+
+h1 {
+  margin: 2.5rem 0 0.5rem;
+  font-weight: 400;
+  font-size: 2rem;
+  color: var(--amp);
+}
+
+.soon {
+  color: var(--muted);
+}
+
+a {
+  color: inherit;
+}
