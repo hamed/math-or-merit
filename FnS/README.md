@@ -49,8 +49,19 @@ on the left; on the right, Play, Rules, Story, Finds, About, then the name.
 There they are tabs: standing on the yard's wall, which is their bottom edge
 (their own bottom line fades as they arrive); Play, the game you are in, opens
 into the yard, the wall cut beneath it.
-There Play plays and pauses the trading (its cue turns to a pause) and About
-opens the about page.
+There Play plays and pauses the trading (its cue turns to a pause, its name
+to "Pause") and About opens the about page. The line never gets smaller than
+readable (title 18 px, name 13 px) and pressable (24 px tabs); where one line
+does not fit (a phone) the tabs have the wall to themselves and the title and
+name stand above them, or each takes a line; where the yard is narrower than
+that (a short canvas, a tall figure), the line takes the width it needs,
+centred over the yard within the canvas, the tabs drawn as boxes off the
+wall's length. It keeps below the console's toggle where that lies over the
+canvas (portrait). The camera keeps room for the line, and a chart that
+fills the screen is framed below it, the line staying where it was. Space or
+Enter on a focused button presses that button; on the page they start the
+held logo, or skip once it unfolds. If the lettering fails to load (or takes
+over 4 s) the stage opens without the opening.
 The byline, "Hamed Seyed-Allaei", spans the box under the logo (the H's outer
 foot on its left edge, the last i's on its right, as "fair&" spans it above;
 half a gutter below, as "fair" stands half a gutter above) and then sits on

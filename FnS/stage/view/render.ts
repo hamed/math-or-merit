@@ -25,6 +25,26 @@ const PAD = 18;
 /** Prints: a pause after the photo is ready (then one copy every PRINT_EVERY, acts/prints.ts). */
 const PRINT_DELAY = 0.6;
 
+/** Where the line above the yard goes: the yard's floor edges on screen (CSS px), px per unit, and the canvas's width. */
+export interface Frame {
+  readonly scale: number;
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly width: number;
+}
+
+/**
+ * Drawn above the yard and under the bodies (the title line): `draw` in the
+ * frame the yard has (or would have, with a chart filling the screen), and
+ * `height`, how much room it needs above the yard's top edge, which the camera
+ * keeps free for it.
+ */
+export interface Ornament {
+  draw(ctx: CanvasRenderingContext2D, frame: Frame): void;
+  height(frame: Frame): number;
+}
+
 export class StageView {
   readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
@@ -46,11 +66,12 @@ export class StageView {
   private scene: Scene | null = null;
   /** A blend's colour, worked out once per blend. */
   private readonly blends = new WeakMap<Blend, string>();
-  /**
-   * Drawn over the yard and under the bodies, in screen px: `scale` px per
-   * unit; `left`, `top`, `right` the yard's edges on screen. The title line uses it.
-   */
-  ornament: ((ctx: CanvasRenderingContext2D, scale: number, left: number, top: number, right: number) => void) | null = null;
+  /** The title line, if any (Ornament). */
+  ornament: Ornament | null = null;
+  /** How far down from the canvas's top something of the page lies over it (the console's toggle, in portrait), px: the line stays below it. */
+  clearTop = 0;
+  /** The frame it was last placed in. */
+  private header: Frame = { scale: 1, left: 0, top: 0, right: 0, width: 1 };
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -63,10 +84,10 @@ export class StageView {
    * The camera straight to where it is going, for this canvas: what a frame
    * drawn now would use. Screen = (ox + x · scale, oy − y · scale).
    */
-  settle(s: Session): { scale: number; ox: number; oy: number; dpr: number; w: number; h: number } {
+  settle(s: Session): { scale: number; ox: number; oy: number; dpr: number; w: number; h: number; header: Frame; clear: number } {
     this.resize();
     this.camera(s, 0);
-    return { scale: this.scale, ox: this.ox, oy: this.oy, dpr: this.canvas.width / this.cssW, w: this.cssW, h: this.cssH };
+    return { scale: this.scale, ox: this.ox, oy: this.oy, dpr: this.canvas.width / this.cssW, w: this.cssW, h: this.cssH, header: this.header, clear: this.clearTop };
   }
 
   /** Go on with these faces (the opening's), so nobody's face jumps when the stage takes over. */
@@ -144,7 +165,11 @@ export class StageView {
     ctx.strokeRect(qx, ry, rx - qx, qy - ry);
     ctx.setLineDash([]);
     if (s.axes) this.ticks(right, top, faint);
-    if (this.ornament) this.ornament(ctx, this.scale, ax, by, bx);
+    if (this.ornament) {
+      ctx.save();
+      this.ornament.draw(ctx, this.header);
+      ctx.restore();
+    }
 
     // printed copies under everyone; frames and counts over everyone (the photo's own too)
     this.ghosts(s, scene);
@@ -454,13 +479,14 @@ export class StageView {
   }
 
   /** Ease the camera toward the walls (and anything outside them). */
-  private camera(s: Session, dt: number): void {
+  /** What the camera frames, with its margin: the yard and everyone in it, or the formed chart. */
+  private framing(s: Session, chart: boolean): { x0: number; y0: number; x1: number; y1: number } {
     const st = s.stage;
     let x0 = 0;
     let y0 = 0;
     let x1 = Math.max(YARD, st.walls.right);
     let y1 = Math.max(YARD, st.walls.top);
-    if (s.zoom === 'chart' && st.done && s.recipe.pose !== 'free') {
+    if (chart) {
       // the formed chart fills the screen
       x0 = y0 = Infinity;
       x1 = y1 = -Infinity;
@@ -484,22 +510,47 @@ export class StageView {
       }
     }
     const m = 0.04 * Math.max(x1 - x0, y1 - y0);
-    const target = { x0: x0 - m, y0: y0 - m, x1: x1 + m, y1: y1 + m };
+    return { x0: x0 - m, y0: y0 - m, x1: x1 + m, y1: y1 + m };
+  }
+
+  /** A world rectangle centred in the canvas less its margins: px per unit and the origin's place. */
+  private fit(v: { x0: number; y0: number; x1: number; y1: number }, top: number, bottom: number, left: number): { scale: number; ox: number; oy: number } {
+    const availW = Math.max(1, this.cssW - left - PAD);
+    const availH = Math.max(1, this.cssH - top - bottom);
+    const scale = Math.min(availW / (v.x1 - v.x0), availH / (v.y1 - v.y0));
+    // centred in the space left by the hud, the title line and the ticks
+    return { scale, ox: left + (availW - (v.x1 - v.x0) * scale) / 2 - v.x0 * scale, oy: top + availH - (availH - (v.y1 - v.y0) * scale) / 2 + v.y0 * scale };
+  }
+
+  private camera(s: Session, dt: number): void {
+    const st = s.stage;
+    const chart = s.zoom === 'chart' && st.done && s.recipe.pose !== 'free';
+    const target = this.framing(s, chart);
     const k = dt > 0 ? 1 - Math.exp(-dt * 4) : 1;
     const v = this.view;
     v.x0 += (target.x0 - v.x0) * k;
     v.y0 += (target.y0 - v.y0) * k;
     v.x1 += (target.x1 - v.x1) * k;
     v.y1 += (target.y1 - v.y1) * k;
-    const top = s.hud ? 28 : PAD;
     const bottom = s.axes ? 26 : PAD;
     const left = s.axes ? 34 : PAD;
-    const availW = Math.max(1, this.cssW - left - PAD);
-    const availH = Math.max(1, this.cssH - top - bottom);
-    this.scale = Math.min(availW / (v.x1 - v.x0), availH / (v.y1 - v.y0));
-    // centred in the space left by the hud and ticks
-    this.ox = left + (availW - (v.x1 - v.x0) * this.scale) / 2 - v.x0 * this.scale;
-    this.oy = top + availH - (availH - (v.y1 - v.y0) * this.scale) / 2 + v.y0 * this.scale;
+    // the title line goes where the yard's top edge is, or would be with a chart filling the screen
+    // (review 2026-10-18, N2), and the camera keeps room for it above that edge
+    let top = s.hud ? 28 : PAD;
+    const yard = chart ? this.framing(s, false) : v;
+    for (let pass = 0; pass < 5; pass++) {
+      const f = this.fit(yard, top, bottom, left);
+      this.header = { scale: f.scale, left: f.ox, top: f.oy - st.walls.top * f.scale, right: f.ox + st.walls.right * f.scale, width: this.cssW };
+      const need = this.ornament ? this.ornament.height(this.header) + Math.max(4, this.clearTop) : 0;
+      if (this.header.top >= need - 0.01) break;
+      // a little over, so the next pass lands on or past it
+      top += need - this.header.top + 0.05;
+    }
+    // a chart fills what is left under the line
+    const f = this.fit(v, chart && this.ornament ? Math.max(top, this.header.top) : top, bottom, left);
+    this.scale = f.scale;
+    this.ox = f.ox;
+    this.oy = f.oy;
   }
 
   private px(x: number, y: number): [number, number] {

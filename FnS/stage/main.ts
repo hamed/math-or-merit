@@ -15,7 +15,9 @@ import { Session, VOCABULARY } from './console/session.ts';
 import { parseRecipe } from './core/recipe.ts';
 import { setFavicon } from './view/favicon.ts';
 import { fontsReady } from './view/logo.ts';
-import { BUTTONS, Opening, castOf, drawHeader, measureType, type Box } from './view/opening.ts';
+import { awaitFonts } from './view/fonts.ts';
+import { keyAction, type KeyTarget, type OpeningState } from './view/keys.ts';
+import { BUTTONS, Opening, castOf, drawHeader, headerHeight, measureType, type Box } from './view/opening.ts';
 import { StageView } from './view/render.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -75,19 +77,31 @@ let waiting = opens;
 let named: Box | null = null;
 /** Where the buttons on the line above the yard were drawn last frame. */
 let buttons: Box[] = [];
-void fontsReady().then(() => {
-  const type = measureType();
-  view.ornament = (ctx, scale, left, top, right) => {
-    const line = drawHeader(ctx, type, scale, left, top, right, session.playing);
-    named = line.name;
-    buttons = line.buttons;
-  };
-  const who = waiting ? castOf(session) : null;
-  if (who) {
-    opening = new Opening(canvas, session, view, type, who);
-    if (openAt > 0) opening.seek(openAt);
-  }
-  waiting = false;
+// the fonts, or not: failing or late (4 s), the stage goes on without the opening, and a late title still comes in
+awaitFonts(fontsReady(), 4000, {
+  ready() {
+    const type = measureType();
+    view.ornament = {
+      draw(ctx, frame) {
+        const line = drawHeader(ctx, type, frame, session.playing);
+        named = line.name;
+        buttons = line.buttons;
+      },
+      height: (frame) => headerHeight(type, frame),
+    };
+    const who = waiting ? castOf(session) : null;
+    if (who) {
+      opening = new Opening(canvas, session, view, type, who);
+      if (openAt > 0) opening.seek(openAt);
+    }
+    waiting = false;
+  },
+  failed() {
+    if (!waiting) return;
+    waiting = false;
+    session.print('the lettering did not load: no opening, straight to the stage');
+    renderLog();
+  },
 });
 /** Straight to the stage: Escape, or a command, during the opening. */
 function skipOpening(): void {
@@ -106,7 +120,8 @@ function place(el: HTMLElement, box: Box | null): void {
 }
 // Play: beside the held logo it starts the game, while the logo unfolds it skips to the end, and on the line
 // above the yard it plays and pauses the trading. About opens the about page; the rest have nowhere to go yet.
-menu[BUTTONS.findIndex((b) => b.id === 'play')].addEventListener('click', () => {
+const play = menu[BUTTONS.findIndex((b) => b.id === 'play')];
+play.addEventListener('click', () => {
   if (opening) {
     if (!opening.started) opening.start();
     else skipOpening();
@@ -198,33 +213,29 @@ toggle.addEventListener('click', () => setConsole(panel.hidden));
 panel.addEventListener('mouseup', () => {
   if (!window.getSelection()?.toString()) input.focus();
 });
+/** Where a key was pressed, and how far the opening has got, for keyAction. */
+function keyTarget(t: EventTarget | null): KeyTarget {
+  if (t === input) return 'console';
+  return t instanceof Element && t.closest('button, a[href], a[aria-disabled], select, textarea') ? 'control' : 'page';
+}
+function openingState(): OpeningState {
+  if (waiting) return 'waiting';
+  if (!opening) return 'none';
+  return opening.started ? 'unfolding' : 'held';
+}
 window.addEventListener('keydown', (e) => {
-  if ((opening || waiting) && (e.key === ' ' || e.key === 'Escape' || e.key === 'Enter') && e.target !== input && !(e.target instanceof HTMLAnchorElement || e.target instanceof HTMLButtonElement)) {
-    e.preventDefault();
-    if (e.key === 'Escape') skipOpening();
-    else startOrSkip();
-    return;
-  }
-  if (e.target === input) {
-    if (e.key === '`') {
-      e.preventDefault();
-      setConsole(false);
-    }
-    return;
-  }
-  if (e.key === '`') {
-    e.preventDefault();
-    setConsole(panel.hidden);
-  } else if (e.key === '/') {
-    e.preventDefault();
-    setConsole(true);
-  } else if (e.key === ' ') {
-    e.preventDefault();
-    runLine(session.playing ? 'pause' : 'play');
-  } else if (e.key === '[' || e.key === ']') {
+  const action = keyAction(e.key, keyTarget(e.target), openingState());
+  // a focused button or link presses itself (its own click does the rest)
+  if (action === 'native' || action === 'none') return;
+  e.preventDefault();
+  if (action === 'start') startOrSkip();
+  else if (action === 'skip') skipOpening();
+  else if (action === 'toggle-console') setConsole(panel.hidden);
+  else if (action === 'focus-console') setConsole(true);
+  else if (action === 'play-pause') runLine(session.playing ? 'pause' : 'play');
+  else {
     // slow motion, to watch (or teach) the beats one by one
-    e.preventDefault();
-    const next = e.key === '[' ? session.speed / 2 : session.speed * 2;
+    const next = action === 'slower' ? session.speed / 2 : session.speed * 2;
     runLine(`speed ${Math.min(4, Math.max(1 / 16, next))}`);
   }
 });
@@ -266,7 +277,17 @@ canvas.addEventListener('pointercancel', drop);
 let last = performance.now();
 let fps = 60;
 let hudAt = 0;
+/** How far down the canvas the console's toggle reaches, where it lies over it (portrait): the title line keeps below it. */
+function toggleOver(): number {
+  if (toggle.hidden || getComputedStyle(toggle).display === 'none') return 0;
+  const t = toggle.getBoundingClientRect();
+  const c = canvas.getBoundingClientRect();
+  const over = t.right > c.left && t.left < c.right && t.bottom > c.top && t.top < c.bottom;
+  return over ? t.bottom - c.top + 4 : 0;
+}
+
 function frame(now: number): void {
+  view.clearTop = toggleOver();
   const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
   last = now;
   if (dt > 0) fps += (1 / dt - fps) * 0.05;
@@ -277,7 +298,8 @@ function frame(now: number): void {
       place(byline, opening.byline);
       menu.forEach((el, k) => place(el, opening?.controls[k] ?? null));
       if (opening.done) {
-        view.adopt(opening.field, session);
+        // its faces go on only in the stage it was made for: a command may have rebuilt it meanwhile
+        if (opening.belongsTo(session)) view.adopt(opening.field, session);
         opening = null;
       }
     }
@@ -290,6 +312,9 @@ function frame(now: number): void {
   view.render(session, dt, now);
   place(byline, named);
   menu.forEach((el, k) => place(el, buttons[k] ?? null));
+  // Play's name says what it will do, as its cue does
+  const label = session.playing ? 'Pause' : 'Play';
+  if (play.textContent !== label) play.textContent = label;
   if (session.question) {
     question.hidden = false;
     question.textContent = session.question;

@@ -22,7 +22,8 @@ import { FaceField } from '../essay/face/field.ts';
 import { temperament } from '../essay/face/moments.ts';
 import type { Session } from '../console/session.ts';
 import { paint } from './faces.ts';
-import { colourOf, type StageView } from './render.ts';
+import { colourOf, type Frame, type StageView } from './render.ts';
+import type { Stage } from '../core/stage.ts';
 import { FAIR, FOOT, GRID, LETTERS, SERIF, cells, inkOf, letter, setWord, wordmark, type Glyph, type Ink, type Lettering, type Wordmark } from './logo.ts';
 
 // ———————————————————————————————————————————— words
@@ -138,30 +139,99 @@ const widthOf = (h: number) => h * (BUTTON_CELLS + ((BUTTON_CELLS - 1) * GRID.ga
 /** The gutter between buttons for their height: the logo's, between its small boxes. */
 const gutterOf = (h: number) => (h * GRID.gap) / SQ[1].side;
 
+/** The smallest the line gets on screen, px: readable lettering, and tabs a finger can press (WCAG's 24 px targets). */
+const MIN = { title: 18, name: 13, button: 24 };
+
+/** The line above the yard, laid out: the title's and the name's pens, the tabs (standing on the wall, or not), and how far it reaches above the yard's top edge. */
+export interface Header {
+  readonly title: Pen;
+  readonly name: Pen;
+  readonly buttons: readonly (Slot & { readonly w: number })[];
+  /** The tabs stand on the yard's wall (it is under all of them), so they are tabs; else they are boxes. */
+  readonly onWall: boolean;
+  readonly height: number;
+}
+
+/** Kept clear at the canvas's sides, px, when the line has to reach past the yard. */
+const EDGE = 8;
+
 /**
  * The line above the yard, screen px. The title alone on the left, from the
- * wall's outer top-left corner (the f's outer foot on it). On the right, the
+ * wall's outer top-left corner (the f's outer foot on it); on the right the
  * name, its last i's foot on the outer top-right corner, and before it the
  * buttons, each a small copy of one beside the logo, as tabs: standing on the
- * wall, which is their bottom edge.
+ * wall, which is their bottom edge. Never smaller than MIN. Where that does
+ * not fit on one line over the yard, it takes more lines (the tabs on the
+ * wall, the title and the name above them, or each on a line of its own) and,
+ * if the yard is narrower still, more width: only as much as it needs,
+ * centred over the yard, within the canvas (review 2026-10-18, N3). Off the
+ * wall's length, the tabs are boxes. Only a canvas too narrow for five tabs
+ * of 24 px makes them smaller.
  */
-function headerAt(type: Type, scale: number, left: number, top: number, right: number): { title: Pen; name: Pen; buttons: Slot[] } {
-  const te = TITLE_EM * scale;
-  const ne = NAME_EM * scale;
-  const floor = top - WALL_OUT - TITLE_GAP * te;
-  const y = floor - Math.max(0, type.low * te, type.name.ink.bottom * ne);
-  const name = { x: right + WALL_OUT - type.name.feet.right * ne, y, em: ne };
-  const h = BUTTON_H * scale;
+export function headerAt(type: Type, f: Frame): Header {
+  const te = Math.max(TITLE_EM * f.scale, MIN.title);
+  const ne = Math.max(NAME_EM * f.scale, MIN.name);
+  const wall = f.top - WALL_OUT;
+  const left = f.left - WALL_OUT;
+  const right = f.right + WALL_OUT;
+  const page = Math.max(1, f.width - 2 * EDGE);
+  // tabs: at least MIN.button tall, unless five of them would not fit across the canvas
+  const across = (hh: number) => BUTTONS.length * widthOf(hh) + (BUTTONS.length - 1) * gutterOf(hh);
+  const h = Math.min(Math.max(BUTTON_H * f.scale, MIN.button), (MIN.button * page) / across(MIN.button));
   const w = widthOf(h);
   const g = gutterOf(h);
-  let x = name.x + type.name.ink.left * ne - BUTTON_NAME_GAP * h;
-  const buttons: Slot[] = [];
-  for (let k = BUTTONS.length - 1; k >= 0; k--) {
-    x -= w;
-    buttons[k] = { x, y: top - WALL_OUT - h, h };
-    x -= g;
+  const tabsWidth = across(h);
+  const titleWidth = (type.mark.ink.right - type.foot) * te;
+  const nameWidth = (type.name.feet.right - type.name.ink.left) * ne;
+  const below = Math.max(0, type.low * te, type.name.ink.bottom * ne);
+  const above = Math.max(-type.mark.ink.top * te, -type.name.ink.top * ne);
+  // the layouts, widest first: one line (with two tabs' height of empty space after the title); tabs on the
+  // wall with the title and the name above them; then each on a line of its own
+  const one = titleWidth + 2 * h + tabsWidth + BUTTON_NAME_GAP * h + nameWidth;
+  const two = Math.max(tabsWidth, titleWidth + h + nameWidth);
+  const three = Math.max(tabsWidth, titleWidth, nameWidth);
+  const lines = one <= right - left ? 1 : two <= right - left ? 2 : two <= page ? 2 : 3;
+  const need = lines === 1 ? one : lines === 2 ? two : three;
+  // the band it takes: the yard's own width when it fits there; else as much as it needs, centred over the yard, on the canvas
+  let bl = left;
+  let br = right;
+  if (need > right - left) {
+    const width = Math.min(need, page);
+    bl = Math.min(Math.max(EDGE, (left + right) / 2 - width / 2), f.width - EDGE - width);
+    br = bl + width;
   }
-  return { title: { x: left - WALL_OUT - type.foot * te, y, em: te }, name, buttons };
+  const tabs = (end: number) => {
+    const out: (Slot & { w: number })[] = [];
+    let x = end;
+    for (let k = BUTTONS.length - 1; k >= 0; k--) {
+      x -= w;
+      out[k] = { x, y: wall - h, h, w };
+      x -= g;
+    }
+    return out;
+  };
+  const lead = TITLE_GAP * te;
+  const step = above + below + lead;
+  let titleY: number;
+  let nameY: number;
+  let buttons: (Slot & { w: number })[];
+  if (lines === 1) {
+    titleY = nameY = wall - lead - below;
+    buttons = tabs(br - type.name.feet.right * ne + type.name.ink.left * ne - BUTTON_NAME_GAP * h);
+  } else {
+    buttons = tabs(br);
+    nameY = wall - h - lead - below;
+    titleY = lines === 2 ? nameY : nameY - step;
+  }
+  const onWall = buttons[0].x >= left - 0.5 && buttons[buttons.length - 1].x + w <= right + 0.5;
+  const title = { x: bl - type.foot * te, y: titleY, em: te };
+  const name = { x: br - type.name.feet.right * ne, y: nameY, em: ne };
+  return { title, name, buttons, onWall, height: f.top - Math.min(titleY - above, wall - h) };
+}
+
+/** How much room the line needs above the yard's top edge, px. */
+export function headerHeight(type: Type, f: Frame): number {
+  return headerAt(type, f).height;
 }
 
 /**
@@ -270,16 +340,21 @@ function drawButton(ctx: CanvasRenderingContext2D, type: Type, k: number, slot: 
 
 /**
  * The line above the yard, for StageView's ornament: "fair & sQuare" alone on
- * the left; the buttons, then the name, on the right. Returns where the name
- * and each button are, for the controls over them.
+ * the left; the buttons, then the name, on the right. Lettered left to right
+ * whatever the canvas was left in, and leaving it as it was (review
+ * 2026-10-18, finding 5: the axes' end alignment broke the spacing). Returns
+ * where the name and each button are, for the controls over them.
  */
-export function drawHeader(ctx: CanvasRenderingContext2D, type: Type, scale: number, left: number, top: number, right: number, playing = false): { name: Box; buttons: Box[] } {
-  const h = headerAt(type, scale, left, top, right);
+export function drawHeader(ctx: CanvasRenderingContext2D, type: Type, f: Frame, playing = false): { name: Box; buttons: Box[] } {
+  const h = headerAt(type, f);
+  ctx.save();
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   run(ctx, type.mark.glyphs, h.title, (k) => (k === 5 ? AMP : INK));
-  // tabs on the wall; Play, the game you are in, open into the yard
-  const buttons = h.buttons.map((slot, k) => drawButton(ctx, type, k, slot, 1, playing, 1, BUTTONS[k].id === 'play'));
+  // tabs on the wall, Play (the game you are in) open into the yard; off the wall's length, boxes
+  const buttons = h.buttons.map((slot, k) => drawButton(ctx, type, k, slot, 1, playing, h.onWall ? 1 : 0, h.onWall && BUTTONS[k].id === 'play'));
   run(ctx, type.name.glyphs, h.name, () => AMP);
+  ctx.restore();
   return { name: boxOf(type.name.ink, h.name), buttons };
 }
 
@@ -343,6 +418,8 @@ function leanOf(k: number): [number, number] {
 
 /** Beats, seconds: the logo, the pull-back, the title, the box, giving back, the fair start. */
 const T = { zoom: 2.6, type: 4.6, fair: 6.6, square: 9.0, end: 11.0 };
+/** How long the opening runs once started, from its own clock's zero. */
+export const OPENING_END = T.end;
 /** The eight who move into the big one's freed cells, farthest first, so no one hops over someone already home. */
 const MOVERS = [7, 8, 9, 10, 11, 12, 13, 14].sort((a, b) => FAIR[a][0] + FAIR[a][1] - (FAIR[b][0] + FAIR[b][1]) || a - b);
 
@@ -352,13 +429,23 @@ const prog = (t: number, a: number, b: number) => clamp01((t - a) / (b - a));
 const smooth = (u: number) => u * u * (3 - 2 * u);
 const inOut = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
 
-/** The fair beat for square k: how far along, 0 … 1. */
+/** When mover m takes off; the last has lifted clear of the corner a third of the way into its hop. */
+const takeoff = (m: number) => T.fair + 0.55 + 0.11 * m;
+const CLEAR = takeoff(MOVERS.length - 1) + 0.3;
+/** The smallest square, which keeps the corner the rest of the tail leaves. */
+const LAST = 15;
+
+/**
+ * The fair beat for square k: how far along, 0 … 1. The smallest square grows
+ * into its corner only once the tail standing there has left it (review
+ * 2026-10-18, finding 3: it grew through squares still on the ground).
+ */
 function fairU(k: number, t: number): number {
   if (k === BIG) return inOut(prog(t, T.fair, T.fair + 0.9));
+  if (k === LAST) return smooth(prog(t, CLEAR, CLEAR + 0.9));
   const m = MOVERS.indexOf(k);
   if (m < 0) return smooth(prog(t, T.fair + 0.3, T.fair + 1.4));
-  const start = T.fair + 0.55 + 0.11 * m;
-  return prog(t, start, start + 0.95);
+  return prog(t, takeoff(m), takeoff(m) + 0.95);
 }
 
 interface Body extends Rect {
@@ -398,6 +485,14 @@ function bodyAt(k: number, t: number): Body {
   return { ...r, lift, stage: smooth(prog(t, T.fair, T.fair + 0.7)), toLaw: uf, dx, dy };
 }
 
+/** Every square at opening time t, the opening's world units: what is drawn, for checking it. */
+export function bodiesAt(t: number): { x: number; y: number; side: number; lift: number }[] {
+  return Array.from({ length: N }, (_, k) => {
+    const b = bodyAt(k, t);
+    return { x: b.x, y: b.y, side: b.side, lift: b.lift };
+  });
+}
+
 // ———————————————————————————————————————————— camera (the opening's: screen = o + world × scale, world y down)
 
 interface Cam {
@@ -406,11 +501,12 @@ interface Cam {
   oy: number;
 }
 
-function fit(x0: number, y0: number, x1: number, y1: number, w: number, h: number, pad: number): Cam {
+/** A world rectangle centred in the canvas less `pad` all round, or `top` above. */
+function fit(x0: number, y0: number, x1: number, y1: number, w: number, h: number, pad: number, top = pad): Cam {
   const aw = Math.max(1, w - 2 * pad);
-  const ah = Math.max(1, h - 2 * pad);
+  const ah = Math.max(1, h - pad - top);
   const scale = Math.min(aw / (x1 - x0), ah / (y1 - y0));
-  return { scale, ox: pad + (aw - (x1 - x0) * scale) / 2 - x0 * scale, oy: pad + (ah - (y1 - y0) * scale) / 2 - y0 * scale };
+  return { scale, ox: pad + (aw - (x1 - x0) * scale) / 2 - x0 * scale, oy: top + (ah - (y1 - y0) * scale) / 2 - y0 * scale };
 }
 
 /** Between two cameras: the world point at the canvas centre glides, the zoom is geometric. */
@@ -485,6 +581,8 @@ export class Opening {
   controls: (Box | null)[] = BUTTONS.map(() => null);
   private readonly ctx: CanvasRenderingContext2D;
   private readonly session: Session;
+  /** The stage it was made for: only that one goes on with its faces. */
+  private readonly stage: Stage;
   private readonly view: StageView;
   private readonly type: Type;
   /** Square k is played by person who[k]. */
@@ -500,6 +598,7 @@ export class Opening {
   constructor(canvas: HTMLCanvasElement, session: Session, view: StageView, type: Type, who: Int32Array) {
     this.ctx = canvas.getContext('2d')!;
     this.session = session;
+    this.stage = session.stage;
     this.view = view;
     this.type = type;
     this.who = who;
@@ -520,9 +619,36 @@ export class Opening {
     f.settle();
   }
 
-  /** Straight to the stage. */
+  /**
+   * Straight to the stage, with the faces it would have had at the end: their
+   * own temperaments, the big one's contempt let go (review 2026-10-18,
+   * finding 2: skipped early, they kept the logo's moods for good).
+   */
   skip(): void {
+    this.restore();
     this.done = true;
+  }
+
+  /** Whether `s` still holds the stage this opening was made for (a command may have rebuilt it: finding 4). */
+  belongsTo(s: Session): boolean {
+    return s.stage === this.stage;
+  }
+
+  /** Everyone back to the temperament the stage gives them; the big one's contempt let go. */
+  private restore(): void {
+    const f = this.field;
+    const seed = this.session.game.seed;
+    f.contemptTo[this.who[BIG]] = 0;
+    for (let k = 0; k < N; k++) {
+      const p = this.who[k];
+      const tm = temperament(p * 13 + 5 + seed * 7919);
+      f.v0[p] = tm.v0;
+      f.a0[p] = tm.a0;
+      f.d0[p] = tm.d0;
+      f.smirk[p] = tm.smirk;
+      f.reactivity[p] = tm.reactivity;
+      f.drift[p] = tm.drift;
+    }
   }
 
   /** The player starts the game: the logo unfolds into the yard. */
@@ -571,23 +697,15 @@ export class Opening {
 
   private events(now: number): void {
     const f = this.field;
-    const seed = this.session.game.seed;
     // the big one gives back: contempt gone, a dominant's loss is anger; the rest take it as joy,
     // and everyone heads back to the temperament the stage gives them
     this.once('fair', T.fair, now, () => {
-      f.contemptTo[this.who[BIG]] = 0;
       for (let k = 0; k < N; k++) {
         const p = this.who[k];
         if (SQ[k].share === 1 / N && k !== BIG) f.feel(p, 0.7, 0.2, 0.2);
         else f.react(p, SQ[k].share, 1 / N, k === BIG ? 1 : 0.6);
-        const tm = temperament(p * 13 + 5 + seed * 7919);
-        f.v0[p] = tm.v0;
-        f.a0[p] = tm.a0;
-        f.d0[p] = tm.d0;
-        f.smirk[p] = tm.smirk;
-        f.reactivity[p] = tm.reactivity;
-        f.drift[p] = tm.drift;
       }
+      this.restore();
     });
     this.once('square', T.square, now, () => {
       for (let k = 0; k < N; k++) f.startle(this.who[k], 0.15);
@@ -624,10 +742,12 @@ export class Opening {
     const { ctx, type, t } = this;
     // the stage's own camera for this canvas, turned to the opening's world (y down)
     const st = this.view.settle(this.session);
+    ctx.save();
+    ctx.textAlign = 'left';
     const yardCam: Cam = { scale: st.scale, ox: st.ox, oy: st.oy - YARD * st.scale };
     const m = 0.12;
     const nm = nameInLogo(type);
-    const logoCam = fit(BOX - m, BOX + type.letters.top - m, BOX + menuRight() + m, BOX + nm.y + type.name.ink.bottom * nm.em + m, st.w, st.h, 18);
+    const logoCam = fit(BOX - m, BOX + type.letters.top - m, BOX + menuRight() + m, BOX + nm.y + type.name.ink.bottom * nm.em + m, st.w, st.h, 18, Math.max(18, st.clear));
     const cam = between(logoCam, yardCam, inOut(prog(t, T.zoom, T.zoom + 2)), st.w, st.h);
     const X = (x: number) => cam.ox + x * cam.scale;
     const Y = (y: number) => cam.oy + y * cam.scale;
@@ -651,14 +771,15 @@ export class Opening {
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     }
-    this.words(cam, yardCam, st.scale, YARD * st.scale);
+    this.words(cam, yardCam, st.header);
     const bodies = Array.from({ length: N }, (_, k) => bodyAt(k, t));
     const order = [...bodies.keys()].sort((a, b) => bodies[a].lift - bodies[b].lift);
     const r0 = (SHARE / Math.sqrt(Math.PI)) * cam.scale;
     for (const k of order) this.body(cam, k, bodies[k], r0);
+    ctx.restore();
   }
 
-  private words(cam: Cam, yardCam: Cam, scale: number, width: number): void {
+  private words(cam: Cam, yardCam: Cam, frame: Frame): void {
     const { ctx, type, t } = this;
     const L = type.letters;
     const W = type.mark;
@@ -666,13 +787,13 @@ export class Opening {
     const done = t >= T.type + 0.12 * 5 + 0.3 && t >= T.zoom + 2;
     if (done) {
       // the line as the stage will draw it
-      const line = drawHeader(ctx, type, scale, yardCam.ox, yardCam.oy, yardCam.ox + width);
+      const line = drawHeader(ctx, type, frame);
       this.byline = line.name;
       this.controls = line.buttons;
       return;
     }
     // the line's places, in the opening's world
-    const h = headerAt(type, scale, yardCam.ox, yardCam.oy, yardCam.ox + width);
+    const h = headerAt(type, frame);
     const world = (p: Pen): Pen => ({ x: (p.x - yardCam.ox) / yardCam.scale, y: (p.y - yardCam.oy) / yardCam.scale, em: p.em / yardCam.scale });
     const title = world(h.title);
     const move = inOut(prog(t, T.zoom + 0.35, T.zoom + 2));
@@ -710,11 +831,11 @@ export class Opening {
       if (k >= IN_LOGO) {
         const a = smooth(prog(move, 0.6, 1));
         if (a <= 0) return null;
-        const box = drawButton(ctx, type, k, at(end.x, end.y, end.h), a, false, 1);
+        const box = drawButton(ctx, type, k, at(end.x, end.y, end.h), a, false, h.onWall ? 1 : 0);
         return a < 0.5 ? null : box;
       }
       const from = logo[k];
-      return drawButton(ctx, type, k, at(lerp(BOX + from.x, end.x, move), lerp(BOX + from.y, end.y, move), from.h * (end.h / from.h) ** move), 1, false, move, BUTTONS[k].id === 'play');
+      return drawButton(ctx, type, k, at(lerp(BOX + from.x, end.x, move), lerp(BOX + from.y, end.y, move), from.h * (end.h / from.h) ** move), 1, false, h.onWall ? move : 0, h.onWall && BUTTONS[k].id === 'play');
     });
   }
 
