@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fair and Square — Stage</title>
+    <link rel="stylesheet" href="./stage/stage.css" />
+  </head>
+  <body>
+    <main class="app">
+      <canvas id="stage" aria-label="The yard"></canvas>
+      <output id="hud" class="hud"></output>
+      <p id="question" class="question" hidden></p>
+      <p id="caption" class="caption" hidden></p>
+      <section id="console" class="console" aria-label="Dev console">
+        <pre id="log" class="log" aria-live="polite"></pre>
+        <form id="prompt" class="prompt" autocomplete="off">
+          <span class="caret" aria-hidden="true">›</span>
+          <input id="cmd" spellcheck="false" aria-label="Command" placeholder="ccdf · neff · classes · room · trade 2000 · help" />
+        </form>
+      </section>
+      <button id="toggle" class="toggle" type="button" aria-expanded="true" title="console ( ` )">›_</button>
+    </main>
+    <script type="module" src="./stage/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,184 @@
+/**
+ * Pure canvas drawing for rooms of agents. No Svelte, no lifecycle — the
+ * scenes, RoomCanvas, and the sandbox all draw through this so the agent
+ * look (pastel fill, independent stroke, shape, winner ring) has one home.
+ */
+import { CLASSIC_AGENT_FILL, CLASSIC_AGENT_STROKE, STROKES, type AgentShape, type AgentStyle } from './agentStyle';
+import type { Point } from './layout';
+
+/** Regular k-gon: circumradius factor (area = factor·R²) and rotation. */
+export const POLYGONS: Partial<Record<AgentShape, { sides: number; factor: number; offset: number }>> = {
+  pentagon: { sides: 5, factor: 2.378, offset: -Math.PI / 2 }, // (5/2)·sin 72°
+  hexagon: { sides: 6, factor: 2.598, offset: -Math.PI / 6 },
+  heptagon: { sides: 7, factor: 2.736, offset: -Math.PI / 2 },
+  octagon: { sides: 8, factor: 2.828, offset: -Math.PI / 8 }, // flat top, like the sign
+};
+
+/** Trace an equal-area shape centered on (x, y); area = π·r². */
+export function traceShape(
+  ctx: CanvasRenderingContext2D,
+  shape: AgentShape | null,
+  x: number,
+  y: number,
+  r: number,
+): void {
+  ctx.beginPath();
+  if (shape === null || shape === 'circle') {
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    return;
+  }
+  const area = Math.PI * r * r;
+  if (shape === 'square') {
+    const half = Math.sqrt(area) / 2;
+    ctx.rect(x - half, y - half, half * 2, half * 2);
+    return;
+  }
+  if (shape === 'triangle' || shape === 'triangleDown') {
+    const side = Math.sqrt((4 * area) / Math.sqrt(3));
+    const h = (side * Math.sqrt(3)) / 2;
+    const flip = shape === 'triangleDown' ? -1 : 1;
+    ctx.moveTo(x, y - flip * (2 / 3) * h);
+    ctx.lineTo(x + side / 2, y + (flip * h) / 3);
+    ctx.lineTo(x - side / 2, y + (flip * h) / 3);
+    ctx.closePath();
+    return;
+  }
+  const { sides, factor, offset } = POLYGONS[shape]!;
+  const rr = Math.sqrt(area / factor);
+  for (let k = 0; k < sides; k++) {
+    const a = ((Math.PI * 2) / sides) * k + offset;
+    const px = x + rr * Math.cos(a);
+    const py = y + rr * Math.sin(a);
+    if (k === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
+
+/** Legacy single-family look, used when no per-agent styles are supplied. */
+const WINNER_FILL = 'rgb(139 63 43 / 45%)';
+const WINNER_STROKE = '#4d271c';
+const HOT_STROKE = '#2e2a23';
+const DUST_FILL = 'rgb(110 85 62 / 60%)';
+const PRESENCE_STROKE = 'rgb(110 85 62 / 55%)';
+
+export interface DrawAgentsOptions {
+  readonly positions: readonly Point[];
+  /** Displayed wealth shares (post-easing), one per agent. */
+  readonly displayed: ArrayLike<number>;
+  /** Draw order, typically wealth-descending so small agents sit on top. */
+  readonly order: readonly number[];
+  /** radius = scale · √share. */
+  readonly scale: number;
+  readonly styles?: readonly AgentStyle[] | null;
+  readonly winner?: number | null;
+  readonly highlight?: ReadonlySet<number>;
+  /** Every active pulse per agent for manual tax taps. */
+  readonly pulses?: ReadonlyMap<number, readonly AgentPulse[]>;
+  /** Fill opacity for styled agents (pastels want ~0.75). */
+  readonly fillAlpha?: number;
+  /**
+   * An agent whose true radius is below this still gets a dashed ring at this
+   * radius. Area stays honest — the fill inside is still exactly what they own
+   * — but a person with nothing does not vanish, and a room that lets the
+   * reader hand coins back must show where the empty-handed are standing.
+   * Off (0) by default, so no existing room changes.
+   */
+  readonly presenceRadius?: number;
+}
+
+export type PulseDirection = 'out' | 'in';
+export interface AgentPulse {
+  readonly progress: number;
+  readonly direction: PulseDirection;
+}
+
+export function drawAgents(ctx: CanvasRenderingContext2D, opts: DrawAgentsOptions): void {
+  const {
+    positions,
+    displayed,
+    order,
+    scale,
+    styles = null,
+    winner = null,
+    highlight,
+    pulses,
+    fillAlpha = 0.75,
+    presenceRadius = 0,
+  } = opts;
+
+  for (const i of order) {
+    const p = positions[i];
+    let x = p.x;
+    const activePulses = pulses?.get(i) ?? [];
+    const pulseT = activePulses[0]?.progress ?? -1;
+    if (pulseT >= 0) {
+      x += Math.sin(pulseT * 26) * 2.4 * (1 - pulseT);
+    }
+    const r = scale * Math.sqrt(Math.max(0, displayed[i]));
+    const style = styles ? styles[i] : null;
+    for (const pulse of activePulses) {
+      // Echo the displayed silhouette, using the saturated hue of its fill.
+      // The outline may deliberately be a different color from the body.
+      const color = style ? STROKES[style.fillName] : CLASSIC_AGENT_STROKE;
+      const motion = Math.min(1, pulse.progress / 0.85);
+      const distance = pulse.direction === 'in' ? 1 - motion : motion;
+      const travel = Math.min(72, Math.max(40, r * 0.85));
+      traceShape(ctx, style ? style.shape : null, x, p.y, r + 4 + distance * travel);
+      ctx.save();
+      // Brightness follows distance during travel. The ring holds at its
+      // endpoint for the last beat and fades there rather than dimming midflight.
+      const edgeFade = Math.max(0, Math.min(1, pulse.progress / 0.06, (1 - pulse.progress) / 0.15));
+      ctx.globalAlpha = (0.08 + 0.7 * distance) * edgeFade;
+      ctx.strokeStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8 + 8 * distance;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (r < presenceRadius) {
+      ctx.beginPath();
+      ctx.arc(x, p.y, presenceRadius, 0, Math.PI * 2);
+      ctx.setLineDash([4, 5]);
+      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = style ? style.stroke : PRESENCE_STROKE;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (r < 0.7) {
+      ctx.fillStyle = DUST_FILL;
+      ctx.fillRect(x - 0.7, p.y - 0.7, 1.4, 1.4);
+      continue;
+    }
+    const isWinner = winner === i;
+    const isHot = highlight?.has(i) ?? false;
+
+    traceShape(ctx, style ? style.shape : null, x, p.y, r);
+    if (style) {
+      ctx.globalAlpha = fillAlpha;
+      ctx.fillStyle = style.fill;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = isHot ? HOT_STROKE : style.stroke;
+      ctx.lineWidth = isWinner ? 2.6 : isHot ? 2.2 : 1.4;
+    } else {
+      ctx.fillStyle = isWinner ? WINNER_FILL : CLASSIC_AGENT_FILL;
+      ctx.fill();
+      ctx.strokeStyle = isWinner ? WINNER_STROKE : isHot ? HOT_STROKE : CLASSIC_AGENT_STROKE;
+      ctx.lineWidth = isWinner || isHot ? 2.2 : 1.2;
+    }
+    ctx.stroke();
+
+    if (isWinner) {
+      // the halo wears the winner's own silhouette — a dashed pentagon for a
+      // pentagon, never a generic circle
+      traceShape(ctx, style ? style.shape : null, x, p.y, r + 5);
+      ctx.setLineDash([4, 5]);
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = style ? style.stroke : 'rgb(77 39 28 / 65%)';
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+}

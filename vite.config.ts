@@ -37,8 +37,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     // archive/ holds superseded code kept only for reference; its tests must not
-    // gate the build. Vitest's `exclude` replaces the defaults rather than
-    // extending them, so the usual entries are repeated here.
-    exclude: ['**/node_modules/**', '**/dist/**', 'archive/**', 'tests/browser/**'],
+    // gate the build. FnS/ is the Fair and Square stage, a package of its own
+    // (its own config and tests). Vitest's `exclude` replaces the defaults
+    // rather than extending them, so the usual entries are repeated here.
+    exclude: ['**/node_modules/**', '**/dist/**', 'archive/**', 'tests/browser/**', 'FnS/**'],
   },
 });
