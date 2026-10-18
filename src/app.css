@@ -92,6 +92,13 @@ body {
     #f4efe4;
 }
 
+/* The Sandbox chart overlay must use the viewport as its fixed-position
+   containing block. Inline-size containment on body would anchor it to the
+   entire document instead, which can put its center below a phone screen. */
+body:has(.sandbox .plot.zoomed) {
+  container-type: normal;
+}
+
 button,
 input,
 select {

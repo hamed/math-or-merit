@@ -3,16 +3,24 @@
 \begin{description}
   \item[sandbox.play] Play
   \item[sandbox.pause] Pause
+  \item[sandbox.forces] movement
+  \item[sandbox.repulsion] repulsion
+  \item[sandbox.attraction] attraction
   \item[sandbox.new] New room
-  \item[sandbox.levy] levy per round
-  \item[sandbox.every] levy every
+  \item[sandbox.levy] tax per round
+  \item[sandbox.every] tax every
   \item[sandbox.rounds] \val{count} rounds
   \item[sandbox.speed] speed
   \item[sandbox.tap] A tap:
-  \item[sandbox.tap.levy] levies
+  \item[sandbox.tap.levy] tax
   \item[sandbox.tap.photo] photographs
   \item[sandbox.take] a tap takes
   \item[sandbox.dials] Dials
+  \item[sandbox.look.switch] Look: \val{look}. Switch.
+  \item[sandbox.look.shapes] shapes and colors
+  \item[sandbox.look.circles] colored circles
+  \item[sandbox.look.faces] faces
+  \item[sandbox.look.classic] classic circles
   \item[sandbox.faces] Faces:
   \item[sandbox.face.manga] manga
   \item[sandbox.face.lids] lids
@@ -23,4 +31,57 @@
   \item[sandbox.face.brows] brows
   \item[sandbox.face.ink] ink
   \item[sandbox.face.none] none
+  \item[sandbox.map.title.participants] participation
+  \item[sandbox.map.title.gini] Gini
+  \item[sandbox.map.title.toggle] Click or press Enter to switch all three charts between participation and Gini.
+  \item[sandbox.map.levy.axis] tax \% (√ scale)
+  \item[sandbox.map.levy.axis.linear] tax \%
+  \item[sandbox.map.tax.scale.toggle] Switch both tax axes between square-root and linear spacing.
+  \item[sandbox.map.tax.scale.tooltip] √ ↔ linear
+  \item[sandbox.map.stake.scale.toggle] Switch both stake axes between ordinary and squared spacing.
+  \item[sandbox.map.stake.scale.tooltip] stake² ↔ ordinary
+  \item[sandbox.map.reference] Colors show a 100-person reference: \val{runs} finished runs at each interior setting. Blue means fewer effective participants; red means more, using the room's circle colors. Participation is scaled between one owner (0\%) and an equal room (100\%). In Gini view, red means lower Gini and blue means higher Gini. Gini keeps its usual scale: equality is 0; one owner in a two-person room gives 0.5. The same guide stays visible at every room size, although small rooms can differ. The left and bottom edges use exact limits. Tax runs from 0 to 50\%. Click either axis to change its spacing; click the map to set both dials.
+  \item[sandbox.map.local.description] Each outlined dot is a finished run: stake across, tax from 0 to 50\% on the selected vertical scale. Color shows measured \val{metric}. Click to set both dials.
+  \item[sandbox.map.choose] Click to set stake and tax. Press Enter to set both to 50\%.
+  \item[sandbox.map.reference.point] 100-person reference: stake \val{stake} · tax \val{levy} → \val{metric} \val{reading}\val{detail} (\val{runs} runs)
+  \item[sandbox.map.exact.point] 100-person reference: stake \val{stake} · tax \val{levy} → \val{metric} \val{reading}\val{detail} (exact limit)
+  \item[sandbox.map.aria.reference] Outcome map with \val{reference} settings from a 100-person reference. Blue marks fewer effective participants, red more. Participation is scaled between one owner and an equal room; Gini keeps its usual value. The current room has \val{people} people; its live reading is shown at the dials. Tax spans 0 to 50 percent. Your dials sit at \val{stake} stake and \val{levy} tax; dashed lines mark the cross-sections. Click an axis to change its spacing.
+  \item[sandbox.map.aria.local] Outcome map of \val{local} measured \val{metric} settings for rooms of \val{people}. Tax spans 0 to 50 percent on the selected vertical scale, with ticks labeled in actual percentages. Your dials sit at \val{stake} stake and \val{levy} tax; dashed lines mark the cross-sections when in range.
+  \item[sandbox.map.colorbar.participants] Participation color scale: blue at the bottom is one effective participant; red at the top is an equal room.
+  \item[sandbox.map.colorbar.gini] Gini color scale: blue at the bottom is high inequality; red at the top is equality.
+  \item[sandbox.point.participants.detail] (\val{count} effective people)
+  \item[sandbox.point.participant.detail] (1 effective person)
+  \item[sandbox.curve.title.participants] participation vs \val{axis}
+  \item[sandbox.curve.title.gini] Gini vs \val{axis}
+  \item[sandbox.curve.title.tax.participants] tax vs participation
+  \item[sandbox.curve.title.tax.gini] tax vs Gini
+  \item[sandbox.curve.axis.participants] participation \%
+  \item[sandbox.curve.axis.gini] Gini
+  \item[sandbox.curve.axis.stake] stake \%
+  \item[sandbox.curve.axis.stake.squared] stake \% (squared)
+  \item[sandbox.curve.tax.description] A cut through the 100-person reference at one stake. \val{metric} runs across; tax runs up from 0 to 50\% on the same scale as the map. Hover the map to preview another stake. Local participation points use this room's own limits.
+  \item[sandbox.curve.tax.local.description] A cut through your finished runs at one stake. \val{metric} runs across; tax runs up on the same selected scale as the map. Hover the map to preview another stake.
+  \item[sandbox.curve.tax.aria] Tax versus \val{metric} at stake \val{stake}. Tax runs vertically from 0 to 50 percent on the same scale as the outcome map. Click the tax axis to switch its scale; click the horizontal axis to toggle its scale.
+  \item[sandbox.curve.stake.description] A cut through the 100-person reference: \val{metric} against stake, with tax held fixed. Zero stake stays equal; at zero tax, every positive stake uses the one-owner limit. Local participation points use this room's own limits. Hover the map to preview another tax.
+  \item[sandbox.curve.stake.scale.note] Stake positions are squared; click the stake axis to return to even spacing.
+  \item[sandbox.curve.stake.aria] \val{metric} against stake at tax \val{levy}, cut through the reference outcomes. The left edge and zero-tax limit are exact; other points average finite runs. Click an axis to toggle its scale.
+  \item[sandbox.room.aria] A sandbox room of \val{count} agents trading under your rules. Click a person to tax them; Shift and click gives them the room's tax. Ctrl and click photographs them for The Morning Ledger; Ctrl, Shift, and click photographs them for The People's Gazette.
+  \item[sandbox.room.shortcuts] Click: tax · Shift+click: give · Ctrl+click: Morning Ledger · Ctrl+Shift+click: People's Gazette
+  \item[sandbox.curve.reference.point] 100-person reference: \val{axis} \val{setting} → \val{metric} \val{reading}\val{detail} (\val{runs} runs)
+  \item[sandbox.curve.exact.point] 100-person reference: \val{axis} \val{setting} → \val{metric} \val{reading}\val{detail} (exact limit)
+  \item[sandbox.curve.local.point] Your run: \val{axis} \val{setting} → \val{metric} \val{reading}\val{detail} (\val{runs}×)
+  \item[sandbox.curve.at.dial] reference near \val{value}
+  \item[sandbox.hist.title] how many hold how much
+  \item[sandbox.hist.description] The wealth distribution: each bar counts the people whose holdings fall in that range. Hover for median and mean.
+  \item[sandbox.hist.title.toggle] \val{count} bins. Click or press Enter for the next bin count.
+  \item[sandbox.hist.aria] Wealth histogram, \val{count} \val{xscale} bins, \val{yscale} people axis. Click an axis to toggle its scale; click the title to change the bin count.
+  \item[sandbox.time.title.inequality] Gini — top share ┄
+  \item[sandbox.time.title.agents] each agent
+  \item[sandbox.time.title.volume] turnover / round
+  \item[sandbox.time.description.inequality] How concentrated the room is over time: Gini (solid) and the biggest holding (dashed). Click the title for the next view.
+  \item[sandbox.time.description.agents] Ten tracked people, each line one personal fortune — a multiplicative random walk. Click the title for the next view.
+  \item[sandbox.time.description.volume] Dollars traded per round. The strong line is smoothed with a trailing four-round half-life; the faint line behind it shows raw turnover. Click the title for the next view.
+  \item[sandbox.stats.turnover.raw] raw turnover: \val{value} roomfuls / round
+  \item[sandbox.time.title.toggle] Click or press Enter for the next time view.
+  \item[sandbox.time.aria] \val{title} over \val{rounds} rounds, anchored at round one. Click the title for the next view, or an axis to toggle its scale.
 \end{description}

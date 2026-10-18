@@ -287,6 +287,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
       playMs = ms;
       state.done = false;
       state.running = true;
+      state.seeks++;
       show(0);
       ticker.start();
     },
@@ -324,6 +325,7 @@ export function createRun(settings: () => RunSettings, durationMs: () => number,
       state.running = true;
       state.playing = true;
       state.frame = 0;
+      state.seeks++;
       showLive();
       liveTicker.start();
     },

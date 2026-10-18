@@ -60,7 +60,10 @@
     return STORY.scenes.find((sc) => sc.label === label) ?? null;
   });
   const indexSection = $derived.by(() => {
-    if (!scene) return null;
+    if (!scene) {
+      if (stageStep !== null) return null;
+      return index.find((chapter) => chapter.label === `chapter:${currentId}`)?.sections[0] ?? null;
+    }
     return index
       .flatMap((chapter) => chapter.sections)
       .find(
@@ -197,11 +200,22 @@
   }
 
   function goIndexSection(section: StoryIndexSection): void {
+    const chapter = index.find((entry) => entry.sections.includes(section)) ?? null;
+    if (chapter && list.some((mark) => chapter.label === `chapter:${mark.id}`)) {
+      goIndexChapter(chapter);
+      return;
+    }
     const firstScene = STORY.scenes.find((sc) => sc.label === section.scenes[0]);
     if (firstScene) goScene(firstScene);
+    else goIndexChapter(chapter);
   }
 
   function goIndexChapter(chapter: (typeof index)[number] | null): void {
+    const standalone = chapter && list.find((mark) => chapter.label === `chapter:${mark.id}`);
+    if (standalone) {
+      goChapter(standalone.id);
+      return;
+    }
     const chapterIntroStep = chapter ? STORY.steps.findIndex((step) => step.chapterIntro === chapter.key) : -1;
     if (chapterIntroStep >= 0) {
       openMenu = null;
@@ -249,7 +263,8 @@
     const step = stageStep === null ? undefined : STORY.steps[stageStep];
     const chapter = step?.chapterIntro ? index.find((entry) => entry.key === step.chapterIntro) : undefined;
     const label = step?.scene ?? null;
-    const want = chapter ? `#${chapter.label}` : label && linkable(label) ? `#${label}` : '';
+    const standaloneChapter = chapter && list.some((mark) => chapter.label === `chapter:${mark.id}`);
+    const want = standaloneChapter ? '' : chapter ? `#${chapter.label}` : label && linkable(label) ? `#${label}` : '';
     if (want === location.hash) return;
     // a chapter's own address stays until the stage takes over again
     if (!want && !linkable(location.hash.slice(1))) return;

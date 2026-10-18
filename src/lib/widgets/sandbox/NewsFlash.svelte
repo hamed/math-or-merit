@@ -12,7 +12,7 @@
   import { frontPageFor, type RoomStats } from './newsroom';
 
   interface Props {
-    /** Which paper the reader's press pass belongs to. */
+    /** Which paper the reader photographed this person for. */
     paper: 'ledger' | 'gazette';
     /** The photographed agent's display style. */
     style: AgentStyle;

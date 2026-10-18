@@ -379,7 +379,7 @@ export const ROLES: Readonly<Record<string, (s: StoryStep) => boolean>> = {
   'map.all': (s) => cue(s, 'reveal', 'map'),
   // the ending: the reader's guess, settled (owner, 2026-10-10)
   'veil.guess': (s) => when(s, 'prediction'),
-  'sandbox.2': (s) => targets(s, 'workshop'),
+  'sandbox.2': (s) => targets(s, 'chapter:sandbox'),
 };
 
 /** The title's reel, as the script lists it under \\reveal{math}. */
@@ -887,8 +887,8 @@ export const REACTIONS = {
       return own.length === 1 && !own[0].target ? [[step.id, own[0].key]] : [];
     }),
   ) as Record<string, string>,
-  /** Scene 26: the whole old machine, as a side trip. */
-  workshop: choices('sandbox.2')[0],
+  /** Scene 26: the whole machine's chapter link. */
+  sandbox: choices('sandbox.2')[0],
   giniToy: choices('gini.toy'),
   /** Scene 14: Red's answer to the paper — after one run, or after several. */
   whyAfter: firstOf('why.after', 'groups', 'one'),

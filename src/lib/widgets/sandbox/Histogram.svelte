@@ -3,6 +3,7 @@
   import { geometricBins, rangedLinearBins, StickyRange } from './histBins';
   import { compactNumber, logBinTicks, logTicks, niceLinearTicks } from './ticks';
   import { gatedClick } from './gatedClick';
+  import { say } from '$lib/i18n';
 
   interface Props {
     wealth: Float64Array;
@@ -130,14 +131,14 @@
 <PlotFrame
   x={xAxis}
   y={yAxis}
-  title="how many hold how much"
-  description="The wealth distribution: each bar counts the people whose holdings fall in that range. Hover for median and mean."
-  onBody={given ? undefined : cycleBins}
-  bodyTooltip={given ? undefined : `${view.binCount} bins — click for the next count`}
+  title={say('sandbox_hist_title')}
+  description={say('sandbox_hist_description')}
+  onTitle={given ? undefined : cycleBins}
+  titleActionLabel={given ? undefined : say('sandbox_hist_title_toggle', { count: view.binCount })}
   onHoverChange={(inside) => (hovered = inside)}
   ariaLabel={given
     ? `Wealth histogram, people counted plainly in fixed bins${given.dust ? ': everyone below one cent first, then' : ':'} one bin for each tenfold step of wealth.`
-    : `Wealth histogram, ${view.binCount} ${xLog ? 'log' : 'linear'} bins, ${yLog ? 'log' : 'linear'} people axis. Click an axis to toggle its scale; click the bars to change the bin count.`}
+    : say('sandbox_hist_aria', { count: view.binCount, xscale: xLog ? 'log' : 'linear', yscale: yLog ? 'log' : 'linear' })}
 >
   {#snippet children({ xOf, yOf, frame })}
     {@const baseline = frame.y + frame.h}

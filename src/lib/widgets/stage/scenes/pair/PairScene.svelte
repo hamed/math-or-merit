@@ -54,10 +54,12 @@
     type RoomSource,
   } from './script';
   import { DEFAULT_RUN, type RunSettings } from './recording';
-  import { MAP_LEVIES, MAP_PARTICIPANTS, MAP_STAKES } from './outcomeMap';
+  import { MAP_LEVIES, MAP_PARTICIPANTS, MAP_STAKES } from '$lib/research/outcomeMap';
   import { KEEPERS, SHARERS, VEIL_N, VEIL_STOPS, outcome, scatter, shadeColour, worldColour, worldLink } from './world';
   import { GAME, nextClosureDuration, type GameResult } from './taxGame';
-  import { GINI_RAMP } from '../../../shared/presets';
+  import { GINI_RAMP, rampColor } from '../../../shared/presets';
+  import { createTicker } from '../../../shared/ticker';
+  import { separateBodies, type SeparationBody } from '../../../shared/bodySeparation';
   import { decadeBins, effectiveCount, histogramMarker, imaginedShares, line, piles, ruler, type ImaginedRoom, type Tick } from './roomPoses';
   import { toDollars } from '../../../distribution/binning';
   import Histogram from '../../../sandbox/Histogram.svelte';
@@ -105,7 +107,7 @@
   import DebugPanel from './DebugPanel.svelte';
   import { collectStats, frontPageFor } from '../../../sandbox/newsroom';
   import { fitSquareRelationship, measureWealth } from '$lib/research';
-  import { goToStep, openBranch } from '../../branch';
+  import { goToStep } from '../../branch';
   import { PICTURES as POSTED } from '../cast/pictures';
   import AgentFace from '../../../shared/face/AgentFace.svelte';
   import { GROUND, drawStill } from '../../../shared/face/draw';
@@ -979,7 +981,7 @@
       // room shows only what was taken: coins there would clutter it (owner, 2026-10-10)
       if (!stage?.reduced) {
         if (gameStep?.kind === 'live') {
-          const v = agentView(i);
+          const v = roomSpot(i);
           const id = ++rippleId;
           taken = [...taken, { id, x: v.x, y: v.y - Math.max(v.r, 6) - 6 }];
           window.setTimeout(() => (taken = taken.filter((q) => q.id !== id)), 1400);
@@ -994,7 +996,7 @@
       return;
     }
     if (stage?.reduced) return;
-    const v = agentView(i);
+    const v = roomSpot(i);
     const id = ++rippleId;
     ripples = [...ripples, { id, x: v.x, y: v.y, r: Math.max(v.r, 6), ink: styleOfRoom(i).stroke }];
     window.setTimeout(() => (ripples = ripples.filter((q) => q.id !== id)), 1500);
@@ -1019,7 +1021,7 @@
   let owedTo = $state<Float64Array | null>(null);
   function taxCoins(i: number, share: number): void {
     const n = L.room.positions.length;
-    const at = pt(agentView(i));
+    const at = pt(roomSpot(i));
     const R = Math.max(2, L.room.radius * Math.sqrt(share * n));
     const heap = coinHeap(n, R, at);
     const owed = owedTo ? Float64Array.from(owedTo) : new Float64Array(n);
@@ -1041,7 +1043,7 @@
     // a moment, then a part to each, taken in as it arrives
     parts.forEach((p, j) => {
       const go = 2.0 + (j % 25) * 0.02;
-      tl.to(p, { x: () => agentView(j).x, y: () => agentView(j).y, duration: 1.0, ease: 'power2.inOut' }, go);
+      tl.to(p, { x: () => roomSpot(j).x, y: () => roomSpot(j).y, duration: 1.0, ease: 'power2.inOut' }, go);
       tl.call(
         () => {
           p.on = 0;
@@ -1065,7 +1067,7 @@
     let best = -1;
     let bestD = 14;
     for (let i = 0; i < L.room.positions.length; i++) {
-      const v = agentView(i);
+      const v = roomSpot(i);
       const d = Math.hypot(p.x - v.x, p.y - v.y) - v.r;
       if (d < bestD) {
         bestD = d;
@@ -1096,7 +1098,7 @@
   const pointed = $derived.by((): { x: number; y: number; r: number; ry?: number } | null => {
     const pose = PAIR_STEPS[current].pose;
     if (!pose.point || arranging || hushed) return null;
-    const body = (who: Speaker) => (pose.place === 'room' ? agentView(L.room[who]) : view.people[WHO[who]]);
+    const body = (who: Speaker) => (pose.place === 'room' ? roomSpot(L.room[who]) : displayedBodies.people[WHO[who]]);
     switch (pose.point) {
       case 'blue':
       case 'red': {
@@ -1105,7 +1107,7 @@
       }
       case 'richest': {
         if (!topFive.length) return null;
-        const v = agentView(topFive[0]);
+        const v = roomSpot(topFive[0]);
         return { x: v.x, y: v.y, r: Math.max(v.r, 8) + 10 };
       }
       case 'dust': {
@@ -1414,14 +1416,14 @@
     if (levyMoving || pose.place !== 'room' || pose.roomMode !== 'free' || !runShown) return [];
     const n = L.room.positions.length;
     const w = shown.wealth();
-    if (pose.levy === 1) return Array.from({ length: n }, (_, i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r: coinOf(w[i]) }));
+    if (pose.levy === 1) return Array.from({ length: n }, (_, i) => ({ ...pt(roomSpot(i)), on: 1, face: i % 2 ? 'back' : 'front', r: coinOf(w[i]) }));
     if (pose.levy === 3) {
       const heap = poolHeap();
       return heap.spots.map((p, k) => ({ ...p, on: 1, face: k % 2 ? 'back' : 'front', r: heap.r }));
     }
     if (pose.levy === 4) {
       const r = poolHeap().r;
-      return Array.from({ length: n }, (_, i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r }));
+      return Array.from({ length: n }, (_, i) => ({ ...pt(roomSpot(i)), on: 1, face: i % 2 ? 'back' : 'front', r }));
     }
     return [];
   });
@@ -1461,7 +1463,7 @@
     if (pose.levy === 1) {
       // a coin appears on each, its area their quarter: big coins from big shapes; they shrink as it does
       roomPool.r = 0;
-      const coins = tokens((i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r: 0 }));
+      const coins = tokens((i) => ({ ...pt(roomSpot(i)), on: 1, face: i % 2 ? 'back' : 'front', r: 0 }));
       for (let i = 0; i < n; i++) {
         tl.to(coins[i], { r: coinOf(w[i]), duration: 0.6, ease: 'back.out(1.6)' }, 0.2);
         tl.to(agentView(i), { r: Math.max(0.8, R * Math.sqrt(w[i] * n * (1 - LEVY_RATE))), duration: 0.6, ease: 'power2.out' }, 0.2);
@@ -1471,7 +1473,7 @@
     }
     if (pose.levy === 2 && from === 1) {
       // into the pool, where they become one coin: all the quarters together
-      const coins = tokens((i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r: coinOf(w[i]) }));
+      const coins = tokens((i) => ({ ...pt(roomSpot(i)), on: 1, face: i % 2 ? 'back' : 'front', r: coinOf(w[i]) }));
       // each keeps its size on the way (its area is its money), and is gone into the pool as it arrives,
       // the pool growing as they come (review 2026-10-10)
       // the pool's area is exactly the money that has arrived (recheck 2026-10-10)
@@ -1501,7 +1503,7 @@
       // a part to each
       const parts = tokens((k) => ({ ...heap.spots[k], on: 1, face: k % 2 ? 'back' : 'front', r: heap.r }));
       for (let i = 0; i < n; i++) {
-        const to = agentView(i);
+        const to = roomSpot(i);
         tl.to(parts[i], { x: to.x, y: to.y, duration: 1.1, ease: 'power2.inOut' }, 0.1 + (i % 25) * 0.02);
       }
       done(1.8);
@@ -1509,7 +1511,7 @@
     }
     if (pose.levy === 5) {
       // taken in: each grows by an equal part
-      const parts = tokens((i) => ({ ...pt(agentView(i)), on: 1, face: i % 2 ? 'back' : 'front', r: heap.r }));
+      const parts = tokens((i) => ({ ...pt(roomSpot(i)), on: 1, face: i % 2 ? 'back' : 'front', r: heap.r }));
       for (let i = 0; i < n; i++) {
         tl.to(parts[i], { r: 0, duration: 0.45, ease: 'power2.in' }, 0.15);
         tl.to(agentView(i), { r: Math.max(0.8, R * Math.sqrt(leviedShare(w[i], 5) * n)), duration: 0.5, ease: 'back.out(2)' }, 0.5);
@@ -1532,9 +1534,9 @@
 
   /** Where a room member stands right now: Blue and Red are their own circles. */
   function roomSpot(i: number) {
-    if (i === L.room.blue) return view.people[BIG];
-    if (i === L.room.red) return view.people[SMALL];
-    return view.room[i];
+    if (i === L.room.blue) return displayedBodies.people[BIG];
+    if (i === L.room.red) return displayedBodies.people[SMALL];
+    return displayedBodies.room[i];
   }
 
   function styleOfRoom(i: number): AgentStyle {
@@ -1665,6 +1667,16 @@
     return { x: matchBox.lefts[side] + (p.x - box.x) * matchBox.scale, y: matchBox.top + (p.y - box.y) * matchBox.scale };
   }
 
+  const mirrorDisplay = $derived.by(() => {
+    const bodies = L.room.positions.map((p, i) => ({
+      ...matchedAt(0, p),
+      r: Math.max(0.5, (mirror.sized ? L.room.radius * Math.sqrt(Math.max(0, mirror.wealth[i]) * 100) : L.room.radius) * matchBox.scale),
+      shape: styleOfRoom(i).shape,
+    }));
+    const points = separateBodies(bodies, { x: matchBox.lefts[0], y: matchBox.top, w: matchBox.w, h: matchBox.h }, { gap: Math.min(2, L.room.radius * matchBox.scale * 0.25), iterations: 72 });
+    return bodies.map((body, i) => ({ ...body, ...points[i] }));
+  });
+
   /** Scene 24: the map in the lower part of the room's box, the talk above it. */
   const mapBox = $derived.by(() => {
     const box = L.room.box;
@@ -1728,7 +1740,10 @@
     const radii = Array.from(shares, veilR);
     // a little air inside the frame
     const inset = veilBox.s * 0.04;
-    return scatter(radii, veilBox.s - 2 * inset).map((p, i) => ({ x: p.x + inset, y: p.y + inset, r: radii[i], share: shares[i] }));
+    const size = veilBox.s - 2 * inset;
+    const bodies = scatter(radii, size).map((p, i) => ({ ...p, r: radii[i] }));
+    return separateBodies(bodies, { x: 0, y: 0, w: size, h: size }, { gap: Math.min(2, veilBox.s * 0.012), iterations: 96 })
+      .map((p, i) => ({ x: p.x + inset, y: p.y + inset, r: radii[i], share: shares[i] }));
   };
   const keepersBox = $derived(placeBox(KEEPERS));
   const sharersBox = $derived(placeBox(SHARERS));
@@ -1766,7 +1781,7 @@
 
   function mapColour(count: number): string {
     const closed = 1 - (count - 1) / 99;
-    return GINI_RAMP[Math.min(GINI_RAMP.length - 1, Math.max(0, Math.floor(closed * GINI_RAMP.length)))];
+    return rampColor(GINI_RAMP, closed);
   }
 
   const mapCurve = $derived.by(() => {
@@ -1872,24 +1887,115 @@
     return [];
   }
 
+  /**
+   * Choreography supplies anchors; only these display copies push apart.
+   * Blue and Red occur once, even while the rest of the room enters. Chart
+   * markers can separate vertically while keeping their exact horizontal value.
+   */
+  const displayedBodies = $derived.by(() => {
+    const pose = PAIR_STEPS[current].pose;
+    const people = view.people.map((p) => ({ ...p }));
+    const room = view.room.map((p) => ({ ...p }));
+    const refs: { group: 'people' | 'room'; index: number; dx: number; dy: number }[] = [];
+    const bodies: SeparationBody[] = [];
+    const add = (p: Person, group: 'people' | 'room', index: number) => {
+      if (p.alpha <= 0.01 || p.r <= 0.05) return;
+      const squash = squashed(p.q);
+      const motion = group === 'people' ? bodyMotion(index) : { dx: 0, dy: 0, sx: 1, sy: 1 };
+      const dx = motion.dx * squash.sx;
+      const dy = (group === 'people' ? p.r : L.room.radius) * (1 - squash.sy) + motion.dy * squash.sy;
+      refs.push({ group, index, dx, dy });
+      bodies.push({
+        x: p.x + dx, y: p.y + dy,
+        r: p.r * Math.max(squash.sx * motion.sx, squash.sy * motion.sy),
+        shape: group === 'people' ? 'circle' : roomStyles[index].shape,
+      });
+    };
+    people.forEach((p, i) => add(p, 'people', i));
+    if (view.roomOn > 0.01) room.forEach((p, i) => {
+      if (i !== L.room.blue && i !== L.room.red && roomStyles[i]) add(p, 'room', i);
+    });
+    const inRoom = pose.place === 'room' && view.roomOn > 0.99;
+    const verticalOnly = inRoom && ['piles', 'ruler', 'line'].includes(pose.roomMode);
+    const bounds = inRoom
+      ? pose.roomMode === 'matched'
+        ? { x: matchBox.lefts[1], y: matchBox.top, w: matchBox.w, h: matchBox.h }
+        : { ...L.room.box }
+      : { x: 4, y: 4, w: Math.max(1, width - 8), h: Math.max(1, height - 8) };
+    if (verticalOnly && pose.roomMode !== 'line') bounds.h = (pose.roomMode === 'piles' ? pilesPose.axisY : rulerPose.axisY) - bounds.y;
+    // The ending's speakers stand outside the old room, beside its three boxes.
+    if (pose.roomMode === 'veil') Object.assign(bounds, { x: 4, y: 4, w: Math.max(1, width - 8), h: Math.max(1, height - 8) });
+    const confined = bodies.map((p) => ({ ...p, confine: p.x >= bounds.x && p.x <= bounds.x + bounds.w && p.y >= bounds.y && p.y <= bounds.y + bounds.h }));
+    const points = separateBodies(confined, bounds, { gap: Math.min(3, L.room.radius * 0.25), iterations: 72, verticalOnly });
+    refs.forEach(({ group, index, dx, dy }, k) => Object.assign(group === 'people' ? people[index] : room[index], { x: points[k].x - dx, y: points[k].y - dy }));
+    return { people, room };
+  });
+
   /** While the room is rearranging, the tween owns everyone's place, not the run. */
   let arranging = $state(false);
+
+  // The run supplies exact snapshots; only the circles on screen ease between them.
+  // A separate display clock also lets the last snapshot settle after playback stops.
+  let roomTargets: Target[] = [];
+  const roomSmoother = createTicker((dt) => {
+    const ease = 1 - Math.exp(-dt / 110);
+    let moving = false;
+    for (let i = 0; i < roomTargets.length; i++) {
+      const target = roomTargets[i];
+      const v = agentView(i);
+      for (const key of ['x', 'y', 'r'] as const) {
+        const gap = target[key] - v[key];
+        if (Math.abs(gap) > 0.01) {
+          v[key] += gap * ease;
+          moving = true;
+        } else {
+          v[key] = target[key];
+        }
+      }
+    }
+    if (!moving) roomSmoother.stop();
+  });
+  let lastRoomStep = -1;
+  let lastRoomSource: RoomSource | null = null;
+  let lastRoomSeeks = -1;
+  let lastRoomWidth = -1;
+  let lastRoomHeight = -1;
+  let followingRoom = false;
 
   // the room follows the moment on screen: the run as it plays, or the time dial
   $effect(() => {
     void shown.state.revision;
     void fourCoins;
     const pose = PAIR_STEPS[current].pose;
-    if (!runShown || arranging || pose.place !== 'room') return;
+    const seeks = shown.state.seeks;
+    const jumped = current !== lastRoomStep || pose.source !== lastRoomSource || seeks !== lastRoomSeeks || width !== lastRoomWidth || height !== lastRoomHeight;
+    lastRoomStep = current;
+    lastRoomSource = pose.source;
+    lastRoomSeeks = seeks;
+    lastRoomWidth = width;
+    lastRoomHeight = height;
+    if (!runShown || arranging || pose.place !== 'room') {
+      roomSmoother.stop();
+      followingRoom = false;
+      return;
+    }
+    const smooth = pose.roomMode === 'free' && !stage?.reduced && followingRoom && !jumped;
+    if (!smooth) roomSmoother.stop();
+    roomTargets = [];
     for (let i = 0; i < L.room.positions.length; i++) {
       const t = modeTarget(pose.roomMode, i);
       const v = agentView(i);
-      v.x = t.x;
-      v.y = t.y;
-      v.r = t.r;
+      if (smooth) roomTargets.push(t);
+      else {
+        v.x = t.x;
+        v.y = t.y;
+        v.r = t.r;
+      }
       v.alpha = t.alpha;
       v.empty = t.empty ? 1 : 0;
     }
+    followingRoom = true;
+    if (smooth) roomSmoother.start();
   });
 
   /**
@@ -2143,7 +2249,7 @@
     fourPick = null;
     // dropped on another of the four: the coin is theirs; anywhere else, it goes home
     const to = cast.four.findIndex((agent, j) => {
-      const v = agentView(agent);
+      const v = roomSpot(agent);
       return j !== from && Math.hypot(at.x - v.x, at.y - v.y) <= Math.max(v.r, 34);
     });
     if (to >= 0) sendCoin(from, to, at);
@@ -2152,8 +2258,8 @@
   /** One coin from one of the four to another, flying, from where it is (their circle, or the reader's finger). */
   function sendCoin(from: number, k: number, start: Point | null = null): void {
     if (fourCoins[from] <= 0) return;
-    const a = start ?? agentView(cast.four[from]);
-    const b = agentView(cast.four[k]);
+    const a = start ?? roomSpot(cast.four[from]);
+    const b = roomSpot(cast.four[k]);
     const token = { x: a.x, y: a.y, on: 1, face: 'front' as const };
     view.fly = [...view.fly, token];
     const flying = view.fly[view.fly.length - 1];
@@ -2259,7 +2365,7 @@
     return [
       ['step', `${current} ${step.id} (${step.wait.kind}${step.action ? ', ' + step.action : ''})`],
       ['pose', `${pose.place}/${pose.roomMode} crowd:${pose.crowd} lorenz:${pose.lorenz} ran:${pose.ran}`],
-      ['room', `${pose.source} · β ${rec?.settings.beta ?? '–'}${rec?.settings.levy ? ` · levy ${rec.settings.levy}` : ''}`],
+      ['room', `${pose.source} · β ${rec?.settings.beta ?? '–'}${rec?.settings.levy ? ` · tax ${rec.settings.levy}` : ''}`],
       ['run', `${shown.state.running ? 'playing' : shown.state.done ? 'done' : 'none'} · frame ${shown.state.frame}/${Math.max(0, shown.state.frames - 1)} · seed ${rec?.seed ?? '–'}`],
       ['trades', formatNumber(shown.state.trades)],
       ['richest', `${(shown.state.share * 100).toFixed(1)}% (#${shown.state.winner})`],
@@ -2690,7 +2796,7 @@
         { label: say(no), act: () => stage?.advance() },
       ];
     }
-    if (id === 'sandbox.2') return [{ label: say(REACTIONS.workshop), act: () => openBranch('workshop') }];
+    if (id === 'sandbox.2') return [{ label: say(REACTIONS.sandbox), act: () => { location.hash = 'sandbox'; } }];
     if (id === 'run.again') {
       return [
         { label: say(REACTIONS.runChoices[0]), act: () => stage?.replay('run') },
@@ -2904,7 +3010,7 @@
   );
 
   function anchorOf(who: Speaker) {
-    const p = view.people[WHO[who]];
+    const p = displayedBodies.people[WHO[who]];
     // eaten by the walk's circle: they are in it
     if (PAIR_STEPS[current].pose.roomMode === 'line' && eater && linePose.rank[WHO[who] === BIG ? L.room.blue : L.room.red] < walker.k) {
       return { x: eater.x, y: eater.y, r: eater.r };
@@ -3185,6 +3291,17 @@
   /** Where the crowd ends the rain: the scramble, planned once for this stage's size and title. */
   const rainPlan = $derived(planRain({ homes: L.crowdHomes, band: L.crowdBand, feet: dropFeet, radius: L.radius, g: G }));
 
+  /** A falling coin meets its displaced catcher, easing away from its original fall near arrival. */
+  function payoutAt(token: Token, index: number): Point {
+    const caught = rainPlan.catches[index];
+    if (!caught) return token;
+    const before = view.people[caught.who];
+    const after = displayedBodies.people[caught.who];
+    const near = Math.max(0, Math.min(1, 1 - Math.abs(token.y - caught.meet.y) / Math.max(40, before.r * 2)));
+    const ease = near * near * (3 - 2 * near);
+    return { x: token.x + (after.x - before.x) * ease, y: token.y + (after.y - before.y) * ease };
+  }
+
   /**
    * Coins drop straight down from the title's feet, under the stage's gravity,
    * and land on whoever is under them (owner, 2026-10-07): each coin's owner
@@ -3378,7 +3495,7 @@
 
   /** Where coin `k` of a fortune of `count` sits on the stage right now. */
   function coinSpot(who: Speaker, count: number, k: number) {
-    const person = view.people[WHO[who]];
+    const person = displayedBodies.people[WHO[who]];
     const spots = pile(count, L.coinRadius, Math.max(L.minRadius, L.radius(count)));
     const spot = spots[Math.max(0, Math.min(k, spots.length - 1))] ?? { x: 0, y: 0 };
     return { x: person.x + spot.x, y: person.y + spot.y };
@@ -3472,7 +3589,7 @@
     // they are made now, hidden, so the timeline owns every tween it plays.
     const slots = tableSlots(view.table.blue, view.table.red);
     view.fly = slots.map((slot, k) => ({ x: slot.x, y: slot.y, on: 0, face: k % 2 ? 'back' : 'front' }));
-    const to = view.people[WHO[winner]];
+    const to = displayedBodies.people[WHO[winner]];
     tl.call(
       () => {
         for (const token of view.fly) token.on = 1;
@@ -3700,7 +3817,7 @@
       give(from);
       return;
     }
-    const p = view.people[WHO[other(from)]];
+    const p = displayedBodies.people[WHO[other(from)]];
     // dropped on the other fortune: it lands there; anywhere else: it goes home
     if (Math.hypot(at.x - p.x, at.y - p.y) <= Math.max(p.r, 44)) launch(from, at);
   }
@@ -3806,9 +3923,9 @@
   function mirrorBodies(): [Body, Body] | null {
     if (view.mirrorOn <= 0.01 || PAIR_STEPS[current].pose.roomMode !== 'matched') return null;
     const body = (i: number): Body => {
-      const at = matchedAt(0, L.room.positions[i]);
-      const r = (mirror.sized ? L.room.radius * Math.sqrt(Math.max(0, mirror.wealth[i]) * 100) : L.room.radius) * matchBox.scale;
-      return { x: at.x, y: at.y, r: Math.max(0.5, r), alpha: view.mirrorOn };
+      const at = mirrorDisplay[i];
+      const slide = (1 - view.mirrorShift) * (matchBox.lefts[1] - matchBox.lefts[0]);
+      return { x: at.x + slide, y: at.y, r: at.r, alpha: view.mirrorOn };
     };
     return [body(L.room.blue), body(L.room.red)];
   }
@@ -3821,8 +3938,8 @@
     for (const t of view.fly) if (t.on > 0.5) moving.push(t);
     return {
       depth: L.whole * 2.5,
-      people: view.people,
-      room: view.roomOn > 0.01 && peopleStand ? view.room : null,
+      people: displayedBodies.people,
+      room: view.roomOn > 0.01 && peopleStand ? displayedBodies.room : null,
       mirror: mirrorBodies(),
       speaker: talking?.who ?? null,
       aside: talking?.aside ?? false,
@@ -3847,7 +3964,7 @@
   function paintFaces(now = Infinity): void {
     const look = faceLook;
     const reduced = !!stage?.reduced;
-    view.people.forEach((p, i) => {
+    displayedBodies.people.forEach((p, i) => {
       // Blue and Red have faces the whole game; the rest while they stand as people
       const faced = look !== 'none' && (whoIs(i) !== null || peopleStand) && p.alpha > 0.01 && p.r > 0.05;
       const named = !!whoIs(i) && view.paint[whoIs(i)!] > 0.5;
@@ -3855,7 +3972,7 @@
       board.render(i, look !== 'none' && faced ? faces.paint(i, look, 'circle', p, equalR, reduced, now) : null, colours);
     });
     const roomFaced = look !== 'none' && view.roomOn > 0.01 && peopleStand;
-    view.room.forEach((spot, j) => {
+    displayedBodies.room.forEach((spot, j) => {
       const faced = roomFaced && j !== L.room.blue && j !== L.room.red && spot.alpha > 0.3 && !!roomStyles[j];
       const slot = faces.roomSlot(j);
       board.render(slot, faced ? faces.paint(slot, look, roomStyles[j].shape, spot, L.room.radius, reduced, now) : null, roomColours[j]);
@@ -4026,7 +4143,7 @@
   }
   /** The eight in drawing order (Blue and Red last, on top), their faces, and how much of each shows. */
   const peopleOrder = $derived([...view.people.keys()].filter((i) => !whoIs(i)).concat([BIG, SMALL]));
-  const personFaces = $derived(peopleOrder.map((i) => ({ x: view.people[i].x, y: view.people[i].y, f: view.people[i].alpha > 0.3 ? faceSize(view.people[i].r, equalR) : 0 })));
+  const personFaces = $derived(peopleOrder.map((i) => ({ x: displayedBodies.people[i].x, y: displayedBodies.people[i].y, f: view.people[i].alpha > 0.3 ? faceSize(view.people[i].r, equalR) : 0 })));
   const personShown = $derived.by(() => {
     const out = new Array<number>(CROWD).fill(1);
     peopleOrder.forEach((i, k) => (out[i] = unhidden(k, personFaces)));
@@ -4043,11 +4160,11 @@
     const order = roomOrder.filter((i) => i !== roomWinner).concat(roomWinner >= 0 ? [roomWinner] : []);
     const list = [
       ...order.map((i) => {
-        const spot = view.room[i];
+        const spot = displayedBodies.room[i];
         const own = i !== L.room.blue && i !== L.room.red && spot.alpha > 0.3;
         return { x: spot.x, y: spot.y, f: own ? faceSize(spot.r, L.room.radius) : 0 };
       }),
-      ...[BIG, SMALL].map((i) => ({ x: view.people[i].x, y: view.people[i].y, f: faceSize(view.people[i].r, equalR) })),
+      ...[BIG, SMALL].map((i) => ({ x: displayedBodies.people[i].x, y: displayedBodies.people[i].y, f: faceSize(view.people[i].r, equalR) })),
     ];
     const out = new Array<number>(view.room.length).fill(0);
     order.forEach((i, k) => (out[i] = list[k].f > 0 ? unhidden(k, list) : 0));
@@ -4128,8 +4245,8 @@
    * rare, a parabola under the stage's gravity, and the breath stretches a
    * body without changing its area, because area is wealth.
    */
-  function life(i: number): string {
-    if (stage?.reduced) return '';
+  function bodyMotion(i: number): { dx: number; dy: number; sx: number; sy: number } {
+    if (stage?.reduced) return { dx: 0, dy: 0, sx: 1, sy: 1 };
     const b = breath(seconds, i);
     let hop = 0;
     if (atEase()) {
@@ -4147,7 +4264,13 @@
     let shake = 0;
     if (wiggling && whoIs(i) === wiggling.who && seconds < wiggling.until) shake = Math.sin(seconds * 42) * 4;
     const q = squashed(-(b.scale - 1) * 1.5);
-    return `translate(${(b.dx + shake).toFixed(2)} ${(b.dy - hop).toFixed(2)}) scale(${(q.sx * pop(i)).toFixed(4)} ${(q.sy * pop(i)).toFixed(4)})`;
+    return { dx: b.dx + shake, dy: b.dy - hop, sx: q.sx * pop(i), sy: q.sy * pop(i) };
+  }
+
+  function life(i: number): string {
+    if (stage?.reduced) return '';
+    const p = bodyMotion(i);
+    return `translate(${p.dx.toFixed(2)} ${p.dy.toFixed(2)}) scale(${p.sx.toFixed(4)} ${p.sy.toFixed(4)})`;
   }
 
 
@@ -4177,6 +4300,7 @@
       observer.disconnect();
       if (chapterIntroExitTimer !== undefined) window.clearTimeout(chapterIntroExitTimer);
       stopAmbient();
+      roomSmoother.stop();
       stopMotion();
       stopCalls();
       stopReveal();
@@ -4481,10 +4605,11 @@
       {#if view.roomOn > 0}
         <g class="room" opacity={view.roomOn}>
           {#each roomOrder as i (i)}
-            {@const spot = view.room[i]}
+            {@const spot = displayedBodies.room[i]}
             {#if i !== L.room.blue && i !== L.room.red && spot.alpha > 0.01 && roomStyles[i]}
               {@const four = fourCoinsOf(i)}
               <path
+                data-room-body={i}
                 d={svgShapePath(roomStyles[i].shape, Math.max(0.6, spot.r))}
                 transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.q)}`}
                 fill={spot.empty > 0.5 ? 'none' : fillOf(i)}
@@ -4513,7 +4638,7 @@
           {/each}
           {#if roomWinner >= 0 && faceLook !== 'none' && peopleStand}
             <!-- the richest's face over everyone's: what the run made them is the news (owner, 2026-10-07) -->
-            {@const spot = view.room[roomWinner]}
+            {@const spot = displayedBodies.room[roomWinner]}
             <g transform={`translate(${spot.x.toFixed(1)} ${spot.y.toFixed(1)}) ${squash(L.room.radius, spot.q)}`} opacity={spot.alpha * roomShown[roomWinner]}>
               <g class="face" data-slot={faces.roomSlot(roomWinner)} use:mountFace={faces.roomSlot(roomWinner)}></g>
             </g>
@@ -4522,8 +4647,6 @@
       {/if}
 
       {#if view.mirrorOn > 0.01 && PAIR_STEPS[current].pose.roomMode === 'matched'}
-        {@const w = mirror.wealth}
-        {@const sized = mirror.sized}
         {@const slide = (1 - view.mirrorShift) * (matchBox.lefts[1] - matchBox.lefts[0])}
         <!-- both rooms framed alike; the copy's frame travels with it, to the room without the levy -->
         <rect class="room-frame" x={matchBox.lefts[1] - 8} y={matchBox.top - 8} width={matchBox.w + 16} height={matchBox.h + 16} rx="12" opacity={view.mirrorOn} />
@@ -4537,9 +4660,8 @@
           opacity={view.mirrorOn}
         />
         <g class="mirror" opacity={view.mirrorOn} transform={`translate(${slide.toFixed(1)} 0)`}>
-          {#each L.room.positions as p, i (i)}
-            {@const at = matchedAt(0, p)}
-            {@const r = Math.max(0.5, (sized ? L.room.radius * Math.sqrt(Math.max(0, w[i]) * 100) : L.room.radius) * matchBox.scale)}
+          {#each mirrorDisplay as at, i (i)}
+            {@const r = at.r}
             {@const style = styleOfRoom(i)}
             <path
               d={svgShapePath(style.shape, r)}
@@ -4575,8 +4697,8 @@
           {#each MAP_PARTICIPANTS as row, iy (iy)}
             {#each row as count, ix (ix)}
               {#if view.mapOn >= MAP_ORDER[iy][ix]}
-                <rect x={m.x + ix * m.cw} y={m.y + m.side - (iy + 1) * m.ch} width={m.cw - 1} height={m.ch - 1} fill={mapColour(count)}>
-                  <title>{`${formatNumber(MAP_STAKES[ix], { style: 'percent' })} · ${formatNumber(MAP_LEVIES[iy], { style: 'percent' })} → ${formatNumber(count, { maximumFractionDigits: 0 })}`}</title>
+                <rect x={m.x + ix * m.cw} y={m.y + m.side - (iy + 1) * m.ch} width={m.cw} height={m.ch} fill={mapColour(count)}>
+                  <title>{`${formatNumber(MAP_STAKES[ix], { style: 'percent' })} · ${formatNumber(MAP_LEVIES[iy], { style: 'percent' })} → ${formatNumber(count, { maximumFractionDigits: 2 })}`}</title>
                 </rect>
               {/if}
             {/each}
@@ -4591,9 +4713,14 @@
             grid={false}
           />
           <g class="legend" transform={`translate(${m.x + m.side / 2 - GINI_RAMP.length * 8} ${m.y + m.side + 50})`}>
-            {#each GINI_RAMP as colour, k (k)}
-              <rect x={k * 16} y="0" width="15" height="8" fill={colour} />
-            {/each}
+            <defs>
+              <linearGradient id="stage-map-colors">
+                {#each GINI_RAMP as colour, k (k)}
+                  <stop offset={`${100 * k / (GINI_RAMP.length - 1)}%`} stop-color={colour} />
+                {/each}
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width={GINI_RAMP.length * 16 - 1} height="8" fill="url(#stage-map-colors)" />
             <text class="tick" x="-6" y="8" text-anchor="end">{say('map_many')}</text>
             <text class="tick" x={GINI_RAMP.length * 16 + 6} y="8">{say('map_few')}</text>
           </g>
@@ -4646,10 +4773,10 @@
       {/if}
 
       {#each peopleOrder as i (i)}
-        {@const person = view.people[i]}
+        {@const person = displayedBodies.people[i]}
         {#if person.alpha > 0.01 && person.r > 0.05}
           {@const coins = personCoins(i)}
-          <g transform={`translate(${person.x.toFixed(2)} ${person.y.toFixed(2)})`} opacity={person.alpha}>
+          <g data-person-body={i} transform={`translate(${person.x.toFixed(2)} ${person.y.toFixed(2)})`} opacity={person.alpha}>
             <g transform={squash(person.r, person.q)}>
             <g transform={life(i)}>
               {#if whoIs(i) && person.empty <= 0.5}
@@ -4815,7 +4942,7 @@
         {/if}
         {#if mode === 'four'}
           {#each cast.four as agent, k (agent)}
-            {@const v = agentView(agent)}
+            {@const v = roomSpot(agent)}
             <g transform={`translate(${v.x.toFixed(1)} ${v.y.toFixed(1)})`}>
               {#if fourPick === k}<circle class="pick" r={v.r + 7} />{/if}
               {#if fourHint}<circle class="pulse" r={Math.max(v.r, 10) + 8} />{/if}
@@ -4832,7 +4959,7 @@
             <text y={L.radius(8) + 22} text-anchor="middle">{say('levy_pool')}</text>
           </g>
           {#each cast.four as agent, k (agent)}
-            {@const v = agentView(agent)}
+            {@const v = roomSpot(agent)}
             <g transform={`translate(${v.x.toFixed(1)} ${v.y.toFixed(1)})`}>
               <text class="coin-count" y={Math.max(v.r, L.coinRadius) + 18} text-anchor="middle">{formatNumber(levyView.coins[k])}</text>
             </g>
@@ -4899,13 +5026,16 @@
           <text class="taken" x={t.x} y={t.y} text-anchor="middle">{formatNumber(-GAME.rate, { style: 'percent' })}</text>
         {/each}
         {#if game.playing && game.elapsed < 4500 && topFive.length}
-          {@const v = agentView(topFive[0])}
+          {@const v = roomSpot(topFive[0])}
           <circle class="pulse" cx={v.x} cy={v.y} r={Math.max(v.r, 10) + 6} />
         {/if}
       {/if}
 
       {#each view.payout as token, i (i)}
-        {#if token.on > 0}<Coin cx={token.x} cy={token.y} r={L.coinRadius * 0.8} face={i % 2 ? 'back' : 'front'} />{/if}
+        {#if token.on > 0}
+          {@const at = payoutAt(token, i)}
+          <Coin cx={at.x} cy={at.y} r={L.coinRadius * 0.8} face={i % 2 ? 'back' : 'front'} />
+        {/if}
       {/each}
 
       {#if view.table.blue + view.table.red > 0}
@@ -5037,7 +5167,7 @@
         onpointerdown={tapAt}
       ></div>
       {#each topFive as i (i)}
-        {@const v = agentView(i)}
+        {@const v = roomSpot(i)}
         {@const r = Math.max(v.r, 14)}
         <button
           type="button"
@@ -5067,7 +5197,7 @@
 
     {#if current === indexOf('eff.try')}
       {#each cast.four as agent, k (agent)}
-        {@const v = agentView(agent)}
+        {@const v = roomSpot(agent)}
         {@const r = Math.max(v.r, 28)}
         <button
           type="button"
@@ -5084,7 +5214,7 @@
 
     <!-- the two circles as controls, over the art: each clicked in Scene 3, handed coins in Scene 5 -->
     {#each PAIR as who (who)}
-      {@const p = view.people[WHO[who]]}
+      {@const p = displayedBodies.people[WHO[who]]}
       {@const r = Math.max(p.r, 30)}
       {#if current === indexOf(CALLS[who]) && !reader.named[who] && !stage?.isReleased(CALLS[who])}
         <button

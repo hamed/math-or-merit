@@ -150,23 +150,19 @@ const follow = (target) => (SIDE_TRIPS.includes(target) ? openBranch(target) : g
   tap does) in the right panel beside the plots, Blue and Red among them (brief
   5.10). The narrator's verdict and the sandbox's introduction are retired.
 
-  The whole old machine stays, as a side trip Blue offers at the very end:
-  "All the dials" opens it here — people, money per head, expert numbers, the
-  measured map, the CSV (owner: "there are many good things in the sandbox").
+  The whole old machine is its own final chapter. "All the dials" links to it:
+  people, money per head, expert numbers, the measured map, and the CSV.
 -->
-<Branch id="workshop" offer={say('workshop_offer')} opensOn="sandbox">
-
 <!--
-  WIDGET: Sandbox — the full machine (owner review 2026-07-13). SandboxWorld composes
+  WIDGET: Sandbox — the full machine and final chapter. SandboxWorld composes
   engine primitives (shares sum 1 + totalDollars scalar). Flat levy rate and cadence dials;
   click-tax mini-game via RoomCanvas onTap. The levy is a TOY — no empirical claim about
   real tax design (Lima/Vieira/Anteneodo gate still open).
 -->
-<Chapter id="sandbox" label="All the dials" flush />
+<Chapter id="sandbox" label={say('nav_chapter_sandbox')} flush />
 
 <Deferred load={() => import('$lib/widgets/sandbox/Sandbox.svelte')} label="sandbox" reserve="100svh" />
 
-</Branch>
 
 <!--
   END OF GUIDED ESSAY. The stage's last act is the reader's machine. Only methods,

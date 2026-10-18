@@ -63,6 +63,8 @@ export interface SandboxConfig {
 
 /** Agents whose personal trajectories the world records (the spaghetti plot). */
 export const TRACKED_AGENTS = 10;
+const TURNOVER_EMA_HALF_LIFE_ROUNDS = 4;
+const TURNOVER_EMA_ALPHA = 1 - 2 ** (-1 / TURNOVER_EMA_HALF_LIFE_ROUNDS);
 
 /**
  * A per-round series anchored at round 1 — NEVER a moving window (owner
@@ -145,6 +147,7 @@ export class SandboxWorld {
   /** Share volume won by trade winners since the last round point. */
   /** Share transferred by ordinary trades since the last measurement round. */
   private _tradeVolumeBucket = 0;
+  private _smoothedTradeVolumeDollars: number | null = null;
   /** Share collected by structural and manual levies since the last round. */
   private _levyFlowBucket = 0;
   private readonly measurementListeners = new Set<(measurement: RoundMeasurement) => void>();
@@ -154,6 +157,8 @@ export class SandboxWorld {
   readonly effectiveParticipantsSeries = new RoundSeries();
   /** Dollar value transferred through ordinary trades per measurement round. */
   readonly tradeVolumeSeries = new RoundSeries();
+  /** Trailing four-round half-life average, updated before history compacts. */
+  readonly smoothedTradeVolumeSeries = new RoundSeries();
   /** Ordinary trade volume divided by total wealth; one means one roomful. */
   readonly wealthTurnoverSeries = new RoundSeries();
   /** Dollar value collected by all levy paths per measurement round. */
@@ -231,7 +236,7 @@ export class SandboxWorld {
     return this._rounds;
   }
 
-  /** Dollars moved by levies so far (all returned as equal dividends). */
+  /** Dollars moved by structural and manual taxes so far. */
   get leviedDollars(): number {
     return this._leviedDollars;
   }
@@ -290,6 +295,24 @@ export class SandboxWorld {
     return dollars;
   }
 
+  /** Reverse tap: tax everyone, then give the entire collection to one agent. */
+  reverseTaxAgent(index: number, rate: number): number {
+    const w = this._wealth;
+    if (!Number.isSafeInteger(index) || index < 0 || index >= w.length) throw new RangeError('index out of range');
+    if (rate === 0) return 0;
+    let collectedShare = 0;
+    for (let i = 0; i < w.length; i++) {
+      const take = w[i] * rate;
+      w[i] -= take;
+      collectedShare += take;
+    }
+    w[index] += collectedShare;
+    const dollars = collectedShare * this._totalDollars;
+    this._leviedDollars += dollars;
+    this._levyFlowBucket += collectedShare;
+    return dollars;
+  }
+
   /** Apply the structural rule on its own clock. */
   private applyStructuralLevy(): void {
     const rate = this.taxRate;
@@ -317,6 +340,10 @@ export class SandboxWorld {
     this.topShareSeries.push(m.topShare);
     this.effectiveParticipantsSeries.push(m.effectiveParticipants);
     this.tradeVolumeSeries.push(tradeVolumeDollars);
+    this._smoothedTradeVolumeDollars = this._smoothedTradeVolumeDollars === null
+      ? tradeVolumeDollars
+      : this._smoothedTradeVolumeDollars + TURNOVER_EMA_ALPHA * (tradeVolumeDollars - this._smoothedTradeVolumeDollars);
+    this.smoothedTradeVolumeSeries.push(this._smoothedTradeVolumeDollars);
     this.wealthTurnoverSeries.push(this._tradeVolumeBucket);
     this.levyFlowSeries.push(levyFlowDollars);
     const measurement: RoundMeasurement = {
@@ -344,11 +371,13 @@ export class SandboxWorld {
     this._rounds = 0;
     this._leviedDollars = 0;
     this._tradeVolumeBucket = 0;
+    this._smoothedTradeVolumeDollars = null;
     this._levyFlowBucket = 0;
     this.giniSeries.reset();
     this.topShareSeries.reset();
     this.effectiveParticipantsSeries.reset();
     this.tradeVolumeSeries.reset();
+    this.smoothedTradeVolumeSeries.reset();
     this.wealthTurnoverSeries.reset();
     this.levyFlowSeries.reset();
     for (const s of this.agentSeries) s.reset();

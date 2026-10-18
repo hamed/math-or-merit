@@ -3,6 +3,7 @@
   import { STROKES } from '../shared/agentStyle';
   import { compactNumber, logTicks, niceLinearTicks, percentNumber } from './ticks';
   import { gatedClick } from './gatedClick';
+  import { say } from '$lib/i18n';
   import type { RoundSeries, SandboxWorld } from './SandboxWorld';
 
   interface Props {
@@ -12,12 +13,12 @@
 
   let { world, revision = 0 }: Props = $props();
 
-  // one panel, three academic time views — a click on the body cycles them.
+  // one panel, three academic time views — a click on the title cycles them.
   // All anchored at round 1 (log 0), never a moving window (owner review
   // 2026-07-14). Round-number time labels slide in and out as the run grows.
   const MODES = ['inequality', 'agents', 'volume'] as const;
   type Mode = (typeof MODES)[number];
-  let mode = $state<Mode>('inequality');
+  let mode = $state<Mode>('volume');
   let xLog = $state(false);
   const yLogByMode = $state<Record<Mode, boolean>>({ inequality: false, agents: true, volume: false });
 
@@ -31,7 +32,7 @@
   });
   const rounds = $derived(Math.max(2, actualRounds));
 
-  function seriesFor(m: Mode): { s: RoundSeries; color: string; dash?: string }[] {
+  function seriesFor(m: Mode): { s: RoundSeries; color: string; dash?: string; ghost?: boolean }[] {
     if (m === 'inequality') {
       return [
         { s: world.giniSeries, color: 'var(--accent)' },
@@ -41,7 +42,10 @@
     if (m === 'agents') {
       return world.agentSeries.map((s, k) => ({ s, color: agentColors[k % agentColors.length] }));
     }
-    return [{ s: world.tradeVolumeSeries, color: 'var(--accent)' }];
+    return [
+      { s: world.tradeVolumeSeries, color: 'var(--accent)', ghost: true },
+      { s: world.smoothedTradeVolumeSeries, color: 'var(--accent)' },
+    ];
   }
 
   const view = $derived.by(() => {
@@ -99,17 +103,17 @@
     return d;
   }
 
-  const titles: Record<Mode, string> = {
-    inequality: 'Gini — top share ┄',
-    agents: 'each agent',
-    volume: 'turnover / round',
-  };
+  const titles: Record<Mode, string> = $derived({
+    inequality: say('sandbox_time_title_inequality'),
+    agents: say('sandbox_time_title_agents'),
+    volume: say('sandbox_time_title_volume'),
+  });
 
-  const descriptions: Record<Mode, string> = {
-    inequality: 'How concentrated the room is over time: Gini (solid) and the biggest holding (dashed). Click for the next view.',
-    agents: 'Ten tracked people, each line one personal fortune — a multiplicative random walk. Click for the next view.',
-    volume: 'Turnover: money changing hands per round. It collapses as one player hoards the board. Click for the next view.',
-  };
+  const descriptions: Record<Mode, string> = $derived({
+    inequality: say('sandbox_time_description_inequality'),
+    agents: say('sandbox_time_description_agents'),
+    volume: say('sandbox_time_description_volume'),
+  });
 
   const cycleMode = gatedClick(() => (mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length]));
 
@@ -118,7 +122,7 @@
   // hover insight: the run's peak — where it happened and how high
   const peak = $derived.by(() => {
     void revision;
-    const s = view.list[0]?.s;
+    const s = view.list.find(({ ghost }) => !ghost)?.s;
     if (!s || s.values.length === 0) return null;
     let bi = -1;
     let bv = -Infinity;
@@ -146,15 +150,15 @@
   y={yAxis}
   title={titles[mode]}
   description={descriptions[mode]}
-  onBody={cycleMode}
-  bodyTooltip="next view"
+  onTitle={cycleMode}
+  titleActionLabel={say('sandbox_time_title_toggle')}
   onHoverChange={(inside) => (hovered = inside)}
-  ariaLabel={`${titles[mode]} over ${actualRounds} rounds, anchored at round one. Click the body for the next view, an axis to toggle its scale.`}
+  ariaLabel={say('sandbox_time_aria', { title: titles[mode], rounds: actualRounds })}
 >
   {#snippet children({ xOf, yOf, frame })}
     {#if actualRounds > 1}
-      {#each view.list as { s, color, dash }}
-        <path class="line" d={pathOf(s, xOf, yOf)} stroke={color} stroke-dasharray={dash ?? 'none'} />
+      {#each view.list as { s, color, dash, ghost }}
+        <path class="line" class:ghost={ghost} d={pathOf(s, xOf, yOf)} stroke={color} stroke-dasharray={dash ?? 'none'} />
       {/each}
       <g class="insight" class:on={hovered && peak !== null} aria-hidden="true">
         {#if peak}
@@ -175,6 +179,11 @@
     stroke-width: 1.3;
     stroke-linejoin: round;
     opacity: 0.9;
+  }
+
+  .line.ghost {
+    stroke-width: 0.9;
+    opacity: 0.22;
   }
 
   .empty {

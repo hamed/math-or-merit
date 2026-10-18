@@ -3,11 +3,9 @@ import { loadDeferred } from './helpers';
 
 /*
  * The essay as it reads since iteration 2 (2026-09-27): one step stage from the
- * title to the reader's own machine (ADR-017, ADR-018), three optional side
- * trips (the person who becomes a circle, and "All the dials" — the
- * whole old sandbox). The suite that tested the old scrolling widgets was
- * retired with them; the sandbox's own checks stay, entered through its side
- * trip.
+ * title to the reader's own machine (ADR-017, ADR-018), a person side trip,
+ * and a standalone Sandbox chapter. The suite that tested the old scrolling
+ * widgets was retired with them; the sandbox's own checks remain here.
  */
 
 const STAGE_KEY = 'merit-or-math:stage:pair:v2';
@@ -16,6 +14,33 @@ const HOLDS = ['meet', 'equal', 'more.joke', 'guess.what', 'guess.stake', 'eff.t
 
 const stage = (page: Page) => page.locator('.step-stage');
 const stepNow = async (page: Page) => Number(await stage(page).getAttribute('data-step'));
+
+/** Test the rendered silhouettes, including their nested animation transforms. */
+async function overlappingBodies(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const paths = [
+      ...document.querySelectorAll<SVGGeometryElement>('svg.art [data-room-body]'),
+      ...Array.from(document.querySelectorAll('svg.art [data-person-body]'), (g) => g.querySelector<SVGGeometryElement>('circle')!),
+    ].filter(Boolean);
+    const bodies = paths.map((path) => {
+      const matrix = path.getCTM()!;
+      const length = path.getTotalLength();
+      const samples = Array.from({ length: 96 }, (_, k) => {
+        const p = path.getPointAtLength(length * k / 96);
+        return new DOMPoint(p.x, p.y).matrixTransform(matrix);
+      });
+      return { path, samples, inverse: matrix.inverse(), box: path.getBoundingClientRect() };
+    });
+    const found: string[] = [];
+    for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+      const a = bodies[i];
+      const b = bodies[j];
+      if (a.box.right <= b.box.left || b.box.right <= a.box.left || a.box.bottom <= b.box.top || b.box.bottom <= a.box.top) continue;
+      if (a.samples.some((p) => b.path.isPointInFill(p.matrixTransform(b.inverse))) || b.samples.some((p) => a.path.isPointInFill(p.matrixTransform(a.inverse)))) found.push(`${i}/${j}`);
+    }
+    return found;
+  });
+}
 
 async function stepIds(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
@@ -45,7 +70,10 @@ async function openAt(page: Page, at: string, holding: readonly string[] = []): 
         })
       : at;
   await page.evaluate(
-    ({ key, index, released }) => sessionStorage.setItem(key, JSON.stringify({ index, released })),
+    ({ key, index, released }) => {
+      history.replaceState(null, '', location.pathname + location.search);
+      sessionStorage.setItem(key, JSON.stringify({ index, released }));
+    },
     { key: STAGE_KEY, index: ids.indexOf(id), released: HOLDS.filter((h) => !holding.includes(h)) },
   );
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -169,6 +197,104 @@ test('under reduced motion the faces follow a room scrubbed back to its start', 
   expect(kept).toBeLessThan(slots.length / 2);
 });
 
+test('the room circles settle smoothly after playback pauses', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openAt(page, 'dial.7');
+  await page.getByRole('button', { name: 'Back to the start' }).first().click();
+  await page.getByRole('button', { name: 'Play' }).first().click();
+  await page.waitForTimeout(400);
+  await page.getByRole('button', { name: 'Pause' }).first().click();
+
+  const settledAfterPause = await page.evaluate(async () => {
+    const dial = document.querySelector<HTMLInputElement>('.pair-scene .player input[type="range"]')!;
+    const sample = () => [...document.querySelectorAll<SVGPathElement>('svg.art g.room > path')].map((path) => path.getAttribute('d')).join('|');
+    const frame = dial.value;
+    const first = sample();
+    const deadline = performance.now() + 500;
+    while (performance.now() < deadline) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (dial.value === frame && sample() !== first) return true;
+    }
+    return false;
+  });
+  expect(settledAfterPause).toBe(true);
+
+  await page.getByRole('button', { name: 'To the end' }).first().click();
+  const shapes = () => page.locator('svg.art g.room > path').evaluateAll((paths) => paths.map((path) => path.getAttribute('d')));
+  const end = await shapes();
+  await page.getByRole('button', { name: 'Back to the start' }).first().click();
+  const start = await shapes();
+  expect(start).not.toEqual(end);
+  await page.waitForTimeout(250);
+  expect(await shapes()).toEqual(start);
+});
+
+test('the first room run visibly changes circle sizes as it plays', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const ids = await stepIds(page);
+  await openAt(page, ids[ids.indexOf('run') - 1]);
+  await page.keyboard.press('ArrowDown');
+  await expect(stage(page)).toHaveAttribute('data-step', String(ids.indexOf('run')));
+  const sample = () => page.locator('svg.art g.room > path').evaluateAll((paths) => paths.map((path) => path.getAttribute('d')).sort());
+  await page.waitForTimeout(1200);
+  const early = await sample();
+  await page.waitForTimeout(2200);
+  const later = await sample();
+  expect(early.length).toBeGreaterThan(90);
+  expect(later).not.toEqual(early);
+  expect(await overlappingBodies(page)).toEqual([]);
+});
+
+test('opening and story bodies separate on wide and narrow stages', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const scenes = await page.evaluate(async () => {
+      const { PAIR_STEPS } = await import('/src/lib/widgets/stage/scenes/pair/script.ts');
+      const modes = ['piles', 'ruler', 'line', 'matched', 'veil'];
+      return [
+        PAIR_STEPS.find((s: { pose: { crowd: string } }) => s.pose.crowd === 'paid')!.id,
+        'eff.one', 'run.again',
+        ...modes.map((mode) => PAIR_STEPS.find((s: { pose: { place: string; roomMode: string } }) => s.pose.place === 'room' && s.pose.roomMode === mode)!.id),
+      ];
+    });
+    for (const id of scenes) {
+      await openAt(page, id);
+      const overlaps = await overlappingBodies(page);
+      expect(overlaps, `${viewport.width}px at ${id}`).toEqual([]);
+      if (id === 'eff.one') await page.locator('.pair-scene').screenshot({ path: `/tmp/body-separation-${viewport.width}.png` });
+    }
+  }
+});
+
+test('sandbox movement toggles animate bodies without trading', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  const repulsion = sandbox.getByRole('button', { name: 'repulsion', exact: true });
+  const attraction = sandbox.getByRole('button', { name: 'attraction', exact: true });
+  await expect(repulsion).toHaveAttribute('aria-pressed', 'true');
+  await expect(attraction).toHaveAttribute('aria-pressed', 'false');
+  await repulsion.click();
+  await expect(repulsion).toHaveAttribute('aria-pressed', 'false');
+  const canvas = sandbox.locator('.room canvas');
+  const before = await canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL());
+  const stats = await sandbox.locator('.stats').innerText();
+  await attraction.click();
+  await expect(attraction).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => canvas.evaluate((node: HTMLCanvasElement) => node.toDataURL())).not.toBe(before);
+  await expect(sandbox.locator('.stats')).toHaveText(stats);
+  await attraction.click();
+  await repulsion.click();
+  await expect(attraction).toHaveAttribute('aria-pressed', 'false');
+  await expect(repulsion).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('the matched room’s copies show the same faces at the same moment, however the reader scrubbed there', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -252,7 +378,7 @@ test('the two call the reader in turns, never over each other, Red first', async
 test('a bubble of several lines shows them one after another', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openAt(page, 'rules.1');
+  await openAt(page, 'rule.1');
   await page.mouse.move(2, 2);
   await page.keyboard.press('ArrowRight');
   const second = page.locator('.pair-scene .bubble').last().locator('.line').nth(1);
@@ -284,29 +410,16 @@ test('the chapter index stays in view while the stage waits for the reader', asy
   expect(await index.evaluate((element) => element.getBoundingClientRect().top)).toBeCloseTo(0, 0);
 });
 
-test('the index lists the story’s parts, one entry each, never their scenes, and a part opens at its first scene', async ({ page }) => {
+test('the index lists each chapter once and opens the sandbox from its entry', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, '@keyline');
-  const parts = await page.evaluate(async () => {
-    const { STORY } = await import('/src/lib/content/story.gen.ts');
-    const out: { act: string; titles: string[]; at: number; trip: boolean }[] = [];
-    for (const sc of STORY.scenes) {
-      const last = out[out.length - 1];
-      if (last && last.act === sc.act) last.titles.push(sc.title);
-      else out.push({ act: sc.act, titles: [sc.title], at: STORY.steps.findIndex((s: { id: string }) => s.id === sc.step), trip: !!sc.sideTrip });
-    }
-    return out;
-  });
-  // the pointer resting on the line opens it
-  await page.locator('.index .here').hover();
-  const entries = page.locator('#scene-list .part');
-  await expect(entries).toHaveCount(parts.length);
-  const texts = (await entries.allTextContents()).map((t) => t.trim());
-  // a part of several scenes is one entry: its later scenes are not listed
-  const several = parts.find((p) => !p.trip && p.titles.length > 1 && p.titles.slice(1).every((t) => t !== p.act))!;
-  for (const title of several.titles.slice(1)) expect(texts.some((t) => t.endsWith(title))).toBe(false);
-  await entries.nth(parts.indexOf(several)).click();
-  await expect.poll(() => stepNow(page)).toBe(several.at);
+  const chapterCount = await page.evaluate(async () => (await import('/src/lib/content/story.gen.ts')).STORY.index.length);
+  await page.locator('.index .chapter-name').click();
+  const entries = page.locator('.index .chapter-link');
+  await expect(entries).toHaveCount(chapterCount);
+  await expect(entries.last()).toContainText('The Sandbox');
+  await entries.last().click();
+  await expect(page.locator('#sandbox')).toBeInViewport();
 });
 
 test('a link to a scene opens the stage there, and the address follows the scene', async ({ page }) => {
@@ -351,7 +464,7 @@ test('a stray click or scroll during a run does not skip it; Skip does', async (
 test('chit-chat goes on when a bubble arrives under a pointer that stands still', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 1280, height: 800 });
-  await openAt(page, 'rules.1');
+  await openAt(page, 'rule.1');
   const at = await stepNow(page);
   // the pointer waits, still, just above the line on screen: the talk slides up under it
   const box = (await page.locator('.pair-scene .bubble').last().boundingBox())!;
@@ -654,6 +767,7 @@ test('the ending: three boxes, one dial; the middle shows its finished room at o
     const steps = PAIR_STEPS as {
       id: string;
       chapterIntro?: string;
+      wait: { kind: string };
       pose: { control: string | null; source: string; roomMode: string };
     }[];
     const chapterKey = STORY.index.find((chapter) => chapter.label === 'chapter:verdict')!.key;
@@ -661,7 +775,7 @@ test('the ending: three boxes, one dial; the middle shows its finished room at o
     const first = steps.find((s) => s.id === 'bet.1')!;
     const titleIndex = steps.indexOf(title);
     return {
-      veil: steps.find((s) => s.pose.control === 'veil')!.id,
+      veil: steps.find((s) => s.pose.control === 'veil' && s.wait.kind === 'reader' && !s.chapterIntro)!.id,
       machine: steps.find((s) => s.pose.control === 'sandbox')!.id,
       veilChapterTitle: title.id,
       titleRoomMode: title.pose.roomMode,
@@ -736,14 +850,6 @@ test('a reload returns the reader to the step they were reading', async ({ page 
   await expect(stage(page)).toHaveAttribute('data-step', String(at));
 });
 
-test('past its last step the stage lets the page go on', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await openAt(page, 'sandbox.2');
-  const before = await page.evaluate(() => scrollY);
-  await page.keyboard.press('PageDown');
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before);
-});
-
 test('the machine is the reader’s: Play trades, a tap photographs, and every dial is one link away', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAt(page, 'sandbox.2');
@@ -775,7 +881,7 @@ test('illustrated side trips load nothing until the reader takes them', async ({
   page.on('response', (response) => responses.push(response.url()));
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(800);
-  for (const part of ['PersonTradeScene.svelte', '/person/', '/sandbox/Sandbox.svelte']) {
+  for (const part of ['PersonTradeScene.svelte', '/person/']) {
     expect(responses.some((url) => url.includes(part)), part).toBe(false);
   }
   // the joke's plates are pictures in the talk now: none is fetched before the joke is told
@@ -838,12 +944,271 @@ test('scrolling after a side trip’s final action brings its closing choices on
   expect(choicesTop).toBeLessThan(900);
 });
 
-// ---- "All the dials": the whole old sandbox, as a side trip -------------------
+// ---- The Sandbox: its own chapter --------------------------------------------
 
-test('a direct link to the sandbox opens its side trip and lands on the machine', async ({ page }) => {
+test('a direct link to the sandbox lands on its chapter and machine', async ({ page }) => {
   await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('.sandbox.full')).toBeVisible();
   await expect(page.locator('#sandbox')).toBeInViewport();
+  const index = page.getByRole('navigation', { name: 'Chapter index' });
+  await expect(index.locator('.chapter-name')).toHaveText('The Sandbox');
+  await index.locator('.section-name').click();
+  await index.locator('.section-link', { hasText: 'All the dials' }).click();
+  await expect(page.locator('#sandbox')).toBeInViewport();
+});
+
+test('the Sandbox look button includes animated faces without changing the room', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  await expect(sandbox).toBeVisible();
+  const look = sandbox.locator('button.look');
+  const stats = await sandbox.locator('.stats').textContent();
+  const clickTax = sandbox.getByRole('slider', { name: 'tax per click' });
+  await clickTax.focus();
+  for (let i = 0; i < 6; i++) await clickTax.press('ArrowRight');
+  await expect(look).toHaveAttribute('aria-label', 'Look: shapes and colors. Switch.');
+  await look.click();
+  await expect(look).toHaveAttribute('aria-label', 'Look: colored circles. Switch.');
+  await look.click();
+  await expect(look).toHaveAttribute('aria-label', 'Look: faces. Switch.');
+  const faces = sandbox.locator('.room svg.faces [data-agent-face]');
+  await expect.poll(() => faces.count()).toBeGreaterThan(50);
+  await expect(faces.first().locator('path[d]:not([d=""])').first()).toBeAttached();
+  expect(await sandbox.locator('.stats').textContent()).toBe(stats);
+  const animatedAtRest = await page.evaluate(async () => {
+    const paths = [...document.querySelectorAll<SVGPathElement>('.sandbox.full .room svg.faces [data-agent-face] path')];
+    const drawing = () => paths.map((path) => path.getAttribute('d')).join('|');
+    const first = drawing();
+    const until = performance.now() + 3000;
+    while (performance.now() < until) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (drawing() !== first) return true;
+    }
+    return false;
+  });
+  expect(animatedAtRest).toBe(true);
+  const facePosition = await faces.first().getAttribute('transform');
+  const [, x, y] = facePosition!.match(/translate\(([-\d.]+) ([-\d.]+)\)/)!;
+  await sandbox.locator('.room canvas').click({ position: { x: Number(x), y: Number(y) } });
+  await expect.poll(() => sandbox.locator('.stats').textContent()).not.toBe(stats);
+  await expect.poll(() => faces.count()).toBeGreaterThan(50);
+  await look.click();
+  await expect(look).toHaveAttribute('aria-label', 'Look: classic circles. Switch.');
+  await expect(faces).toHaveCount(0);
+});
+
+test('Shift and left click gives one person the tax collected from the whole room', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  const clickTax = sandbox.getByRole('slider', { name: 'tax per click' });
+  await expect(clickTax).toHaveValue('4'); // 1% by default
+  await clickTax.focus();
+  for (let i = 0; i < 6; i++) await clickTax.press('ArrowRight');
+  await expect(clickTax).toHaveValue('10'); // 25% makes the four-person result easy to read
+  const people = sandbox.getByRole('slider', { name: 'people' });
+  await people.focus();
+  await people.press('Home');
+  await people.press('ArrowRight');
+  await expect(sandbox.locator('[data-primary-metric]')).toHaveText('4.0 of 4 effective');
+  const canvas = sandbox.locator('.room canvas');
+  const point = await canvas.evaluate(async (el) => {
+    const { roomPositions } = await import('/src/lib/widgets/shared/layout.ts');
+    const { width, height } = el.getBoundingClientRect();
+    return roomPositions(4, width, height)[0];
+  });
+  await canvas.click({ position: point, modifiers: ['Shift'] });
+  await expect(sandbox.locator('[data-primary-metric]')).toHaveText('3.4 of 4 effective');
+});
+
+test('rapid tax and gift clicks keep all three room pulses visible', async ({ page }) => {
+  await page.addInitScript(() => {
+    const tracked = window as Window & { __maxRoomPulses?: number };
+    let rings = 0;
+    const clear = CanvasRenderingContext2D.prototype.clearRect;
+    CanvasRenderingContext2D.prototype.clearRect = function (...args) {
+      if (this.canvas.closest('.room')) rings = 0;
+      return clear.apply(this, args);
+    };
+    const stroke = CanvasRenderingContext2D.prototype.stroke;
+    CanvasRenderingContext2D.prototype.stroke = function (...args) {
+      if (this.canvas.closest('.room') && this.shadowBlur > 0) {
+        rings++;
+        tracked.__maxRoomPulses = Math.max(tracked.__maxRoomPulses ?? 0, rings);
+      }
+      return stroke.apply(this, args);
+    };
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  const people = sandbox.getByRole('slider', { name: 'people' });
+  await people.focus();
+  await people.press('Home');
+  await people.press('ArrowRight');
+  const canvas = sandbox.locator('.room canvas');
+  const point = await canvas.evaluate(async (el) => {
+    const { roomPositions } = await import('/src/lib/widgets/shared/layout.ts');
+    const { width, height } = el.getBoundingClientRect();
+    return roomPositions(4, width, height)[0];
+  });
+  await canvas.click({ position: point });
+  await canvas.click({ position: point });
+  await canvas.click({ position: point, modifiers: ['Shift'] });
+  await expect.poll(() => page.evaluate(() =>
+    (window as Window & { __maxRoomPulses?: number }).__maxRoomPulses ?? 0,
+  )).toBeGreaterThanOrEqual(3);
+});
+
+test('an expanded Sandbox chart can be closed while the chapter menu is visible', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  await expect(sandbox).toBeVisible();
+  const chart = sandbox.locator('.plot-hist');
+  await chart.dblclick();
+  await expect(chart).toHaveClass(/zoomed/);
+  const close = chart.getByRole('button', { name: 'Shrink the plot back' });
+  const menu = page.getByRole('navigation', { name: 'Chapter index' });
+  await expect(menu).toBeVisible();
+  const closeBox = (await close.boundingBox())!;
+  const menuBox = (await menu.boundingBox())!;
+  expect(closeBox.x + closeBox.width <= menuBox.x || closeBox.x >= menuBox.x + menuBox.width).toBe(true);
+  await close.click();
+  await expect(chart).not.toHaveClass(/zoomed/);
+});
+
+test('every expanded Sandbox chart stays centered and visible across screen shapes', async ({ page }) => {
+  const plots = ['phase', 'gtax', 'gstake', 'lorenz', 'hist', 'ccdf', 'time'];
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+    const sandbox = page.locator('.sandbox.full');
+    await expect(sandbox).toBeVisible();
+    for (const id of plots) {
+      if (viewport.width < 900) {
+        await sandbox.locator('.plot-tabs button', { hasText: {
+          phase: 'map', gtax: 'tax cut', gstake: 'stake cut', lorenz: 'Lorenz',
+          hist: 'histogram', ccdf: 'tail', time: 'history',
+        }[id] }).click();
+      }
+      const chart = sandbox.locator(`.plot-${id}`);
+      await chart.dblclick();
+      await expect(chart).toHaveClass(/zoomed/);
+      const outer = (await chart.boundingBox())!;
+      expect(Math.abs(outer.x + outer.width / 2 - viewport.width / 2)).toBeLessThan(2);
+      expect(Math.abs(outer.y + outer.height / 2 - viewport.height / 2)).toBeLessThan(2);
+      const drawing = (await chart.locator(':scope > svg, :scope > div').first().boundingBox())!;
+      expect(drawing.x).toBeGreaterThanOrEqual(0);
+      expect(drawing.y).toBeGreaterThanOrEqual(0);
+      expect(drawing.x + drawing.width).toBeLessThanOrEqual(viewport.width + 1);
+      expect(drawing.y + drawing.height).toBeLessThanOrEqual(viewport.height + 1);
+      await chart.getByRole('button', { name: 'Shrink the plot back' }).click();
+      await expect(chart).not.toHaveClass(/zoomed/);
+    }
+  }
+});
+
+test('scrolling past the final stage chapter title reaches the sandbox chapter', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openAt(page, 'chapter_intro_chapter_sandbox');
+  await page.mouse.wheel(0, 900);
+  await expect(page.locator('.sandbox.full')).toBeInViewport();
+});
+
+test('the blue-red phase map shows the full dial range and a click sets both dials', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  await expect(sandbox).toBeVisible();
+  const map = sandbox.locator('.plot-phase');
+  const visibleMapTitle = () => map.locator('svg text.title').evaluate((el) =>
+    Array.from(el.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join('').trim(),
+  );
+  await expect.poll(visibleMapTitle).toBe('participation');
+  await expect(map.locator('.bar-ticks span')).toHaveText(['100%', '50%', '0%']);
+  const cells = map.locator('.reference-cell');
+  await expect(cells).toHaveCount(33 * 31);
+  await expect(map.locator('.half-line, .half-label')).toHaveCount(0);
+  await expect(map.locator('.scaling-line')).toHaveCount(0);
+  await expect(cells.first()).toHaveAttribute('fill', '#9d3533');
+  await expect(cells.nth(1)).toHaveAttribute('fill', '#284e99');
+  await expect(cells.first().locator('title')).toContainText('participation 100% (100 effective people) (exact limit)');
+  await expect(cells.nth(1).locator('title')).toContainText('participation 0% (1 effective person) (exact limit)');
+  await expect(cells.nth(33).locator('title')).toContainText('participation 100% (100 effective people) (exact limit)');
+  await expect(cells.nth(34).locator('title')).toContainText('tax 0.056% → participation 55.9% (56.32 effective people) (8 runs)');
+  const colors = await cells.evaluateAll((rects) => new Set(rects.map((rect) => rect.getAttribute('fill'))).size);
+  expect(colors).toBeGreaterThan(50);
+  const taxCut = sandbox.locator('.plot-gtax');
+  await expect(taxCut.locator('svg text.title')).toContainText('tax vs participation');
+  await expect(taxCut.locator('svg text.axis-label').first()).toHaveText('participation %');
+  await expect(taxCut.locator('svg text.axis-label.rotated')).toHaveText('tax %');
+  await map.locator('svg rect.hit[aria-label="Switch both tax axes between square-root and linear spacing."]').click();
+  await expect(taxCut.locator('svg text.axis-label.rotated')).toHaveText('tax % (√ scale)');
+  const levyTicks = async (plot: typeof map) => plot.locator('svg text.tick').evaluateAll((ticks) =>
+    ticks.filter((tick) => tick.getAttribute('x') === '31')
+      .map((tick) => [tick.getAttribute('y'), tick.textContent]),
+  );
+  expect(await levyTicks(taxCut)).toEqual(await levyTicks(map));
+  const taxCutPath = await taxCut.locator('path.curve').getAttribute('d');
+  const taxCutPoints = [...(taxCutPath ?? '').matchAll(/[ML] ([\d.]+) ([\d.]+)/g)];
+  expect(Number(taxCutPoints[0][2])).toBeCloseTo(136, 1);
+  expect(Number(taxCutPoints.at(-1)![2])).toBeCloseTo(18, 1);
+  const edges = await cells.evaluateAll((rects) => {
+    const left = rects[0] as SVGRectElement;
+    const right = rects[32] as SVGRectElement;
+    const top = rects.at(-1) as SVGRectElement;
+    return {
+      left: Number(left.getAttribute('x')),
+      right: Number(right.getAttribute('x')) + Number(right.getAttribute('width')),
+      top: Number(top.getAttribute('y')),
+      bottom: Number(left.getAttribute('y')) + Number(left.getAttribute('height')),
+    };
+  });
+  expect(edges).toEqual({ left: 34, right: 162, top: 18, bottom: 136 });
+  const firstRowHeight = Number(await cells.first().getAttribute('height'));
+  expect(firstRowHeight).toBeCloseTo(118 / 60, 2);
+  const rowCenters = await cells.evaluateAll((rects) =>
+    Array.from({ length: 31 }, (_, row) => {
+      const rect = rects[row * 33] as SVGRectElement;
+      return Number(rect.getAttribute('y')) + Number(rect.getAttribute('height')) / 2;
+    }),
+  );
+  const gaps = rowCenters.slice(1).map((center, row) => rowCenters[row] - center);
+  for (const gap of gaps.slice(1, -1)) expect(gap).toBeCloseTo(118 / 30, 2);
+
+  const hit = map.getByRole('button', { name: /Click to set stake and tax/ });
+  const hitBox = (await hit.boundingBox())!;
+  await hit.click({ position: { x: hitBox.width * 0.75, y: hitBox.height * 0.75 } });
+  await expect.poll(async () => Number((await sandbox.locator('.dial').filter({ hasText: 'stake' }).locator('strong').textContent())?.replace('%', ''))).toBeCloseTo(75, 0);
+  await expect.poll(async () => Number((await sandbox.locator('.dial').filter({ hasText: 'tax per round' }).locator('strong').textContent())?.replace('%', ''))).toBeCloseTo(3.125, 0);
+  await hit.press('Enter');
+  await expect(sandbox.locator('.dial').filter({ hasText: 'stake' }).locator('strong')).toHaveText('50%');
+  await expect(sandbox.locator('.dial').filter({ hasText: 'tax per round' }).locator('strong')).toHaveText('50%');
+  await sandbox.locator('[data-map-metric]').click();
+  await expect.poll(visibleMapTitle).toBe('Gini');
+  await expect(map.locator('.bar-ticks span')).toHaveText(['0', '0.5', '1']);
+  await expect(cells.nth(1).locator('title')).toContainText('Gini 0.99 (exact limit)');
+  await expect(cells.first()).toHaveAttribute('fill', '#9d3533');
+  await expect(map.locator('.half-line, .half-label')).toHaveCount(0);
+  await expect(taxCut.locator('svg text.title')).toContainText('tax vs Gini');
+  await expect(taxCut.locator('svg text.axis-label').first()).toHaveText('Gini');
+
+  // Changing the room size keeps the guided reference visible. Its colors
+  // describe the 100-person protocol; the live room uses its own endpoints.
+  await sandbox.getByRole('slider', { name: 'people' }).evaluate((input: HTMLInputElement) => {
+    input.value = '0';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await expect(sandbox.locator('.dial').filter({ hasText: 'people' }).locator('strong')).toHaveText('2');
+  await expect(cells).toHaveCount(33 * 31);
+  await expect(map.locator('svg.frame')).toHaveAttribute('aria-label', /100-person reference.*current room has 2 people/);
+  await expect(taxCut.locator('path.curve')).toHaveCount(1);
 });
 
 test('a slow deferred module keeps a stable loading surface and then mounts', async ({ page }) => {
@@ -908,7 +1273,15 @@ test('the sandbox opens as a fresh participation-first lab with one mobile plot 
   await expect(sandbox).toBeVisible();
 
   await expect(sandbox.locator('[data-primary-metric]')).toHaveText('100.0 of 100 effective');
-  await expect(sandbox.getByRole('slider', { name: 'levy every' })).toBeVisible();
+  const roomLayout = await sandbox.evaluate((el) => {
+    const stats = el.querySelector('.stats')!.getBoundingClientRect();
+    const room = el.querySelector('.room-flex')!.getBoundingClientRect();
+    return { stats: { left: stats.left, right: stats.right, bottom: stats.bottom }, room: { left: room.left, right: room.right, top: room.top } };
+  });
+  expect(roomLayout.stats.bottom).toBeLessThanOrEqual(roomLayout.room.top);
+  expect(Math.abs(roomLayout.stats.left - roomLayout.room.left)).toBeLessThan(1);
+  expect(Math.abs(roomLayout.stats.right - roomLayout.room.right)).toBeLessThan(1);
+  await expect(sandbox.getByRole('slider', { name: 'tax every' })).toBeVisible();
   await expect(sandbox.locator('.plot:visible')).toHaveCount(1);
   await expect(sandbox.getByRole('button', { name: 'map', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
@@ -921,11 +1294,7 @@ test('the sandbox opens as a fresh participation-first lab with one mobile plot 
   await phasePlot.getByRole('button', { name: 'Shrink the plot back' }).click();
 
   await sandbox.getByRole('button', { name: 'stake cut', exact: true }).click();
-  const theoryPosition = await sandbox.locator('.plot-gstake').evaluate((plot) => ({
-    line: Number(plot.querySelector('.theory')?.getAttribute('y1')),
-    label: Number(plot.querySelector('.theory-label')?.getAttribute('y')),
-  }));
-  expect(theoryPosition.label).toBeLessThan(theoryPosition.line);
+  await expect(sandbox.locator('.plot-gstake')).toBeVisible();
 
   await sandbox.getByRole('button', { name: 'histogram', exact: true }).click();
   await expect(sandbox.locator('.plot-hist')).toBeVisible();
@@ -934,6 +1303,120 @@ test('the sandbox opens as a fresh participation-first lab with one mobile plot 
   await sandbox.locator('[data-map-metric]').click();
   await expect(sandbox.locator('[data-primary-metric]')).toHaveText('Gini 0.00');
   await expect(sandbox.locator('[data-map-metric]')).toHaveText('Gini');
+});
+
+test('any of the three map titles switches all three charts between participation and Gini', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  const titles = ['phase', 'gtax', 'gstake'].map((id) => sandbox.locator(`.plot-${id} svg text.title`));
+  const shownTitles = () => Promise.all(titles.map((title) => title.evaluate((el) =>
+    Array.from(el.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join('').trim(),
+  )));
+  await expect.poll(shownTitles).toEqual(['participation', 'tax vs participation', 'participation vs stake']);
+  await titles[0].click();
+  await expect.poll(shownTitles).toEqual(['Gini', 'tax vs Gini', 'Gini vs stake']);
+  expect(await titles[0].evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('none');
+  await titles[1].click();
+  await expect.poll(shownTitles).toEqual(['participation', 'tax vs participation', 'participation vs stake']);
+  await titles[2].press('Enter');
+  await expect.poll(shownTitles).toEqual(['Gini', 'tax vs Gini', 'Gini vs stake']);
+});
+
+test('histogram and history titles cycle their views', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  const hist = sandbox.locator('.plot-hist');
+  const histTitle = hist.locator('svg text.title');
+  await expect(hist.locator('svg')).toHaveAttribute('aria-label', /10 log bins/);
+  await histTitle.click();
+  await expect(hist.locator('svg')).toHaveAttribute('aria-label', /4 log bins/);
+  await histTitle.press('Enter');
+  await expect(hist.locator('svg')).toHaveAttribute('aria-label', /2 log bins/);
+
+  const history = sandbox.locator('.plot-time');
+  const historyTitle = history.locator('svg text.title');
+  const shownHistoryTitle = () => historyTitle.evaluate((el) =>
+    Array.from(el.childNodes).filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join('').trim(),
+  );
+  await expect.poll(shownHistoryTitle).toBe('turnover / round');
+  await sandbox.getByRole('button', { name: 'Run', exact: true }).click();
+  await expect(history.locator('path.line')).toHaveCount(2);
+  await sandbox.getByRole('button', { name: 'Pause', exact: true }).click();
+  const raw = history.locator('path.line.ghost');
+  const smoothed = history.locator('path.line:not(.ghost)');
+  expect(Number(await raw.evaluate((el) => getComputedStyle(el).opacity)))
+    .toBeLessThan(Number(await smoothed.evaluate((el) => getComputedStyle(el).opacity)));
+  expect(await raw.getAttribute('d')).not.toBe(await smoothed.getAttribute('d'));
+  await history.locator('rect.hit.passive').click();
+  await expect(history.locator('path.line')).toHaveCount(2);
+  await expect.poll(shownHistoryTitle).toBe('turnover / round');
+  await historyTitle.click();
+  await expect.poll(shownHistoryTitle).toBe('Gini — top share ┄');
+  await historyTitle.press('Enter');
+  await expect.poll(shownHistoryTitle).toBe('each agent');
+});
+
+test('either tax axis switches the map and tax cut together between square-root and linear scales', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  const map = sandbox.locator('.plot-phase');
+  const taxCut = sandbox.locator('.plot-gtax');
+  const axisLabel = (plot: typeof map) => plot.locator('svg text.axis-label.rotated');
+  const taxAxis = (plot: typeof map) => plot.locator('svg rect.hit[aria-label="Switch both tax axes between square-root and linear spacing."]');
+  await expect(axisLabel(map)).toHaveText('tax %');
+  const linearCellHeight = Number(await map.locator('.reference-cell').first().getAttribute('height'));
+  await taxAxis(map).click();
+  await expect(axisLabel(map)).toHaveText('tax % (√ scale)');
+  await expect(axisLabel(taxCut)).toHaveText('tax % (√ scale)');
+  expect(Number(await map.locator('.reference-cell').first().getAttribute('height'))).toBeGreaterThan(linearCellHeight);
+
+  const body = map.getByRole('button', { name: /Click to set stake and tax/ });
+  const bodyBox = (await body.boundingBox())!;
+  await body.click({ position: { x: bodyBox.width / 2, y: bodyBox.height / 2 } });
+  await expect.poll(async () => Number((await sandbox.locator('.dial').filter({ hasText: 'tax per round' }).locator('strong').textContent())?.replace('%', ''))).toBeCloseTo(12.5, 0);
+  const sqrtY = Number(await map.locator('circle.marker').getAttribute('cy'));
+  expect(sqrtY).toBeCloseTo(Number(await taxCut.locator('line.section').getAttribute('y1')), 3);
+
+  await taxAxis(taxCut).click();
+  await expect(axisLabel(map)).toHaveText('tax %');
+  await expect(axisLabel(taxCut)).toHaveText('tax %');
+  const linearY = Number(await map.locator('circle.marker').getAttribute('cy'));
+  expect(linearY).toBeGreaterThan(sqrtY);
+  expect(linearY).toBeCloseTo(Number(await taxCut.locator('line.section').getAttribute('y1')), 3);
+});
+
+test('either stake axis switches the map and stake cut together between ordinary and squared spacing', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
+  const sandbox = page.locator('.sandbox.full');
+  const map = sandbox.locator('.plot-phase');
+  const stakeCut = sandbox.locator('.plot-gstake');
+  const axisLabel = (plot: typeof map) => plot.locator('svg text.axis-label:not(.rotated)');
+  const stakeAxis = (plot: typeof map) => plot.locator('svg rect.hit[aria-label="Switch both stake axes between ordinary and squared spacing."]');
+  await expect(axisLabel(map)).toHaveText('stake %');
+  await expect(axisLabel(stakeCut)).toHaveText('stake %');
+  const ordinaryCellWidth = Number(await map.locator('.reference-cell').first().getAttribute('width'));
+  await stakeAxis(map).click();
+  await expect(axisLabel(map)).toHaveText('stake % (squared)');
+  await expect(axisLabel(stakeCut)).toHaveText('stake % (squared)');
+  expect(Number(await map.locator('.reference-cell').first().getAttribute('width'))).toBeLessThan(ordinaryCellWidth);
+
+  const body = map.getByRole('button', { name: /Click to set stake and tax/ });
+  const bodyBox = (await body.boundingBox())!;
+  await body.click({ position: { x: bodyBox.width / 2, y: bodyBox.height / 2 } });
+  await expect.poll(async () => Number((await sandbox.locator('.dial').filter({ hasText: 'stake' }).locator('strong').textContent())?.replace('%', ''))).toBeCloseTo(70.7, 0);
+  const squaredX = Number(await map.locator('circle.marker').getAttribute('cx'));
+  expect(squaredX).toBeCloseTo(Number(await stakeCut.locator('line.section').getAttribute('x1')), 3);
+
+  await stakeAxis(stakeCut).click();
+  await expect(axisLabel(map)).toHaveText('stake %');
+  await expect(axisLabel(stakeCut)).toHaveText('stake %');
+  const ordinaryX = Number(await map.locator('circle.marker').getAttribute('cx'));
+  expect(ordinaryX).toBeGreaterThan(squaredX);
+  expect(ordinaryX).toBeCloseTo(Number(await stakeCut.locator('line.section').getAttribute('x1')), 3);
 });
 
 test('the desktop sandbox aligns to the scrollbar-safe viewport edges', async ({ page }) => {
@@ -973,17 +1456,25 @@ test('the news dialog owns and restores keyboard focus', async ({ page }) => {
   await page.goto('/#sandbox', { waitUntil: 'domcontentloaded' });
   const sandbox = page.locator('.sandbox.full');
   await expect(sandbox).toBeVisible();
-  const press = sandbox.getByRole('button', { name: '📸' });
-  await press.click();
-  await sandbox.locator('canvas').click({ position: { x: 100, y: 100 } });
+  await expect(sandbox.getByText('on click')).toHaveCount(0);
+  await expect(sandbox.getByText('press pass')).toHaveCount(0);
+  const run = sandbox.getByRole('button', { name: 'Run', exact: true });
+  await run.focus();
+  const canvas = sandbox.locator('.room canvas');
+  await canvas.click({ position: { x: 100, y: 100 }, modifiers: ['Control'] });
 
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-label', /^The Morning Ledger:/);
   const close = dialog.getByRole('button', { name: 'keep trading' });
   await expect(close).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(close).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  await expect(press).toBeFocused();
+  await expect(run).toBeFocused();
+
+  await canvas.click({ position: { x: 100, y: 100 }, modifiers: ['Control', 'Shift'] });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-label', /^The People’s Gazette:/);
 });

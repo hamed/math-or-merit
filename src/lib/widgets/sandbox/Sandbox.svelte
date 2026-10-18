@@ -56,11 +56,15 @@
   import { createFixedTicker } from '../shared/ticker';
   import { CLASSIC_AGENT_FILL, CLASSIC_AGENT_STROKE, FILLS, STROKES, randomStyles } from '../shared/agentStyle';
   import { svgShapePath } from '../shared/shapePath';
-  import { roomPositions, radiusScale, zoneName } from '../shared/layout';
+  import { zoneName } from '../shared/layout';
   import { countTrades, dollarsCompact, percent } from '../shared/format';
   import { SandboxWorld, measureToy } from './SandboxWorld';
+  import { gatedClick } from './gatedClick';
+  import type { LevyScale } from './levyScale';
+  import type { StakeScale } from './stakeScale';
   import { OutcomeRunRecorder } from './OutcomeRunRecorder';
   import { ROOM_N, START_DOLLARS } from '../shared/presets';
+  import { say } from '$lib/i18n';
 
   interface Props {
     /** `full` owns the whole screen (the finale); `column` sits in the prose. */
@@ -97,7 +101,7 @@
 
   const MIN_N = 2;
   const MAX_N = 2048;
-  const LOOKS = ['shapes', 'circles', 'classic'] as const;
+  const LOOKS = ['shapes', 'circles', 'faces', 'classic'] as const;
   const LEVY_CADENCE_STOPS = [1, 2, 5, 10, 20, 50, 100] as const;
   type Look = (typeof LOOKS)[number];
 
@@ -105,15 +109,13 @@
   let stake = $state(0.2);
   let taxRate = $state(0);
   let levyEveryRounds = $state(1);
-  let clickRate = $state(0.25);
+  let clickRate = $state(0.01);
   let startDollars = $state(START_DOLLARS);
   let speed = $state(4);
   let look = $state<Look>('shapes');
   /** Raw number inputs, unclamped — negative taxes welcome. */
   let expert = $state(false);
-  /** What a room click does: levy the agent, or photograph them. */
-  let game = $state<'tax' | 'press'>('tax');
-  /** Whose press pass the reader carries. */
+  /** The latest newspaper edition, also used by Break the news. */
   let paper = $state<'ledger' | 'gazette'>('ledger');
   /** The watchdog tripped: wealth went non-finite. A badge of honor. */
   let broke = $state(false);
@@ -133,11 +135,21 @@
   );
   let revision = $state(0);
   let running = $state(false);
+  let repulsion = $state(true);
+  let attraction = $state(false);
   let gini = $state(0);
   let effectiveParticipants = $state(ROOM_N);
   let topShare = $state(0);
   let latestTurnover = $state(0);
   let mapMetric = $state<OutcomeMapMetric>('effectiveParticipants');
+  let taxScale = $state<LevyScale>('linear');
+  let stakeScale = $state<StakeScale>('linear');
+  function flipMapMetric(): void {
+    mapMetric = mapMetric === 'effectiveParticipants' ? 'gini' : 'effectiveParticipants';
+  }
+  const toggleTitleMetric = gatedClick(flipMapMetric);
+  const toggleTaxScale = gatedClick(() => (taxScale = taxScale === 'sqrt' ? 'linear' : 'sqrt'));
+  const toggleStakeScale = gatedClick(() => (stakeScale = stakeScale === 'linear' ? 'squared' : 'linear'));
 
   let rootEl: HTMLDivElement | undefined = $state();
   let room: RoomCanvas | undefined = $state();
@@ -287,21 +299,26 @@
     time: 'history',
   };
 
-  /** Room clicks: the tax game levies; the press game takes a photo. */
-  function tapAgent(index: number): void {
-    if (game === 'press') {
-      photograph(index);
+  /** Room clicks: tax, give, or photograph for either newspaper. */
+  function tapAgent(index: number, event: PointerEvent): void {
+    if (event.ctrlKey) {
+      if (ctl.news) photograph(index, event.shiftKey ? 'gazette' : 'ledger');
       return;
     }
-    const collected = world.levyAgent(index, clickRate);
+    if (!ctl.clickTax || clickRate <= 0) return;
+    const before = world.wealth[index];
+    const collected = event.shiftKey
+      ? world.reverseTaxAgent(index, clickRate)
+      : world.levyAgent(index, clickRate);
     if (collected === 0) return;
-    room?.pulse(index);
+    room?.pulse(index, event.shiftKey ? 'in' : 'out', Math.max(0, world.wealth[index] - before));
     revision++;
     measure();
   }
 
-  function photograph(index: number): void {
+  function photograph(index: number, edition: 'ledger' | 'gazette'): void {
     if (running) toggle();
+    paper = edition;
     newsWinner = index;
     newsRun++;
     newsOpen = true;
@@ -324,12 +341,12 @@
     newsWinner = -1;
   }
 
-  // same layout math as RoomCanvas — the flash must land on the winner
+  // Photograph the displayed body after its neighbors have pushed it aside.
   const newsPos = $derived.by(() => {
+    void newsRun;
     if (newsWinner < 0 || roomW === 0 || roomH === 0) return { x: 0, y: 0, r: 10 };
-    const p = roomPositions(n, roomW, roomH)[newsWinner];
-    const r = radiusScale(n, roomW, roomH) * Math.sqrt(Math.max(0, world.wealth[newsWinner]));
-    return { x: p.x, y: p.y, r: Math.max(6, r) };
+    const p = room?.bodyAt(newsWinner);
+    return p ? { ...p, r: Math.max(6, p.r) } : { x: roomW / 2, y: roomH / 2, r: 10 };
   });
 
   // classic look: the winner's only visible trait is WHERE they stood
@@ -475,19 +492,28 @@
     {:else if id === 'time'}
       <TimeSeries {world} {revision} />
     {:else if id === 'gtax'}
-      <GiniCurve axis="tax" {stake} {taxRate} {n} metric={mapMetric} {probeStake} {probeTax} />
+      <GiniCurve axis="tax" {stake} {taxRate} {n} metric={mapMetric} {taxScale} {stakeScale} {probeStake} {probeTax} onTitle={toggleTitleMetric} onTaxScaleToggle={toggleTaxScale} />
     {:else if id === 'gstake'}
-      <GiniCurve axis="stake" {stake} {taxRate} {n} metric={mapMetric} {probeStake} {probeTax} />
+      <GiniCurve axis="stake" {stake} {taxRate} {n} metric={mapMetric} {taxScale} {stakeScale} {probeStake} {probeTax} onTitle={toggleTitleMetric} onStakeScaleToggle={toggleStakeScale} />
     {:else}
       <PhaseMap
         {stake}
         {taxRate}
         {n}
         metric={mapMetric}
+        {taxScale}
+        {stakeScale}
+        onTitle={toggleTitleMetric}
+        onTaxScaleToggle={toggleTaxScale}
+        onStakeScaleToggle={toggleStakeScale}
         liveMetric={levyEveryRounds === 1 ? (mapMetric === 'gini' ? gini : effectiveParticipants) : NaN}
         onProbe={(ps, pt) => {
           probeStake = ps;
           probeTax = pt;
+        }}
+        onSelect={(selectedStake, selectedTax) => {
+          stake = selectedStake;
+          taxRate = selectedTax;
         }}
       />
     {/if}
@@ -502,18 +528,6 @@
 >
   <div class="head">
     <p class="kicker">The whole machine, yours</p>
-    {#if show.stats}
-      <div class="stats">
-        <output data-primary-metric>
-          {mapMetric === 'gini' ? `Gini ${gini.toFixed(2)}` : `${effectiveParticipants.toFixed(1)} of ${n} effective`}
-        </output>
-        <output>{latestTurnover.toFixed(3)} roomfuls / round</output>
-        <output>{countTrades(trades)} trades</output>
-        <output>{countTrades(roundCount)} rounds</output>
-        <output>holds {dollarsCompact(totalDollars)}</output>
-        <output>biggest {Number.isFinite(topShare) ? percent(topShare) : '—'}</output>
-      </div>
-    {/if}
   </div>
 
   <nav class="plot-tabs" aria-label="Choose a sandbox plot">
@@ -527,39 +541,59 @@
     {/each}
   </nav>
 
-  <div class="room-flex" bind:clientWidth={roomW} bind:clientHeight={roomH}>
-    {#if roomW > 0 && roomH > 0}
-      <RoomCanvas
-        bind:this={room}
-        wealth={world.wealth}
-        {revision}
-        styles={displayStyles}
-        height={roomH}
-        winner={newsOpen ? newsWinner : null}
-        onTap={ctl.clickTax && clickRate > 0 && !newsOpen ? tapAgent : null}
-        label={`A sandbox room of ${n} agents trading under your rules — tap anyone to levy them`}
-      />
-    {/if}
-    {#if broke}
-      <div class="broke" role="alert">
-        <p class="broke-head">THE ECONOMY BROKE</p>
-        <p class="broke-sub">Wealth stopped being a number. Whatever you dialed in, physics has filed a complaint.</p>
-        <button class="primary" type="button" onclick={reset}>Start a new room</button>
+  <div class="room-panel">
+    {#if show.stats}
+      <div class="stats">
+        <output data-primary-metric>
+          {mapMetric === 'gini' ? `Gini ${gini.toFixed(2)}` : `${effectiveParticipants.toFixed(1)} of ${n} effective`}
+        </output>
+        <output>{say('sandbox_stats_turnover_raw', { value: latestTurnover.toFixed(3) })}</output>
+        <output>{countTrades(trades)} trades</output>
+        <output>{countTrades(roundCount)} rounds</output>
+        <output>holds {dollarsCompact(totalDollars)}</output>
+        <output>biggest {Number.isFinite(topShare) ? percent(topShare) : '—'}</output>
       </div>
     {/if}
-    {#if newsOpen && newsWinner >= 0}
-      <NewsFlash
-        {paper}
-        style={displayStyles ? displayStyles[newsWinner] : styles[newsWinner]}
-        pos={newsPos}
-        run={newsRun}
-        zone={newsZone}
-        dollars={newsStanding.dollars}
-        percentile={newsStanding.percentile}
-        stats={collectStats(roomStatsSource(world), gini, topShare)}
-        onClose={closeNews}
-      />
+    {#if ctl.clickTax && ctl.news}
+      <p class="room-shortcuts">{say('sandbox_room_shortcuts')}</p>
     {/if}
+    <div class="room-flex" bind:clientWidth={roomW} bind:clientHeight={roomH}>
+      {#if roomW > 0 && roomH > 0}
+        <RoomCanvas
+          bind:this={room}
+          wealth={world.wealth}
+          {revision}
+          styles={displayStyles}
+          {repulsion}
+          {attraction}
+          faceLook={look === 'faces' ? 'manga' : null}
+          height={roomH}
+          winner={newsOpen ? newsWinner : null}
+          onTap={((ctl.clickTax && clickRate > 0) || ctl.news) && !newsOpen ? tapAgent : null}
+          label={say('sandbox_room_aria', { count: n })}
+        />
+      {/if}
+      {#if broke}
+        <div class="broke" role="alert">
+          <p class="broke-head">THE ECONOMY BROKE</p>
+          <p class="broke-sub">Wealth stopped being a number. Whatever you dialed in, physics has filed a complaint.</p>
+          <button class="primary" type="button" onclick={reset}>Start a new room</button>
+        </div>
+      {/if}
+      {#if newsOpen && newsWinner >= 0}
+        <NewsFlash
+          {paper}
+          style={displayStyles ? displayStyles[newsWinner] : styles[newsWinner]}
+          pos={newsPos}
+          run={newsRun}
+          zone={newsZone}
+          dollars={newsStanding.dollars}
+          percentile={newsStanding.percentile}
+          stats={collectStats(roomStatsSource(world), gini, topShare)}
+          onClose={closeNews}
+        />
+      {/if}
+    </div>
   </div>
 
   {#if show.histogram}{@render plotBox('hist')}{/if}
@@ -577,11 +611,11 @@
         <StopSlider label="stake" bind:value={stake} stops={RATE_STOPS} format={rateLabel} {expert} />
       {/if}
       {#if ctl.tax}
-        <StopSlider label="levy rate" bind:value={taxRate} stops={RATE_STOPS} format={rateLabel} {expert} />
+        <StopSlider label={say('sandbox_levy')} bind:value={taxRate} stops={RATE_STOPS} format={rateLabel} {expert} />
       {/if}
       {#if ctl.taxCadence}
         <StopSlider
-          label="levy every"
+          label={say('sandbox_every')}
           bind:value={levyEveryRounds}
           stops={LEVY_CADENCE_STOPS}
           format={(v) => `${v} ${v === 1 ? 'round' : 'rounds'}`}
@@ -607,33 +641,11 @@
     </div>
   </div>
 
-  <!-- everything that is NOT a control: actions, game modes, cosmetics -->
+  <!-- actions and cosmetics -->
   <div class="keypad">
     <div class="btn-grid">
-      {#if ctl.clickTax || ctl.news}
-        <fieldset>
-          <legend>on click</legend>
-          {#each [['tax', 'tax'], ['press', '📸']] as [id, label]}
-            <button
-              type="button"
-              class:primary={game === id}
-              aria-pressed={game === id}
-              title={id === 'tax' ? 'Clicking an agent levies them' : 'Clicking an agent photographs them for the front page'}
-              onclick={() => (game = id as typeof game)}
-            >{label}</button>
-          {/each}
-        </fieldset>
-        <fieldset>
-          <legend>press pass</legend>
-          <button
-            type="button"
-            title={paper === 'ledger' ? 'The Morning Ledger: markets, winners, and other role models' : 'The People’s Gazette: actual people, actual arithmetic'}
-            onclick={() => (paper = paper === 'ledger' ? 'gazette' : 'ledger')}
-          >{paper === 'ledger' ? 'Ledger 🎩' : 'Gazette 📣'}</button>
-        </fieldset>
-      {/if}
       {#if ctl.speed}
-        <fieldset class="span2">
+        <fieldset>
           <legend>speed</legend>
           {#each [1, 4, 16] as s}
             <button type="button" class:primary={speed === s} aria-pressed={speed === s} onclick={() => (speed = s)}>{s}×</button>
@@ -647,14 +659,14 @@
             type="button"
             data-map-metric
             title="Switch between the intuitive participation count and technical Gini"
-            onclick={() => (mapMetric = mapMetric === 'effectiveParticipants' ? 'gini' : 'effectiveParticipants')}
+            onclick={flipMapMetric}
           >{mapMetric === 'effectiveParticipants' ? 'participants' : 'Gini'}</button>
         </fieldset>
       {/if}
       <fieldset>
         <legend>look · inputs</legend>
         {#if ctl.look}
-          <button class="look" type="button" onclick={cycleLook} aria-label={`Look: ${look}. Switch.`}>
+          <button class="look" type="button" onclick={cycleLook} aria-label={say('sandbox_look_switch', { look: say(`sandbox_look_${look}`) })}>
             <svg viewBox="-11 -11 22 22" aria-hidden="true">
               <path
                 d={svgShapePath(look === 'shapes' ? 'square' : 'circle', 8)}
@@ -662,6 +674,11 @@
                 stroke={look === 'classic' ? CLASSIC_AGENT_STROKE : lookSwatch.stroke}
                 stroke-width="1.6"
               />
+              {#if look === 'faces'}
+                <circle cx="-2.7" cy="-1.4" r="0.7" fill={lookSwatch.stroke} />
+                <circle cx="2.7" cy="-1.4" r="0.7" fill={lookSwatch.stroke} />
+                <path d="M-3 2 Q0 5 3 2" fill="none" stroke={lookSwatch.stroke} stroke-width="0.9" stroke-linecap="round" />
+              {/if}
             </svg>
           </button>
         {/if}
@@ -672,6 +689,11 @@
           title="Raw numbers accept anything — negative tax included"
           onclick={() => (expert = !expert)}
         >{expert ? 'dials' : '123'}</button>
+      </fieldset>
+      <fieldset>
+        <legend>{say('sandbox_forces')}</legend>
+        <button type="button" class:primary={repulsion} aria-pressed={repulsion} onclick={() => (repulsion = !repulsion)}>{say('sandbox_repulsion')}</button>
+        <button type="button" class:primary={attraction} aria-pressed={attraction} onclick={() => (attraction = !attraction)}>{say('sandbox_attraction')}</button>
       </fieldset>
       <fieldset>
         <legend>map data</legend>
@@ -807,8 +829,16 @@
   .stats {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem 1.1rem;
-    margin-inline-start: auto;
+    justify-content: space-between;
+    gap: 0.2rem 0.8rem;
+    inline-size: 100%;
+  }
+
+  @media (orientation: landscape) and (min-width: 45rem) and (min-height: 33rem) {
+    .sandbox.full .stats {
+      /* Share the first chart title's text line, below its SVG top edge. */
+      margin-block-start: 0.75rem;
+    }
   }
 
   .stats output {
@@ -817,11 +847,29 @@
     font-size: 0.78rem;
     font-weight: 700;
     color: #3c352b;
+    white-space: nowrap;
+  }
+
+  .room-panel {
+    grid-area: room;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-inline-size: 0;
+    min-block-size: 0;
+  }
+
+  .room-shortcuts {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.7rem;
+    line-height: 1.2;
   }
 
   .room-flex {
-    grid-area: room;
     position: relative;
+    flex: 1 1 0;
+    min-inline-size: 0;
     min-block-size: 0;
     overflow: hidden;
   }
@@ -869,7 +917,7 @@
     cursor: pointer;
   }
 
-  /* ---- 1:1 plot boxes; double-click blows one up over the whole widget ---- */
+  /* ---- 1:1 plot boxes; double-click fills the visible viewport ---- */
   .plot {
     position: relative;
     display: grid;
@@ -885,12 +933,14 @@
     outline-offset: 2px;
   }
 
-  .plot.zoomed {
-    position: absolute;
+  .sandbox .plot.zoomed {
+    position: fixed;
     inset: 0;
-    z-index: 4;
-    aspect-ratio: auto; /* a zoomed square plot must fill, and center, the widget */
+    z-index: 70;
+    aspect-ratio: auto;
     justify-self: stretch;
+    inline-size: 100vw;
+    block-size: 100dvh;
     background: var(--paper);
     cursor: zoom-out;
     padding: clamp(0.5rem, 3vmin, 2rem);
@@ -902,16 +952,16 @@
     block-size: 100%;
   }
 
-  .plot.zoomed > :global(svg),
-  .plot.zoomed > :global(div) {
-    max-inline-size: min(94vmin, 100%);
-    max-block-size: 100%;
+  .sandbox .plot.zoomed > :global(svg),
+  .sandbox .plot.zoomed > :global(div) {
+    inline-size: min(94vmin, 100%);
+    block-size: min(94vmin, 100%);
   }
 
   .unzoom {
     position: absolute;
     inset-block-start: 0.5rem;
-    inset-inline-end: 0.6rem;
+    inset-inline-start: 0.6rem;
     z-index: 1;
     min-inline-size: 2.75rem;
     min-block-size: 2.75rem;
@@ -924,35 +974,33 @@
   }
 
 
-  /* ---- all controls in one tidy box ---- */
+  /* The dials share a compact bank, leaving the charts and room the height. */
   .controls {
     grid-area: ctrl;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 0.45rem;
     min-block-size: 0;
     min-inline-size: 0;
   }
 
   .sliders {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-  }
-
-  /* expert: raw inputs pack a two-column grid, no wider than the dials */
-  .sliders.expert {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.3rem 0.5rem;
+    gap: 0.25rem 0.7rem;
+  }
+
+  .sliders :global(.dial input) {
+    min-inline-size: 0;
+    min-block-size: 2rem;
   }
 
   .keypad {
     grid-area: kbd;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 0.4rem;
     min-block-size: 0;
     min-inline-size: 0;
@@ -961,26 +1009,21 @@
   .btn-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.45rem 0.9rem;
+    gap: 0.25rem 0.5rem;
     align-items: end;
   }
 
-  .btn-grid .span2 {
-    grid-column: span 2;
-  }
-
   .toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.4rem;
+    display: grid;
+    grid-template-columns: 0.8fr 1fr 1.35fr;
+    gap: 0.25rem;
   }
 
   fieldset {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.18rem;
     margin: 0;
     padding: 0;
     border: none;
@@ -988,7 +1031,7 @@
 
   legend {
     padding: 0;
-    margin-block-end: 0.25rem;
+    margin-block-end: 0.12rem;
     font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -998,21 +1041,27 @@
 
   fieldset button,
   .toolbar button {
-    min-inline-size: 2.75rem;
-    min-block-size: 2.75rem;
-    padding-block: 0.2rem;
-    padding-inline: 0.65rem;
+    min-inline-size: 2rem;
+    min-block-size: 2.2rem;
+    padding-block: 0.15rem;
+    padding-inline: 0.35rem;
     border: 1px solid #a99980;
     border-radius: 999px;
     background: var(--paper-bright);
     color: #3c352b;
     cursor: pointer;
-    font-size: 0.74rem;
+    font-size: 0.7rem;
     font-weight: 650;
   }
 
   fieldset button {
     border-radius: 0.45rem;
+  }
+
+  .toolbar button {
+    min-inline-size: 0;
+    min-block-size: 2.45rem;
+    white-space: nowrap;
   }
 
   fieldset button:disabled,
@@ -1029,15 +1078,10 @@
   }
 
 
-  /* the run button never resizes underfoot */
-  button.steady {
-    min-inline-size: 4.8rem;
-  }
-
   button.look {
     display: grid;
     place-items: center;
-    inline-size: 2.75rem;
+    inline-size: 2.2rem;
     padding-inline: 0;
   }
 
@@ -1050,6 +1094,12 @@
 
   /* ---- portrait: one column of near-square boxes, the room on top ---- */
   @media (orientation: portrait), (max-width: 44rem) {
+    fieldset button,
+    .toolbar button {
+      min-inline-size: 2.75rem;
+      min-block-size: 2.75rem;
+    }
+
     .sandbox,
     .sandbox.full {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1092,6 +1142,12 @@
      with a room tall enough to inspect. Height is the limiting dimension here,
      not width: modern phones commonly exceed the width breakpoint sideways. */
   @media (orientation: landscape) and (max-height: 32rem) {
+    fieldset button,
+    .toolbar button {
+      min-inline-size: 2.75rem;
+      min-block-size: 2.75rem;
+    }
+
     .sandbox,
     .sandbox.full {
       grid-template-columns: repeat(2, minmax(0, 1fr));
