@@ -23,6 +23,43 @@ waits for the pose and for any trade or levy still playing. In landscape the yar
 console takes the rest; in portrait the console sits below. `help` lays itself
 out to the console's width.
 
+**The opening.** A fresh visit opens with the logo: "fair&" over the
+reference box, cut into 16 squares (one person with 9/16 of the wealth, the
+rest a fractal tail of 7 + 5 + 3 + 1 squares), faces and all. It holds in the
+middle, alive (blinks, moods and gazes drifting a little), until the player
+starts: a click, a tap, Space or Enter. Then the camera pulls
+back to the yard, "fair &" shrinks to a title outside the yard's top-left
+corner and "sQuare" types in. Then the big one gives back until the 16 hold
+equal shares, folded 4 × 4 into the box with no gaps. That is the stage's
+`fold` pose, and the game goes on from there with its faces. Once it is
+unfolding, another click or key skips to the end; Escape or a command goes
+straight to the stage. Links, embeds and `?opening=0` go straight to the stage
+(36 people, standing); `?opening=7.5` starts it 7.5 s in.
+Beside the logo, a menu of four buttons on the logo's grid, one to each row of
+small boxes on the right (the column's three, then the corner's block), a
+gutter out: as tall as a small box, two and a gutter wide, framed with the
+squares' outline. In each, "Play", "Rules", "Story" or "Finds" (about half the
+box's height, as large as the widest word allows, the same margin left, above
+and below) and a cue at the right end: a play triangle for Play, a chevron for
+the rest. The ones that work are in the essay's dark brown (#4d271c, its
+chapter index's colour); the rest, which have nowhere to go yet, in the
+lighter ink. As the logo unfolds the buttons glide, each a scaled copy of
+itself, to the line above the yard, where About joins them: the title alone
+on the left; on the right, Play, Rules, Story, Finds, About, then the name.
+There they are tabs: standing on the yard's wall, which is their bottom edge
+(their own bottom line fades as they arrive); Play, the game you are in, opens
+into the yard, the wall cut beneath it.
+There Play plays and pauses the trading (its cue turns to a pause) and About
+opens the about page.
+The byline, "Hamed Seyed-Allaei", spans the box under the logo (the H's outer
+foot on its left edge, the last i's on its right, as "fair&" spans it above;
+half a gutter below, as "fair" stands half a gutter above) and then sits on
+the title's line, its last foot on the yard's top-right corner; it links to
+`about.html`, a stub for now (an invisible link laid over the drawn name).
+(`stage/view/opening.ts`, the geometry and lettering in `stage/view/logo.ts`,
+fonts in `stage/fonts`, OFL. The tab's icon is a normal face, black on white:
+`stage/view/favicon.ts`. The prototype and its sheet are in `prototypes/logo`.)
+
 **The law.** Bodies on the ground never overlap and never leave the walls,
 checked every substep (1/120 s). One exception, by design: while trading
 plays, a chart updates itself and its members glide (0.2 s, one clock, exact

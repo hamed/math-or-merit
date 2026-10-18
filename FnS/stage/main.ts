@@ -12,6 +12,10 @@
  * a console line.
  */
 import { Session, VOCABULARY } from './console/session.ts';
+import { parseRecipe } from './core/recipe.ts';
+import { setFavicon } from './view/favicon.ts';
+import { fontsReady } from './view/logo.ts';
+import { BUTTONS, Opening, castOf, drawHeader, measureType, type Box } from './view/opening.ts';
 import { StageView } from './view/render.ts';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -24,9 +28,16 @@ const log = $<HTMLPreElement>('log');
 const form = $<HTMLFormElement>('prompt');
 const input = $<HTMLInputElement>('cmd');
 const toggle = $<HTMLButtonElement>('toggle');
+const byline = $<HTMLAnchorElement>('byline');
+/** The controls over the drawn buttons, in BUTTONS' order. */
+const menu = BUTTONS.map((b) => document.querySelector<HTMLElement>(`#menu [data-go="${b.id}"]`)!);
 
 const params = new URLSearchParams(location.hash.replace(/^#/, ''));
-const embed = params.get('embed') === '1' || new URLSearchParams(location.search).get('embed') === '1';
+const search = new URLSearchParams(location.search);
+const embed = params.get('embed') === '1' || search.get('embed') === '1';
+/** A fresh visit opens with the logo (owner, 2026-10-18); a link, an embed or ?opening=0 goes straight to the stage; ?opening=7.5 starts it 7.5 s in. */
+const opens = location.hash.length <= 1 && !embed && search.get('opening') !== '0';
+const openAt = Math.max(0, Number(search.get('opening')) || 0);
 
 let session: Session;
 let loadError = '';
@@ -37,6 +48,9 @@ if (location.hash.length > 1) {
     loadError = e instanceof Error ? e.message : String(e);
     session = new Session();
   }
+} else if (opens) {
+  // the opening ends on sixteen equal shares folded into the box, 4 × 4: the stage starts there
+  session = new Session({ n: 16, recipe: parseRecipe('fold') });
 } else {
   // calm by default: everyone spread out and standing; space starts the trading
   session = new Session();
@@ -50,6 +64,60 @@ session.print('try: demo · play · trade 2000 · ccdf · neff · classes · qua
 if (loadError) session.print(`error: link not loaded (${loadError}); fresh room instead`);
 
 const view = new StageView(canvas);
+setFavicon();
+
+// ——— the opening, and the title it leaves outside the yard ———
+
+let opening: Opening | null = null;
+/** Waiting for the fonts before the opening can start. */
+let waiting = opens;
+/** Where the name was drawn last frame: the link to the about page sits over it. */
+let named: Box | null = null;
+/** Where the buttons on the line above the yard were drawn last frame. */
+let buttons: Box[] = [];
+void fontsReady().then(() => {
+  const type = measureType();
+  view.ornament = (ctx, scale, left, top, right) => {
+    const line = drawHeader(ctx, type, scale, left, top, right, session.playing);
+    named = line.name;
+    buttons = line.buttons;
+  };
+  const who = waiting ? castOf(session) : null;
+  if (who) {
+    opening = new Opening(canvas, session, view, type, who);
+    if (openAt > 0) opening.seek(openAt);
+  }
+  waiting = false;
+});
+/** Straight to the stage: Escape, or a command, during the opening. */
+function skipOpening(): void {
+  waiting = false;
+  opening?.skip();
+}
+/** A control over something drawn: the canvas draws it, the control makes it one (focus, screen readers, a click). */
+function place(el: HTMLElement, box: Box | null): void {
+  el.hidden = !box;
+  if (!box) return;
+  const r = canvas.getBoundingClientRect();
+  el.style.left = `${r.left + box.x0}px`;
+  el.style.top = `${r.top + box.y0}px`;
+  el.style.width = `${box.x1 - box.x0}px`;
+  el.style.height = `${box.y1 - box.y0}px`;
+}
+// Play: beside the held logo it starts the game, while the logo unfolds it skips to the end, and on the line
+// above the yard it plays and pauses the trading. About opens the about page; the rest have nowhere to go yet.
+menu[BUTTONS.findIndex((b) => b.id === 'play')].addEventListener('click', () => {
+  if (opening) {
+    if (!opening.started) opening.start();
+    else skipOpening();
+  } else runLine(session.playing ? 'pause' : 'play');
+});
+
+/** A click, a tap, Space or Enter: the held logo starts unfolding; once it is, straight to the stage. */
+function startOrSkip(): void {
+  if (opening && !opening.started) opening.start();
+  else skipOpening();
+}
 (window as unknown as { fns: unknown }).fns = { session: () => session, run: (line: string) => runLine(line) };
 
 // ——— console ———
@@ -80,6 +148,7 @@ function renderLog(): void {
 }
 
 function runLine(line: string): string {
+  skipOpening();
   const out = session.run(line);
   if (/^share\b/.test(line.trim())) history.replaceState(null, '', session.share());
   shown = -1;
@@ -130,6 +199,12 @@ panel.addEventListener('mouseup', () => {
   if (!window.getSelection()?.toString()) input.focus();
 });
 window.addEventListener('keydown', (e) => {
+  if ((opening || waiting) && (e.key === ' ' || e.key === 'Escape' || e.key === 'Enter') && e.target !== input && !(e.target instanceof HTMLAnchorElement || e.target instanceof HTMLButtonElement)) {
+    e.preventDefault();
+    if (e.key === 'Escape') skipOpening();
+    else startOrSkip();
+    return;
+  }
   if (e.target === input) {
     if (e.key === '`') {
       e.preventDefault();
@@ -159,6 +234,10 @@ if (embed) setConsole(false);
 
 let holding = false;
 canvas.addEventListener('pointerdown', (e) => {
+  if (opening || waiting) {
+    startOrSkip();
+    return;
+  }
   const [x, y] = view.toWorld(e.clientX, e.clientY);
   const i = session.stage.pick(x, y);
   session.selected = i;
@@ -191,8 +270,26 @@ function frame(now: number): void {
   const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
   last = now;
   if (dt > 0) fps += (1 / dt - fps) * 0.05;
+  if (opening || waiting) {
+    // the opening has the canvas; the stage waits, folded in the box, and takes over with its faces
+    if (opening) {
+      opening.frame(dt);
+      place(byline, opening.byline);
+      menu.forEach((el, k) => place(el, opening?.controls[k] ?? null));
+      if (opening.done) {
+        view.adopt(opening.field, session);
+        opening = null;
+      }
+    }
+    hud.hidden = question.hidden = caption.hidden = true;
+    renderLog();
+    requestAnimationFrame(frame);
+    return;
+  }
   session.frame(dt);
   view.render(session, dt, now);
+  place(byline, named);
+  menu.forEach((el, k) => place(el, buttons[k] ?? null));
   if (session.question) {
     question.hidden = false;
     question.textContent = session.question;

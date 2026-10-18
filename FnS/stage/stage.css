@@ -1,3 +1,18 @@
+/* the logo's and the title's faces (OFL, from google/fonts: stage/fonts) */
+@font-face {
+  font-family: 'Gelasio';
+  src: url('./fonts/Gelasio.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Orbitron';
+  src: url('./fonts/Orbitron.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+}
+
 :root {
   --paper: #f4efe4;
   --floor: #fbf8f1;
@@ -174,4 +189,40 @@ body {
     inset-inline-end: calc(100vw - min(100vh, calc(100vw - 18rem)));
     max-inline-size: min(36rem, calc(min(100vh, calc(100vw - 18rem)) - 32px));
   }
+}
+
+/* the name and the menu are drawn on the canvas; these controls lie over them, invisible but for focus and hover */
+.menu > *,
+.byline {
+  position: fixed;
+  color: transparent;
+  font-size: 1px;
+  overflow: hidden;
+  border-radius: 3px;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.menu > * {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.menu > [aria-disabled='true'] {
+  cursor: default;
+}
+
+.menu > :not([aria-disabled='true']):hover {
+  background: rgb(77 39 28 / 8%);
+}
+
+.byline:hover {
+  box-shadow: inset 0 -1px 0 var(--muted);
+}
+
+.menu > :focus-visible,
+.byline:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 2px;
 }

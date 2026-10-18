@@ -19,6 +19,14 @@
           <input id="cmd" spellcheck="false" aria-label="Command" placeholder="ccdf · neff · classes · room · trade 2000 · help" />
         </form>
       </section>
+      <nav id="menu" class="menu" aria-label="Fair and Square">
+        <button type="button" data-go="play" hidden>Play</button>
+        <a data-go="rules" aria-disabled="true" title="soon" hidden>Rules</a>
+        <a data-go="story" aria-disabled="true" title="soon" hidden>Story</a>
+        <a data-go="finds" aria-disabled="true" title="soon" hidden>Finds</a>
+        <a data-go="about" href="./about.html" target="_blank" rel="noopener" hidden>About</a>
+      </nav>
+      <a id="byline" class="byline" href="./about.html" target="_blank" rel="noopener" hidden>Hamed Seyed-Allaei</a>
       <button id="toggle" class="toggle" type="button" aria-expanded="true" title="console ( ` )">›_</button>
     </main>
     <script type="module" src="./stage/main.ts"></script>

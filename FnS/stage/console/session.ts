@@ -68,7 +68,8 @@ export class Session {
   speed = 1;
   look: FaceLook | 'off' = 'manga';
   axes = false;
-  hud = true;
+  /** The dev readout at the top (n, trades, fps …): off unless asked for (`hud on`). */
+  hud = false;
   /** A question carried by the share link. */
   question = '';
   /** A line on the stage, from `say` (tutorials). */

@@ -32,10 +32,14 @@ export class Faces {
   readonly scale: Float64Array;
   readonly scaleTo: Float64Array;
 
-  constructor(wealth: ArrayLike<number>, seed = 1) {
+  /** `field`: faces already living (the opening's), to go on with instead of new ones. */
+  constructor(wealth: ArrayLike<number>, seed = 1, field?: FaceField) {
     const n = wealth.length;
-    this.field = new FaceField(n, seed);
-    for (let i = 0; i < n; i++) this.field.temper(i, temperament(i * 13 + 5 + seed * 7919));
+    if (field && field.n === n) this.field = field;
+    else {
+      this.field = new FaceField(n, seed);
+      for (let i = 0; i < n; i++) this.field.temper(i, temperament(i * 13 + 5 + seed * 7919));
+    }
     this.painters = Array.from({ length: n }, () => new FacePainter());
     this.seen = Float64Array.from(wealth);
     this.scale = new Float64Array(n).fill(1);
@@ -134,7 +138,7 @@ function pathsOf(d: FaceDrawing): Paths {
 }
 
 /** FaceElement's layers, in its order, on a canvas. */
-function paint(ctx: CanvasRenderingContext2D, d: FaceDrawing, cx: number, cy: number, stroke: string, fill: string): void {
+export function paint(ctx: CanvasRenderingContext2D, d: FaceDrawing, cx: number, cy: number, stroke: string, fill: string): void {
   const { transform, parts } = pathsOf(d);
   const pen = d.inked ? '#28251f' : stroke;
   ctx.save();

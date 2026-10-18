@@ -17,6 +17,7 @@ import { HEX, RECT, TRI, areaOf, outline } from '../core/shapes.ts';
 import { BOX, YARD } from '../core/figure.ts';
 import { mix as mixColours } from '../core/area.ts';
 import { Faces } from './faces.ts';
+import type { FaceField } from '../essay/face/field.ts';
 
 /** Canvas backing store cap, pixels: big screens at 2× stay cheap. */
 const MAX_PIXELS = 4_000_000;
@@ -45,12 +46,33 @@ export class StageView {
   private scene: Scene | null = null;
   /** A blend's colour, worked out once per blend. */
   private readonly blends = new WeakMap<Blend, string>();
+  /**
+   * Drawn over the yard and under the bodies, in screen px: `scale` px per
+   * unit; `left`, `top`, `right` the yard's edges on screen. The title line uses it.
+   */
+  ornament: ((ctx: CanvasRenderingContext2D, scale: number, left: number, top: number, right: number) => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D is unavailable');
     this.ctx = ctx;
+  }
+
+  /**
+   * The camera straight to where it is going, for this canvas: what a frame
+   * drawn now would use. Screen = (ox + x · scale, oy − y · scale).
+   */
+  settle(s: Session): { scale: number; ox: number; oy: number; dpr: number; w: number; h: number } {
+    this.resize();
+    this.camera(s, 0);
+    return { scale: this.scale, ox: this.ox, oy: this.oy, dpr: this.canvas.width / this.cssW, w: this.cssW, h: this.cssH };
+  }
+
+  /** Go on with these faces (the opening's), so nobody's face jumps when the stage takes over. */
+  adopt(field: FaceField, s: Session): void {
+    this.faces = new Faces(s.game.wealth, s.game.seed, field);
+    this.facesFor = s.stage;
   }
 
   /** Screen (client) point to world. */
@@ -122,6 +144,7 @@ export class StageView {
     ctx.strokeRect(qx, ry, rx - qx, qy - ry);
     ctx.setLineDash([]);
     if (s.axes) this.ticks(right, top, faint);
+    if (this.ornament) this.ornament(ctx, this.scale, ax, by, bx);
 
     // printed copies under everyone; frames and counts over everyone (the photo's own too)
     this.ghosts(s, scene);
@@ -517,7 +540,8 @@ function sane(...v: number[]): boolean {
 }
 
 /** A person's colour: hashed, so neighbours on the starting grid differ. */
-function colourOf(i: number): (typeof COLOR_NAMES)[number] {
+/** Person i's colour (fill and stroke by name), the same for life. */
+export function colourOf(i: number): (typeof COLOR_NAMES)[number] {
   return COLOR_NAMES[(Math.imul(i + 1, 2654435761) >>> 0) % COLOR_NAMES.length];
 }
 
